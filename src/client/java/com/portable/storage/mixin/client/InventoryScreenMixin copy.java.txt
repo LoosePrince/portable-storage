@@ -1,0 +1,941 @@
+package com.portable.storage.mixin.client;
+
+import com.portable.storage.PortableStorage;
+import com.portable.storage.client.ClientConfig;
+import com.portable.storage.client.ClientStorageState;
+import com.portable.storage.net.payload.ScrollC2SPayload;
+import com.portable.storage.net.payload.StorageSlotClickC2SPayload;
+import com.portable.storage.net.payload.RequestSyncC2SPayload;
+import com.portable.storage.net.payload.DepositCursorC2SPayload;
+import com.portable.storage.net.payload.RefillCraftingC2SPayload;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.ingame.InventoryScreen;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.text.Text;
+import net.minecraft.registry.Registries;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+@Mixin(InventoryScreen.class)
+public abstract class InventoryScreenMixin {
+
+    // 使用近似布局，基于原版 176x166 计算位置，避免对特定映射字段的强依赖。
+
+    @Unique
+    private TextFieldWidget portableStorage$searchField;
+
+     // 仓库网格与滚动条状态
+     @Unique private final int portableStorage$cols = 9;
+     @Unique private final int portableStorage$visibleRows = 6;
+     @Unique private int portableStorage$totalRows = 12; // 先给出示例总行数，后续和数据联动
+     @Unique private final int portableStorage$slotSize = 18;
+     @Unique private final int portableStorage$slotSpacing = 0;
+     @Unique private float portableStorage$scroll = 0.0f; // 0..1
+     @Unique private boolean portableStorage$dragScrollbar = false;
+    @Unique private int portableStorage$dragGrabOffset = 0; // 鼠标按下时相对滑块顶部的偏移
+     @Unique private int portableStorage$gridLeft, portableStorage$gridTop;
+     @Unique private int portableStorage$scrollbarLeft, portableStorage$scrollbarTop, portableStorage$scrollbarHeight, portableStorage$scrollbarWidth;
+    @Unique private java.util.List<Integer> portableStorage$filteredIndices = java.util.Collections.emptyList();
+    @Unique private String portableStorage$query = "";
+    @Unique private int[] portableStorage$visibleIndexMap = new int[0];
+    @Unique private boolean portableStorage$collapsed = false;
+    @Unique private int portableStorage$collapseEntryLeft, portableStorage$collapseEntryTop, portableStorage$collapseEntryRight, portableStorage$collapseEntryBottom;
+    @Unique private int portableStorage$expandTabLeft, portableStorage$expandTabTop, portableStorage$expandTabRight, portableStorage$expandTabBottom;
+    // 设置项点击区域
+    @Unique private int portableStorage$sortModeLeft, portableStorage$sortModeTop, portableStorage$sortModeRight, portableStorage$sortModeBottom;
+    @Unique private int portableStorage$sortOrderLeft, portableStorage$sortOrderTop, portableStorage$sortOrderRight, portableStorage$sortOrderBottom;
+    @Unique private int portableStorage$craftRefillLeft, portableStorage$craftRefillTop, portableStorage$craftRefillRight, portableStorage$craftRefillBottom;
+    @Unique private int portableStorage$autoDepositLeft, portableStorage$autoDepositTop, portableStorage$autoDepositRight, portableStorage$autoDepositBottom;
+    // 升级槽位点击区域
+    @Unique private final int[] portableStorage$upgradeSlotLefts = new int[5];
+    @Unique private final int[] portableStorage$upgradeSlotTops = new int[5];
+    @Unique private final int[] portableStorage$upgradeSlotRights = new int[5];
+    @Unique private final int[] portableStorage$upgradeSlotBottoms = new int[5];
+    // 缓存上次的排序配置，避免频繁重新排序
+    @Unique private ClientConfig.SortMode portableStorage$lastSortMode = null;
+    @Unique private boolean portableStorage$lastSortAscending = false;
+    
+    // 合成补充相关字段
+    @Unique private final java.util.Map<Integer, net.minecraft.item.ItemStack> portableStorage$lastCraftingStacks = new java.util.HashMap<>();
+    @Unique private net.minecraft.item.ItemStack portableStorage$lastCraftingOutput = net.minecraft.item.ItemStack.EMPTY;
+    @Unique private long portableStorage$lastCraftRefillCheck = 0;
+    @Unique private long portableStorage$lastCraftingSlotClickTime = 0;
+
+    // 不通过 invoker 添加到 children，转而手动转发输入并在 render 中绘制，避免可见性问题。
+
+    @Inject(method = "init", at = @At("TAIL"))
+    private void portableStorage$init(CallbackInfo ci) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client == null || client.textRenderer == null) {
+            return;
+        }
+
+        InventoryScreen self = (InventoryScreen)(Object)this;
+        int screenWidth = self.width;
+        int screenHeight = self.height;
+        int backgroundWidth = 176;
+        int backgroundHeight = 166;
+        int x = (screenWidth - backgroundWidth) / 2;
+        int y = (screenHeight - backgroundHeight) / 2;
+
+        int fieldWidth = 120;
+        int fieldHeight = 18;
+        int fieldX = x + backgroundWidth - fieldWidth - 8;
+        int fieldY = y - fieldHeight - 6;
+
+        this.portableStorage$searchField = new TextFieldWidget(
+                client.textRenderer,
+                fieldX,
+                fieldY,
+                fieldWidth,
+                fieldHeight,
+                Text.translatable("portable_storage.search")
+        );
+        this.portableStorage$searchField.setPlaceholder(Text.translatable("portable_storage.search.placeholder"));
+        this.portableStorage$searchField.setSuggestion(Text.translatable("portable_storage.search.placeholder").getString());
+        this.portableStorage$searchField.setMaxLength(64);
+        this.portableStorage$searchField.setEditable(true);
+        this.portableStorage$searchField.setVisible(true);
+        this.portableStorage$searchField.setDrawsBackground(true);
+        this.portableStorage$searchField.setEditableColor(0xFFFFFF);
+        this.portableStorage$searchField.setChangedListener(text -> {
+            this.portableStorage$query = text == null ? "" : text;
+            this.portableStorage$scroll = 0.0f;
+            if (text == null || text.isEmpty()) {
+                this.portableStorage$searchField.setSuggestion(Text.translatable("portable_storage.search.placeholder").getString());
+            } else {
+                this.portableStorage$searchField.setSuggestion(null);
+            }
+        });
+
+        // 从配置加载折叠状态
+        this.portableStorage$collapsed = ClientConfig.getInstance().collapsed;
+
+        PortableStorage.LOGGER.debug("Portable Storage: search field prepared at ({}, {}), collapsed={} ", fieldX, fieldY, this.portableStorage$collapsed);
+
+        // 打开界面时请求同步
+        ClientPlayNetworking.send(RequestSyncC2SPayload.INSTANCE);
+    }
+
+    @Inject(method = "render", at = @At("TAIL"))
+    private void portableStorage$renderOverlay(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        // Compute approximate screen position relative to the inventory texture (vanilla 176x166)
+        InventoryScreen self = (InventoryScreen)(Object)this;
+        int screenWidth = self.width;
+        int screenHeight = self.height;
+        int backgroundWidth = 176;
+        int backgroundHeight = 166;
+        int x = (screenWidth - backgroundWidth) / 2;
+        int y = (screenHeight - backgroundHeight) / 2;
+
+        // 移除标题与上方搜索框，改为在仓库界面下方渲染搜索框
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client != null && client.textRenderer != null) {
+
+            // --- 扩展区域不覆盖原版界面：先铺设不透明背景，再绘制网格/滚动条/面板 ---
+            int gridCols = portableStorage$cols;
+            int gridRows = portableStorage$visibleRows;
+            int slotSize = portableStorage$slotSize;
+            int slotSpacing = portableStorage$slotSpacing; // 无间隙
+            int gridLeft = x + 8; // 对齐原版边距
+            int gapBelow = 6; // 与玩家界面间距
+            int gridTop = y + backgroundHeight + gapBelow; // 放到玩家界面下方
+            this.portableStorage$gridLeft = gridLeft;
+            this.portableStorage$gridTop = gridTop;
+
+            // 背景范围：从左侧升级列到右侧设置面板，完全不透明，避免被 Tooltip 阴影"冲刷"
+            int upgradeSlotSize = 18;
+            int upgradeSpacing = 0;
+            int upgradeCount = 5;
+            int upgradeLeft = x - 24;
+            
+            // 计算设置面板所需宽度（基于最长文本）
+            ClientConfig config = ClientConfig.getInstance();
+            int panelWidth = portableStorage$calculatePanelWidth(client, config);
+            int panelLeft = x + backgroundWidth + 6;
+            int extLeft = upgradeLeft - 2;
+            int extTop = gridTop - 2;
+            int extRight = panelLeft + panelWidth + 2;
+            int extBottom = gridTop + gridRows * (slotSize + slotSpacing) + 2;
+            // 折叠态：只显示一个“展开仓库”的小块，然后返回
+            if (portableStorage$collapsed) {
+                int tabW = 72;
+                int tabH = 18;
+                int tabLeft = x + (backgroundWidth - tabW) / 2; // 居中到背包下方
+                int tabTop = y + backgroundHeight + 6;
+                this.portableStorage$expandTabLeft = tabLeft;
+                this.portableStorage$expandTabTop = tabTop;
+                this.portableStorage$expandTabRight = tabLeft + tabW;
+                this.portableStorage$expandTabBottom = tabTop + tabH;
+                portableStorage$drawPanel(context, tabLeft, tabTop, tabW, tabH);
+                int tx = tabLeft + 6;
+                int ty = tabTop + 5;
+                context.drawText(client.textRenderer, Text.translatable("portable_storage.ui.expand"), tx, ty, 0xFFFFFF, true);
+                return;
+            }
+
+            portableStorage$drawExtensionBackground(context, extLeft, extTop, extRight - extLeft, extBottom - extTop);
+
+            // 计算过滤后的索引与总行数
+            java.util.List<Integer> filtered = portableStorage$buildFilteredIndices();
+            this.portableStorage$filteredIndices = filtered;
+            int filteredSize = filtered.size();
+            this.portableStorage$totalRows = (int)Math.ceil(filteredSize / (double)gridCols);
+            int maxScrollRows = Math.max(0, portableStorage$totalRows - portableStorage$visibleRows);
+            int rowOffset = (int)Math.floor(portableStorage$scroll * maxScrollRows + 0.5f);
+            rowOffset = Math.max(0, Math.min(maxScrollRows, rowOffset));
+
+            net.minecraft.item.ItemStack hoveredStack = net.minecraft.item.ItemStack.EMPTY;
+            int hoveredIndex = -1;
+            // 映射可见格子到真实索引（用于点击与悬停）
+            if (portableStorage$visibleIndexMap.length != gridRows * gridCols) {
+                portableStorage$visibleIndexMap = new int[gridRows * gridCols];
+            }
+            java.util.Arrays.fill(portableStorage$visibleIndexMap, -1);
+            for (int row = 0; row < gridRows; row++) {
+                int modelRow = row + rowOffset;
+                if (modelRow >= portableStorage$totalRows) break;
+                for (int col = 0; col < gridCols; col++) {
+                    int sx = gridLeft + col * (slotSize + slotSpacing);
+                    int sy = gridTop + row * (slotSize + slotSpacing);
+                    portableStorage$drawSlotInset(context, sx, sy, slotSize, slotSize);
+                    // 物品渲染（基于客户端缓存）
+                    int filteredIndex = modelRow * gridCols + col;
+                    if (filteredIndex >= 0 && filteredIndex < filteredSize) {
+                        int storageIndex = filtered.get(filteredIndex);
+                        var stacks = ClientStorageState.getStacks();
+                        if (storageIndex >= 0 && storageIndex < stacks.size()) {
+                            var stack = stacks.get(storageIndex);
+                            if (stack != null && !stack.isEmpty()) {
+                                context.drawItem(stack, sx + 1, sy + 1);
+                                // 数量覆盖层（使用 DrawContext 提供的覆盖渲染，确保在物品之上）
+                                String countText = portableStorage$formatCount(ClientStorageState.getCount(storageIndex) > 0 ? (int)Math.min(Integer.MAX_VALUE, ClientStorageState.getCount(storageIndex)) : stack.getCount());
+                                float scale = 0.75f;
+                                int textWidth = client.textRenderer.getWidth(countText);
+                                int txUnscaled = sx + slotSize - 1 - (int)(textWidth * scale);
+                                int tyUnscaled = sy + slotSize - (int)(9 * scale);
+                                context.getMatrices().push();
+                                // 提升 Z 以确保渲染在物品之上
+                                context.getMatrices().translate(0.0f, 0.0f, 200.0f);
+                                context.getMatrices().scale(scale, scale, 1.0f);
+                                context.drawText(client.textRenderer, countText, (int)(txUnscaled / scale), (int)(tyUnscaled / scale), 0xFFFFFF, true);
+                                context.getMatrices().pop();
+                                // 悬停提示仅记录一次，循环结束后统一绘制，避免重复叠加
+                                if (hoveredStack.isEmpty() && mouseX >= sx && mouseX < sx + slotSize && mouseY >= sy && mouseY < sy + slotSize) {
+                                    hoveredStack = stack;
+                                    hoveredIndex = storageIndex;
+                                }
+                                // 记录映射
+                                portableStorage$visibleIndexMap[row * gridCols + col] = storageIndex;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!hoveredStack.isEmpty()) {
+                java.util.List<net.minecraft.text.Text> lines = net.minecraft.client.gui.screen.Screen.getTooltipFromItem(client, hoveredStack);
+                if (hoveredIndex >= 0) {
+                    long exact = ClientStorageState.getCount(hoveredIndex);
+                    if (exact > 999) {
+                        String exactStr = String.format(java.util.Locale.US, "%,d", exact);
+                        lines.add(1, net.minecraft.text.Text.literal(exactStr));
+                    }
+                }
+                context.drawTooltip(client.textRenderer, lines, mouseX, mouseY);
+            }
+
+            // 计算并绘制滚动条（不透明轨道）
+            int trackLeft = gridLeft + gridCols * (slotSize + slotSpacing) + 4;
+            int trackTop = gridTop;
+            int trackHeight = gridRows * (slotSize + slotSpacing);
+            int trackWidth = 6;
+            this.portableStorage$scrollbarLeft = trackLeft;
+            this.portableStorage$scrollbarTop = trackTop;
+            this.portableStorage$scrollbarHeight = trackHeight;
+            this.portableStorage$scrollbarWidth = trackWidth;
+            portableStorage$drawScrollbar(context, trackLeft, trackTop, trackWidth, trackHeight, maxScrollRows);
+
+            // 处理拖动：若正在拖动且左键仍按下，则根据当前鼠标位置更新滚动；若已松开则结束拖动
+            if (portableStorage$dragScrollbar) {
+                long window = MinecraftClient.getInstance() != null && MinecraftClient.getInstance().getWindow() != null
+                        ? MinecraftClient.getInstance().getWindow().getHandle() : 0L;
+                boolean leftDown = false;
+                if (window != 0L) {
+                    // 使用 GLFW 查询左键是否按下（1 为按下，0 为未按）
+                    leftDown = org.lwjgl.glfw.GLFW.glfwGetMouseButton(window, org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+                }
+                if (!leftDown) {
+                    portableStorage$dragScrollbar = false;
+                } else {
+                    int height = this.portableStorage$scrollbarHeight;
+                    int visible = this.portableStorage$visibleRows;
+                    int total = Math.max(visible, this.portableStorage$totalRows);
+                    int thumbMin = 8;
+                    int thumbHeight = Math.max(thumbMin, (int)(height * ((float)visible / (float)total)));
+                    int maxScrollPx = Math.max(1, height - thumbHeight);
+                    int top = this.portableStorage$scrollbarTop;
+                    int mouseOffset = (int)mouseY - top - portableStorage$dragGrabOffset;
+                    float newScroll = (float)mouseOffset / (float)maxScrollPx;
+                    float clamped = Math.max(0.0f, Math.min(1.0f, newScroll));
+                    if (clamped != this.portableStorage$scroll) {
+                        this.portableStorage$scroll = clamped;
+                        ClientPlayNetworking.send(new ScrollC2SPayload(this.portableStorage$scroll));
+                    }
+                }
+            }
+
+            // --- 升级槽位（左侧竖排5个，与网格顶部对齐） ---
+            int upgradeTop = gridTop; // 与网格顶部对齐
+            for (int i = 0; i < upgradeCount; i++) {
+                int sx = upgradeLeft;
+                int sy = upgradeTop + i * (upgradeSlotSize + upgradeSpacing);
+                portableStorage$drawSlotInset(context, sx, sy, upgradeSlotSize, upgradeSlotSize);
+                
+                // 记录点击区域
+                portableStorage$upgradeSlotLefts[i] = sx;
+                portableStorage$upgradeSlotTops[i] = sy;
+                portableStorage$upgradeSlotRights[i] = sx + upgradeSlotSize;
+                portableStorage$upgradeSlotBottoms[i] = sy + upgradeSlotSize;
+                
+                // 渲染升级物品
+                net.minecraft.item.ItemStack upgradeStack = com.portable.storage.client.ClientUpgradeState.getStack(i);
+                if (!upgradeStack.isEmpty()) {
+                    context.drawItem(upgradeStack, sx + 1, sy + 1);
+                }
+            }
+
+            // --- 右侧设置面板（与网格同高） ---
+            int panelTop = gridTop;
+            int panelBottom = gridTop + gridRows * (slotSize + slotSpacing);
+            portableStorage$drawPanel(context, panelLeft, panelTop, panelWidth, panelBottom - panelTop);
+            int textX = panelLeft + 6;
+            int textY = panelTop + 6;
+            context.drawText(client.textRenderer, Text.translatable("portable_storage.ui.settings"), textX, textY, 0xFFFFFF, true);
+            textY += 14;
+            // "折叠仓库"：按列表项样式显示纯文本（不绘制按钮/底色），但保留点击区域
+            Text collapseText = Text.translatable("portable_storage.ui.collapse");
+            int collapseTextW = client.textRenderer.getWidth(collapseText);
+            int collapseTextH = 9; // 字体高度
+            int collapseLeft = textX;
+            int collapseTop = textY;
+            context.drawText(client.textRenderer, collapseText, collapseLeft, collapseTop, 0xFFFFFF, true);
+            // 点击热区稍微增大高度，易于点击
+            this.portableStorage$collapseEntryLeft = collapseLeft;
+            this.portableStorage$collapseEntryTop = collapseTop - 1;
+            this.portableStorage$collapseEntryRight = collapseLeft + collapseTextW + 2;
+            this.portableStorage$collapseEntryBottom = collapseTop + collapseTextH + 3;
+            textY += 12;
+            
+            // 排序方案（模式）
+            String sortModeKey = "portable_storage.sort." + config.sortMode.getKey();
+            Text sortModeText = Text.translatable("portable_storage.ui.sort_mode", Text.translatable(sortModeKey).getString());
+            int sortModeTextW = client.textRenderer.getWidth(sortModeText);
+            context.drawText(client.textRenderer, sortModeText, textX, textY, 0xFFFFFF, true);
+            this.portableStorage$sortModeLeft = textX;
+            this.portableStorage$sortModeTop = textY - 1;
+            this.portableStorage$sortModeRight = textX + sortModeTextW + 2;
+            this.portableStorage$sortModeBottom = textY + collapseTextH + 3;
+            textY += 12;
+            
+            // 排序顺序
+            String sortOrderKey = config.sortAscending ? "portable_storage.sort.ascending" : "portable_storage.sort.descending";
+            Text sortOrderText = Text.translatable("portable_storage.ui.sort_order", Text.translatable(sortOrderKey).getString());
+            int sortOrderTextW = client.textRenderer.getWidth(sortOrderText);
+            context.drawText(client.textRenderer, sortOrderText, textX, textY, 0xFFFFFF, true);
+            this.portableStorage$sortOrderLeft = textX;
+            this.portableStorage$sortOrderTop = textY - 1;
+            this.portableStorage$sortOrderRight = textX + sortOrderTextW + 2;
+            this.portableStorage$sortOrderBottom = textY + collapseTextH + 3;
+            textY += 12;
+            
+            // 合成补充
+            String craftRefillKey = config.craftRefill ? "portable_storage.toggle.enabled" : "portable_storage.toggle.disabled";
+            Text craftRefillText = Text.translatable("portable_storage.ui.craft_refill", Text.translatable(craftRefillKey).getString());
+            int craftRefillTextW = client.textRenderer.getWidth(craftRefillText);
+            context.drawText(client.textRenderer, craftRefillText, textX, textY, 0xFFFFFF, true);
+            this.portableStorage$craftRefillLeft = textX;
+            this.portableStorage$craftRefillTop = textY - 1;
+            this.portableStorage$craftRefillRight = textX + craftRefillTextW + 2;
+            this.portableStorage$craftRefillBottom = textY + collapseTextH + 3;
+            textY += 12;
+            
+            // 自动传入
+            String autoDepositKey = config.autoDeposit ? "portable_storage.toggle.enabled" : "portable_storage.toggle.disabled";
+            Text autoDepositText = Text.translatable("portable_storage.ui.auto_deposit", Text.translatable(autoDepositKey).getString());
+            int autoDepositTextW = client.textRenderer.getWidth(autoDepositText);
+            context.drawText(client.textRenderer, autoDepositText, textX, textY, 0xFFFFFF, true);
+            this.portableStorage$autoDepositLeft = textX;
+            this.portableStorage$autoDepositTop = textY - 1;
+            this.portableStorage$autoDepositRight = textX + autoDepositTextW + 2;
+            this.portableStorage$autoDepositBottom = textY + collapseTextH + 3;
+
+            // 在仓库界面下方渲染搜索框（不纳入扩展背景区域）
+            portableStorage$updateSearchFieldPosition(gridLeft, gridCols, slotSize, slotSpacing, panelBottom);
+            if (this.portableStorage$searchField != null) {
+                this.portableStorage$searchField.render(context, mouseX, mouseY, delta);
+            }
+        }
+        
+        // 合成补充检测（在render之外也调用，避免折叠时失效）
+        portableStorage$checkCraftRefill();
+    }
+
+    @Unique
+    private void portableStorage$updateSearchFieldPosition(int gridLeft, int gridCols, int slotSize, int slotSpacing, int panelBottom) {
+        if (this.portableStorage$searchField == null) return;
+        int fieldWidth = gridCols * (slotSize + slotSpacing);
+        int fieldX = gridLeft;
+        int fieldY = panelBottom + 6;
+        this.portableStorage$searchField.setWidth(fieldWidth);
+        this.portableStorage$searchField.setX(fieldX);
+        this.portableStorage$searchField.setY(fieldY);
+    }
+
+    @Unique
+    private void portableStorage$drawSlotInset(DrawContext ctx, int left, int top, int w, int h) {
+        // 凹陷风格：上左暗、下右亮
+        int inner = 0xFF8B8B8B;
+        int borderDark = 0xFF373737;
+        int borderLight = 0xFFFFFFFF;
+        ctx.fill(left + 1, top + 1, left + w - 1, top + h - 1, inner);
+        // 上边和左边使用暗边，下边和右边使用亮边，形成内凹效果
+        ctx.fill(left, top, left + w, top + 1, borderDark);   // 上（暗）
+        ctx.fill(left, top, left + 1, top + h, borderDark);   // 左（暗）
+        ctx.fill(left, top + h - 1, left + w, top + h, borderLight); // 下（亮）
+        ctx.fill(left + w - 1, top, left + w, top + h, borderLight); // 右（亮）
+    }
+
+    @Unique
+    private void portableStorage$drawPanel(DrawContext ctx, int left, int top, int width, int height) {
+        int bg = 0xFF101010;
+        int border = 0xFF3F3F3F;
+        ctx.fill(left, top, left + width, top + height, bg);
+        // 边框
+        ctx.fill(left, top, left + width, top + 1, border);
+        ctx.fill(left, top + height - 1, left + width, top + height, border);
+        ctx.fill(left, top, left + 1, top + height, border);
+        ctx.fill(left + width - 1, top, left + width, top + height, border);
+    }
+
+    @Unique
+    private void portableStorage$drawExtensionBackground(DrawContext ctx, int left, int top, int width, int height) {
+        int bg = 0xFFC6C6C6; // 纯不透明
+        ctx.fill(left, top, left + width, top + height, bg);
+    }
+
+    @Unique
+    private void portableStorage$drawScrollbar(DrawContext ctx, int left, int top, int width, int height, int maxScrollRows) {
+        // 轨道
+        int track = 0x55000000;
+        ctx.fill(left, top, left + width, top + height, track);
+
+        // 滑块高度与可视比例相关
+        int visible = portableStorage$visibleRows;
+        int total = Math.max(visible, portableStorage$totalRows);
+        float frac = (float)visible / (float)total;
+        int thumbMin = 8;
+        int thumbHeight = Math.max(thumbMin, (int)(height * frac));
+
+        int maxScrollPx = height - thumbHeight;
+        int thumbOffset = (maxScrollRows <= 0) ? 0 : (int)(portableStorage$scroll * maxScrollPx);
+        int thumbTop = top + thumbOffset;
+
+        int thumbBg = 0xFF999999;
+        int thumbDark = 0xFF555555;
+        int thumbLight = 0xFFFFFFFF;
+        ctx.fill(left, thumbTop, left + width, thumbTop + thumbHeight, thumbBg);
+        // 边框（内凹效果）
+        ctx.fill(left, thumbTop, left + width, thumbTop + 1, thumbDark);
+        ctx.fill(left + width - 1, thumbTop, left + width, thumbTop + thumbHeight, thumbDark);
+        ctx.fill(left, thumbTop + thumbHeight - 1, left + width, thumbTop + thumbHeight, thumbLight);
+        ctx.fill(left, thumbTop, left + 1, thumbTop + thumbHeight, thumbLight);
+    }
+
+    @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
+    private void portableStorage$mouseClicked(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
+        // 检测是否点击了合成槽位（索引 1-4），用于暂停自动补充
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc != null && mc.player != null) {
+            var handler = mc.player.currentScreenHandler;
+            if (handler instanceof net.minecraft.screen.PlayerScreenHandler) {
+                InventoryScreen self = (InventoryScreen)(Object)this;
+                int screenWidth = self.width;
+                int screenHeight = self.height;
+                int backgroundWidth = 176;
+                int backgroundHeight = 166;
+                int screenX = (screenWidth - backgroundWidth) / 2;
+                int screenY = (screenHeight - backgroundHeight) / 2;
+                
+                // 遍历所有槽位检测鼠标位置
+                for (net.minecraft.screen.slot.Slot slot : handler.slots) {
+                    int slotX = screenX + slot.x;
+                    int slotY = screenY + slot.y;
+                    if (mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY && mouseY < slotY + 16) {
+                        // 点击了这个槽位
+                        if (slot.id >= 1 && slot.id <= 4) {
+                            // 点击了合成输入槽位，记录时间
+                            portableStorage$lastCraftingSlotClickTime = System.currentTimeMillis();
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // 折叠态：仅响应"展开仓库"小块
+        if (portableStorage$collapsed) {
+            if (button == 0 && portableStorage$isIn(mouseX, mouseY, portableStorage$expandTabLeft, portableStorage$expandTabTop, portableStorage$expandTabRight, portableStorage$expandTabBottom)) {
+                portableStorage$collapsed = false;
+                ClientConfig.getInstance().collapsed = false;
+                ClientConfig.save();
+                if (this.portableStorage$searchField != null) this.portableStorage$searchField.setFocused(false);
+                cir.setReturnValue(true);
+                return;
+            }
+            // 折叠时其余点击透传给原版界面，不拦截
+            return;
+        }
+        // 事件前更新搜索框位置，确保点击测试基于最新坐标
+        InventoryScreen self = (InventoryScreen)(Object)this;
+        int screenWidth = self.width;
+        int screenHeight = self.height;
+        int backgroundWidth = 176;
+        int backgroundHeight = 166;
+        int x = (screenWidth - backgroundWidth) / 2;
+        int y = (screenHeight - backgroundHeight) / 2;
+        int gridCols = portableStorage$cols;
+        int gridRows = portableStorage$visibleRows;
+        int slotSize = portableStorage$slotSize;
+        int slotSpacing = portableStorage$slotSpacing;
+        int gridLeft = x + 8;
+        int gapBelow = 6;
+        int gridTop = y + backgroundHeight + gapBelow;
+        int panelBottom = gridTop + gridRows * (slotSize + slotSpacing);
+        portableStorage$updateSearchFieldPosition(gridLeft, gridCols, slotSize, slotSpacing, panelBottom);
+        
+        // 点击升级槽位
+        if (button == 0 && !portableStorage$collapsed) {
+            for (int i = 0; i < 5; i++) {
+                if (portableStorage$isIn(mouseX, mouseY, portableStorage$upgradeSlotLefts[i], portableStorage$upgradeSlotTops[i], portableStorage$upgradeSlotRights[i], portableStorage$upgradeSlotBottoms[i])) {
+                    ClientPlayNetworking.send(new com.portable.storage.net.payload.UpgradeSlotClickC2SPayload(i));
+                    cir.setReturnValue(true);
+                    return;
+                }
+            }
+        }
+        
+        // 点击滚动条：若点在滑块上则开始拖动；若点在轨道上则跳转并开始拖动（滑块居中到点击处）
+        if (button == 0 && !portableStorage$collapsed && portableStorage$isOverScrollbar(mouseX, mouseY)) {
+            int height = this.portableStorage$scrollbarHeight;
+            int visible = this.portableStorage$visibleRows;
+            int total = Math.max(visible, this.portableStorage$totalRows);
+            int thumbMin = 8;
+            int thumbHeight = Math.max(thumbMin, (int)(height * ((float)visible / (float)total)));
+            int maxScrollPx = Math.max(1, height - thumbHeight);
+            int top = this.portableStorage$scrollbarTop;
+
+            // 现有滑块顶部位置
+            int currentThumbTop = top + (int)((maxScrollPx) * this.portableStorage$scroll + 0.5f);
+            boolean overThumb = mouseY >= currentThumbTop && mouseY < currentThumbTop + thumbHeight;
+            if (overThumb) {
+                portableStorage$dragScrollbar = true;
+                portableStorage$dragGrabOffset = (int)mouseY - currentThumbTop;
+            } else {
+                int mouseOffset = (int)mouseY - top - thumbHeight / 2;
+                float newScroll = (float)mouseOffset / (float)maxScrollPx;
+                this.portableStorage$scroll = Math.max(0.0f, Math.min(1.0f, newScroll));
+                ClientPlayNetworking.send(new ScrollC2SPayload(this.portableStorage$scroll));
+                // 同时进入拖动状态，使得后续拖动连续
+                portableStorage$dragScrollbar = true;
+                portableStorage$dragGrabOffset = thumbHeight / 2;
+            }
+            cir.setReturnValue(true);
+            return;
+        }
+        // 点击右侧设置项
+        if (button == 0) {
+            ClientConfig config = ClientConfig.getInstance();
+            
+            // 折叠仓库
+            if (portableStorage$isIn(mouseX, mouseY, portableStorage$collapseEntryLeft, portableStorage$collapseEntryTop, portableStorage$collapseEntryRight, portableStorage$collapseEntryBottom)) {
+                portableStorage$collapsed = true;
+                config.collapsed = true;
+                ClientConfig.save();
+                if (this.portableStorage$searchField != null) this.portableStorage$searchField.setFocused(false);
+                cir.setReturnValue(true);
+                return;
+            }
+            
+            // 排序方案（模式）
+            if (portableStorage$isIn(mouseX, mouseY, portableStorage$sortModeLeft, portableStorage$sortModeTop, portableStorage$sortModeRight, portableStorage$sortModeBottom)) {
+                config.sortMode = config.sortMode.next();
+                ClientConfig.save();
+                cir.setReturnValue(true);
+                return;
+            }
+            
+            // 排序顺序
+            if (portableStorage$isIn(mouseX, mouseY, portableStorage$sortOrderLeft, portableStorage$sortOrderTop, portableStorage$sortOrderRight, portableStorage$sortOrderBottom)) {
+                config.sortAscending = !config.sortAscending;
+                ClientConfig.save();
+                cir.setReturnValue(true);
+                return;
+            }
+            
+            // 合成补充
+            if (portableStorage$isIn(mouseX, mouseY, portableStorage$craftRefillLeft, portableStorage$craftRefillTop, portableStorage$craftRefillRight, portableStorage$craftRefillBottom)) {
+                config.craftRefill = !config.craftRefill;
+                ClientConfig.save();
+                cir.setReturnValue(true);
+                return;
+            }
+            
+            // 自动传入
+            if (portableStorage$isIn(mouseX, mouseY, portableStorage$autoDepositLeft, portableStorage$autoDepositTop, portableStorage$autoDepositRight, portableStorage$autoDepositBottom)) {
+                config.autoDeposit = !config.autoDeposit;
+                ClientConfig.save();
+                cir.setReturnValue(true);
+                return;
+            }
+        }
+        if (this.portableStorage$searchField != null && this.portableStorage$searchField.mouseClicked(mouseX, mouseY, button)) {
+            this.portableStorage$searchField.setFocused(true);
+            cir.setReturnValue(true);
+            return;
+        }
+
+        // 优先：若鼠标上有物品，则把光标物品存入仓库（拦截默认丢弃行为）——折叠时不拦截
+        if (!portableStorage$collapsed && button == 0 && portableStorage$isOverStorage(mouseX, mouseY)) {
+            MinecraftClient client = MinecraftClient.getInstance();
+            if (client != null && client.player != null && client.player.currentScreenHandler != null) {
+                if (!client.player.currentScreenHandler.getCursorStack().isEmpty()) {
+                    ClientPlayNetworking.send(DepositCursorC2SPayload.INSTANCE);
+                    cir.setReturnValue(true);
+                    return;
+                }
+            }
+        }
+
+        // 左/右键点击仓库格子 -> 统一槽位点击语义
+        if (!portableStorage$collapsed && (button == 0 || button == 1) && portableStorage$isOverStorage(mouseX, mouseY)) {
+            int index = portableStorage$hitStorageIndex(mouseX, mouseY);
+            if (index >= 0) {
+                ClientPlayNetworking.send(new StorageSlotClickC2SPayload(index, button));
+                cir.setReturnValue(true);
+            }
+        }
+    }
+
+    // 注意：不在此类注入 mouseReleased/mouseDragged（InventoryScreen 无对应声明），避免注入目标缺失导致崩溃
+
+    @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
+    private void portableStorage$keyPressed(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
+        if (this.portableStorage$searchField != null && this.portableStorage$searchField.isFocused() && this.portableStorage$searchField.keyPressed(keyCode, scanCode, modifiers)) {
+            cir.setReturnValue(true);
+        }
+    }
+
+    @Inject(method = "charTyped", at = @At("HEAD"), cancellable = true)
+    private void portableStorage$charTyped(char chr, int modifiers, CallbackInfoReturnable<Boolean> cir) {
+        if (this.portableStorage$searchField != null && this.portableStorage$searchField.isFocused() && this.portableStorage$searchField.charTyped(chr, modifiers)) {
+            cir.setReturnValue(true);
+        }
+    }
+
+    // 移除对 mouseReleased/mouseDragged/mouseScrolled 的注入，避免因目标在父类而找不到方法导致崩溃
+
+    @Unique
+    private boolean portableStorage$isOverScrollbar(double mouseX, double mouseY) {
+        return mouseX >= this.portableStorage$scrollbarLeft && mouseX < this.portableStorage$scrollbarLeft + this.portableStorage$scrollbarWidth
+                && mouseY >= this.portableStorage$scrollbarTop && mouseY < this.portableStorage$scrollbarTop + this.portableStorage$scrollbarHeight;
+    }
+
+    @Unique
+    private boolean portableStorage$isOverStorage(double mouseX, double mouseY) {
+        int left = this.portableStorage$gridLeft;
+        int top = this.portableStorage$gridTop;
+        int width = this.portableStorage$cols * (this.portableStorage$slotSize + this.portableStorage$slotSpacing);
+        int height = this.portableStorage$visibleRows * (this.portableStorage$slotSize + this.portableStorage$slotSpacing);
+        return mouseX >= left && mouseX < left + width && mouseY >= top && mouseY < top + height;
+    }
+
+    @Unique
+    private boolean portableStorage$isIn(double mouseX, double mouseY, int left, int top, int right, int bottom) {
+        return mouseX >= left && mouseX < right && mouseY >= top && mouseY < bottom;
+    }
+
+    @Unique
+    private int portableStorage$hitStorageIndex(double mouseX, double mouseY) {
+        int left = this.portableStorage$gridLeft;
+        int top = this.portableStorage$gridTop;
+        int col = (int)((mouseX - left) / (this.portableStorage$slotSize + this.portableStorage$slotSpacing));
+        int row = (int)((mouseY - top) / (this.portableStorage$slotSize + this.portableStorage$slotSpacing));
+        if (col < 0 || col >= this.portableStorage$cols || row < 0 || row >= this.portableStorage$visibleRows) return -1;
+        int maxScrollRows = Math.max(0, this.portableStorage$totalRows - this.portableStorage$visibleRows);
+        int rowOffset = (int)Math.floor(this.portableStorage$scroll * maxScrollRows + 0.5f);
+        int modelRow = row + rowOffset;
+        int filteredIndex = modelRow * this.portableStorage$cols + col;
+        if (filteredIndex < 0 || filteredIndex >= this.portableStorage$filteredIndices.size()) return -1;
+        return this.portableStorage$filteredIndices.get(filteredIndex);
+    }
+
+    @Unique
+    private String portableStorage$formatCount(int count) {
+        if (count < 1000) return Integer.toString(count);
+        if (count < 1_000_000) return (count / 1000) + "k";
+        if (count < 1_000_000_000) return (count / 1_000_000) + "m";
+        return (count / 1_000_000_000) + "b";
+    }
+
+    @Unique
+    private int portableStorage$calculatePanelWidth(MinecraftClient client, ClientConfig config) {
+        int maxWidth = 56; // 最小宽度
+        int padding = 12; // 左右padding
+        
+        // 计算所有设置项文本宽度
+        maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(Text.translatable("portable_storage.ui.settings")) + padding);
+        maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(Text.translatable("portable_storage.ui.collapse")) + padding);
+        
+        String sortModeKey = "portable_storage.sort." + config.sortMode.getKey();
+        Text sortModeText = Text.translatable("portable_storage.ui.sort_mode", Text.translatable(sortModeKey).getString());
+        maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(sortModeText) + padding);
+        
+        String sortOrderKey = config.sortAscending ? "portable_storage.sort.ascending" : "portable_storage.sort.descending";
+        Text sortOrderText = Text.translatable("portable_storage.ui.sort_order", Text.translatable(sortOrderKey).getString());
+        maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(sortOrderText) + padding);
+        
+        String craftRefillKey = config.craftRefill ? "portable_storage.toggle.enabled" : "portable_storage.toggle.disabled";
+        Text craftRefillText = Text.translatable("portable_storage.ui.craft_refill", Text.translatable(craftRefillKey).getString());
+        maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(craftRefillText) + padding);
+        
+        String autoDepositKey = config.autoDeposit ? "portable_storage.toggle.enabled" : "portable_storage.toggle.disabled";
+        Text autoDepositText = Text.translatable("portable_storage.ui.auto_deposit", Text.translatable(autoDepositKey).getString());
+        maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(autoDepositText) + padding);
+        
+        return maxWidth;
+    }
+
+    @Unique
+    private java.util.List<Integer> portableStorage$buildFilteredIndices() {
+        var stacks = ClientStorageState.getStacks();
+        int size = stacks.size();
+        if (portableStorage$query == null) portableStorage$query = "";
+        String q = portableStorage$query.trim().toLowerCase(java.util.Locale.ROOT);
+        
+        // 先过滤
+        java.util.ArrayList<Integer> filtered = new java.util.ArrayList<>();
+        if (q.isEmpty()) {
+            for (int i = 0; i < size; i++) filtered.add(i);
+        } else {
+            filtered = portableStorage$filterByQuery(stacks, size, q);
+        }
+        
+        // 应用排序
+        portableStorage$sortIndices(filtered, stacks);
+        
+        return filtered;
+    }
+    
+    @Unique
+    private java.util.ArrayList<Integer> portableStorage$filterByQuery(java.util.List<net.minecraft.item.ItemStack> stacks, int size, String q) {
+
+        java.util.List<String> nameTokens = new java.util.ArrayList<>();
+        java.util.List<String> modTokens = new java.util.ArrayList<>();
+        java.util.List<String> descTokens = new java.util.ArrayList<>();
+        for (String token : q.split("\\s+")) {
+            if (token.isEmpty()) continue;
+            if (token.charAt(0) == '@') {
+                String t = token.substring(1);
+                if (!t.isEmpty()) modTokens.add(t);
+            } else if (token.charAt(0) == '#') {
+                String t = token.substring(1);
+                if (!t.isEmpty()) descTokens.add(t);
+            } else {
+                nameTokens.add(token);
+            }
+        }
+
+        MinecraftClient client = MinecraftClient.getInstance();
+        java.util.ArrayList<Integer> out = new java.util.ArrayList<>();
+        outer:
+        for (int i = 0; i < size; i++) {
+            var stack = stacks.get(i);
+            if (stack == null || stack.isEmpty()) continue;
+            String name = stack.getName().getString().toLowerCase(java.util.Locale.ROOT);
+            String modid = Registries.ITEM.getId(stack.getItem()).getNamespace().toLowerCase(java.util.Locale.ROOT);
+            String desc = "";
+            if (!descTokens.isEmpty() && client != null) {
+                var tips = net.minecraft.client.gui.screen.Screen.getTooltipFromItem(client, stack);
+                StringBuilder sb = new StringBuilder();
+                for (var t : tips) sb.append(t.getString()).append(' ');
+                desc = sb.toString().toLowerCase(java.util.Locale.ROOT);
+            }
+
+            for (String t : nameTokens) if (!name.contains(t)) continue outer;
+            for (String t : modTokens) if (!modid.contains(t)) continue outer;
+            for (String t : descTokens) if (!desc.contains(t)) continue outer;
+            out.add(i);
+        }
+        return out;
+    }
+    
+    @Unique
+    private void portableStorage$sortIndices(java.util.ArrayList<Integer> indices, java.util.List<net.minecraft.item.ItemStack> stacks) {
+        ClientConfig config = ClientConfig.getInstance();
+        ClientConfig.SortMode mode = config.sortMode;
+        boolean ascending = config.sortAscending;
+        
+        // 缓存当前配置供下次比较
+        this.portableStorage$lastSortMode = mode;
+        this.portableStorage$lastSortAscending = ascending;
+        
+        java.util.Comparator<Integer> comparator = (a, b) -> {
+            var stackA = stacks.get(a);
+            var stackB = stacks.get(b);
+            
+            int cmp = switch (mode) {
+                case COUNT -> {
+                    long countA = ClientStorageState.getCount(a);
+                    long countB = ClientStorageState.getCount(b);
+                    yield Long.compare(countA, countB);
+                }
+                case NAME -> {
+                    String nameA = stackA.getName().getString();
+                    String nameB = stackB.getName().getString();
+                    yield nameA.compareToIgnoreCase(nameB);
+                }
+                case MOD_ID -> {
+                    String modA = Registries.ITEM.getId(stackA.getItem()).getNamespace();
+                    String modB = Registries.ITEM.getId(stackB.getItem()).getNamespace();
+                    int modCmp = modA.compareToIgnoreCase(modB);
+                    if (modCmp != 0) yield modCmp;
+                    // 同模组内按名称排序
+                    String nameA = stackA.getName().getString();
+                    String nameB = stackB.getName().getString();
+                    yield nameA.compareToIgnoreCase(nameB);
+                }
+                case UPDATE_TIME -> {
+                    // 暂时按索引排序（索引越大越新）
+                    yield Integer.compare(a, b);
+                }
+            };
+            
+            return ascending ? cmp : -cmp;
+        };
+        
+        indices.sort(comparator);
+    }
+    
+    /**
+     * 检测合成补充需求并发送请求
+     */
+    @Unique
+    private void portableStorage$checkCraftRefill() {
+        // 检查合成补充功能是否启用
+        if (!ClientConfig.getInstance().craftRefill) {
+            return;
+        }
+        
+        // 限流：每100ms最多检查一次
+        long now = System.currentTimeMillis();
+        if (now - portableStorage$lastCraftRefillCheck < 100) {
+            return;
+        }
+        portableStorage$lastCraftRefillCheck = now;
+        
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc == null || mc.player == null) {
+            return;
+        }
+        
+        var handler = mc.player.currentScreenHandler;
+        if (!(handler instanceof net.minecraft.screen.PlayerScreenHandler)) {
+            return;
+        }
+        
+        // PlayerScreenHandler 的合成槽位：
+        // 0 = 输出, 1-4 = 输入
+        boolean craftOccurred = false;
+        
+        // 检测合成输出槽位（索引0）的变化
+        if (handler.slots.size() > 0) {
+            net.minecraft.item.ItemStack currentOutput = handler.getSlot(0).getStack();
+            
+            // 如果输出槽位变空或数量减少，说明发生了合成
+            if (!portableStorage$lastCraftingOutput.isEmpty()) {
+                if (currentOutput.isEmpty() || 
+                    (!net.minecraft.item.ItemStack.areItemsAndComponentsEqual(currentOutput, portableStorage$lastCraftingOutput)) ||
+                    (currentOutput.getCount() < portableStorage$lastCraftingOutput.getCount())) {
+                    craftOccurred = true;
+                }
+            }
+            
+            // 更新输出缓存
+            portableStorage$lastCraftingOutput = currentOutput.copy();
+        }
+        
+        // 如果发生了合成，检查输入槽位的消耗
+        if (craftOccurred) {
+            for (int i = 1; i <= 4; i++) {
+                if (handler.slots.size() <= i) continue;
+                
+                net.minecraft.item.ItemStack currentStack = handler.getSlot(i).getStack();
+                net.minecraft.item.ItemStack lastStack = portableStorage$lastCraftingStacks.get(i);
+                
+                // 检测是否有物品被消耗
+                if (lastStack != null && !lastStack.isEmpty()) {
+                    // 检测最近是否点击了合成槽位（300ms内）
+                    boolean recentClick = (now - portableStorage$lastCraftingSlotClickTime) < 300;
+                    
+                    if (currentStack.isEmpty()) {
+                        // 物品被完全消耗，需要补充
+                        if (!recentClick) {
+                            // 补充到最大堆叠数量
+                            net.minecraft.item.ItemStack targetStack = lastStack.copy();
+                            targetStack.setCount(targetStack.getMaxCount());
+                            portableStorage$refillFromStorage(i, targetStack);
+                        }
+                    } else if (net.minecraft.item.ItemStack.areItemsAndComponentsEqual(currentStack, lastStack) && 
+                               currentStack.getCount() < lastStack.getCount()) {
+                        // 物品部分消耗，需要补充
+                        if (!recentClick) {
+                            // 补充到最大堆叠数量
+                            net.minecraft.item.ItemStack targetStack = currentStack.copy();
+                            targetStack.setCount(targetStack.getMaxCount());
+                            portableStorage$refillFromStorage(i, targetStack);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 更新输入槽位缓存
+        for (int i = 1; i <= 4; i++) {
+            if (handler.slots.size() <= i) continue;
+            net.minecraft.item.ItemStack currentStack = handler.getSlot(i).getStack();
+            portableStorage$lastCraftingStacks.put(i, currentStack.copy());
+        }
+    }
+    
+    /**
+     * 从仓库补充物品到合成槽位
+     */
+    @Unique
+    private void portableStorage$refillFromStorage(int slotIndex, net.minecraft.item.ItemStack targetStack) {
+        if (targetStack.isEmpty()) {
+            return;
+        }
+        
+        // 发送补充请求到服务器
+        ClientPlayNetworking.send(new com.portable.storage.net.payload.RefillCraftingC2SPayload(slotIndex, targetStack));
+    }
+}
+
+

@@ -1,0 +1,113 @@
+# Automatically build the project and run any configured tests for every push
+# and submitted pull request. This can help catch issues that only occur on
+# certain platforms or Java versions, and provides a first line of defence
+# against bad commits.
+# If version number is updated, automatically create a release.
+
+name: build
+on: [pull_request, push]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    outputs:
+      version_changed: ${{ steps.check_version.outputs.changed }}
+      new_version: ${{ steps.check_version.outputs.new_version }}
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # 需要获取足够的提交历史来比较版本变更
+      
+      - name: validate gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+      
+      - name: setup jdk
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'microsoft'
+      
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+      
+      - name: check version changes
+        id: check_version
+        run: |
+          # 获取当前提交和前一个提交的gradle.properties文件
+          CURRENT_VERSION=$(grep "mod_version=" gradle.properties | cut -d'=' -f2)
+          echo "Current version: $CURRENT_VERSION"
+          
+          # 检查是否是版本文件变更
+          if git diff HEAD~1 HEAD --name-only | grep -q "gradle.properties"; then
+            PREVIOUS_VERSION=$(git show HEAD~1:gradle.properties | grep "mod_version=" | cut -d'=' -f2)
+            echo "Previous version: $PREVIOUS_VERSION"
+            
+            if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
+              echo "Version changed from $PREVIOUS_VERSION to $CURRENT_VERSION"
+              echo "changed=true" >> $GITHUB_OUTPUT
+              echo "new_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            else
+              echo "No version change detected"
+              echo "changed=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "gradle.properties not modified"
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: build
+        run: ./gradlew build
+      
+      - name: capture build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: build/libs/
+          retention-days: 1  # 只在需要时保留，节省存储空间
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    if: needs.build.outputs.version_changed == 'true' && github.event_name == 'push'
+    permissions:
+      contents: write  # 需要写入权限来创建release
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+      
+      - name: download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: build/libs/
+      
+      - name: create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.build.outputs.new_version }}
+          name: Release v${{ needs.build.outputs.new_version }}
+          body: |
+            ## Portable Storage v${{ needs.build.outputs.new_version }}
+
+            **Portable Storage** 是一个基于 Fabric 的 Minecraft 模组，为玩家添加随身仓库功能。
+
+            ### 系统要求
+            - Minecraft 1.21
+            - Fabric Loader 0.17.2+
+            - Fabric API 0.102.0+
+
+            ### 安装方法
+            1. 安装 Fabric Loader 和 Fabric API
+            2. 下载模组 jar 文件放入 mods 文件夹
+            3. 启动游戏即可使用
+
+            ### 更新内容
+            此版本包含最新的功能更新和改进。
+          files: |
+            build/libs/*.jar
+            !build/libs/*-sources.jar
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

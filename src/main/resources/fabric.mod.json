@@ -1,0 +1,44 @@
+{
+	"schemaVersion": 1,
+	"id": "portable-storage",
+	"version": "${version}",
+	"name": "Portable Storage",
+	"description": "一个基于Fabric的Minecraft模组，为玩家添加随身仓库功能。在玩家背包UI上方添加仓库界面，支持搜索、升级和自动化等功能。",
+	"authors": [
+		"LoosePrince"
+	],
+	"contact": {
+		"homepage": "https://github.com/LoosePrince/portable-storage",
+		"sources": "https://github.com/LoosePrince/portable-storage"
+	},
+	"license": "MIT",
+	"icon": "assets/portable-storage/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.portable.storage.PortableStorage"
+		],
+		"client": [
+			"com.portable.storage.PortableStorageClient"
+		],
+		"fabric-datagen": [
+			"com.portable.storage.PortableStorageDataGenerator"
+		]
+	},
+	"mixins": [
+		"portable-storage.mixins.json",
+		{
+			"config": "portable-storage.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.17.2",
+		"minecraft": "~1.21",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"another-mod": "*"
+	}
+}
