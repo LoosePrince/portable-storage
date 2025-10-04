@@ -20,8 +20,5 @@ public class ModBlockEntities {
         ).build()
     );
 
-    public static void register() {
-        PortableStorage.LOGGER.info("Registering block entities for " + PortableStorage.MOD_ID);
-    }
 }
 

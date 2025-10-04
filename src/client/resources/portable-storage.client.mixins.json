@@ -3,7 +3,6 @@
 	"package": "com.portable.storage.mixin.client",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
-		"ExampleClientMixin",
 		"InventoryScreenMixin",
 		"CraftingScreenMixin",
 		"HandledScreenMixin"

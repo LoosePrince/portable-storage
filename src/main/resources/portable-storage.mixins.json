@@ -3,7 +3,6 @@
 	"package": "com.portable.storage.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
-		"ExampleMixin",
 		"PlayerEntityMixin",
 		"BarrelBlockEntityMixin",
 		"BarrelBlockItemMixin"
