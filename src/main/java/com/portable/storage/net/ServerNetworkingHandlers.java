@@ -371,6 +371,14 @@ public final class ServerNetworkingHandlers {
         return ItemStack.EMPTY;
     }
 
+    private static long insertIntoStorageAsLong(StorageInventory storage, net.minecraft.item.Item item, long count) {
+        if (count <= 0) return 0;
+        // Fallback path kept for existing callers; wrap into ItemStack to preserve components if possible
+        ItemStack tmp = new ItemStack(item);
+        tmp.setCount((int)Math.min(Integer.MAX_VALUE, count));
+        storage.insertItemStack(tmp, System.currentTimeMillis());
+        return 0;
+    }
 
     public static void sendSync(ServerPlayerEntity player) {
         StorageInventory merged = buildMergedSnapshot(player);

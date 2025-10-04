@@ -22,7 +22,9 @@ public class PortableStorage implements ModInitializer {
 		// However, some things (like resources) may still be uninitialized.
 		// Proceed with mild caution.
 
-		// 方块和方块实体已在静态初始化时注册
+		// 注册自定义方块和方块实体
+		ModBlocks.register();
+		ModBlockEntities.register();
 
 		NetworkChannels.registerCodecs();
 		ServerNetworkingHandlers.register();
