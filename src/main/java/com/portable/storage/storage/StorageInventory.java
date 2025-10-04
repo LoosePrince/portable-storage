@@ -71,6 +71,11 @@ public class StorageInventory {
         return s;
     }
 
+    public long getTimestampByIndex(int index) {
+        Entry e = getEntryByViewIndex(index);
+        return e != null ? e.updatedAt : 0L;
+    }
+
     public long takeByIndex(int index, long want, long ts) {
         if (want <= 0) return 0;
         Entry e = getEntryByViewIndex(index);
@@ -107,6 +112,34 @@ public class StorageInventory {
         addToEntry(e, stack.getCount(), ts);
         markDirty();
         return ItemStack.EMPTY;
+    }
+
+    /**
+     * 向仓库插入物品，保留原有的时间戳（仅用于合并快照）。
+     */
+    public void insertItemStackWithOriginalTimestamp(ItemStack stack, long originalTimestamp) {
+        if (stack == null || stack.isEmpty()) return;
+        // 查找同变体
+        for (Entry e : variants) {
+            if (stacksEqual(e.template, stack)) {
+                // 合并数量，但不更新时间戳
+                try {
+                    e.count = Math.addExact(e.count, stack.getCount());
+                } catch (ArithmeticException ex) {
+                    e.count = Long.MAX_VALUE;
+                }
+                markDirty();
+                return;
+            }
+        }
+        // 新建变体，使用原来的时间戳
+        Entry e = new Entry();
+        e.template = stack.copy();
+        e.template.setCount(1);
+        e.count = stack.getCount();
+        e.updatedAt = originalTimestamp;
+        variants.add(e);
+        markDirty();
     }
 
     private void addToEntry(Entry e, long add, long ts) {

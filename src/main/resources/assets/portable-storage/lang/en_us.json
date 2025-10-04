@@ -34,6 +34,7 @@
   "portable_storage.upgrade.unknown": "Unknown",
   "portable_storage.search": "Search",
   "container.portable_storage.bound_barrel": "%s's Bound Barrel",
-  "container.portable_storage.bound_barrel.unknown": "Bound Barrel"
+  "container.portable_storage.bound_barrel.unknown": "Bound Barrel",
+  "portable_storage.tooltip.last_modified": "Last Modified: %s"
 }
 

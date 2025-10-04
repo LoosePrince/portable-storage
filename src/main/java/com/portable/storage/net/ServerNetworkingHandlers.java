@@ -458,7 +458,6 @@ public final class ServerNetworkingHandlers {
 
     private static StorageInventory buildMergedSnapshot(ServerPlayerEntity viewer) {
         StorageInventory agg = new StorageInventory(0);
-        long ts = System.currentTimeMillis();
         for (StorageInventory s : getViewStorages(viewer)) {
             for (int i = 0; i < s.getCapacity(); i++) {
                 ItemStack disp = s.getDisplayStack(i);
@@ -470,7 +469,8 @@ public final class ServerNetworkingHandlers {
                     int chunk = (int)Math.min(Integer.MAX_VALUE, left);
                     ItemStack copy = disp.copy();
                     copy.setCount(chunk);
-                    agg.insertItemStack(copy, ts);
+                    // 保留原来的时间戳，不使用当前时间
+                    agg.insertItemStackWithOriginalTimestamp(copy, s.getTimestampByIndex(i));
                     left -= chunk;
                 }
             }

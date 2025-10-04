@@ -77,10 +77,20 @@ public class StorageUIComponent {
     private int searchPosLeft, searchPosTop, searchPosRight, searchPosBottom;
     
     // 缓存上次的排序配置
-    private ClientConfig.SortMode lastSortMode = null;
+    private ClientConfig.SortMode lastSortMode = ClientConfig.SortMode.COUNT;
     private boolean lastSortAscending = false;
     
     public StorageUIComponent() {
+        resetSortCache();
+    }
+
+    /**
+     * 重置排序缓存
+     */
+    public void resetSortCache() {
+        ClientConfig config = ClientConfig.getInstance();
+        lastSortMode = config.sortMode;
+        lastSortAscending = config.sortAscending;
     }
     
     /**
@@ -114,6 +124,9 @@ public class StorageUIComponent {
      * 渲染仓库UI（支持折叠功能，仅在背包界面使用）
      */
     public void render(DrawContext context, int mouseX, int mouseY, float delta, int screenX, int screenY, int backgroundWidth, int backgroundHeight, boolean enableCollapse) {
+        // 每次渲染前重置缓存，确保排序配置改变时能正确响应
+        resetSortCache();
+
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null || client.textRenderer == null) return;
         
@@ -299,6 +312,13 @@ public class StorageUIComponent {
                 if (exact > 999) {
                     String exactStr = String.format(Locale.US, "%,d", exact);
                     lines.add(1, Text.literal(exactStr));
+                }
+
+                // 添加修改时间信息
+                long timestamp = ClientStorageState.getTimestamp(hoveredIndex);
+                if (timestamp > 0) {
+                    String timeStr = formatTimestamp(timestamp);
+                    lines.add(1, Text.translatable("portable_storage.tooltip.last_modified", timeStr));
                 }
             }
             context.drawTooltip(client.textRenderer, lines, mouseX, mouseY);
@@ -580,13 +600,8 @@ public class StorageUIComponent {
     }
     
     private void sortIndices(List<Integer> indices) {
+        // 缓存已在render时重置，这里直接排序即可
         ClientConfig config = ClientConfig.getInstance();
-        if (config.sortMode == lastSortMode && config.sortAscending == lastSortAscending) {
-            return;
-        }
-        lastSortMode = config.sortMode;
-        lastSortAscending = config.sortAscending;
-        
         var stacks = ClientStorageState.getStacks();
         boolean ascending = config.sortAscending;
         
@@ -610,7 +625,7 @@ public class StorageUIComponent {
                     String nameB = stackB.getName().getString();
                     yield nameA.compareToIgnoreCase(nameB);
                 }
-                case UPDATE_TIME -> Integer.compare(a, b);
+                case UPDATE_TIME -> Long.compare(ClientStorageState.getTimestamp(a), ClientStorageState.getTimestamp(b));
             };
             
             return ascending ? cmp : -cmp;
@@ -624,6 +639,18 @@ public class StorageUIComponent {
         if (count < 1000000) return String.format(Locale.US, "%.1fk", count / 1000.0);
         if (count < 1000000000) return String.format(Locale.US, "%.1fM", count / 1000000.0);
         return String.format(Locale.US, "%.1fG", count / 1000000000.0);
+    }
+
+    private String formatTimestamp(long timestamp) {
+        if (timestamp <= 0) return "未知";
+
+        // 将时间戳转换为本地时间
+        java.time.Instant instant = java.time.Instant.ofEpochMilli(timestamp);
+        java.time.LocalDateTime dateTime = java.time.LocalDateTime.ofInstant(instant, java.time.ZoneId.systemDefault());
+
+        // 格式化显示：MM-dd HH:mm
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy MM-dd HH:mm");
+        return dateTime.format(formatter);
     }
     
     private int calculatePanelWidth(MinecraftClient client, ClientConfig config, boolean enableCollapse) {

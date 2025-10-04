@@ -10,6 +10,7 @@ import net.minecraft.util.collection.DefaultedList;
 public final class ClientStorageState {
     private static DefaultedList<ItemStack> display = DefaultedList.ofSize(54, ItemStack.EMPTY);
     private static long[] counts = new long[54];
+    private static long[] timestamps = new long[54];
     private static int capacity = 54;
 
     private ClientStorageState() {}
@@ -17,6 +18,7 @@ public final class ClientStorageState {
     public static DefaultedList<ItemStack> getStacks() { return display; }
     public static int getCapacity() { return capacity; }
     public static long getCount(int index) { return (index>=0 && index<counts.length) ? counts[index] : 0L; }
+    public static long getTimestamp(int index) { return (index>=0 && index<timestamps.length) ? timestamps[index] : 0L; }
 
     public static void updateFromNbt(NbtCompound nbt, net.minecraft.registry.RegistryWrapper.WrapperLookup lookup) {
         int cap = nbt.getInt("capacity");
@@ -24,6 +26,7 @@ public final class ClientStorageState {
         capacity = cap;
         display = DefaultedList.ofSize(capacity, ItemStack.EMPTY);
         counts = new long[capacity];
+        timestamps = new long[capacity];
         if (!nbt.contains("entries", NbtElement.LIST_TYPE)) return;
         NbtList list = nbt.getList("entries", NbtElement.COMPOUND_TYPE);
         int idx = 0;
@@ -51,8 +54,10 @@ public final class ClientStorageState {
                 }
             }
             long count = Math.max(0, e.getLong("count"));
+            long timestamp = e.contains("ts") ? e.getLong("ts") : 0L;
             if (stack.isEmpty() || count <= 0) continue;
             counts[idx] = count;
+            timestamps[idx] = timestamp;
             stack.setCount((int)Math.min(stack.getMaxCount(), count));
             display.set(idx, stack);
             idx++;
