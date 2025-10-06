@@ -4,6 +4,7 @@ import com.portable.storage.client.ClientStorageState;
 import com.portable.storage.client.ScreenSwapBypass;
 import com.portable.storage.client.ui.StorageUIComponent;
 import com.portable.storage.net.payload.EmiRecipeFillC2SPayload;
+import com.portable.storage.net.payload.RequestSyncC2SPayload;
 import com.portable.storage.net.payload.RequestVanillaCraftingOpenC2SPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
@@ -73,6 +74,9 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
             ScreenSwapBypass.requestSkipNextCraftingSwap();
             ClientPlayNetworking.send(new RequestVanillaCraftingOpenC2SPayload());
         });
+
+        // 打开自定义工作台界面时请求同步仓库数据
+        ClientPlayNetworking.send(RequestSyncC2SPayload.INSTANCE);
     }
 
     @Override
@@ -84,7 +88,6 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        this.renderBackground(context, mouseX, mouseY, delta);
         super.render(context, mouseX, mouseY, delta);
 
         // 渲染仓库 UI 叠加

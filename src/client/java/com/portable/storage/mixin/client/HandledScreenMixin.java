@@ -127,10 +127,11 @@ public abstract class HandledScreenMixin {
 	@Unique
 	private boolean portableStorage$isOverCraftingStorage(double mouseX, double mouseY) {
 		// 仅在工作台界面检测
-		if (!(((HandledScreen<?>)(Object)this) instanceof CraftingScreen)) return false;
+        if (!(((HandledScreen<?>)(Object)this) instanceof CraftingScreen)
+            && !(((HandledScreen<?>)(Object)this) instanceof com.portable.storage.client.screen.PortableCraftingScreen)) return false;
 		
 		// 检查是否有工作台升级
-		if (!portableStorage$hasCraftingTableUpgrade()) return false;
+        if (!portableStorage$hasCraftingTableUpgrade()) return false;
 		
 		int cols = 9;
 		int visibleRows = 6;
@@ -147,10 +148,11 @@ public abstract class HandledScreenMixin {
 	@Unique
 	private boolean portableStorage$isOverCraftingUpgradeSlots(double mouseX, double mouseY) {
 		// 仅在工作台界面检测
-		if (!(((HandledScreen<?>)(Object)this) instanceof CraftingScreen)) return false;
+        if (!(((HandledScreen<?>)(Object)this) instanceof CraftingScreen)
+            && !(((HandledScreen<?>)(Object)this) instanceof com.portable.storage.client.screen.PortableCraftingScreen)) return false;
 		
 		// 检查是否有工作台升级
-		if (!portableStorage$hasCraftingTableUpgrade()) return false;
+        if (!portableStorage$hasCraftingTableUpgrade()) return false;
 		
 		int gapBelow = 6;
 		int gridTop = this.y + this.backgroundHeight + gapBelow;
@@ -173,10 +175,12 @@ public abstract class HandledScreenMixin {
 	private boolean portableStorage$hasCraftingTableUpgrade() {
 		// 检查升级槽位中是否有工作台且未禁用
 		MinecraftClient client = MinecraftClient.getInstance();
-		if (client == null || client.player == null) return false;
+        if (client == null || client.player == null) return false;
 
-		var handler = client.player.currentScreenHandler;
-		if (!(handler instanceof net.minecraft.screen.CraftingScreenHandler)) return false;
+        var handler = client.player.currentScreenHandler;
+        // 自定义工作台界面（PortableCraftingScreenHandler）视为已启用升级
+        if (handler instanceof com.portable.storage.screen.PortableCraftingScreenHandler) return true;
+        if (!(handler instanceof net.minecraft.screen.CraftingScreenHandler)) return false;
 
 		// 检查所有升级槽位是否有工作台且未禁用
 		for (int i = 0; i < 5; i++) {

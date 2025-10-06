@@ -60,7 +60,7 @@ public class PortableStorageEmiTransferHandler implements StandardRecipeHandler<
                 storageAdded++;
             }
         }
-        LOG.info("EMI getInventory: playerStacks={}, storageStacks(nonEmpty)={}, totalStacks={}", stacks.size() - storageAdded, storageAdded, stacks.size());
+        LOG.debug("EMI getInventory: playerStacks={}, storageStacks(nonEmpty)={}, totalStacks={}", stacks.size() - storageAdded, storageAdded, stacks.size());
         
         return new EmiPlayerInventory(stacks);
     }
