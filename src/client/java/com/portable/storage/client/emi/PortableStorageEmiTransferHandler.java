@@ -74,7 +74,7 @@ public class PortableStorageEmiTransferHandler implements StandardRecipeHandler<
     @Override
     public boolean canCraft(EmiRecipe recipe, EmiCraftContext<com.portable.storage.screen.PortableCraftingScreenHandler> context) {
         boolean ok = context.getInventory().canCraft(recipe);
-        LOG.info("EMI canCraft recipeId={} result={}", recipe.getId(), ok);
+        LOG.debug("EMI canCraft recipeId={} result={}", recipe.getId(), ok);
         return ok;
     }
 
@@ -83,7 +83,7 @@ public class PortableStorageEmiTransferHandler implements StandardRecipeHandler<
         var screen = context.getScreen();
         if (screen instanceof com.portable.storage.client.screen.PortableCraftingScreen portableScreen) {
             portableScreen.fillRecipeFromStorage(recipe);
-            LOG.info("EMI craft sent payload for recipeId={}", recipe.getId());
+            LOG.debug("EMI craft sent payload for recipeId={}", recipe.getId());
             net.minecraft.client.MinecraftClient.getInstance().setScreen(screen);
             return true;
         }
@@ -138,7 +138,7 @@ public class PortableStorageEmiTransferHandler implements StandardRecipeHandler<
             }
             
             if (!found) {
-                LOG.info("EMI missing ingredient at slot {} for recipe {}", i, recipe.getId());
+                LOG.debug("EMI missing ingredient at slot {} for recipe {}", i, recipe.getId());
                 return false; // 缺少材料
             }
         }
