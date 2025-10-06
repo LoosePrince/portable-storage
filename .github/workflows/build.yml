@@ -1,11 +1,14 @@
-# Automatically build the project and run any configured tests for every push
-# and submitted pull request. This can help catch issues that only occur on
-# certain platforms or Java versions, and provides a first line of defence
-# against bad commits.
-# If version number is updated, automatically create a release.
+# 自动构建项目并在每次 push 或 PR 时运行测试，防止坏提交。
+# 如果版本号有更新，则自动创建 release。
 
 name: build
-on: [pull_request, push]
+on:
+  push:
+    paths-ignore:
+      - '**/*.md'
+  pull_request:
+    paths-ignore:
+      - '**/*.md'
 
 jobs:
   build:
