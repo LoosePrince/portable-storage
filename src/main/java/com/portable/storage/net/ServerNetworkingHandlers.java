@@ -293,6 +293,48 @@ public final class ServerNetworkingHandlers {
 				}
 			});
 		});
+		
+		// EMI 配方填充处理
+		ServerPlayNetworking.registerGlobalReceiver(EmiRecipeFillC2SPayload.ID, (payload, context) -> {
+			context.server().execute(() -> {
+				org.slf4j.LoggerFactory.getLogger("portable-storage/emi").debug("Server received EmiRecipeFill payload: recipeId={}", payload.recipeId());
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				boolean hasUpgrade = portableStorage$hasCraftingTableUpgrade(player);
+				ScreenHandler handler = player.currentScreenHandler;
+				if (!(handler instanceof net.minecraft.screen.CraftingScreenHandler) &&
+					!(handler instanceof com.portable.storage.screen.PortableCraftingScreenHandler)) {
+					org.slf4j.LoggerFactory.getLogger("portable-storage/emi").debug("EMI fill ignored at receiver: handler={} not crafting", handler.getClass().getName());
+					return;
+				}
+				// 仅当是原版工作台容器时强制要求升级；自定义容器直接允许
+				if (handler instanceof net.minecraft.screen.CraftingScreenHandler && !hasUpgrade) {
+					org.slf4j.LoggerFactory.getLogger("portable-storage/emi").debug("EMI fill ignored at receiver: no upgrade present for vanilla crafting handler");
+					return;
+				}
+				
+				// 处理配方填充
+				handleEmiRecipeFill(player, payload);
+			});
+		});
+
+		// 切回原版工作台：简单处理，直接打开原版 CraftingScreenHandler
+        ServerPlayNetworking.registerGlobalReceiver(com.portable.storage.net.payload.RequestVanillaCraftingOpenC2SPayload.ID, (payload, context) -> {
+			context.server().execute(() -> {
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				// 直接打开原版工作台容器
+				player.openHandledScreen(new net.minecraft.screen.NamedScreenHandlerFactory() {
+					@Override
+					public net.minecraft.text.Text getDisplayName() {
+						return net.minecraft.text.Text.translatable("container.crafting");
+					}
+
+					@Override
+                    public net.minecraft.screen.ScreenHandler createMenu(int syncId, net.minecraft.entity.player.PlayerInventory inv, net.minecraft.entity.player.PlayerEntity playerEntity) {
+						return new net.minecraft.screen.CraftingScreenHandler(syncId, inv);
+					}
+				});
+			});
+		});
 
 	}
 
@@ -506,6 +548,103 @@ public final class ServerNetworkingHandlers {
         }
     }
 
+    /**
+     * 处理 EMI 配方填充
+     */
+    private static void handleEmiRecipeFill(ServerPlayerEntity player, EmiRecipeFillC2SPayload payload) {
+        org.slf4j.LoggerFactory.getLogger("portable-storage/emi").debug("Server handle EmiRecipeFill: player={}, recipeId={}, slots={}, counts={}", player.getName().getString(), payload.recipeId(), java.util.Arrays.toString(payload.slotIndices()), java.util.Arrays.toString(payload.itemCounts()));
+        ScreenHandler handler = player.currentScreenHandler;
+        if (!(handler instanceof net.minecraft.screen.CraftingScreenHandler) 
+            && !(handler instanceof com.portable.storage.screen.PortableCraftingScreenHandler)) {
+            org.slf4j.LoggerFactory.getLogger("portable-storage/emi").debug("EMI fill ignored: handler={} not crafting", handler.getClass().getName());
+            return;
+        }
+
+        var id = net.minecraft.util.Identifier.tryParse(payload.recipeId());
+        if (id == null) return;
+        var entry = player.getServerWorld().getRecipeManager().get(id).orElse(null);
+        if (entry == null || !(entry.value() instanceof net.minecraft.recipe.CraftingRecipe crafting)) return;
+
+        // 展开配方输入为 3x3 Ingredient 数组
+        net.minecraft.recipe.Ingredient[] needs = new net.minecraft.recipe.Ingredient[9];
+        if (crafting instanceof net.minecraft.recipe.ShapedRecipe shaped) {
+            int w = shaped.getWidth();
+            int h = shaped.getHeight();
+            var list = shaped.getIngredients();
+            for (int i = 0; i < 9; i++) {
+                int r = i / 3, c = i % 3;
+                if (r < h && c < w) {
+                    int idx = r * w + c;
+                    needs[i] = idx < list.size() ? list.get(idx) : net.minecraft.recipe.Ingredient.EMPTY;
+                } else needs[i] = net.minecraft.recipe.Ingredient.EMPTY;
+            }
+        } else {
+            var list = crafting.getIngredients();
+            for (int i = 0; i < 9; i++) {
+                needs[i] = i < list.size() ? list.get(i) : net.minecraft.recipe.Ingredient.EMPTY;
+            }
+        }
+
+        // 逐槽尝试填充：优先从合并仓库，其次玩家背包
+        for (int i = 0; i < 9; i++) {
+            var ing = needs[i];
+            if (ing == null || ing.isEmpty()) continue;
+            int slotIndex = 1 + i;
+            Slot slot = handler.getSlot(slotIndex);
+            if (!slot.getStack().isEmpty()) continue;
+
+            ItemStack variant = findFirstMatchingInMerged(player, ing);
+            if (!variant.isEmpty()) {
+                long taken = takeFromMerged(player, variant, 1);
+                if (taken > 0) {
+                    ItemStack put = variant.copy();
+                    put.setCount((int) taken);
+                    slot.setStack(put);
+                    continue;
+                }
+            }
+            if (takeFromPlayerInventory(player, ing, 1)) {
+                ItemStack any = pickAnyFromIngredient(ing);
+                if (!any.isEmpty()) {
+                    any.setCount(1);
+                    slot.setStack(any);
+                }
+            }
+        }
+
+        handler.sendContentUpdates();
+        sendSync(player);
+        org.slf4j.LoggerFactory.getLogger("portable-storage/emi").debug("Server EmiRecipeFill finished: synced storage state");
+    }
+
+    private static ItemStack findFirstMatchingInMerged(ServerPlayerEntity viewer, net.minecraft.recipe.Ingredient ing) {
+        for (StorageInventory s : getViewStorages(viewer)) {
+            for (int i = 0; i < s.getCapacity(); i++) {
+                ItemStack disp = s.getDisplayStack(i);
+                if (!disp.isEmpty() && ing.test(disp)) return disp;
+            }
+        }
+        return ItemStack.EMPTY;
+    }
+
+    private static boolean takeFromPlayerInventory(ServerPlayerEntity player, net.minecraft.recipe.Ingredient ing, int needed) {
+        var inv = player.getInventory();
+        for (int i = 0; i < inv.size() && needed > 0; i++) {
+            ItemStack st = inv.getStack(i);
+            if (!st.isEmpty() && ing.test(st)) {
+                st.decrement(1);
+                if (st.isEmpty()) inv.setStack(i, ItemStack.EMPTY);
+                needed--;
+            }
+        }
+        return needed == 0;
+    }
+
+    private static ItemStack pickAnyFromIngredient(net.minecraft.recipe.Ingredient ing) {
+        var stacks = ing.getMatchingStacks();
+        return stacks.length > 0 ? stacks[0].copy() : ItemStack.EMPTY;
+    }
+    
     /**
      * 检查玩家是否有工作台升级且未禁用
      */

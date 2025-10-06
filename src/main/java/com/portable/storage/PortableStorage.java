@@ -2,14 +2,20 @@ package com.portable.storage;
 
 import com.portable.storage.block.ModBlocks;
 import com.portable.storage.blockentity.ModBlockEntities;
+import com.portable.storage.screen.PortableCraftingScreenHandler;
 import net.fabricmc.api.ModInitializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.portable.storage.net.ServerNetworkingHandlers;
 import com.portable.storage.net.NetworkChannels;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.Registry;
+import net.minecraft.resource.featuretoggle.FeatureSet;
+import net.minecraft.util.Identifier;
 
 public class PortableStorage implements ModInitializer {
-	public static final String MOD_ID = "portable-storage";
+    public static final String MOD_ID = "portable-storage";
+    public static net.minecraft.screen.ScreenHandlerType<PortableCraftingScreenHandler> PORTABLE_CRAFTING_HANDLER;
 
 	// This logger is used to write text to the console and the log file.
 	// It is considered best practice to use your mod id as the logger's name.
@@ -26,7 +32,14 @@ public class PortableStorage implements ModInitializer {
 		ModBlocks.register();
 		ModBlockEntities.register();
 
-		NetworkChannels.registerCodecs();
+        NetworkChannels.registerCodecs();
+
+        // 注册自定义 ScreenHandlerType（用于 EMI 识别并使用我们的处理器）
+        PORTABLE_CRAFTING_HANDLER = Registry.register(
+                Registries.SCREEN_HANDLER,
+                Identifier.of(MOD_ID, "portable_crafting"),
+                new net.minecraft.screen.ScreenHandlerType<>(PortableCraftingScreenHandler::new, FeatureSet.empty())
+        );
 		ServerNetworkingHandlers.register();
 		
 		LOGGER.info("Portable Storage initialized");

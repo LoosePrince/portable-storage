@@ -4,8 +4,10 @@ import net.fabricmc.api.ClientModInitializer;
 import com.portable.storage.client.ClientConfig;
 import com.portable.storage.client.ClientNetworkingHandlers;
 import com.portable.storage.client.ModernUiCompat;
+import com.portable.storage.client.screen.PortableCraftingScreen;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
+import net.minecraft.client.gui.screen.ingame.HandledScreens;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.item.Items;
@@ -20,6 +22,8 @@ public class PortableStorageClient implements ClientModInitializer {
 		ClientConfig.load();
 		
 		ClientNetworkingHandlers.register();
+		// 将自定义 ScreenHandlerType 绑定到自定义屏幕（使用原版 HandledScreens）
+		HandledScreens.register(PortableStorage.PORTABLE_CRAFTING_HANDLER, PortableCraftingScreen::new);
 		if (ModernUiCompat.isLoaded()) {
 			ClientTickEvents.END_CLIENT_TICK.register(client -> ModernUiCompat.forceTooltipShadowRadiusZero());
 		}

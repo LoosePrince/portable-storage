@@ -20,6 +20,9 @@ import java.util.Locale;
  * 仓库UI组件，可在不同界面复用
  */
 public class StorageUIComponent {
+    
+    // 切换原版界面回调
+    private Runnable switchToVanillaCallback = null;
     // 仓库网格参数
     private final int cols = 9;
     private final int visibleRows = 6;
@@ -76,6 +79,9 @@ public class StorageUIComponent {
     private int autoDepositLeft, autoDepositTop, autoDepositRight, autoDepositBottom;
     private int searchPosLeft, searchPosTop, searchPosRight, searchPosBottom;
     
+    // 切换原版界面点击区域
+    private int switchVanillaLeft, switchVanillaTop, switchVanillaRight, switchVanillaBottom;
+    
     // 缓存上次的排序配置
     private ClientConfig.SortMode lastSortMode = ClientConfig.SortMode.COUNT;
     private boolean lastSortAscending = false;
@@ -91,6 +97,13 @@ public class StorageUIComponent {
         ClientConfig config = ClientConfig.getInstance();
         lastSortMode = config.sortMode;
         lastSortAscending = config.sortAscending;
+    }
+    
+    /**
+     * 设置切换原版界面的回调
+     */
+    public void setSwitchToVanillaCallback(Runnable callback) {
+        this.switchToVanillaCallback = callback;
     }
     
     /**
@@ -529,6 +542,18 @@ public class StorageUIComponent {
         this.searchPosRight = textX + searchPosTextW + 2;
         this.searchPosBottom = textY + collapseTextH + 3;
         textY += 12;
+        
+        // 切换原版界面（仅在自定义工作台界面显示）
+        if (switchToVanillaCallback != null) {
+            Text switchVanillaText = Text.translatable("portable_storage.ui.switch_vanilla");
+            int switchVanillaTextW = client.textRenderer.getWidth(switchVanillaText);
+            context.drawText(client.textRenderer, switchVanillaText, textX, textY, 0xFFFFFF, true);
+            this.switchVanillaLeft = textX;
+            this.switchVanillaTop = textY - 1;
+            this.switchVanillaRight = textX + switchVanillaTextW + 2;
+            this.switchVanillaBottom = textY + collapseTextH + 3;
+            textY += 12;
+        }
     }
     
     /**
@@ -683,6 +708,12 @@ public class StorageUIComponent {
         String autoDepositKey = config.autoDeposit ? "portable_storage.toggle.enabled" : "portable_storage.toggle.disabled";
         Text autoDepositText = Text.translatable("portable_storage.ui.auto_deposit", Text.translatable(autoDepositKey).getString());
         maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(autoDepositText) + padding);
+        
+        // 切换原版界面文本宽度
+        if (switchToVanillaCallback != null) {
+            Text switchVanillaText = Text.translatable("portable_storage.ui.switch_vanilla");
+            maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(switchVanillaText) + padding);
+        }
         
         return maxWidth;
     }
@@ -877,6 +908,11 @@ public class StorageUIComponent {
                 ClientConfig.save();
                 return true;
             }
+            // 切换原版界面
+            if (switchToVanillaCallback != null && isIn(mouseX, mouseY, switchVanillaLeft, switchVanillaTop, switchVanillaRight, switchVanillaBottom)) {
+                switchToVanillaCallback.run();
+                return true;
+            }
         }
         
         return false;
@@ -917,6 +953,44 @@ public class StorageUIComponent {
             return true;
         }
         return false;
+    }
+    
+    /**
+     * 检查鼠标是否在仓库区域（用于 EMI 集成）
+     */
+    public boolean isMouseOverStorageArea(int mouseX, int mouseY) {
+        int width = cols * (slotSize + slotSpacing);
+        int height = visibleRows * (slotSize + slotSpacing);
+        return mouseX >= gridLeft && mouseX < gridLeft + width && mouseY >= gridTop && mouseY < gridTop + height;
+    }
+    
+    /**
+     * 获取鼠标下的物品（用于 EMI 集成）
+     */
+    public ItemStack getItemUnderMouse(int mouseX, int mouseY) {
+        if (!isMouseOverStorageArea(mouseX, mouseY)) {
+            return ItemStack.EMPTY;
+        }
+        
+        // 计算鼠标在网格中的位置
+        int relativeX = mouseX - gridLeft;
+        int relativeY = mouseY - gridTop;
+        
+        int col = relativeX / (slotSize + slotSpacing);
+        int row = relativeY / (slotSize + slotSpacing);
+        
+        if (col >= 0 && col < cols && row >= 0 && row < visibleRows) {
+            int index = row * cols + col;
+            if (index < visibleIndexMap.length) {
+                int actualIndex = visibleIndexMap[index];
+                var storageStacks = ClientStorageState.getStacks();
+                if (actualIndex >= 0 && actualIndex < storageStacks.size()) {
+                    return storageStacks.get(actualIndex);
+                }
+            }
+        }
+        
+        return ItemStack.EMPTY;
     }
     
     // ========== 辅助判断 ==========

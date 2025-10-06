@@ -31,6 +31,7 @@
   "portable_storage.search_pos.top2": "顶部2",
   "portable_storage.search_pos.middle": "中间",
   "portable_storage.search_pos.bottom": "底部",
+  "portable_storage.ui.switch_vanilla": "切换原版",
   "portable_storage.upgrade.unknown": "未知",
   "portable_storage.search": "搜索",
   "container.portable_storage.bound_barrel": "%s的绑定木桶",

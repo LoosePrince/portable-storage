@@ -5,7 +5,8 @@
 	"mixins": [
 		"PlayerEntityMixin",
 		"BarrelBlockEntityMixin",
-		"BarrelBlockItemMixin"
+		"BarrelBlockItemMixin",
+		"CraftingTableBlockMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
