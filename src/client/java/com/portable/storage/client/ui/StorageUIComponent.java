@@ -11,6 +11,7 @@ import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +21,10 @@ import java.util.Locale;
  * 仓库UI组件，可在不同界面复用
  */
 public class StorageUIComponent {
+    // 纹理
+    private static final Identifier TEX_BG = Identifier.of("portable-storage", "textures/gui/portable_storage_gui_1.png");
+    private static final Identifier TEX_SETTINGS_BG = Identifier.of("portable-storage", "textures/gui/portable_storage_gui.png");
+    private static final Identifier TEX_SLOT = Identifier.of("portable-storage", "textures/gui/slot.png");
     
     // 切换原版界面回调
     private Runnable switchToVanillaCallback = null;
@@ -190,8 +195,10 @@ public class StorageUIComponent {
         int extRight = panelLeft + panelWidth + 2;
         int extBottom = gridTop + visibleRows * (slotSize + slotSpacing) + 2;
         
-        // 绘制扩展背景
-        drawExtensionBackground(context, extLeft, extTop, extRight - extLeft, extBottom - extTop);
+        // 绘制扩展背景（左上偏移，九宫格拉伸中心区域）
+        final int bgOffsetX = 4;
+        final int bgOffsetY = 4;
+        drawExtensionBackground(context, extLeft - bgOffsetX, extTop - bgOffsetY, (extRight - extLeft) + bgOffsetX * 2, (extBottom - extTop) + bgOffsetY * 2);
         
         // 构建过滤索引并渲染仓库网格
         renderStorageGrid(context, client, mouseX, mouseY);
@@ -205,7 +212,7 @@ public class StorageUIComponent {
         // 渲染升级槽位
         renderUpgradeSlots(context, upgradeLeft);
         
-        // 渲染设置面板
+        // 渲染设置面板（无背景）
         renderSettingsPanel(context, client, config, panelLeft, panelWidth, enableCollapse);
         
         // 渲染搜索框
@@ -461,7 +468,7 @@ public class StorageUIComponent {
     private void renderSettingsPanel(DrawContext context, MinecraftClient client, ClientConfig config, int panelLeft, int panelWidth, boolean enableCollapse) {
         int panelTop = gridTop;
         int panelBottom = gridTop + visibleRows * (slotSize + slotSpacing);
-        drawPanel(context, panelLeft, panelTop, panelWidth, panelBottom - panelTop);
+        drawSettingsBackground(context, panelLeft, panelTop, panelWidth, panelBottom - panelTop);
         
         int textX = panelLeft + 6;
         int textY = panelTop + 6;
@@ -559,6 +566,44 @@ public class StorageUIComponent {
             this.switchVanillaRight = textX + switchVanillaTextW + 2;
             this.switchVanillaBottom = textY + collapseTextH + 3;
             textY += 12;
+        }
+    }
+
+    private void drawSettingsBackground(DrawContext ctx, int x, int y, int w, int h) {
+        // 右侧设置背景：64x109，边框4px（九宫格）
+        final int texW = 64;
+        final int texH = 109;
+        final int border = 4;
+
+        int srcLeft = border;
+        int srcRight = texW - border;
+        int srcTop = border;
+        int srcBottom = texH - border;
+
+        int dstMidW = Math.max(0, w - border * 2);
+        int dstMidH = Math.max(0, h - border * 2);
+        int srcMidW = texW - border * 2;
+        int srcMidH = texH - border * 2;
+
+        // 四角
+        ctx.drawTexture(TEX_SETTINGS_BG, x, y, 0, 0, border, border, texW, texH);
+        ctx.drawTexture(TEX_SETTINGS_BG, x + w - border, y, srcRight, 0, border, border, texW, texH);
+        ctx.drawTexture(TEX_SETTINGS_BG, x, y + h - border, 0, srcBottom, border, border, texW, texH);
+        ctx.drawTexture(TEX_SETTINGS_BG, x + w - border, y + h - border, srcRight, srcBottom, border, border, texW, texH);
+
+        // 上下边
+        if (dstMidW > 0) {
+            drawRegionScaled(ctx, TEX_SETTINGS_BG, x + border, y, srcLeft, 0, srcMidW, border, dstMidW, border, texW, texH);
+            drawRegionScaled(ctx, TEX_SETTINGS_BG, x + border, y + h - border, srcLeft, srcBottom, srcMidW, border, dstMidW, border, texW, texH);
+        }
+        // 左右边
+        if (dstMidH > 0) {
+            drawRegionScaled(ctx, TEX_SETTINGS_BG, x, y + border, 0, srcTop, border, srcMidH, border, dstMidH, texW, texH);
+            drawRegionScaled(ctx, TEX_SETTINGS_BG, x + w - border, y + border, srcRight, srcTop, border, srcMidH, border, dstMidH, texW, texH);
+        }
+        // 中心
+        if (dstMidW > 0 && dstMidH > 0) {
+            drawRegionScaled(ctx, TEX_SETTINGS_BG, x + border, y + border, srcLeft, srcTop, srcMidW, srcMidH, dstMidW, dstMidH, texW, texH);
         }
     }
     
@@ -725,32 +770,62 @@ public class StorageUIComponent {
     }
     
     private void drawExtensionBackground(DrawContext ctx, int x, int y, int w, int h) {
-        int bg = 0xFFC6C6C6; // 纯不透明
-        ctx.fill(x, y, x + w, y + h, bg);
+        // 九宫格拉伸（通过矩阵缩放避免平铺）。
+        final int texW = 75;
+        final int texH = 122;
+        final int border = 4; // 边框
+
+        int srcLeft = border;
+        int srcRight = texW - border;
+        int srcTop = border;
+        int srcBottom = texH - border;
+
+        int dstMidW = Math.max(0, w - border * 2);
+        int dstMidH = Math.max(0, h - border * 2);
+        int srcMidW = texW - border * 2;
+        int srcMidH = texH - border * 2;
+
+        // 四角（不缩放）
+        ctx.drawTexture(TEX_BG, x, y, 0, 0, border, border, texW, texH);
+        ctx.drawTexture(TEX_BG, x + w - border, y, srcRight, 0, border, border, texW, texH);
+        ctx.drawTexture(TEX_BG, x, y + h - border, 0, srcBottom, border, border, texW, texH);
+        ctx.drawTexture(TEX_BG, x + w - border, y + h - border, srcRight, srcBottom, border, border, texW, texH);
+
+        // 上下边（水平缩放）
+        if (dstMidW > 0) {
+            drawRegionScaled(ctx, TEX_BG, x + border, y, srcLeft, 0, srcMidW, border, dstMidW, border, texW, texH);
+            drawRegionScaled(ctx, TEX_BG, x + border, y + h - border, srcLeft, srcBottom, srcMidW, border, dstMidW, border, texW, texH);
+        }
+        // 左右边（垂直缩放）
+        if (dstMidH > 0) {
+            drawRegionScaled(ctx, TEX_BG, x, y + border, 0, srcTop, border, srcMidH, border, dstMidH, texW, texH);
+            drawRegionScaled(ctx, TEX_BG, x + w - border, y + border, srcRight, srcTop, border, srcMidH, border, dstMidH, texW, texH);
+        }
+        // 中心（双向缩放）
+        if (dstMidW > 0 && dstMidH > 0) {
+            drawRegionScaled(ctx, TEX_BG, x + border, y + border, srcLeft, srcTop, srcMidW, srcMidH, dstMidW, dstMidH, texW, texH);
+        }
+    }
+
+    private void drawRegionScaled(DrawContext ctx, Identifier tex, int x, int y, int u, int v, int srcW, int srcH, int dstW, int dstH, int texW, int texH) {
+        if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) return;
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(x, y, 0);
+        float scaleX = (float)dstW / (float)srcW;
+        float scaleY = (float)dstH / (float)srcH;
+        ctx.getMatrices().scale(scaleX, scaleY, 1.0f);
+        ctx.drawTexture(tex, 0, 0, u, v, srcW, srcH, texW, texH);
+        ctx.getMatrices().pop();
     }
     
     private void drawPanel(DrawContext ctx, int x, int y, int w, int h) {
-        int bg = 0xFF101010;
-        int border = 0xFF3F3F3F;
-        ctx.fill(x, y, x + w, y + h, bg);
-        // 边框
-        ctx.fill(x, y, x + w, y + 1, border);
-        ctx.fill(x, y + h - 1, x + w, y + h, border);
-        ctx.fill(x, y, x + 1, y + h, border);
-        ctx.fill(x + w - 1, y, x + w, y + h, border);
+        // 使用背景纹理铺满面板区域
+        drawExtensionBackground(ctx, x, y, w, h);
     }
     
     private void drawSlotInset(DrawContext ctx, int x, int y, int w, int h) {
-        // 凹陷风格：上左暗、下右亮
-        int inner = 0xFF8B8B8B;
-        int borderDark = 0xFF373737;
-        int borderLight = 0xFFFFFFFF;
-        ctx.fill(x + 1, y + 1, x + w - 1, y + h - 1, inner);
-        // 上边和左边使用暗边，下边和右边使用亮边，形成内凹效果
-        ctx.fill(x, y, x + w, y + 1, borderDark);   // 上（暗）
-        ctx.fill(x, y, x + 1, y + h, borderDark);   // 左（暗）
-        ctx.fill(x, y + h - 1, x + w, y + h, borderLight); // 下（亮）
-        ctx.fill(x + w - 1, y, x + w, y + h, borderLight); // 右（亮）
+        // 使用槽位纹理绘制（根据目标尺寸缩放）
+        ctx.drawTexture(TEX_SLOT, x, y, 0, 0, w, h, 18, 18);
     }
     
     private void drawScrollbar(DrawContext ctx, int left, int top, int width, int height, int maxScrollRows) {

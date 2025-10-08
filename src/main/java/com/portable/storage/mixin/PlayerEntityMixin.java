@@ -77,54 +77,23 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 	@Override
 	public boolean portableStorage$isStorageEnabled() {
 		PlayerEntity self = (PlayerEntity)(Object)this;
-		
-		// 检查配置是否需要条件启用
+		// 配置不需要条件启用 → 始终启用
 		ServerConfig config = ServerConfig.getInstance();
-		if (!config.isRequireConditionToEnable()) {
-			// 不需要条件启用，默认启用
-			return true;
-		}
-		
-		// 需要条件启用，检查玩家是否已启用
-		if (self instanceof ServerPlayerEntity serverPlayer) {
-			// 服务端：从持久化状态检查
-			com.portable.storage.player.PlayerEnablementState state = 
-				com.portable.storage.player.PlayerEnablementState.get(serverPlayer.getServer());
-			return state.isPlayerEnabled(serverPlayer.getUuid());
-		} else {
-			// 客户端：在单人游戏中，服务端和客户端是同一个进程
-			// 所以直接使用服务端的持久化状态
-			if (self.getWorld().getServer() != null) {
-				com.portable.storage.player.PlayerEnablementState state = 
-					com.portable.storage.player.PlayerEnablementState.get(self.getWorld().getServer());
-				return state.isPlayerEnabled(self.getUuid());
-			} else {
-				// 纯客户端模式（如服务器列表），使用本地字段
-				return portableStorage$enabled;
-			}
-		}
+		if (!config.isRequireConditionToEnable()) return true;
+		// 需要条件启用 → 直接读取随玩家 NBT 同步的本地字段
+		return portableStorage$enabled;
 	}
 	
 	@Override
 	public void portableStorage$setStorageEnabled(boolean enabled) {
 		PlayerEntity self = (PlayerEntity)(Object)this;
 		
+		portableStorage$enabled = enabled;
 		if (self instanceof ServerPlayerEntity serverPlayer) {
-			// 服务端：保存到持久化状态
-			com.portable.storage.player.PlayerEnablementState state = 
+			// 兼容：同步服务端的全局状态，便于网络同步逻辑复用
+			com.portable.storage.player.PlayerEnablementState state =
 				com.portable.storage.player.PlayerEnablementState.get(serverPlayer.getServer());
 			state.setPlayerEnabled(serverPlayer.getUuid(), enabled);
-		} else {
-			// 客户端：在单人游戏中，服务端和客户端是同一个进程
-			// 所以直接保存到服务端的持久化状态
-			if (self.getWorld().getServer() != null) {
-				com.portable.storage.player.PlayerEnablementState state = 
-					com.portable.storage.player.PlayerEnablementState.get(self.getWorld().getServer());
-				state.setPlayerEnabled(self.getUuid(), enabled);
-			} else {
-				// 纯客户端模式（如服务器列表），保存到本地字段
-				portableStorage$enabled = enabled;
-			}
 		}
 	}
 
@@ -161,11 +130,8 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 			nbt.put(PORTABLE_STORAGE_UPGRADES_NBT, out);
 		}
 		
-		// 保存启用状态（仅客户端需要）
-		PlayerEntity self = (PlayerEntity)(Object)this;
-		if (!(self instanceof ServerPlayerEntity)) {
-			nbt.putBoolean(PORTABLE_STORAGE_ENABLED_NBT, this.portableStorage$enabled);
-		}
+		// 保存启用状态（始终随玩家 NBT 持久化）
+		nbt.putBoolean(PORTABLE_STORAGE_ENABLED_NBT, this.portableStorage$enabled);
 	}
 	
 	@Inject(method = "tick", at = @At("TAIL"))
