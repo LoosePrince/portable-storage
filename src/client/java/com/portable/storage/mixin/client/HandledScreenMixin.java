@@ -17,6 +17,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.Unique;
+import com.portable.storage.client.ClientStorageState;
 
 @Mixin(HandledScreen.class)
 public abstract class HandledScreenMixin {
@@ -31,7 +32,9 @@ public abstract class HandledScreenMixin {
 	@Inject(method = "onMouseClick(Lnet/minecraft/screen/slot/Slot;IILnet/minecraft/screen/slot/SlotActionType;)V", at = @At("HEAD"), cancellable = true)
 	private void portableStorage$onMouseClick(Slot slot, int slotId, int button, SlotActionType actionType, CallbackInfo ci) {
 		// 仅在背包界面或工作台界面 且 启用自动传入 且 shift+左键点击 且 槽位有物品时拦截
-		if (!ClientConfig.getInstance().autoDeposit) return;
+        if (!ClientConfig.getInstance().autoDeposit) return;
+        // 仓库未启用时不拦截，保持原版 Shift+点击行为
+        if (!ClientStorageState.isStorageEnabled()) return;
 		if (!(((HandledScreen<?>)(Object)this) instanceof InventoryScreen) && 
 		    !(((HandledScreen<?>)(Object)this) instanceof CraftingScreen)) return;
 		if (actionType != SlotActionType.QUICK_MOVE) return;

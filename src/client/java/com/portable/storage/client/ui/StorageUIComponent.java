@@ -178,9 +178,11 @@ public class StorageUIComponent {
             this.expandTabRight = tabLeft + tabW;
             this.expandTabBottom = tabTop + tabH;
             drawPanel(context, tabLeft, tabTop, tabW, tabH);
-            int tx = tabLeft + 6;
-            int ty = tabTop + 5;
-            context.drawText(client.textRenderer, Text.translatable("portable_storage.ui.expand"), tx, ty, 0xFFFFFF, true);
+            Text label = Text.translatable("portable_storage.ui.expand");
+            int textW = client.textRenderer.getWidth(label);
+            int tx = tabLeft + (tabW - textW) / 2;
+            int ty = tabTop + (tabH - 8) / 2;
+            context.drawText(client.textRenderer, label, tx, ty, 0xFFFFFF, true);
             return;
         }
         
