@@ -1,6 +1,8 @@
 package com.portable.storage.net;
 
+import com.portable.storage.config.ServerConfig;
 import com.portable.storage.net.payload.*;
+import com.portable.storage.player.PlayerStorageAccess;
 import com.portable.storage.player.PlayerStorageService;
 import com.portable.storage.player.StoragePersistence;
 import com.portable.storage.storage.StorageInventory;
@@ -15,16 +17,43 @@ import net.minecraft.screen.slot.Slot;
 
 public final class ServerNetworkingHandlers {
 	private ServerNetworkingHandlers() {}
+	
+	/**
+	 * 检查玩家是否已启用随身仓库功能
+	 */
+	private static boolean isPlayerStorageEnabled(ServerPlayerEntity player) {
+		PlayerStorageAccess access = (PlayerStorageAccess) player;
+		return access.portableStorage$isStorageEnabled();
+	}
+	
+	/**
+	 * 检查并拒绝未启用玩家的请求
+	 */
+	private static boolean checkAndRejectIfNotEnabled(ServerPlayerEntity player) {
+		if (!isPlayerStorageEnabled(player)) {
+			return true; // 拒绝请求
+		}
+		return false; // 允许请求
+	}
 
 	public static void register() {
 		ServerPlayNetworking.registerGlobalReceiver(RequestSyncC2SPayload.ID, (payload, context) -> {
-            context.server().execute(() -> sendSync((ServerPlayerEntity) context.player()));
+            context.server().execute(() -> {
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				// 总是发送启用状态同步，让客户端知道当前状态
+				sendEnablementSync(player);
+				// 只有启用时才发送其他同步
+				if (!checkAndRejectIfNotEnabled(player)) {
+					sendSync(player);
+				}
+			});
 		});
 
         ServerPlayNetworking.registerGlobalReceiver(StorageClickC2SPayload.ID, (payload, context) -> {
 			int slotIndex = payload.index();
 			context.server().execute(() -> {
                 ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				if (checkAndRejectIfNotEnabled(player)) return;
                 StorageInventory merged = buildMergedSnapshot(player);
                 if (slotIndex < 0 || slotIndex >= merged.getCapacity()) return;
                 ItemStack disp = merged.getDisplayStack(slotIndex);
@@ -45,6 +74,7 @@ public final class ServerNetworkingHandlers {
 			int button = payload.button(); // 0 左键，1 右键
             context.server().execute(() -> {
                 ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				if (checkAndRejectIfNotEnabled(player)) return;
                 StorageInventory merged = buildMergedSnapshot(player);
                 if (slotIndex < 0 || slotIndex >= merged.getCapacity()) return;
                 ItemStack slotStack = merged.getDisplayStack(slotIndex);
@@ -94,29 +124,50 @@ public final class ServerNetworkingHandlers {
 		ServerPlayNetworking.registerGlobalReceiver(DepositSlotC2SPayload.ID, (payload, context) -> {
 			int handlerSlotId = payload.handlerSlotId();
 			context.server().execute(() -> {
-				ScreenHandler sh = context.player().currentScreenHandler;
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				if (checkAndRejectIfNotEnabled(player)) return;
+				ScreenHandler sh = player.currentScreenHandler;
 				if (handlerSlotId < 0 || handlerSlotId >= sh.slots.size()) return;
 				Slot slot = sh.getSlot(handlerSlotId);
 				ItemStack from = slot.getStack();
 				if (from.isEmpty()) return;
 
-				StorageInventory inv = PlayerStorageService.getInventory(context.player());
+				StorageInventory inv = PlayerStorageService.getInventory(player);
                 ItemStack remainder = insertIntoStorage(inv, from);
                 slot.setStack(remainder);
 				slot.markDirty();
 				sh.sendContentUpdates();
-				sendSync((ServerPlayerEntity) context.player());
+				sendSync(player);
 			});
 		});
 
 		ServerPlayNetworking.registerGlobalReceiver(DepositCursorC2SPayload.ID, (payload, context) -> {
 			context.server().execute(() -> {
 				var serverPlayer = (ServerPlayerEntity) context.player();
+				if (checkAndRejectIfNotEnabled(serverPlayer)) return;
 				var cursor = serverPlayer.currentScreenHandler.getCursorStack();
 				if (cursor.isEmpty()) return;
+				
+				int button = payload.button();
 				StorageInventory inv = PlayerStorageService.getInventory(serverPlayer);
-                ItemStack remainder = insertIntoStorage(inv, cursor);
-				serverPlayer.currentScreenHandler.setCursorStack(remainder);
+				
+				if (button == 0) {
+					// 左键：存入全部物品
+					ItemStack remainder = insertIntoStorage(inv, cursor);
+					serverPlayer.currentScreenHandler.setCursorStack(remainder);
+				} else if (button == 1) {
+					// 右键：只存入一个物品
+					if (cursor.getCount() > 0) {
+						ItemStack singleStack = cursor.copy();
+						singleStack.setCount(1);
+						ItemStack remainder = insertIntoStorage(inv, singleStack);
+						if (remainder.isEmpty()) {
+							cursor.decrement(1);
+							serverPlayer.currentScreenHandler.setCursorStack(cursor);
+						}
+					}
+				}
+				
 				serverPlayer.currentScreenHandler.sendContentUpdates();
 				sendSync(serverPlayer);
 			});
@@ -128,6 +179,7 @@ public final class ServerNetworkingHandlers {
 			ItemStack targetStack = payload.targetStack();
 			context.server().execute(() -> {
 				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				if (checkAndRejectIfNotEnabled(player)) return;
 
 				// 检查是否有工作台升级且未禁用
 				if (!portableStorage$hasCraftingTableUpgrade(player)) return;
@@ -198,6 +250,7 @@ public final class ServerNetworkingHandlers {
 			int button = payload.button();
 			context.server().execute(() -> {
 				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				if (checkAndRejectIfNotEnabled(player)) return;
 				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
 
 				if (slot < 0 || slot >= upgrades.getSlotCount()) return;
@@ -299,6 +352,7 @@ public final class ServerNetworkingHandlers {
 			context.server().execute(() -> {
 				org.slf4j.LoggerFactory.getLogger("portable-storage/emi").debug("Server received EmiRecipeFill payload: recipeId={}", payload.recipeId());
 				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				if (checkAndRejectIfNotEnabled(player)) return;
 				boolean hasUpgrade = portableStorage$hasCraftingTableUpgrade(player);
 				ScreenHandler handler = player.currentScreenHandler;
 				if (!(handler instanceof net.minecraft.screen.CraftingScreenHandler) &&
@@ -428,6 +482,7 @@ public final class ServerNetworkingHandlers {
         merged.writeNbt(nbt);
         ServerPlayNetworking.send(player, new StorageSyncS2CPayload(nbt));
 		sendUpgradeSync(player);
+		sendEnablementSync(player);
 	}
 
 	public static void sendUpgradeSync(ServerPlayerEntity player) {
@@ -435,6 +490,12 @@ public final class ServerNetworkingHandlers {
 		NbtCompound nbt = new NbtCompound();
 		up.writeNbt(nbt);
 		ServerPlayNetworking.send(player, new UpgradeSyncS2CPayload(nbt));
+	}
+	
+	public static void sendEnablementSync(ServerPlayerEntity player) {
+		PlayerStorageAccess access = (PlayerStorageAccess) player;
+		boolean enabled = access.portableStorage$isStorageEnabled();
+		ServerPlayNetworking.send(player, new StorageEnablementSyncS2CPayload(enabled));
 	}
 
     // ===== 合并仓库（共享木桶） =====

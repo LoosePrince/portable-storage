@@ -90,27 +90,30 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         super.render(context, mouseX, mouseY, delta);
 
-        // 渲染仓库 UI 叠加
-        storageUi.render(context, mouseX, mouseY, delta, this.x, this.y, this.backgroundWidth, this.backgroundHeight);
+        // 检查仓库是否已启用
+        if (com.portable.storage.client.ClientStorageState.isStorageEnabled()) {
+            // 渲染仓库 UI 叠加
+            storageUi.render(context, mouseX, mouseY, delta, this.x, this.y, this.backgroundWidth, this.backgroundHeight);
+        }
 
         this.drawMouseoverTooltip(context, mouseX, mouseY);
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (storageUi.mouseClicked(mouseX, mouseY, button)) return true;
+        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && storageUi.mouseClicked(mouseX, mouseY, button)) return true;
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (storageUi.keyPressed(keyCode, scanCode, modifiers)) return true;
+        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && storageUi.keyPressed(keyCode, scanCode, modifiers)) return true;
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
     public boolean charTyped(char chr, int modifiers) {
-        if (storageUi.charTyped(chr, modifiers)) return true;
+        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && storageUi.charTyped(chr, modifiers)) return true;
         return super.charTyped(chr, modifiers);
     }
     

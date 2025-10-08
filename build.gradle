@@ -73,6 +73,10 @@ dependencies {
 	// EMI support (optional dependency)
 	modCompileOnly("dev.emi:emi-fabric:${project.emi_version}:api")
 	// modLocalRuntime("dev.emi:emi-fabric:${project.emi_version}")
+
+	// NightConfig for TOML (server config)
+	implementation 'com.electronwill.night-config:toml:3.6.7'
+	implementation 'com.electronwill.night-config:core:3.6.7'
 	
 }
 

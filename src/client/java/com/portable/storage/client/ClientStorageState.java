@@ -12,6 +12,7 @@ public final class ClientStorageState {
     private static long[] counts = new long[54];
     private static long[] timestamps = new long[54];
     private static int capacity = 54;
+    private static boolean storageEnabled = false; // 默认未启用，等待服务端同步
 
     private ClientStorageState() {}
 
@@ -19,6 +20,11 @@ public final class ClientStorageState {
     public static int getCapacity() { return capacity; }
     public static long getCount(int index) { return (index>=0 && index<counts.length) ? counts[index] : 0L; }
     public static long getTimestamp(int index) { return (index>=0 && index<timestamps.length) ? timestamps[index] : 0L; }
+    public static boolean isStorageEnabled() { return storageEnabled; }
+    
+    public static void setStorageEnabled(boolean enabled) {
+        storageEnabled = enabled;
+    }
 
     public static void updateFromNbt(NbtCompound nbt, net.minecraft.registry.RegistryWrapper.WrapperLookup lookup) {
         int cap = nbt.getInt("capacity");

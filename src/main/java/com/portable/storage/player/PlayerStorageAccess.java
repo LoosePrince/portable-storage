@@ -11,6 +11,16 @@ public interface PlayerStorageAccess {
 	void portableStorage$setInventory(StorageInventory inventory);
 	UpgradeInventory portableStorage$getUpgradeInventory();
 	void portableStorage$setUpgradeInventory(UpgradeInventory inventory);
+	
+	/**
+	 * 检查玩家是否已启用随身仓库功能
+	 */
+	boolean portableStorage$isStorageEnabled();
+	
+	/**
+	 * 设置玩家随身仓库启用状态
+	 */
+	void portableStorage$setStorageEnabled(boolean enabled);
 }
 
 

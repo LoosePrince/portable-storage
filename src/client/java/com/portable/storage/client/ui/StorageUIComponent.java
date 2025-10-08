@@ -143,6 +143,11 @@ public class StorageUIComponent {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null || client.textRenderer == null) return;
         
+        // 检查仓库是否已启用
+        if (!ClientStorageState.isStorageEnabled()) {
+            return;
+        }
+        
         // 计算位置
         this.baseX = screenX;
         this.baseY = screenY;
@@ -216,6 +221,7 @@ public class StorageUIComponent {
     public void render(DrawContext context, int mouseX, int mouseY, float delta, int screenX, int screenY, int backgroundWidth, int backgroundHeight) {
         render(context, mouseX, mouseY, delta, screenX, screenY, backgroundWidth, backgroundHeight, false);
     }
+    
     
     /**
      * 渲染仓库网格
@@ -859,7 +865,7 @@ public class StorageUIComponent {
                                 if (mc != null && mc.player != null) {
                                     ItemStack cursor = mc.player.currentScreenHandler.getCursorStack();
                                     if (!cursor.isEmpty()) {
-                                        ClientPlayNetworking.send(DepositCursorC2SPayload.INSTANCE);
+                                        ClientPlayNetworking.send(new DepositCursorC2SPayload(button));
                                         return true;
                                     }
                                 }

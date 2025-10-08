@@ -72,8 +72,11 @@ public abstract class InventoryScreenMixin {
 
         MinecraftClient client = MinecraftClient.getInstance();
         if (client != null && client.textRenderer != null) {
-            // 渲染仓库UI（启用折叠功能）
-            portableStorage$uiComponent.render(context, mouseX, mouseY, delta, x, y, backgroundWidth, backgroundHeight, true);
+            // 检查仓库是否已启用
+            if (com.portable.storage.client.ClientStorageState.isStorageEnabled()) {
+                // 渲染仓库UI（启用折叠功能）
+                portableStorage$uiComponent.render(context, mouseX, mouseY, delta, x, y, backgroundWidth, backgroundHeight, true);
+            }
         }
 
         // 合成补充检测（在render之外也调用，避免折叠时失效）
@@ -111,10 +114,13 @@ public abstract class InventoryScreenMixin {
             }
         }
 
-        // 委托给UI组件处理（启用折叠功能）
-        if (portableStorage$uiComponent.mouseClicked(mouseX, mouseY, button, true)) {
+        // 检查仓库是否已启用
+        if (com.portable.storage.client.ClientStorageState.isStorageEnabled()) {
+            // 委托给UI组件处理（启用折叠功能）
+            if (portableStorage$uiComponent.mouseClicked(mouseX, mouseY, button, true)) {
                 cir.setReturnValue(true);
-            return;
+                return;
+            }
         }
     }
 
@@ -122,14 +128,14 @@ public abstract class InventoryScreenMixin {
 
     @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
     private void portableStorage$keyPressed(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
-        if (portableStorage$uiComponent.keyPressed(keyCode, scanCode, modifiers)) {
+        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$uiComponent.keyPressed(keyCode, scanCode, modifiers)) {
             cir.setReturnValue(true);
         }
     }
 
     @Inject(method = "charTyped", at = @At("HEAD"), cancellable = true)
     private void portableStorage$charTyped(char chr, int modifiers, CallbackInfoReturnable<Boolean> cir) {
-        if (portableStorage$uiComponent.charTyped(chr, modifiers)) {
+        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$uiComponent.charTyped(chr, modifiers)) {
             cir.setReturnValue(true);
         }
     }

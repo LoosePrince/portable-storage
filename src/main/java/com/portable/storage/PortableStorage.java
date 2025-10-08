@@ -2,6 +2,9 @@ package com.portable.storage;
 
 import com.portable.storage.block.ModBlocks;
 import com.portable.storage.blockentity.ModBlockEntities;
+import com.portable.storage.config.ServerConfig;
+import com.portable.storage.event.PlayerInteractEventHandler;
+import com.portable.storage.event.PlayerJoinEventHandler;
 import com.portable.storage.screen.PortableCraftingScreenHandler;
 import net.fabricmc.api.ModInitializer;
 import org.slf4j.Logger;
@@ -28,6 +31,9 @@ public class PortableStorage implements ModInitializer {
 		// However, some things (like resources) may still be uninitialized.
 		// Proceed with mild caution.
 
+		// 加载服务端配置
+		ServerConfig.getInstance().load();
+
 		// 注册自定义方块和方块实体
 		ModBlocks.register();
 		ModBlockEntities.register();
@@ -41,6 +47,12 @@ public class PortableStorage implements ModInitializer {
                 new net.minecraft.screen.ScreenHandlerType<>(PortableCraftingScreenHandler::new, FeatureSet.empty())
         );
 		ServerNetworkingHandlers.register();
+		
+		// 注册玩家交互事件处理器
+		PlayerInteractEventHandler.register();
+		
+		// 注册玩家加入事件处理器
+		PlayerJoinEventHandler.register();
 		
 		LOGGER.info("Portable Storage initialized");
 	}

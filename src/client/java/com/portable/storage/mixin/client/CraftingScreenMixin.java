@@ -73,8 +73,8 @@ public abstract class CraftingScreenMixin {
 
         MinecraftClient client = MinecraftClient.getInstance();
         if (client != null && client.textRenderer != null) {
-            // 检查是否有工作台升级
-            if (portableStorage$hasCraftingTableUpgrade()) {
+            // 检查仓库是否已启用且有工作台升级
+            if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingTableUpgrade()) {
                 // 渲染仓库UI（不支持折叠功能）
                 portableStorage$uiComponent.render(context, mouseX, mouseY, delta, x, y, backgroundWidth, backgroundHeight);
             }
@@ -115,24 +115,27 @@ public abstract class CraftingScreenMixin {
             }
         }
 
-        // 委托给UI组件处理（不支持折叠功能）
-        if (portableStorage$uiComponent.mouseClicked(mouseX, mouseY, button)) {
-            cir.setReturnValue(true);
-            return;
+        // 检查仓库是否已启用
+        if (com.portable.storage.client.ClientStorageState.isStorageEnabled()) {
+            // 委托给UI组件处理（不支持折叠功能）
+            if (portableStorage$uiComponent.mouseClicked(mouseX, mouseY, button)) {
+                cir.setReturnValue(true);
+                return;
+            }
         }
     }
 
 
     @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
     private void portableStorage$keyPressed(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
-        if (portableStorage$uiComponent.keyPressed(keyCode, scanCode, modifiers)) {
+        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$uiComponent.keyPressed(keyCode, scanCode, modifiers)) {
             cir.setReturnValue(true);
         }
     }
 
     @Inject(method = "charTyped", at = @At("HEAD"), cancellable = true)
     private void portableStorage$charTyped(char chr, int modifiers, CallbackInfoReturnable<Boolean> cir) {
-        if (portableStorage$uiComponent.charTyped(chr, modifiers)) {
+        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$uiComponent.charTyped(chr, modifiers)) {
             cir.setReturnValue(true);
         }
     }
