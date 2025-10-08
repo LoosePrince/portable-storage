@@ -181,10 +181,22 @@ public final class ServerNetworkingHandlers {
 				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
 				if (checkAndRejectIfNotEnabled(player)) return;
 
-				// 检查是否有工作台升级且未禁用
-				if (!portableStorage$hasCraftingTableUpgrade(player)) return;
-
 				ScreenHandler handler = player.currentScreenHandler;
+				// 允许的容器：
+				// - PortableCraftingScreenHandler：总是允许（已启用仓库即可）
+				// - CraftingScreenHandler（原版3x3）：需要工作台升级
+				// - PlayerScreenHandler（背包2x2）：允许
+				boolean allowed;
+				if (handler instanceof com.portable.storage.screen.PortableCraftingScreenHandler) {
+					allowed = true;
+				} else if (handler instanceof net.minecraft.screen.CraftingScreenHandler) {
+					allowed = portableStorage$hasCraftingTableUpgrade(player);
+				} else if (handler instanceof net.minecraft.screen.PlayerScreenHandler) {
+					allowed = true;
+				} else {
+					allowed = false;
+				}
+				if (!allowed) return;
 
 				// 验证槽位索引
 				if (slotIndex < 0 || slotIndex >= handler.slots.size()) return;
@@ -198,49 +210,79 @@ public final class ServerNetworkingHandlers {
 					// 槽位物品已经变了，不补充
 					return;
 				}
-				
-				// 计算需要补充的数量
-				int currentCount = current.isEmpty() ? 0 : current.getCount();
-				int needed = targetStack.getCount() - currentCount;
-				
-				// 如果不需要补充或已经足够，直接返回
-				if (needed <= 0) return;
-				
-                // 从合并视图取出：优先自己，其次共享对象
-                int totalTaken = 0;
-                java.util.List<StorageInventory> view = getViewStorages(player);
-                for (StorageInventory s : view) {
-                    for (int i = 0; i < s.getCapacity() && totalTaken < needed; i++) {
-                        ItemStack storageStack = s.getDisplayStack(i);
-                        if (storageStack.isEmpty()) continue;
-                        if (ItemStack.areItemsAndComponentsEqual(targetStack, storageStack)) {
-                            long available = s.getCountByIndex(i);
-                            if (available > 0) {
-                                int canTake = Math.min(needed - totalTaken, (int)Math.min(available, targetStack.getMaxCount()));
-                                if (canTake > 0) {
-                                    long taken = s.takeByIndex(i, canTake, System.currentTimeMillis());
-                                    totalTaken += (int)taken;
-                                }
-                            }
-                        }
-                    }
-                    if (totalTaken >= needed) break;
-                }
-				
-				// 如果成功取出物品，放入合成槽位
-				if (totalTaken > 0) {
-					if (current.isEmpty()) {
-						ItemStack newStack = targetStack.copy();
-						newStack.setCount(totalTaken);
-						slot.setStack(newStack);
-					} else {
-						current.increment(totalTaken);
+
+				// 计算每槽上限
+				int maxPerSlot = Math.min(targetStack.getMaxCount(), player.getInventory().getMaxCountPerStack());
+
+				// 组装同类物品分组（保持摆放形状）：包括当前槽，以及其它与目标物品“完全一致”的非空槽
+				java.util.ArrayList<Integer> group = new java.util.ArrayList<>();
+				group.add(slotIndex);
+				for (int i = 1; i < Math.min(10, handler.slots.size()); i++) {
+					if (i == slotIndex) continue;
+					Slot s = handler.getSlot(i);
+					ItemStack st = s.getStack();
+					if (!st.isEmpty() && ItemStack.areItemsAndComponentsEqual(st, targetStack)) {
+						group.add(i);
 					}
-					
-					slot.markDirty();
-					handler.sendContentUpdates();
-					sendSync(player);
 				}
+
+				// 计算各槽缺口
+				int[] needBySlot = new int[group.size()];
+				int totalNeed = 0;
+				for (int gi = 0; gi < group.size(); gi++) {
+					Slot gs = handler.getSlot(group.get(gi));
+					ItemStack cs = gs.getStack();
+					int curCnt = cs.isEmpty() ? 0 : cs.getCount();
+					int need = Math.max(0, maxPerSlot - curCnt);
+					needBySlot[gi] = need;
+					totalNeed += need;
+				}
+				// 若组内无缺口，但当前槽为空（仅当前槽需要），按目标计
+				if (totalNeed == 0 && current.isEmpty()) {
+					int need = Math.max(0, Math.min(maxPerSlot, targetStack.getMaxCount()));
+					needBySlot[0] = need;
+					totalNeed = need;
+				}
+				if (totalNeed <= 0) return;
+
+				// 统一从合并视图提取 totalNeed 个目标物品
+				long got = takeFromMerged(player, targetStack, totalNeed);
+				if (got <= 0) return;
+
+				// 使用轮询（round-robin）方式均衡分配，确保尽可能平均
+				int[] alloc = new int[group.size()];
+				int remain = (int)got;
+				while (remain > 0) {
+					boolean progressed = false;
+					for (int gi = 0; gi < group.size() && remain > 0; gi++) {
+						int room = needBySlot[gi] - alloc[gi];
+						if (room > 0) {
+							alloc[gi] += 1;
+							remain -= 1;
+							progressed = true;
+						}
+					}
+					if (!progressed) break; // 所有槽位都满或没有缺口
+				}
+
+				// 写回各槽
+				for (int gi = 0; gi < group.size(); gi++) {
+					int idx = group.get(gi);
+					int add = alloc[gi];
+					if (add <= 0) continue;
+					Slot gs = handler.getSlot(idx);
+					ItemStack cs = gs.getStack();
+					if (cs.isEmpty()) {
+						ItemStack put = targetStack.copy();
+						put.setCount(add);
+						gs.setStack(put);
+					} else {
+						cs.increment(add);
+					}
+					gs.markDirty();
+				}
+				handler.sendContentUpdates();
+				sendSync(player);
 			});
 		});
 
@@ -371,21 +413,45 @@ public final class ServerNetworkingHandlers {
 			});
 		});
 
-		// 切回原版工作台：简单处理，直接打开原版 CraftingScreenHandler
+        // 切回原版工作台：确保关闭旧容器并清理自定义容器的输入/输出槽位，避免残留状态影响原版合成
         ServerPlayNetworking.registerGlobalReceiver(com.portable.storage.net.payload.RequestVanillaCraftingOpenC2SPayload.ID, (payload, context) -> {
 			context.server().execute(() -> {
 				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
-				// 直接打开原版工作台容器
-				player.openHandledScreen(new net.minecraft.screen.NamedScreenHandlerFactory() {
+                // 读取原始方块上下文（如果当前是自定义工作台），优先使用该上下文打开原版
+                final net.minecraft.util.math.BlockPos[] openPosHolder = new net.minecraft.util.math.BlockPos[1];
+                final net.minecraft.world.World[] openWorldHolder = new net.minecraft.world.World[1];
+                if (player.currentScreenHandler instanceof com.portable.storage.screen.PortableCraftingScreenHandler pch) {
+                    // 先清空自定义工作台中的输入物品到玩家背包（仅1..9，保留输出槽0）
+                    for (int i = 1; i <= 9 && i < pch.slots.size(); i++) {
+                        net.minecraft.screen.slot.Slot slot = pch.getSlot(i);
+                        ItemStack st = slot.getStack();
+                        if (!st.isEmpty()) {
+                            ItemStack copy = st.copy();
+                            slot.setStack(ItemStack.EMPTY);
+                            insertIntoPlayerInventory(player, copy);
+                        }
+                    }
+                    // 从自定义 handler 的上下文读取世界与方块位置
+                    pch.getContext().run((w, pos) -> {
+                        openWorldHolder[0] = w;
+                        openPosHolder[0] = pos;
+                    });
+                }
+                // 显式关闭当前容器，防止旧 handler 残留状态
+                player.closeHandledScreen();
+                // 直接打开原版工作台容器（优先使用原上下文，否则退化为玩家当前位置）
+                player.openHandledScreen(new net.minecraft.screen.NamedScreenHandlerFactory() {
 					@Override
 					public net.minecraft.text.Text getDisplayName() {
 						return net.minecraft.text.Text.translatable("container.crafting");
 					}
 
-					@Override
+                    @Override
                     public net.minecraft.screen.ScreenHandler createMenu(int syncId, net.minecraft.entity.player.PlayerInventory inv, net.minecraft.entity.player.PlayerEntity playerEntity) {
-						return new net.minecraft.screen.CraftingScreenHandler(syncId, inv);
-					}
+                        net.minecraft.world.World w = openWorldHolder[0] != null ? openWorldHolder[0] : player.getWorld();
+                        net.minecraft.util.math.BlockPos p = openPosHolder[0] != null ? openPosHolder[0] : player.getBlockPos();
+                        return new net.minecraft.screen.CraftingScreenHandler(syncId, inv, net.minecraft.screen.ScreenHandlerContext.create(w, p));
+                    }
 				});
 			});
 		});

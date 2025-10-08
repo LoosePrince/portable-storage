@@ -114,8 +114,31 @@ public class PortableCraftingScreenHandler extends ScreenHandler {
         return itemStack;
     }
 
+    @Override
+    public void onClosed(PlayerEntity player) {
+        super.onClosed(player);
+        // 关闭时将输入格 (1..9) 安全返还给玩家，避免物品消失
+        for (int i = 1; i <= 9; i++) {
+            if (i >= this.slots.size()) break;
+            Slot slot = this.getSlot(i);
+            ItemStack st = slot.getStack();
+            if (!st.isEmpty()) {
+                ItemStack copy = st.copy();
+                slot.setStack(ItemStack.EMPTY);
+                // 尝试放入玩家背包或掉落到地上
+                if (!player.getInventory().insertStack(copy)) {
+                    player.dropItem(copy, false);
+                }
+            }
+        }
+        this.sendContentUpdates();
+    }
+
     public CraftingInventory getCraftingInventory() { return input; }
     public CraftingResultInventory getResultInventory() { return result; }
+
+    // 供服务端切回原版界面时读取原始方块上下文
+    public ScreenHandlerContext getContext() { return context; }
 }
 
 

@@ -39,6 +39,12 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
     private final Text titleRef;
     private final StorageUIComponent storageUi = new StorageUIComponent();
 
+    // 合成补充相关字段
+    private final java.util.Map<Integer, ItemStack> portableStorage$lastCraftingStacks = new java.util.HashMap<>();
+    private ItemStack portableStorage$lastCraftingOutput = ItemStack.EMPTY;
+    private long portableStorage$lastCraftRefillCheck = 0;
+    private long portableStorage$lastCraftingSlotClickTime = 0;
+
     public PortableCraftingScreen(PortableCraftingScreenHandler handler, PlayerInventory playerInventory, Text title) {
         super(handler, playerInventory, title);
         this.playerInventoryRef = playerInventory;
@@ -97,10 +103,30 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
         }
 
         this.drawMouseoverTooltip(context, mouseX, mouseY);
+
+        // 合成补充检测
+        portableStorage$checkCraftRefill();
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // 记录点击合成槽位用于抑制立即补充
+        var handler = this.handler;
+        if (handler != null) {
+            int screenX = this.x;
+            int screenY = this.y;
+            for (net.minecraft.screen.slot.Slot slot : handler.slots) {
+                int slotX = screenX + slot.x;
+                int slotY = screenY + slot.y;
+                if (mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY && mouseY < slotY + 16) {
+                    if (slot.id >= 1 && slot.id <= 9) {
+                        portableStorage$lastCraftingSlotClickTime = System.currentTimeMillis();
+                    }
+                    break;
+                }
+            }
+        }
+
         if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && storageUi.mouseClicked(mouseX, mouseY, button)) return true;
         return super.mouseClicked(mouseX, mouseY, button);
     }
@@ -160,6 +186,70 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
         consumer.accept(new Bounds(settingsLeft, settingsTop, settingsWidth, settingsHeight));
     }
     
+    // ===== 合成补充逻辑 =====
+    private void portableStorage$checkCraftRefill() {
+        // 检查合成补充开关
+        if (!com.portable.storage.client.ClientConfig.getInstance().craftRefill) return;
+
+        long now = System.currentTimeMillis();
+        if (now - portableStorage$lastCraftRefillCheck < 100) return; // 100ms 限流
+        portableStorage$lastCraftRefillCheck = now;
+
+        var handler = this.handler;
+        if (handler == null) return;
+
+        boolean craftOccurred = false;
+        // 输出槽为 index 0
+        if (handler.slots.size() > 0) {
+            ItemStack currentOutput = handler.getSlot(0).getStack();
+            if (!portableStorage$lastCraftingOutput.isEmpty()) {
+                if (currentOutput.isEmpty() ||
+                    (!ItemStack.areItemsAndComponentsEqual(currentOutput, portableStorage$lastCraftingOutput)) ||
+                    (currentOutput.getCount() < portableStorage$lastCraftingOutput.getCount())) {
+                    craftOccurred = true;
+                }
+            }
+            portableStorage$lastCraftingOutput = currentOutput.copy();
+        }
+
+        if (craftOccurred) {
+            for (int i = 1; i <= 9; i++) {
+                if (handler.slots.size() <= i) continue;
+                ItemStack currentStack = handler.getSlot(i).getStack();
+                ItemStack lastStack = portableStorage$lastCraftingStacks.get(i);
+                boolean recentClick = (now - portableStorage$lastCraftingSlotClickTime) < 300;
+
+                if (lastStack != null && !lastStack.isEmpty()) {
+                    if (currentStack.isEmpty()) {
+                        if (!recentClick) {
+                            ItemStack target = lastStack.copy();
+                            target.setCount(target.getMaxCount());
+                            portableStorage$refillFromStorage(i, target);
+                        }
+                    } else if (ItemStack.areItemsAndComponentsEqual(currentStack, lastStack) && currentStack.getCount() < lastStack.getCount()) {
+                        if (!recentClick) {
+                            ItemStack target = currentStack.copy();
+                            target.setCount(target.getMaxCount());
+                            portableStorage$refillFromStorage(i, target);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 更新输入缓存
+        for (int i = 1; i <= 9; i++) {
+            if (handler.slots.size() <= i) continue;
+            ItemStack cur = handler.getSlot(i).getStack();
+            portableStorage$lastCraftingStacks.put(i, cur.copy());
+        }
+    }
+
+    private void portableStorage$refillFromStorage(int slotIndex, ItemStack targetStack) {
+        if (targetStack.isEmpty()) return;
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.RefillCraftingC2SPayload(slotIndex, targetStack));
+    }
+
     /**
      * 从仓库填充配方
      */

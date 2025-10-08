@@ -23,31 +23,8 @@ public abstract class MinecraftClientMixin {
         if (!(newScreen instanceof CraftingScreen)) return;
         if (newScreen instanceof PortableCraftingScreen) return;
 
-        // 若用户刚点击了“切换原版”，跳过本次替换
-        if (ScreenSwapBypass.consumeSkipNextCraftingSwap()) return;
-
-        // 检查是否拥有“工作台升级”且未禁用
-        boolean hasUpgrade = false;
-        for (int i = 0; i < 5; i++) {
-            var stack = ClientUpgradeState.getStack(i);
-            if (!stack.isEmpty() && stack.getItem() == Items.CRAFTING_TABLE && !ClientUpgradeState.isSlotDisabled(i)) {
-                hasUpgrade = true;
-                break;
-            }
-        }
-        if (!hasUpgrade) return;
-
-        CraftingScreen crafting = (CraftingScreen) newScreen;
-        var vanillaHandler = crafting.getScreenHandler();
-
-        // 直接从客户端玩家获取背包，从 Screen 获取标题
-        MinecraftClient mc = (MinecraftClient) (Object) this;
-        if (mc.player == null) return;
-        PlayerInventory inv = mc.player.getInventory();
-        Text title = newScreen.getTitle();
-
-        // 仅替换界面为我们的自定义屏幕，但保持服务端 handler 不变，防止不同步
-        mc.setScreen(new PortableCraftingScreen(new com.portable.storage.screen.PortableCraftingScreenHandler(vanillaHandler.syncId, inv), inv, title));
+        // 禁用对原版工作台界面的替换，直接使用原版界面（通过 CraftingScreenMixin 叠加仓库与补充逻辑）
+        return;
     }
 }
 
