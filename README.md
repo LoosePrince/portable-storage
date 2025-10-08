@@ -12,7 +12,9 @@
 
 ## 模组UI
 
-<img width="1153" height="1111" alt="image" src="https://github.com/user-attachments/assets/4d751127-eda9-40a2-9191-b466d3901880" />
+<!-- <img width="1153" height="1111" alt="image" src="https://github.com/user-attachments/assets/4d751127-eda9-40a2-9191-b466d3901880" /> -->
+<img width="1204" height="1049" alt="42a13c3fdfdecd3f477c93942435c204" src="https://github.com/user-attachments/assets/1eae7b0b-da81-47e6-b028-f1a42a54937a" />
+
 
 
 ### 升级（放入升级槽位的物品，右键升级槽位可停用）：
