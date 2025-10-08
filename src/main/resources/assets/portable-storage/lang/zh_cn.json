@@ -7,6 +7,7 @@
   "portable_storage.ui.sort_order": "排序(%s)",
   "portable_storage.ui.craft_refill": "合成补充(%s)",
   "portable_storage.ui.auto_deposit": "自动传入(%s)",
+  "portable_storage.ui.smart_collapse": "智能折叠(%s)",
   "portable_storage.sort.count": "数量",
   "portable_storage.sort.name": "名称",
   "portable_storage.sort.mod_id": "模组",

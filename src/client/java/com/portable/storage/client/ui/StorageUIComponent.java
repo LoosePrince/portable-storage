@@ -50,6 +50,13 @@ public class StorageUIComponent {
     private int[] visibleIndexMap = new int[0];
     private String query = "";
     private boolean collapsed = false;
+    // 智能折叠：代表索引 -> 折叠信息
+    private static final class CollapsedInfo {
+        ItemStack displayStack; // 无 NBT + 光效 的展示用物品
+        int totalCount;         // 折叠的总数量
+        String itemId;          // 物品完整 id，用于右键展开
+    }
+    private java.util.Map<Integer, CollapsedInfo> collapsedInfoByRep = new java.util.HashMap<>();
     
     // 折叠态点击区域
     private int expandTabLeft, expandTabTop, expandTabRight, expandTabBottom;
@@ -83,6 +90,7 @@ public class StorageUIComponent {
     private int craftRefillLeft, craftRefillTop, craftRefillRight, craftRefillBottom;
     private int autoDepositLeft, autoDepositTop, autoDepositRight, autoDepositBottom;
     private int searchPosLeft, searchPosTop, searchPosRight, searchPosBottom;
+    private int smartCollapseLeft, smartCollapseTop, smartCollapseRight, smartCollapseBottom;
     
     // 切换原版界面点击区域
     private int switchVanillaLeft, switchVanillaTop, switchVanillaRight, switchVanillaBottom;
@@ -270,15 +278,25 @@ public class StorageUIComponent {
                             // 渲染物品
                             context.getMatrices().push();
                             context.getMatrices().translate(0.0f, 0.0f, 100.0f);
-                            context.drawItem(stack, sx + 1, sy + 1);
+                            CollapsedInfo cinfo = collapsedInfoByRep.get(storageIndex);
+                            ItemStack toRender = (cinfo != null && cinfo.displayStack != null) ? cinfo.displayStack : stack;
+                            context.drawItem(toRender, sx + 1, sy + 1);
                             // 使用覆盖层渲染耐久条，但抑制默认数量渲染（将计数临时设为1）
-                            int originalCount = stack.getCount();
-                            ItemStack overlayStack = stack.copy();
+                            int originalCount = toRender.getCount();
+                            ItemStack overlayStack = toRender.copy();
                             overlayStack.setCount(1);
                             context.drawItemInSlot(client.textRenderer, overlayStack, sx + 1, sy + 1);
 
+                            // 智能折叠时叠加浅绿色半透明覆盖层
+                            if (cinfo != null) {
+                                context.getMatrices().push();
+                                context.getMatrices().translate(0.0f, 0.0f, 150.0f);
+                                context.fill(sx + 1, sy + 1, sx + slotSize - 1, sy + slotSize - 1, 0x4055FF55);
+                                context.getMatrices().pop();
+                            }
+
                             // 数量渲染：0.75 缩放，右下角
-                            long logicalCount = ClientStorageState.getCount(storageIndex);
+                            long logicalCount = (cinfo != null) ? cinfo.totalCount : ClientStorageState.getCount(storageIndex);
                             int displayCount = (int)Math.min(Integer.MAX_VALUE, logicalCount > 0 ? logicalCount : originalCount);
                             if (displayCount > 1) {
                                 String countText = formatCount(displayCount);
@@ -301,6 +319,14 @@ public class StorageUIComponent {
                             visibleIndexMap[row * cols + col] = storageIndex;
                         }
                     }
+                }
+
+                // 槽位悬停白色半透明遮罩（与原版一致的高亮感）
+                if (mouseX >= sx && mouseX < sx + slotSize && mouseY >= sy && mouseY < sy + slotSize) {
+                    context.getMatrices().push();
+                    context.getMatrices().translate(0.0f, 0.0f, 240.0f);
+                    context.fill(sx + 1, sy + 1, sx + slotSize - 1, sy + slotSize - 1, 0x80FFFFFF);
+                    context.getMatrices().pop();
                 }
             }
         }
@@ -554,6 +580,17 @@ public class StorageUIComponent {
         this.autoDepositBottom = textY + collapseTextH + 3;
         textY += 12;
 
+        // 智能折叠开关
+        String smartCollapseKey = config.smartCollapse ? "portable_storage.toggle.enabled" : "portable_storage.toggle.disabled";
+        Text smartCollapseText = Text.translatable("portable_storage.ui.smart_collapse", Text.translatable(smartCollapseKey).getString());
+        int smartCollapseTextW = client.textRenderer.getWidth(smartCollapseText);
+        context.drawText(client.textRenderer, smartCollapseText, textX, textY, 0xFFFFFF, true);
+        this.smartCollapseLeft = textX;
+        this.smartCollapseTop = textY - 1;
+        this.smartCollapseRight = textX + smartCollapseTextW + 2;
+        this.smartCollapseBottom = textY + collapseTextH + 3;
+        textY += 12;
+
         // 搜索位置
         String posKey;
         switch (config.searchPos) {
@@ -658,17 +695,62 @@ public class StorageUIComponent {
     // ========== 辅助方法 ==========
     
     private List<Integer> buildFilteredIndices() {
+        this.collapsedInfoByRep.clear();
         List<Integer> result = new ArrayList<>();
         var stacks = ClientStorageState.getStacks();
-        
-        for (int i = 0; i < stacks.size(); i++) {
-            var stack = stacks.get(i);
-            if (stack == null || stack.isEmpty()) continue;
-            if (query.isEmpty() || matchesQuery(stack, query)) {
-                result.add(i);
+        boolean smartCollapse = ClientConfig.getInstance().smartCollapse;
+        boolean expandForSearch = query != null && !query.isEmpty();
+
+        if (smartCollapse && !expandForSearch) {
+            // 分组：对同一物品ID的不同 NBT 变体进行折叠（仅当同ID索引数量≥2）
+            java.util.Map<String, java.util.List<Integer>> groups = new java.util.HashMap<>();
+            for (int i = 0; i < stacks.size(); i++) {
+                var stack = stacks.get(i);
+                if (stack == null || stack.isEmpty()) continue;
+                if (!(query.isEmpty() || matchesQuery(stack, query))) continue;
+                String id = Registries.ITEM.getId(stack.getItem()).toString();
+                groups.computeIfAbsent(id, k -> new java.util.ArrayList<>()).add(i);
+            }
+            // 输出分组：每组选第一个作为代表，并记录折叠信息
+            for (var entry : groups.entrySet()) {
+                java.util.List<Integer> indices = entry.getValue();
+                if (indices.isEmpty()) continue;
+                if (indices.size() == 1) {
+                    // 仅一个变体，不折叠
+                    result.add(indices.get(0));
+                    continue;
+                }
+                int rep = indices.get(0);
+                long total = 0;
+                for (int idx : indices) {
+                    total += ClientStorageState.getCount(idx);
+                }
+                // 仅当折叠总数>1时折叠
+                if (total <= 1) {
+                    result.add(rep);
+                    continue;
+                }
+                // 展示堆叠用无 NBT 的基础物品 + 光效
+                ItemStack repStack = stacks.get(rep);
+                ItemStack display = new ItemStack(repStack.getItem());
+                display.set(net.minecraft.component.DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
+                CollapsedInfo info = new CollapsedInfo();
+                info.displayStack = display;
+                info.totalCount = (int)Math.min(Integer.MAX_VALUE, total);
+                info.itemId = entry.getKey();
+                collapsedInfoByRep.put(rep, info);
+                result.add(rep);
+            }
+        } else {
+            // 不折叠或 id: 搜索 → 逐条加入，支持按照 id 过滤
+            for (int i = 0; i < stacks.size(); i++) {
+                var stack = stacks.get(i);
+                if (stack == null || stack.isEmpty()) continue;
+                if (query.isEmpty() || matchesQuery(stack, query)) {
+                    result.add(i);
+                }
             }
         }
-        
         sortIndices(result);
         return result;
     }
@@ -687,7 +769,9 @@ public class StorageUIComponent {
             }
             return false;
         } else {
-            return stack.getName().getString().toLowerCase(Locale.ROOT).contains(lower);
+            String name = stack.getName().getString().toLowerCase(Locale.ROOT);
+            String fullId = Registries.ITEM.getId(stack.getItem()).toString();
+            return name.contains(lower) || fullId.contains(lower);
         }
     }
     
@@ -948,7 +1032,16 @@ public class StorageUIComponent {
                         if (visIdx < visibleIndexMap.length) {
                             int storageIndex = visibleIndexMap[visIdx];
                             if (storageIndex >= 0) {
-                                // 检测 Shift：Shift+左键=一组到背包，Shift+右键=一个到背包
+                                // 优先处理：智能折叠代表项的右键 → 展开（填充搜索框），避免与“右键取1个”冲突
+                                if (button == 1 && ClientConfig.getInstance().smartCollapse && collapsedInfoByRep.containsKey(storageIndex)) {
+                                    if (this.searchField == null || this.searchField.getText().isEmpty()) {
+                                        String id = collapsedInfoByRep.get(storageIndex).itemId;
+                                        this.query = id;
+                                        if (this.searchField != null) this.searchField.setText(id);
+                                        return true;
+                                    }
+                                }
+                                // 常规取物：Shift+左键=一组，Shift+右键=一个；否则遵循统一槽位点击语义
                                 boolean shift = isShiftDown();
                                 if (shift) {
                                     ClientPlayNetworking.send(new StorageShiftTakeC2SPayload(storageIndex, button));
@@ -975,7 +1068,7 @@ public class StorageUIComponent {
         
         // 设置点击
         ClientConfig config = ClientConfig.getInstance();
-        if (button == 0) {
+        if (button == 0 || button == 1) {
             // 折叠仓库（仅在enableCollapse为true时）
             if (enableCollapse && isIn(mouseX, mouseY, collapseLeft, collapseTop, collapseRight, collapseBottom)) {
                 collapsed = true;
@@ -983,6 +1076,17 @@ public class StorageUIComponent {
                 ClientConfig.save();
                 if (this.searchField != null) this.searchField.setFocused(false);
                 return true;
+            }
+            // 非搜索状态右键折叠项：自动搜索完整物品ID（展开）
+            if (button == 1) {
+                int hovered = resolveHoveredIndex((int)mouseX, (int)mouseY);
+                if (hovered >= 0 && collapsedInfoByRep.containsKey(hovered)) {
+                    String id = collapsedInfoByRep.get(hovered).itemId;
+                    String text = id;
+                    this.query = text;
+                    if (this.searchField != null) this.searchField.setText(text);
+                    return true;
+                }
             }
             
             if (isIn(mouseX, mouseY, sortModeLeft, sortModeTop, sortModeRight, sortModeBottom)) {
@@ -1002,6 +1106,11 @@ public class StorageUIComponent {
             }
             if (isIn(mouseX, mouseY, autoDepositLeft, autoDepositTop, autoDepositRight, autoDepositBottom)) {
                 config.autoDeposit = !config.autoDeposit;
+                ClientConfig.save();
+                return true;
+            }
+            if (isIn(mouseX, mouseY, smartCollapseLeft, smartCollapseTop, smartCollapseRight, smartCollapseBottom)) {
+                config.smartCollapse = !config.smartCollapse;
                 ClientConfig.save();
                 return true;
             }

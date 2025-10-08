@@ -28,6 +28,9 @@ public class ClientConfig {
     // 自动传入
     public boolean autoDeposit = false;
 
+    // 智能折叠（按物品ID折叠不同 NBT 但同 ID 的物品）
+    public boolean smartCollapse = false;
+
     // 搜索位置
     public SearchPos searchPos = SearchPos.BOTTOM; // 默认底部
     

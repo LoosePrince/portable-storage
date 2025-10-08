@@ -7,6 +7,7 @@
   "portable_storage.ui.sort_order": "Order(%s)",
   "portable_storage.ui.craft_refill": "Craft Refill(%s)",
   "portable_storage.ui.auto_deposit": "Auto Deposit(%s)",
+  "portable_storage.ui.smart_collapse": "Smart Collapse(%s)",
   "portable_storage.sort.count": "Count",
   "portable_storage.sort.name": "Name",
   "portable_storage.sort.mod_id": "Mod",
