@@ -17,6 +17,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import net.minecraft.registry.RegistryWrapper;
 
 /**
  * 将随身仓库以字段的形式附着在玩家上，并随 Player NBT 读写。
@@ -97,11 +98,20 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 		}
 	}
 
-	@Inject(method = "readCustomDataFromNbt", at = @At("TAIL"))
-	private void portableStorage$read(NbtCompound nbt, CallbackInfo ci) {
+    @Inject(method = "readCustomDataFromNbt", at = @At("TAIL"))
+    private void portableStorage$read(NbtCompound nbt, CallbackInfo ci) {
 		if (nbt.contains(PORTABLE_STORAGE_NBT)) {
 			StorageInventory inv = new StorageInventory(54);
-			inv.readNbt(nbt.getCompound(PORTABLE_STORAGE_NBT));
+            // 带注册表上下文的读入（若可用）
+            RegistryWrapper.WrapperLookup lookup = null;
+            try {
+                PlayerEntity self = (PlayerEntity)(Object)this;
+                if (self != null && self.getRegistryManager() != null) {
+                    lookup = self.getRegistryManager();
+                }
+            } catch (Throwable ignored) {}
+            if (lookup != null) inv.readNbt(nbt.getCompound(PORTABLE_STORAGE_NBT), lookup);
+            else inv.readNbt(nbt.getCompound(PORTABLE_STORAGE_NBT));
 			this.portableStorage$inventory = inv;
 		}
 		
@@ -116,11 +126,20 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 		}
 	}
 
-	@Inject(method = "writeCustomDataToNbt", at = @At("TAIL"))
-	private void portableStorage$write(NbtCompound nbt, CallbackInfo ci) {
+    @Inject(method = "writeCustomDataToNbt", at = @At("TAIL"))
+    private void portableStorage$write(NbtCompound nbt, CallbackInfo ci) {
 		if (this.portableStorage$inventory != null) {
 			NbtCompound out = new NbtCompound();
-			this.portableStorage$inventory.writeNbt(out);
+            // 带注册表上下文的写出（若可用）
+            RegistryWrapper.WrapperLookup lookup = null;
+            try {
+                PlayerEntity self = (PlayerEntity)(Object)this;
+                if (self != null && self.getRegistryManager() != null) {
+                    lookup = self.getRegistryManager();
+                }
+            } catch (Throwable ignored) {}
+            if (lookup != null) this.portableStorage$inventory.writeNbt(out, lookup);
+            else this.portableStorage$inventory.writeNbt(out);
 			nbt.put(PORTABLE_STORAGE_NBT, out);
 		}
 		

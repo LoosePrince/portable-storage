@@ -68,6 +68,28 @@ public final class ServerNetworkingHandlers {
 			});
 		});
 
+		// Shift 直接取物：左键一组，右键一个
+		ServerPlayNetworking.registerGlobalReceiver(StorageShiftTakeC2SPayload.ID, (payload, context) -> {
+			int slotIndex = payload.index();
+			int button = payload.button();
+			context.server().execute(() -> {
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				if (checkAndRejectIfNotEnabled(player)) return;
+				StorageInventory merged = buildMergedSnapshot(player);
+				if (slotIndex < 0 || slotIndex >= merged.getCapacity()) return;
+				ItemStack disp = merged.getDisplayStack(slotIndex);
+				if (disp.isEmpty()) return;
+
+				int want = (button == 1) ? 1 : disp.getMaxCount();
+				long got = takeFromMerged(player, disp, want);
+				if (got <= 0) return;
+				ItemStack moved = disp.copy();
+				moved.setCount((int)Math.min(disp.getMaxCount(), got));
+				insertIntoPlayerInventory(player, moved);
+				sendSync(player);
+			});
+		});
+
 		// 统一槽位点击，遵循原版语义
 		ServerPlayNetworking.registerGlobalReceiver(StorageSlotClickC2SPayload.ID, (payload, context) -> {
 			int slotIndex = payload.index();
@@ -170,6 +192,28 @@ public final class ServerNetworkingHandlers {
 				
 				serverPlayer.currentScreenHandler.sendContentUpdates();
 				sendSync(serverPlayer);
+			});
+		});
+
+		// 从仓库直接丢出悬停物品（Q/CTRL+Q）
+		ServerPlayNetworking.registerGlobalReceiver(StorageDropC2SPayload.ID, (payload, context) -> {
+			int slotIndex = payload.index();
+			int amountType = payload.amountType(); // 0 一个；1 一组
+			context.server().execute(() -> {
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				if (checkAndRejectIfNotEnabled(player)) return;
+				StorageInventory merged = buildMergedSnapshot(player);
+				if (slotIndex < 0 || slotIndex >= merged.getCapacity()) return;
+				ItemStack disp = merged.getDisplayStack(slotIndex);
+				if (disp.isEmpty()) return;
+
+				int want = amountType == 1 ? disp.getMaxCount() : 1;
+				long got = takeFromMerged(player, disp, want);
+				if (got <= 0) return;
+				ItemStack drop = disp.copy();
+				drop.setCount((int)Math.min(disp.getMaxCount(), got));
+				dropItemTowardsLook(player, drop);
+				sendSync(player);
 			});
 		});
 
@@ -545,10 +589,37 @@ public final class ServerNetworkingHandlers {
     public static void sendSync(ServerPlayerEntity player) {
         StorageInventory merged = buildMergedSnapshot(player);
         NbtCompound nbt = new NbtCompound();
-        merged.writeNbt(nbt);
+        // 使用玩家注册表上下文，确保附魔等基于注册表的数据正确序列化
+        merged.writeNbt(nbt, player.getRegistryManager());
         ServerPlayNetworking.send(player, new StorageSyncS2CPayload(nbt));
 		sendUpgradeSync(player);
 		sendEnablementSync(player);
+	}
+
+	/**
+	 * 按玩家视角方向丢出物品，速度与原版 Q 丢弃相近。
+	 */
+	private static void dropItemTowardsLook(ServerPlayerEntity player, ItemStack stack) {
+		// 先生成掉落实体
+		ItemStack copy = stack.copy();
+		stack.setCount(0);
+		var itemEntity = new net.minecraft.entity.ItemEntity(
+			player.getWorld(),
+			player.getX(), player.getEyeY() - 0.3, player.getZ(),
+			copy
+		);
+		// 初始位置稍微在玩家前方
+		net.minecraft.util.math.Vec3d look = player.getRotationVec(1.0f).normalize();
+		net.minecraft.util.math.Vec3d spawnOffset = look.multiply(0.3);
+		itemEntity.setPos(itemEntity.getX() + spawnOffset.x, itemEntity.getY() + spawnOffset.y, itemEntity.getZ() + spawnOffset.z);
+		// 赋予速度（接近原版 Q 丢出：略带随机与向下分量）
+		double speed = 0.35D;
+		net.minecraft.util.math.Vec3d vel = look.multiply(speed);
+		// 轻微下坠感
+		vel = vel.add(0, 0.1D, 0);
+		itemEntity.setVelocity(vel);
+		itemEntity.setPickupDelay(10);
+		player.getWorld().spawnEntity(itemEntity);
 	}
 
 	public static void sendUpgradeSync(ServerPlayerEntity player) {

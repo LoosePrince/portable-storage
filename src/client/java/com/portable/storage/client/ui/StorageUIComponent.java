@@ -254,7 +254,7 @@ public class StorageUIComponent {
         
         for (int row = 0; row < visibleRows; row++) {
             int modelRow = row + rowOffset;
-            // 不再提前 break；保证至少绘制 visibleRows 行的槽位背景
+            // 渲染槽位背景
             for (int col = 0; col < cols; col++) {
                 int sx = gridLeft + col * (slotSize + slotSpacing);
                 int sy = gridTop + row * (slotSize + slotSpacing);
@@ -267,17 +267,31 @@ public class StorageUIComponent {
                     if (storageIndex >= 0 && storageIndex < stacks.size()) {
                         var stack = stacks.get(storageIndex);
                         if (stack != null && !stack.isEmpty()) {
-                            context.drawItem(stack, sx + 1, sy + 1);
-                            String countText = formatCount(ClientStorageState.getCount(storageIndex) > 0 ? 
-                                (int)Math.min(Integer.MAX_VALUE, ClientStorageState.getCount(storageIndex)) : stack.getCount());
-                            float scale = 0.75f;
-                            int textWidth = client.textRenderer.getWidth(countText);
-                            int txUnscaled = sx + slotSize - 1 - (int)(textWidth * scale);
-                            int tyUnscaled = sy + slotSize - (int)(9 * scale);
+                            // 渲染物品
                             context.getMatrices().push();
-                            context.getMatrices().translate(0.0f, 0.0f, 200.0f);
-                            context.getMatrices().scale(scale, scale, 1.0f);
-                            context.drawText(client.textRenderer, countText, (int)(txUnscaled / scale), (int)(tyUnscaled / scale), 0xFFFFFF, true);
+                            context.getMatrices().translate(0.0f, 0.0f, 100.0f);
+                            context.drawItem(stack, sx + 1, sy + 1);
+                            // 使用覆盖层渲染耐久条，但抑制默认数量渲染（将计数临时设为1）
+                            int originalCount = stack.getCount();
+                            ItemStack overlayStack = stack.copy();
+                            overlayStack.setCount(1);
+                            context.drawItemInSlot(client.textRenderer, overlayStack, sx + 1, sy + 1);
+
+                            // 数量渲染：0.75 缩放，右下角
+                            long logicalCount = ClientStorageState.getCount(storageIndex);
+                            int displayCount = (int)Math.min(Integer.MAX_VALUE, logicalCount > 0 ? logicalCount : originalCount);
+                            if (displayCount > 1) {
+                                String countText = formatCount(displayCount);
+                                float scale = 0.75f;
+                                int textWidth = client.textRenderer.getWidth(countText);
+                                int txUnscaled = sx + slotSize - 1 - (int)(textWidth * scale);
+                                int tyUnscaled = sy + slotSize - (int)(9 * scale);
+                                context.getMatrices().push();
+                                context.getMatrices().translate(0.0f, 0.0f, 200.0f);
+                                context.getMatrices().scale(scale, scale, 1.0f);
+                                context.drawText(client.textRenderer, countText, (int)(txUnscaled / scale), (int)(tyUnscaled / scale), 0xFFFFFF, true);
+                                context.getMatrices().pop();
+                            }
                             context.getMatrices().pop();
                             
                             if (hoveredStack.isEmpty() && mouseX >= sx && mouseX < sx + slotSize && mouseY >= sy && mouseY < sy + slotSize) {
@@ -923,7 +937,7 @@ public class StorageUIComponent {
             return true;
         }
         
-        // 仓库槽位点击
+        // 仓库槽位点击（支持 Shift 快捷取出）
         if (button == 0 || button == 1) {
             for (int row = 0; row < visibleRows; row++) {
                 for (int col = 0; col < cols; col++) {
@@ -934,7 +948,13 @@ public class StorageUIComponent {
                         if (visIdx < visibleIndexMap.length) {
                             int storageIndex = visibleIndexMap[visIdx];
                             if (storageIndex >= 0) {
-                                ClientPlayNetworking.send(new StorageSlotClickC2SPayload(storageIndex, button));
+                                // 检测 Shift：Shift+左键=一组到背包，Shift+右键=一个到背包
+                                boolean shift = isShiftDown();
+                                if (shift) {
+                                    ClientPlayNetworking.send(new StorageShiftTakeC2SPayload(storageIndex, button));
+                                } else {
+                                    ClientPlayNetworking.send(new StorageSlotClickC2SPayload(storageIndex, button));
+                                }
                                 return true;
                             } else {
                                 // 空格子：若鼠标上有物品，则投递到仓库
@@ -1028,7 +1048,38 @@ public class StorageUIComponent {
         if (searchField != null && searchField.keyPressed(keyCode, scanCode, modifiers)) {
             return true;
         }
+
+        // 自动传入启用时支持 Q / Ctrl+Q 从仓库丢出悬停物品
+        if (ClientStorageState.isStorageEnabled() && ClientConfig.getInstance().autoDeposit) {
+            // 获取当前鼠标位置以判定悬停槽位
+            MinecraftClient mc = MinecraftClient.getInstance();
+            if (mc != null && mc.mouse != null) {
+                double mx = mc.mouse.getX() * (double)mc.getWindow().getScaledWidth() / (double)mc.getWindow().getWidth();
+                double my = mc.mouse.getY() * (double)mc.getWindow().getScaledHeight() / (double)mc.getWindow().getHeight();
+                if (isOverStorageArea(mx, my)) {
+                    // Q 键
+                    if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_Q) {
+                        int hovered = resolveHoveredIndex((int)mx, (int)my);
+                        if (hovered >= 0) {
+                            boolean ctrl = isCtrlDown();
+                            int amountType = ctrl ? 1 : 0; // 1 组 或 1 个
+                            ClientPlayNetworking.send(new StorageDropC2SPayload(hovered, amountType));
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
         return false;
+    }
+
+    private boolean isShiftDown() {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc == null || mc.getWindow() == null) return false;
+        long win = mc.getWindow().getHandle();
+        boolean left = org.lwjgl.glfw.GLFW.glfwGetKey(win, org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+        boolean right = org.lwjgl.glfw.GLFW.glfwGetKey(win, org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+        return left || right;
     }
     
     public boolean charTyped(char chr, int modifiers) {
@@ -1036,6 +1087,24 @@ public class StorageUIComponent {
             return true;
         }
         return false;
+    }
+
+    private int resolveHoveredIndex(int mouseX, int mouseY) {
+        int col = (mouseX - gridLeft) / (slotSize + slotSpacing);
+        int row = (mouseY - gridTop) / (slotSize + slotSpacing);
+        if (col < 0 || col >= cols || row < 0 || row >= visibleRows) return -1;
+        int visIdx = row * cols + col;
+        if (visIdx < 0 || visIdx >= visibleIndexMap.length) return -1;
+        return visibleIndexMap[visIdx];
+    }
+
+    private boolean isCtrlDown() {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc == null || mc.getWindow() == null) return false;
+        long win = mc.getWindow().getHandle();
+        boolean left = org.lwjgl.glfw.GLFW.glfwGetKey(win, org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_CONTROL) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+        boolean right = org.lwjgl.glfw.GLFW.glfwGetKey(win, org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_CONTROL) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+        return left || right;
     }
     
     /**

@@ -6,7 +6,9 @@
 		"PlayerEntityMixin",
 		"BarrelBlockEntityMixin",
 		"BarrelBlockItemMixin",
-		"CraftingTableBlockMixin"
+		"CraftingTableBlockMixin",
+		"BowItemMixin",
+		"PlayerEntityProjectileMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

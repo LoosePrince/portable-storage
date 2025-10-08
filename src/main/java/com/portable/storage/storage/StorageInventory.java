@@ -4,6 +4,9 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.registry.RegistryWrapper;
+import com.mojang.serialization.DynamicOps;
 import net.minecraft.registry.Registries;
 
 import java.util.*;
@@ -158,28 +161,38 @@ public class StorageInventory {
     public void clear() { variants.clear(); markDirty(); }
 
     public NbtCompound writeNbt(NbtCompound out) {
+        return writeNbt(out, null);
+    }
+
+    public NbtCompound writeNbt(NbtCompound out, RegistryWrapper.WrapperLookup lookup) {
+        final DynamicOps<net.minecraft.nbt.NbtElement> ops =
+            (lookup != null) ? net.minecraft.registry.RegistryOps.of(NbtOps.INSTANCE, lookup) : NbtOps.INSTANCE;
         NbtList list = new NbtList();
         for (int vi : getSortedIndices()) {
             Entry e = variants.get(vi);
             if (e == null || e.count <= 0 || e.template.isEmpty()) continue;
             NbtCompound c = new NbtCompound();
-            // 写入模板物品（精简：id + 关键组件）和数量
-            NbtCompound itemTag = new NbtCompound();
-            itemTag.putString("id", Registries.ITEM.getId(e.template.getItem()).toString());
-            // 关键组件：CUSTOM_DATA、BLOCK_ENTITY_DATA、ENCHANTMENT_GLINT_OVERRIDE
-            var custom = e.template.get(net.minecraft.component.DataComponentTypes.CUSTOM_DATA);
-            if (custom != null) {
-                itemTag.put("custom", custom.copyNbt());
+            // 写入完整 ItemStack（含全部组件/NBT）
+            var encoded = ItemStack.CODEC.encodeStart(ops, e.template);
+            encoded.result().ifPresent(nbtElement -> c.put("item_full", nbtElement));
+            // 兼容旧版：保留精简字段，便于向后兼容（读取时将优先 item_full）
+            {
+                NbtCompound itemTag = new NbtCompound();
+                itemTag.putString("id", Registries.ITEM.getId(e.template.getItem()).toString());
+                var custom = e.template.get(net.minecraft.component.DataComponentTypes.CUSTOM_DATA);
+                if (custom != null) {
+                    itemTag.put("custom", custom.copyNbt());
+                }
+                var be = e.template.get(net.minecraft.component.DataComponentTypes.BLOCK_ENTITY_DATA);
+                if (be != null) {
+                    itemTag.put("block_entity", be.copyNbt());
+                }
+                Boolean glint = e.template.get(net.minecraft.component.DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE);
+                if (glint != null && glint) {
+                    itemTag.putBoolean("glint", true);
+                }
+                c.put("item", itemTag);
             }
-            var be = e.template.get(net.minecraft.component.DataComponentTypes.BLOCK_ENTITY_DATA);
-            if (be != null) {
-                itemTag.put("block_entity", be.copyNbt());
-            }
-            Boolean glint = e.template.get(net.minecraft.component.DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE);
-            if (glint != null && glint) {
-                itemTag.putBoolean("glint", true);
-            }
-            c.put("item", itemTag);
             c.putLong("count", e.count);
             c.putLong("ts", e.updatedAt);
             list.add(c);
@@ -190,27 +203,43 @@ public class StorageInventory {
     }
 
     public void readNbt(NbtCompound in) {
+        readNbt(in, null);
+    }
+
+    public void readNbt(NbtCompound in, RegistryWrapper.WrapperLookup lookup) {
         clear();
         if (in == null) return;
         if (!in.contains("entries", NbtElement.LIST_TYPE)) return;
         NbtList list = in.getList("entries", NbtElement.COMPOUND_TYPE);
+        final DynamicOps<net.minecraft.nbt.NbtElement> ops =
+            (lookup != null) ? net.minecraft.registry.RegistryOps.of(NbtOps.INSTANCE, lookup) : NbtOps.INSTANCE;
         for (int i = 0; i < list.size(); i++) {
             NbtCompound c = list.getCompound(i);
-            if (!c.contains("item", NbtElement.COMPOUND_TYPE)) continue;
-            NbtCompound itemTag = c.getCompound("item");
-            net.minecraft.util.Identifier id = net.minecraft.util.Identifier.tryParse(itemTag.getString("id"));
-            if (id == null) continue;
-            net.minecraft.item.Item item = Registries.ITEM.get(id);
-            if (item == null || item == net.minecraft.item.Items.AIR) continue;
-            ItemStack template = new ItemStack(item);
-            if (itemTag.contains("custom", NbtElement.COMPOUND_TYPE)) {
-                template.set(net.minecraft.component.DataComponentTypes.CUSTOM_DATA, net.minecraft.component.type.NbtComponent.of(itemTag.getCompound("custom")));
+            ItemStack template = ItemStack.EMPTY;
+            // 优先读取完整模板
+            if (c.contains("item_full")) {
+                var parse = ItemStack.CODEC.parse(ops, c.get("item_full"));
+                template = parse.result().orElse(ItemStack.EMPTY);
             }
-            if (itemTag.contains("block_entity", NbtElement.COMPOUND_TYPE)) {
-                template.set(net.minecraft.component.DataComponentTypes.BLOCK_ENTITY_DATA, net.minecraft.component.type.NbtComponent.of(itemTag.getCompound("block_entity")));
-            }
-            if (itemTag.contains("glint", NbtElement.BYTE_TYPE) && itemTag.getBoolean("glint")) {
-                template.set(net.minecraft.component.DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
+            // 兼容旧字段
+            if (template.isEmpty() && c.contains("item", NbtElement.COMPOUND_TYPE)) {
+                NbtCompound itemTag = c.getCompound("item");
+                net.minecraft.util.Identifier id = net.minecraft.util.Identifier.tryParse(itemTag.getString("id"));
+                if (id != null) {
+                    net.minecraft.item.Item item = Registries.ITEM.get(id);
+                    if (item != null && item != net.minecraft.item.Items.AIR) {
+                        template = new ItemStack(item);
+                        if (itemTag.contains("custom", NbtElement.COMPOUND_TYPE)) {
+                            template.set(net.minecraft.component.DataComponentTypes.CUSTOM_DATA, net.minecraft.component.type.NbtComponent.of(itemTag.getCompound("custom")));
+                        }
+                        if (itemTag.contains("block_entity", NbtElement.COMPOUND_TYPE)) {
+                            template.set(net.minecraft.component.DataComponentTypes.BLOCK_ENTITY_DATA, net.minecraft.component.type.NbtComponent.of(itemTag.getCompound("block_entity")));
+                        }
+                        if (itemTag.contains("glint", NbtElement.BYTE_TYPE) && itemTag.getBoolean("glint")) {
+                            template.set(net.minecraft.component.DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
+                        }
+                    }
+                }
             }
             if (template.isEmpty()) continue;
             Entry e = new Entry();

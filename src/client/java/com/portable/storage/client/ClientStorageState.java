@@ -4,6 +4,9 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.registry.RegistryWrapper;
+import com.mojang.serialization.DynamicOps;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.collection.DefaultedList;
 
@@ -38,23 +41,32 @@ public final class ClientStorageState {
         int idx = 0;
         for (int i = 0; i < list.size() && idx < capacity; i++) {
             NbtCompound e = list.getCompound(i);
-            if (!e.contains("item", NbtElement.COMPOUND_TYPE)) continue;
-            NbtCompound itemTag = e.getCompound("item");
             ItemStack stack = ItemStack.EMPTY;
-            if (itemTag.contains("id")) {
-                var id = net.minecraft.util.Identifier.tryParse(itemTag.getString("id"));
-                if (id != null) {
-                    Item it = Registries.ITEM.get(id);
-                    if (it != null && it != net.minecraft.item.Items.AIR) {
-                        stack = new ItemStack(it);
-                        if (itemTag.contains("custom", NbtElement.COMPOUND_TYPE)) {
-                            stack.set(net.minecraft.component.DataComponentTypes.CUSTOM_DATA, net.minecraft.component.type.NbtComponent.of(itemTag.getCompound("custom")));
-                        }
-                        if (itemTag.contains("block_entity", NbtElement.COMPOUND_TYPE)) {
-                            stack.set(net.minecraft.component.DataComponentTypes.BLOCK_ENTITY_DATA, net.minecraft.component.type.NbtComponent.of(itemTag.getCompound("block_entity")));
-                        }
-                        if (itemTag.contains("glint", NbtElement.BYTE_TYPE) && itemTag.getBoolean("glint")) {
-                            stack.set(net.minecraft.component.DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
+            // 优先完整模板
+            if (e.contains("item_full")) {
+                final DynamicOps<net.minecraft.nbt.NbtElement> ops =
+                    (lookup != null) ? net.minecraft.registry.RegistryOps.of(NbtOps.INSTANCE, lookup) : NbtOps.INSTANCE;
+                var parse = ItemStack.CODEC.parse(ops, e.get("item_full"));
+                stack = parse.result().orElse(ItemStack.EMPTY);
+            }
+            // 兼容旧字段
+            if (stack.isEmpty() && e.contains("item", NbtElement.COMPOUND_TYPE)) {
+                NbtCompound itemTag = e.getCompound("item");
+                if (itemTag.contains("id")) {
+                    var id = net.minecraft.util.Identifier.tryParse(itemTag.getString("id"));
+                    if (id != null) {
+                        Item it = Registries.ITEM.get(id);
+                        if (it != null && it != net.minecraft.item.Items.AIR) {
+                            stack = new ItemStack(it);
+                            if (itemTag.contains("custom", NbtElement.COMPOUND_TYPE)) {
+                                stack.set(net.minecraft.component.DataComponentTypes.CUSTOM_DATA, net.minecraft.component.type.NbtComponent.of(itemTag.getCompound("custom")));
+                            }
+                            if (itemTag.contains("block_entity", NbtElement.COMPOUND_TYPE)) {
+                                stack.set(net.minecraft.component.DataComponentTypes.BLOCK_ENTITY_DATA, net.minecraft.component.type.NbtComponent.of(itemTag.getCompound("block_entity")));
+                            }
+                            if (itemTag.contains("glint", NbtElement.BYTE_TYPE) && itemTag.getBoolean("glint")) {
+                                stack.set(net.minecraft.component.DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
+                            }
                         }
                     }
                 }
