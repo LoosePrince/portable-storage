@@ -49,15 +49,23 @@ public abstract class BowItemMixin {
 
             // 扫描是否存在任意箭
             int matchIndex = -1;
+            ItemStack matchedArrow = null;
             for (int i = 0; i < inv.getCapacity(); i++) {
                 ItemStack disp = inv.getDisplayStack(i);
                 if (disp.isEmpty()) continue;
-                if (isArrow(disp)) { matchIndex = i; break; }
+                if (isArrow(disp)) { 
+                    matchIndex = i; 
+                    matchedArrow = disp;
+                    break; 
+                }
             }
             if (matchIndex < 0) return; // 仓库也没有箭
 
-            // 如果没有无限，就预扣 1 支；若有无限，不扣减（与背包无限一致）
-            if (!hasInfinity) {
+            // 检查是否是特殊箭（药箭、光灵箭），这些箭即使有无限附魔也要扣除
+            boolean isSpecialArrow = matchedArrow.isOf(Items.TIPPED_ARROW) || matchedArrow.isOf(Items.SPECTRAL_ARROW);
+            
+            // 如果没有无限附魔，或者是有无限附魔但使用的是特殊箭，就预扣 1 支
+            if (!hasInfinity || isSpecialArrow) {
                 inv.takeByIndex(matchIndex, 1, world.getTime());
             }
         }
