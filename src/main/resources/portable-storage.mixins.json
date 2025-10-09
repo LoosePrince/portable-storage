@@ -9,7 +9,8 @@
 		"CraftingTableBlockMixin",
 		"BowItemMixin",
 		"PlayerEntityProjectileMixin",
-		"CrossbowItemMixin"
+		"CrossbowItemMixin",
+		"ArrowEntityMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

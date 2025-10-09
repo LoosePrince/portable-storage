@@ -356,9 +356,12 @@ public final class ServerNetworkingHandlers {
 
 				if (slot < 0 || slot >= upgrades.getSlotCount()) return;
 
-				// 扩展槽位暂时不接受任何操作
+				// 扩展槽位检查特定操作
 				if (com.portable.storage.storage.UpgradeInventory.isExtendedSlot(slot)) {
-					return;
+					// 只有槽位5（光灵箭）可以接受操作
+					if (slot != 5) {
+						return;
+					}
 				}
 
 				// 右键点击切换禁用状态

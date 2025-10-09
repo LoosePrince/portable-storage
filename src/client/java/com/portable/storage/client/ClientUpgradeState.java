@@ -77,5 +77,12 @@ public final class ClientUpgradeState {
     public static boolean isExtendedSlotEnabled(int slot) {
         return upgradeInventory.isExtendedSlotEnabled(slot);
     }
+    
+    /**
+     * 检查光灵箭升级是否激活
+     */
+    public static boolean isSpectralArrowUpgradeActive() {
+        return upgradeInventory.isSpectralArrowUpgradeActive();
+    }
 }
 

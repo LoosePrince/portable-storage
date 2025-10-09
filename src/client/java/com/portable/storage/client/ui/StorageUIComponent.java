@@ -1035,9 +1035,12 @@ public class StorageUIComponent {
         // 升级槽位点击
         for (int i = 0; i < totalUpgradeCount; i++) {
             if (isIn(mouseX, mouseY, upgradeSlotLefts[i], upgradeSlotTops[i], upgradeSlotRights[i], upgradeSlotBottoms[i])) {
-                // 扩展槽位暂时不接受点击
+                // 扩展槽位检查特定操作
                 if (ClientUpgradeState.isExtendedSlot(i)) {
-                    return true; // 阻止进一步处理
+                    // 只有槽位5（光灵箭）可以接受点击
+                    if (i != 5) {
+                        return true; // 阻止进一步处理
+                    }
                 }
                 
                 if (button == 1) { // 右键点击 - 切换禁用状态
@@ -1376,7 +1379,8 @@ public class StorageUIComponent {
             case 2: key = "block.minecraft.chest"; break;
             case 3: key = "block.minecraft.barrel"; break;
             case 4: key = "block.minecraft.shulker_box"; break;
-            case 5: case 6: case 7: case 8: case 9: case 10: 
+            case 5: key = "item.minecraft.spectral_arrow"; break; // 光灵箭升级
+            case 6: case 7: case 8: case 9: case 10: 
                 key = "portable_storage.upgrade.extended_slot"; break;
             default: key = "portable_storage.upgrade.unknown";
         }

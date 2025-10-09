@@ -96,9 +96,17 @@ public class UpgradeInventory {
             return ItemStack.areItemsEqual(stack, SLOT_UPGRADES[slot]);
         }
         
-        // 扩展槽位（5-10）暂时不接受任何物品，返回false
+        // 扩展槽位（5-10）检查特定物品
         if (slot < TOTAL_SLOT_COUNT) {
-            return false;
+            switch (slot) {
+                case 5: // 光灵箭升级
+                    return stack.isOf(Items.SPECTRAL_ARROW);
+                case 6: case 7: case 8: case 9: case 10:
+                    // 其他扩展槽位暂时不接受任何物品
+                    return false;
+                default:
+                    return false;
+            }
         }
         
         return false;
@@ -117,9 +125,17 @@ public class UpgradeInventory {
             return SLOT_UPGRADES[slot].copy();
         }
         
-        // 扩展槽位（5-10）返回屏障图标
+        // 扩展槽位（5-10）返回对应升级物品或屏障图标
         if (slot < TOTAL_SLOT_COUNT) {
-            return EXTENDED_SLOT_ICON.copy();
+            switch (slot) {
+                case 5: // 光灵箭升级
+                    return new ItemStack(Items.SPECTRAL_ARROW);
+                case 6: case 7: case 8: case 9: case 10:
+                    // 其他扩展槽位返回屏障图标
+                    return EXTENDED_SLOT_ICON.copy();
+                default:
+                    return EXTENDED_SLOT_ICON.copy();
+            }
         }
         
         return ItemStack.EMPTY;
@@ -165,6 +181,14 @@ public class UpgradeInventory {
     }
     
     /**
+     * 检查光灵箭升级是否激活（槽位5有光灵箭且未被禁用）
+     */
+    public boolean isSpectralArrowUpgradeActive() {
+        ItemStack spectralArrowStack = getStack(5); // 槽位5是光灵箭
+        return !spectralArrowStack.isEmpty() && !isSlotDisabled(5);
+    }
+    
+    /**
      * 获取扩展槽位的有效状态（仅在箱子升级激活时有效）
      */
     public boolean isExtendedSlotEnabled(int slot) {
@@ -181,9 +205,12 @@ public class UpgradeInventory {
             return false;
         }
 
-        // 扩展槽位暂时不接受任何物品
+        // 扩展槽位检查特定物品
         if (isExtendedSlot(slot)) {
-            return false;
+            // 只有槽位5（光灵箭）可以接受物品
+            if (slot != 5) {
+                return false;
+            }
         }
 
         // 检查物品是否是该槽位的有效升级物品

@@ -2,6 +2,7 @@ package com.portable.storage.mixin;
 
 import com.portable.storage.player.PlayerStorageService;
 import com.portable.storage.storage.StorageInventory;
+import com.portable.storage.storage.UpgradeInventory;
 import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.enchantment.Enchantments;
 import net.minecraft.entity.LivingEntity;
@@ -47,26 +48,54 @@ public abstract class CrossbowItemMixin {
 
         if (player instanceof ServerPlayerEntity) {
             StorageInventory inv = PlayerStorageService.getInventory(player);
-            int idx = -1;
+            UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
+            
+            // 检查是否有光灵箭升级
+            boolean hasSpectralArrowUpgrade = upgrades.isSpectralArrowUpgradeActive();
+            
+            // 优先查找普通箭，与PlayerEntityProjectileMixin保持一致
+            int spectralIdx = -1;
+            int normalIdx = -1;
             ItemStack matchedAmmo = null;
+            int idx = -1;
+            
             for (int i = 0; i < inv.getCapacity(); i++) {
                 ItemStack disp = inv.getDisplayStack(i);
-                if (!disp.isEmpty() && isCrossbowAmmo(disp) && inv.getCountByIndex(i) > 0) { 
-                    idx = i; 
-                    matchedAmmo = disp;
-                    break; 
+                if (!disp.isEmpty() && isCrossbowAmmo(disp) && inv.getCountByIndex(i) > 0) {
+                    if (disp.isOf(Items.ARROW)) {
+                        normalIdx = i;
+                        matchedAmmo = disp;
+                        idx = i;
+                        break; // 优先使用普通箭
+                    } else if (disp.isOf(Items.SPECTRAL_ARROW) && spectralIdx == -1) {
+                        spectralIdx = i;
+                        if (matchedAmmo == null) {
+                            matchedAmmo = disp;
+                            idx = i;
+                        }
+                    }
                 }
             }
-            if (idx < 0) return; // 仓库也没有弹药
+            if (matchedAmmo == null) return; // 仓库也没有弹药
 
-            // 检查是否是特殊弹药（药箭、光灵箭、烟花火箭），这些弹药即使有无限附魔也要扣除
-            boolean isSpecialAmmo = matchedAmmo.isOf(Items.TIPPED_ARROW) || 
-                                   matchedAmmo.isOf(Items.SPECTRAL_ARROW) || 
-                                   matchedAmmo.isOf(Items.FIREWORK_ROCKET);
-            
-            // 如果没有无限附魔，或者是有无限附魔但使用的是特殊弹药，才扣除 1 个弹药
-            if (!hasInfinity || isSpecialAmmo) {
-                inv.takeByIndex(idx, 1, world.getTime());
+            // 如果有光灵箭升级且使用的是普通箭，按普通箭处理（但会在命中时施加光灵效果）
+            if (hasSpectralArrowUpgrade && matchedAmmo.isOf(Items.ARROW)) {
+                // 按普通箭处理，有无限附魔时普通箭不会被消耗
+                if (!hasInfinity) {
+                    // 没有无限附魔，扣除1支普通箭
+                    inv.takeByIndex(idx, 1, world.getTime());
+                }
+            } else {
+                // 没有光灵箭升级或使用的不是普通箭，按原逻辑处理
+                // 检查是否是特殊弹药（药箭、光灵箭、烟花火箭），这些弹药即使有无限附魔也要扣除
+                boolean isSpecialAmmo = matchedAmmo.isOf(Items.TIPPED_ARROW) || 
+                                       matchedAmmo.isOf(Items.SPECTRAL_ARROW) || 
+                                       matchedAmmo.isOf(Items.FIREWORK_ROCKET);
+                
+                // 如果没有无限附魔，或者是有无限附魔但使用的是特殊弹药，才扣除 1 个弹药
+                if (!hasInfinity || isSpecialAmmo) {
+                    inv.takeByIndex(idx, 1, world.getTime());
+                }
             }
         }
     }
