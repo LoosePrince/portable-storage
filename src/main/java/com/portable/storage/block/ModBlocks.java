@@ -16,6 +16,9 @@ import net.minecraft.util.Identifier;
 public class ModBlocks {
     public static final Block BOUND_BARREL = registerBlock("bound_barrel",
         new BoundBarrelBlock(AbstractBlock.Settings.copy(Blocks.BARREL)));
+    
+    public static final Block TEMP_BED = registerBlock("temp_bed",
+        new TempBedBlock(net.minecraft.util.DyeColor.RED, AbstractBlock.Settings.copy(Blocks.RED_BED)));
 
     private static Block registerBlock(String name, Block block) {
         // 不注册 BlockItem，因为绑定木桶是通过放置普通木桶创建的

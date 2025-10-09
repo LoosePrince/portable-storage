@@ -84,5 +84,12 @@ public final class ClientUpgradeState {
     public static boolean isSpectralArrowUpgradeActive() {
         return upgradeInventory.isSpectralArrowUpgradeActive();
     }
+    
+    /**
+     * 检查床升级是否激活
+     */
+    public static boolean isBedUpgradeActive() {
+        return upgradeInventory.isBedUpgradeActive();
+    }
 }
 

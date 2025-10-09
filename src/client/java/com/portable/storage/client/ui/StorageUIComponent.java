@@ -1037,13 +1037,20 @@ public class StorageUIComponent {
             if (isIn(mouseX, mouseY, upgradeSlotLefts[i], upgradeSlotTops[i], upgradeSlotRights[i], upgradeSlotBottoms[i])) {
                 // 扩展槽位检查特定操作
                 if (ClientUpgradeState.isExtendedSlot(i)) {
-                    // 只有槽位5（光灵箭）可以接受点击
-                    if (i != 5) {
+                    // 槽位5（光灵箭）和槽位6（床）可以接受点击
+                    if (i != 5 && i != 6) {
                         return true; // 阻止进一步处理
                     }
                 }
                 
-                if (button == 1) { // 右键点击 - 切换禁用状态
+                if (button == 1) { // 右键点击
+                    // 床升级槽位右键睡觉
+                    if (i == 6 && ClientUpgradeState.isBedUpgradeActive()) {
+                        // 发送睡觉请求到服务器
+                        ClientPlayNetworking.send(new UpgradeSlotClickC2SPayload(i, button));
+                        return true;
+                    }
+                    // 其他槽位切换禁用状态
                     ClientUpgradeState.toggleSlotDisabled(i);
                     // 发送禁用状态变更到服务器
                     ClientPlayNetworking.send(new UpgradeSlotClickC2SPayload(i, button));
@@ -1380,7 +1387,8 @@ public class StorageUIComponent {
             case 3: key = "block.minecraft.barrel"; break;
             case 4: key = "block.minecraft.shulker_box"; break;
             case 5: key = "item.minecraft.spectral_arrow"; break; // 光灵箭升级
-            case 6: case 7: case 8: case 9: case 10: 
+            case 6: key = "block.minecraft.red_bed"; break; // 床升级
+            case 7: case 8: case 9: case 10: 
                 key = "portable_storage.upgrade.extended_slot"; break;
             default: key = "portable_storage.upgrade.unknown";
         }

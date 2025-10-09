@@ -10,7 +10,10 @@
 		"BowItemMixin",
 		"PlayerEntityProjectileMixin",
 		"CrossbowItemMixin",
-		"ArrowEntityMixin"
+		"ArrowEntityMixin",
+		"PlayerEntitySleepMixin",
+		"BedBlockMixin",
+		"PlayerEntitySpawnMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -54,6 +54,12 @@ public class PortableStorage implements ModInitializer {
 		// 注册玩家加入事件处理器
 		PlayerJoinEventHandler.register();
 		
+		// 注册玩家死亡事件处理器
+		com.portable.storage.event.PlayerDeathEventHandler.register();
+		
+		// 注册临时床事件处理器
+		com.portable.storage.event.TempBedEventHandler.register();
+		
 		LOGGER.info("Portable Storage initialized");
 	}
 }

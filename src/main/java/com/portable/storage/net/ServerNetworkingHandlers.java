@@ -15,6 +15,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.slot.Slot;
+import net.minecraft.text.Text;
 
 public final class ServerNetworkingHandlers {
 	private ServerNetworkingHandlers() {}
@@ -358,14 +359,20 @@ public final class ServerNetworkingHandlers {
 
 				// 扩展槽位检查特定操作
 				if (com.portable.storage.storage.UpgradeInventory.isExtendedSlot(slot)) {
-					// 只有槽位5（光灵箭）可以接受操作
-					if (slot != 5) {
+					// 槽位5（光灵箭）和槽位6（床）可以接受操作
+					if (slot != 5 && slot != 6) {
 						return;
 					}
 				}
 
-				// 右键点击切换禁用状态
+				// 右键点击处理
 				if (button == 1) {
+					// 床升级槽位右键睡觉
+					if (slot == 6 && upgrades.isBedUpgradeActive()) {
+						handleBedUpgradeSleep(player);
+						return;
+					}
+					// 其他槽位切换禁用状态
 					upgrades.toggleSlotDisabled(slot);
 					sendIncrementalSync(player);
 					return;
@@ -927,21 +934,192 @@ public final class ServerNetworkingHandlers {
     /**
      * 处理箱子升级移除时的扩展槽物品掉落
      */
-    private static void handleChestUpgradeRemoval(ServerPlayerEntity player, UpgradeInventory upgrades) {
-        // 获取所有扩展槽位中的物品
-        java.util.List<ItemStack> extendedItems = upgrades.getExtendedSlotItems();
-        
-        if (!extendedItems.isEmpty()) {
-            // 优先尝试放入玩家背包
-            for (ItemStack item : extendedItems) {
-                if (!player.getInventory().insertStack(item)) {
-                    // 背包满了，掉落到地上
-                    player.dropItem(item, false);
-                }
-            }
-            
-            // 清空扩展槽位
-            upgrades.clearExtendedSlots();
-        }
-    }
+	private static void handleChestUpgradeRemoval(ServerPlayerEntity player, UpgradeInventory upgrades) {
+		// 获取所有扩展槽位中的物品
+		java.util.List<ItemStack> extendedItems = upgrades.getExtendedSlotItems();
+
+		if (!extendedItems.isEmpty()) {
+			// 优先尝试放入玩家背包
+			for (ItemStack item : extendedItems) {
+				if (!player.getInventory().insertStack(item)) {
+					// 背包满了，掉落到地上
+					player.dropItem(item, false);
+				}
+			}
+
+			// 清空扩展槽位
+			upgrades.clearExtendedSlots();
+		}
+	}
+	
+	// 存储临时床方块的位置和相关信息
+	private static final java.util.Map<net.minecraft.util.math.BlockPos, TempBedData> tempBeds = new java.util.concurrent.ConcurrentHashMap<>();
+	
+	// 临时床数据类
+	private static class TempBedData {
+		private final net.minecraft.block.BlockState originalState;
+		private final long createTime;
+		
+		public TempBedData(net.minecraft.block.BlockState originalState, long createTime) {
+			this.originalState = originalState;
+			this.createTime = createTime;
+		}
+		
+		public net.minecraft.block.BlockState getOriginalState() {
+			return originalState;
+		}
+		
+		public long getCreateTime() {
+			return createTime;
+		}
+	}
+	
+	private static void handleBedUpgradeSleep(ServerPlayerEntity player) {
+		// 检查是否在白天
+		if (player.getWorld().isDay()) {
+			// 白天不能睡觉，发送消息
+			player.sendMessage(Text.translatable("portable_storage.bed.no_sleep"), true);
+			return;
+		}
+		
+		// 检查玩家脚下是否有方块
+		if (player.getWorld().getBlockState(player.getBlockPos().down()).isAir()) {
+			// 不在安全位置，发送消息
+			player.sendMessage(Text.translatable("portable_storage.bed.no_safe_place"), true);
+			return;
+		}
+		
+		net.minecraft.util.math.BlockPos bedPos = player.getBlockPos();
+		net.minecraft.util.math.Direction facing = player.getHorizontalFacing();
+		net.minecraft.util.math.BlockPos footPos = bedPos.offset(facing.getOpposite());
+		
+		// 检查该位置是否已经有临时床
+		if (tempBeds.containsKey(bedPos) || tempBeds.containsKey(footPos)) {
+			player.sendMessage(Text.translatable("portable_storage.bed.no_safe_place"), true);
+			return;
+		}
+		
+		// 检查脚部位置是否可用
+		if (!player.getWorld().getBlockState(footPos).isAir()) {
+			player.sendMessage(Text.translatable("portable_storage.bed.no_safe_place"), true);
+			return;
+		}
+		
+		// 存储原始方块状态和创建时间
+		net.minecraft.block.BlockState headOriginalState = player.getWorld().getBlockState(bedPos);
+		net.minecraft.block.BlockState footOriginalState = player.getWorld().getBlockState(footPos);
+		
+		// 创建完整的床方块状态（使用自定义临时床方块）
+		net.minecraft.block.BlockState headBedState = com.portable.storage.block.ModBlocks.TEMP_BED.getDefaultState()
+			.with(net.minecraft.block.BedBlock.FACING, facing)
+			.with(net.minecraft.block.BedBlock.PART, net.minecraft.block.enums.BedPart.HEAD)
+			.with(net.minecraft.block.BedBlock.OCCUPIED, false);
+			
+		net.minecraft.block.BlockState footBedState = com.portable.storage.block.ModBlocks.TEMP_BED.getDefaultState()
+			.with(net.minecraft.block.BedBlock.FACING, facing)
+			.with(net.minecraft.block.BedBlock.PART, net.minecraft.block.enums.BedPart.FOOT)
+			.with(net.minecraft.block.BedBlock.OCCUPIED, false);
+		
+		// 存储两个位置的原始状态
+		TempBedData headBedData = new TempBedData(headOriginalState, player.getWorld().getTime());
+		TempBedData footBedData = new TempBedData(footOriginalState, player.getWorld().getTime());
+		tempBeds.put(bedPos, headBedData);
+		tempBeds.put(footPos, footBedData);
+		
+		// 放置完整的床方块
+		player.getWorld().setBlockState(bedPos, headBedState);
+		player.getWorld().setBlockState(footPos, footBedState);
+		
+		// 尝试让玩家自动睡觉
+		try {
+			// 模拟玩家右键点击床的行为
+			net.minecraft.block.BlockState bedState = player.getWorld().getBlockState(bedPos);
+			if (bedState.getBlock() instanceof net.minecraft.block.BedBlock) {
+				// 使用床方块的onUse方法来触发睡觉
+				net.minecraft.util.hit.BlockHitResult hitResult = new net.minecraft.util.hit.BlockHitResult(
+					new net.minecraft.util.math.Vec3d(bedPos.getX() + 0.5, bedPos.getY() + 0.5, bedPos.getZ() + 0.5),
+					net.minecraft.util.math.Direction.UP, bedPos, false
+				);
+				bedState.onUse(player.getWorld(), player, hitResult);
+				// 如果睡觉成功，发送消息
+				player.sendMessage(Text.translatable("portable_storage.bed_placed"), true);
+			} else {
+				// 如果床方块状态不正确，清理临时床
+				cleanupCompleteTempBed(bedPos, player.getWorld());
+				player.sendMessage(Text.translatable("portable_storage.bed.no_safe_place"), true);
+			}
+		} catch (Exception e) {
+			// 如果睡觉失败，清理临时床并发送错误消息
+			cleanupCompleteTempBed(bedPos, player.getWorld());
+			player.sendMessage(Text.translatable("portable_storage.bed.no_safe_place"), true);
+		}
+	}
+	
+	/**
+	 * 清理临时床方块
+	 */
+	public static void cleanupTempBed(net.minecraft.util.math.BlockPos pos, net.minecraft.world.World world) {
+		TempBedData bedData = tempBeds.remove(pos);
+		if (bedData != null) {
+			world.setBlockState(pos, bedData.getOriginalState());
+		}
+	}
+	
+	/**
+	 * 清理完整的临时床（头部和脚部）
+	 */
+	public static void cleanupCompleteTempBed(net.minecraft.util.math.BlockPos headPos, net.minecraft.world.World world) {
+		// 清理头部
+		cleanupTempBed(headPos, world);
+		
+		// 查找并清理脚部
+		net.minecraft.block.BlockState headState = world.getBlockState(headPos);
+		if (headState.getBlock() instanceof net.minecraft.block.BedBlock) {
+			net.minecraft.util.math.Direction facing = headState.get(net.minecraft.block.BedBlock.FACING);
+			net.minecraft.util.math.BlockPos footPos = headPos.offset(facing.getOpposite());
+			cleanupTempBed(footPos, world);
+		}
+	}
+	
+	/**
+	 * 获取临时床方块的原始状态
+	 */
+	public static net.minecraft.block.BlockState getOriginalState(net.minecraft.util.math.BlockPos pos) {
+		TempBedData bedData = tempBeds.get(pos);
+		return bedData != null ? bedData.getOriginalState() : null;
+	}
+	
+	/**
+	 * 移除临时床记录
+	 */
+	public static void removeTempBed(net.minecraft.util.math.BlockPos pos) {
+		tempBeds.remove(pos);
+	}
+	
+	/**
+	 * 检查是否是临时床
+	 */
+	public static boolean isTempBed(net.minecraft.util.math.BlockPos pos) {
+		return tempBeds.containsKey(pos);
+	}
+	
+	/**
+	 * 获取所有临时床位置
+	 */
+	public static java.util.Set<net.minecraft.util.math.BlockPos> getTempBedPositions() {
+		return tempBeds.keySet();
+	}
+	
+	/**
+	 * 检查临时床是否已过期（10秒未交互）
+	 */
+	public static boolean isTempBedExpired(net.minecraft.util.math.BlockPos pos, long currentTime) {
+		TempBedData bedData = tempBeds.get(pos);
+		if (bedData == null) {
+			return false;
+		}
+		
+		long createTime = bedData.getCreateTime();
+		return (currentTime - createTime) >= 200; // 10秒 = 200 ticks
+	}
 }

@@ -101,7 +101,16 @@ public class UpgradeInventory {
             switch (slot) {
                 case 5: // 光灵箭升级
                     return stack.isOf(Items.SPECTRAL_ARROW);
-                case 6: case 7: case 8: case 9: case 10:
+                case 6: // 床升级
+                    return stack.isOf(Items.RED_BED) || stack.isOf(Items.BLACK_BED) || 
+                           stack.isOf(Items.BLUE_BED) || stack.isOf(Items.BROWN_BED) || 
+                           stack.isOf(Items.CYAN_BED) || stack.isOf(Items.GRAY_BED) || 
+                           stack.isOf(Items.GREEN_BED) || stack.isOf(Items.LIGHT_BLUE_BED) || 
+                           stack.isOf(Items.LIGHT_GRAY_BED) || stack.isOf(Items.LIME_BED) || 
+                           stack.isOf(Items.MAGENTA_BED) || stack.isOf(Items.ORANGE_BED) || 
+                           stack.isOf(Items.PINK_BED) || stack.isOf(Items.PURPLE_BED) || 
+                           stack.isOf(Items.WHITE_BED) || stack.isOf(Items.YELLOW_BED);
+                case 7: case 8: case 9: case 10:
                     // 其他扩展槽位暂时不接受任何物品
                     return false;
                 default:
@@ -130,7 +139,9 @@ public class UpgradeInventory {
             switch (slot) {
                 case 5: // 光灵箭升级
                     return new ItemStack(Items.SPECTRAL_ARROW);
-                case 6: case 7: case 8: case 9: case 10:
+                case 6: // 床升级
+                    return new ItemStack(Items.RED_BED);
+                case 7: case 8: case 9: case 10:
                     // 其他扩展槽位返回屏障图标
                     return EXTENDED_SLOT_ICON.copy();
                 default:
@@ -189,6 +200,14 @@ public class UpgradeInventory {
     }
     
     /**
+     * 检查床升级是否激活（槽位6有床且未被禁用）
+     */
+    public boolean isBedUpgradeActive() {
+        ItemStack bedStack = getStack(6); // 槽位6是床
+        return !bedStack.isEmpty() && !isSlotDisabled(6);
+    }
+    
+    /**
      * 获取扩展槽位的有效状态（仅在箱子升级激活时有效）
      */
     public boolean isExtendedSlotEnabled(int slot) {
@@ -207,8 +226,8 @@ public class UpgradeInventory {
 
         // 扩展槽位检查特定物品
         if (isExtendedSlot(slot)) {
-            // 只有槽位5（光灵箭）可以接受物品
-            if (slot != 5) {
+            // 只有槽位5（光灵箭）和槽位6（床）可以接受物品
+            if (slot != 5 && slot != 6) {
                 return false;
             }
         }

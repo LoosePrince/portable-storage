@@ -77,7 +77,6 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 	
 	@Override
 	public boolean portableStorage$isStorageEnabled() {
-		PlayerEntity self = (PlayerEntity)(Object)this;
 		// 配置不需要条件启用 → 始终启用
 		ServerConfig config = ServerConfig.getInstance();
 		if (!config.isRequireConditionToEnable()) return true;
