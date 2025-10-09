@@ -356,6 +356,11 @@ public final class ServerNetworkingHandlers {
 
 				if (slot < 0 || slot >= upgrades.getSlotCount()) return;
 
+				// 扩展槽位暂时不接受任何操作
+				if (com.portable.storage.storage.UpgradeInventory.isExtendedSlot(slot)) {
+					return;
+				}
+
 				// 右键点击切换禁用状态
 				if (button == 1) {
 					upgrades.toggleSlotDisabled(slot);
@@ -415,6 +420,12 @@ public final class ServerNetworkingHandlers {
 					// 手持空，取出槽位物品
 					if (!slotStack.isEmpty()) {
 						ItemStack taken = upgrades.takeStack(slot);
+						
+						// 如果是箱子升级被取出，需要处理扩展槽物品的掉落
+						if (slot == 2 && taken.getItem() == net.minecraft.item.Items.CHEST) {
+							handleChestUpgradeRemoval(player, upgrades);
+						}
+						
 						player.currentScreenHandler.setCursorStack(taken);
 						player.currentScreenHandler.sendContentUpdates();
 						sendIncrementalSync(player);
@@ -908,5 +919,26 @@ public final class ServerNetworkingHandlers {
             }
         }
         return false;
+    }
+    
+    /**
+     * 处理箱子升级移除时的扩展槽物品掉落
+     */
+    private static void handleChestUpgradeRemoval(ServerPlayerEntity player, UpgradeInventory upgrades) {
+        // 获取所有扩展槽位中的物品
+        java.util.List<ItemStack> extendedItems = upgrades.getExtendedSlotItems();
+        
+        if (!extendedItems.isEmpty()) {
+            // 优先尝试放入玩家背包
+            for (ItemStack item : extendedItems) {
+                if (!player.getInventory().insertStack(item)) {
+                    // 背包满了，掉落到地上
+                    player.dropItem(item, false);
+                }
+            }
+            
+            // 清空扩展槽位
+            upgrades.clearExtendedSlots();
+        }
     }
 }

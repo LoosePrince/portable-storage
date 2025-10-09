@@ -115,15 +115,30 @@ public abstract class HandledScreenMixin {
 		int upgradeLeft = this.x - 24;
 		int upgradeSlotSize = 18;
 		int upgradeSpacing = 0;
-		int upgradeCount = 5;
+		int baseUpgradeCount = 5;
+		int extendedUpgradeCount = 6;
 		
-		for (int i = 0; i < upgradeCount; i++) {
+		// 检查基础升级槽位（0-4）
+		for (int i = 0; i < baseUpgradeCount; i++) {
 			int sx = upgradeLeft;
 			int sy = gridTop + i * (upgradeSlotSize + upgradeSpacing);
 			if (mouseX >= sx && mouseX < sx + upgradeSlotSize && mouseY >= sy && mouseY < sy + upgradeSlotSize) {
 				return true;
 			}
 		}
+		
+		// 检查扩展升级槽位（5-10），仅在箱子升级激活时
+		if (ClientUpgradeState.isChestUpgradeActive()) {
+			int extendedLeft = upgradeLeft - (upgradeSlotSize + upgradeSpacing + 2);
+			for (int i = 0; i < extendedUpgradeCount; i++) {
+				int sx = extendedLeft;
+				int sy = gridTop + i * (upgradeSlotSize + upgradeSpacing);
+				if (mouseX >= sx && mouseX < sx + upgradeSlotSize && mouseY >= sy && mouseY < sy + upgradeSlotSize) {
+					return true;
+				}
+			}
+		}
+		
 		return false;
 	}
 	
@@ -162,15 +177,30 @@ public abstract class HandledScreenMixin {
 		int upgradeLeft = this.x - 24;
 		int upgradeSlotSize = 18;
 		int upgradeSpacing = 0;
-		int upgradeCount = 5;
+		int baseUpgradeCount = 5;
+		int extendedUpgradeCount = 6;
 		
-		for (int i = 0; i < upgradeCount; i++) {
+		// 检查基础升级槽位（0-4）
+		for (int i = 0; i < baseUpgradeCount; i++) {
 			int sx = upgradeLeft;
 			int sy = gridTop + i * (upgradeSlotSize + upgradeSpacing);
 			if (mouseX >= sx && mouseX < sx + upgradeSlotSize && mouseY >= sy && mouseY < sy + upgradeSlotSize) {
 				return true;
 			}
 		}
+		
+		// 检查扩展升级槽位（5-10），仅在箱子升级激活时
+		if (ClientUpgradeState.isChestUpgradeActive()) {
+			int extendedLeft = upgradeLeft - (upgradeSlotSize + upgradeSpacing + 2);
+			for (int i = 0; i < extendedUpgradeCount; i++) {
+				int sx = extendedLeft;
+				int sy = gridTop + i * (upgradeSlotSize + upgradeSpacing);
+				if (mouseX >= sx && mouseX < sx + upgradeSlotSize && mouseY >= sy && mouseY < sy + upgradeSlotSize) {
+					return true;
+				}
+			}
+		}
+		
 		return false;
 	}
 	

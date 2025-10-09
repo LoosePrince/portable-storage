@@ -37,7 +37,9 @@ public class StorageUIComponent {
     // 升级槽位参数
     private final int upgradeSlotSize = 18;
     private final int upgradeSpacing = 0;
-    private final int upgradeCount = 5;
+    private final int baseUpgradeCount = 5;
+    private final int extendedUpgradeCount = 6;
+    private final int totalUpgradeCount = baseUpgradeCount + extendedUpgradeCount;
     
     // 注意：升级物品类型现在由UpgradeInventory.getExpectedUpgradeForSlot()决定
     
@@ -73,10 +75,10 @@ public class StorageUIComponent {
     private int scrollbarLeft, scrollbarTop, scrollbarHeight, scrollbarWidth;
     
     // 升级槽位点击区域
-    private final int[] upgradeSlotLefts = new int[5];
-    private final int[] upgradeSlotTops = new int[5];
-    private final int[] upgradeSlotRights = new int[5];
-    private final int[] upgradeSlotBottoms = new int[5];
+    private final int[] upgradeSlotLefts = new int[11];
+    private final int[] upgradeSlotTops = new int[11];
+    private final int[] upgradeSlotRights = new int[11];
+    private final int[] upgradeSlotBottoms = new int[11];
     
     // 升级说明按钮
     private int upgradeHelpLeft;
@@ -196,11 +198,17 @@ public class StorageUIComponent {
         
         int upgradeLeft = screenX - 24;
         
+        // 计算扩展槽位需要的额外宽度
+        int extendedSlotWidth = 0;
+        if (ClientUpgradeState.isChestUpgradeActive()) {
+            extendedSlotWidth = upgradeSlotSize + upgradeSpacing + 2; // 扩展槽位宽度 + 间距
+        }
+        
         ClientConfig config = ClientConfig.getInstance();
         int panelWidth = calculatePanelWidth(client, config, enableCollapse);
         int panelLeft = screenX + backgroundWidth + 6;
         
-        int extLeft = upgradeLeft - 2;
+        int extLeft = upgradeLeft - 2 - extendedSlotWidth; // 向左扩展以包含扩展槽位
         int extTop = gridTop - 2;
         int extRight = panelLeft + panelWidth + 2;
         int extBottom = gridTop + visibleRows * (slotSize + slotSpacing) + 2;
@@ -445,7 +453,51 @@ public class StorageUIComponent {
      */
     private void renderUpgradeSlots(DrawContext context, int upgradeLeft) {
         int upgradeTop = gridTop;
-        for (int i = 0; i < upgradeCount; i++) {
+        
+        // 渲染扩展升级槽位（5-10），仅在箱子升级激活时显示，显示在左侧
+        if (ClientUpgradeState.isChestUpgradeActive()) {
+            int extendedLeft = upgradeLeft - (upgradeSlotSize + upgradeSpacing + 2); // 左侧留一些间距
+            
+            for (int i = 0; i < extendedUpgradeCount; i++) {
+                int slotIndex = baseUpgradeCount + i; // 槽位5-10
+                int sx = extendedLeft;
+                int sy = upgradeTop + i * (upgradeSlotSize + upgradeSpacing);
+                drawSlotInset(context, sx, sy, upgradeSlotSize, upgradeSlotSize);
+                
+                upgradeSlotLefts[slotIndex] = sx;
+                upgradeSlotTops[slotIndex] = sy;
+                upgradeSlotRights[slotIndex] = sx + upgradeSlotSize;
+                upgradeSlotBottoms[slotIndex] = sy + upgradeSlotSize;
+                
+                ItemStack upgradeStack = ClientUpgradeState.getStack(slotIndex);
+                ItemStack expectedStack = com.portable.storage.storage.UpgradeInventory.getExpectedUpgradeForSlot(slotIndex);
+                
+                if (!upgradeStack.isEmpty()) {
+                    // 有物品，正常渲染
+                    context.drawItem(upgradeStack, sx + 1, sy + 1);
+                    
+                    // 如果槽位被禁用，添加红色半透明遮罩
+                    if (ClientUpgradeState.isSlotDisabled(slotIndex)) {
+                        context.getMatrices().push();
+                        context.getMatrices().translate(0, 0, 200); // 提高层级
+                        context.fill(sx + 1, sy + 1, sx + upgradeSlotSize - 1, sy + upgradeSlotSize - 1, 0x80FF0000);
+                        context.getMatrices().pop();
+                    }
+                } else {
+                    // 空槽位，显示预期物品图标并叠加白色半透明遮罩
+                    context.drawItem(expectedStack, sx + 1, sy + 1);
+                    
+                    // 叠加白色半透明遮罩（在物品图标上方）
+                    context.getMatrices().push();
+                    context.getMatrices().translate(0, 0, 200); // 提高层级
+                    context.fill(sx + 1, sy + 1, sx + upgradeSlotSize - 1, sy + upgradeSlotSize - 1, 0x80FFFFFF);
+                    context.getMatrices().pop();
+                }
+            }
+        }
+        
+        // 渲染基础升级槽位（0-4）
+        for (int i = 0; i < baseUpgradeCount; i++) {
             int sx = upgradeLeft;
             int sy = upgradeTop + i * (upgradeSlotSize + upgradeSpacing);
             drawSlotInset(context, sx, sy, upgradeSlotSize, upgradeSlotSize);
@@ -481,10 +533,10 @@ public class StorageUIComponent {
             }
         }
         
-        // 添加升级说明按钮（第6个槽位位置）
+        // 添加升级说明按钮（在基础槽位下方）
         int helpButtonSize = 16;
         int helpX = upgradeLeft + 1;
-        int helpY = upgradeTop + upgradeCount * (upgradeSlotSize + upgradeSpacing) + 2;
+        int helpY = upgradeTop + baseUpgradeCount * (upgradeSlotSize + upgradeSpacing) + 2;
         
         // 绘制按钮背景
         context.fill(helpX, helpY, helpX + helpButtonSize, helpY + helpButtonSize, 0xFF404040);
@@ -981,8 +1033,13 @@ public class StorageUIComponent {
         }
         
         // 升级槽位点击
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < totalUpgradeCount; i++) {
             if (isIn(mouseX, mouseY, upgradeSlotLefts[i], upgradeSlotTops[i], upgradeSlotRights[i], upgradeSlotBottoms[i])) {
+                // 扩展槽位暂时不接受点击
+                if (ClientUpgradeState.isExtendedSlot(i)) {
+                    return true; // 阻止进一步处理
+                }
+                
                 if (button == 1) { // 右键点击 - 切换禁用状态
                     ClientUpgradeState.toggleSlotDisabled(i);
                     // 发送禁用状态变更到服务器
@@ -1276,7 +1333,7 @@ public class StorageUIComponent {
     }
     
     private boolean isOverUpgradeArea(double mouseX, double mouseY) {
-        for (int i = 0; i < upgradeCount; i++) {
+        for (int i = 0; i < totalUpgradeCount; i++) {
             if (isIn(mouseX, mouseY, upgradeSlotLefts[i], upgradeSlotTops[i], upgradeSlotRights[i], upgradeSlotBottoms[i])) {
                 return true;
             }
@@ -1288,7 +1345,7 @@ public class StorageUIComponent {
      * 检查鼠标是否悬停在升级槽位上
      */
     private boolean portableStorage$isOverUpgradeSlot(double mouseX, double mouseY) {
-        for (int i = 0; i < upgradeCount; i++) {
+        for (int i = 0; i < totalUpgradeCount; i++) {
             if (isIn(mouseX, mouseY, upgradeSlotLefts[i], upgradeSlotTops[i], upgradeSlotRights[i], upgradeSlotBottoms[i])) {
                 return true;
             }
@@ -1300,7 +1357,7 @@ public class StorageUIComponent {
      * 获取悬停的升级槽位索引
      */
     private int portableStorage$getHoveredUpgradeSlot(double mouseX, double mouseY) {
-        for (int i = 0; i < upgradeCount; i++) {
+        for (int i = 0; i < totalUpgradeCount; i++) {
             if (isIn(mouseX, mouseY, upgradeSlotLefts[i], upgradeSlotTops[i], upgradeSlotRights[i], upgradeSlotBottoms[i])) {
                 return i;
             }
@@ -1319,6 +1376,8 @@ public class StorageUIComponent {
             case 2: key = "block.minecraft.chest"; break;
             case 3: key = "block.minecraft.barrel"; break;
             case 4: key = "block.minecraft.shulker_box"; break;
+            case 5: case 6: case 7: case 8: case 9: case 10: 
+                key = "portable_storage.upgrade.extended_slot"; break;
             default: key = "portable_storage.upgrade.unknown";
         }
         return Text.translatable(key).getString();
