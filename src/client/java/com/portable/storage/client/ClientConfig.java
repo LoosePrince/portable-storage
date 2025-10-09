@@ -2,6 +2,8 @@ package com.portable.storage.client;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.portable.storage.PortableStorage;
 import net.fabricmc.loader.api.FabricLoader;
 
@@ -75,11 +77,68 @@ public class ClientConfig {
         if (Files.exists(CONFIG_PATH)) {
             try {
                 String json = Files.readString(CONFIG_PATH);
-                INSTANCE = GSON.fromJson(json, ClientConfig.class);
-                if (INSTANCE == null) {
-                    INSTANCE = new ClientConfig();
+                // 以默认实例为基准，按存在的键进行覆盖，从而保留默认值并补全缺项
+                ClientConfig defaults = new ClientConfig();
+                boolean changed = false;
+
+                JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+                ClientConfig merged = new ClientConfig();
+
+                // 先拷贝默认值
+                merged.collapsed = defaults.collapsed;
+                merged.sortMode = defaults.sortMode;
+                merged.sortAscending = defaults.sortAscending;
+                merged.craftRefill = defaults.craftRefill;
+                merged.autoDeposit = defaults.autoDeposit;
+                merged.smartCollapse = defaults.smartCollapse;
+                merged.searchPos = defaults.searchPos;
+
+                // 再按文件中存在的键覆盖
+                if (obj.has("collapsed")) {
+                    merged.collapsed = obj.get("collapsed").getAsBoolean();
+                } else {
+                    changed = true;
                 }
-                PortableStorage.LOGGER.info("Loaded client config from {}", CONFIG_PATH);
+                if (obj.has("sortMode")) {
+                    try {
+                        merged.sortMode = SortMode.valueOf(obj.get("sortMode").getAsString());
+                    } catch (IllegalArgumentException ignored) { /* 保持默认 */ }
+                } else {
+                    changed = true;
+                }
+                if (obj.has("sortAscending")) {
+                    merged.sortAscending = obj.get("sortAscending").getAsBoolean();
+                } else {
+                    changed = true;
+                }
+                if (obj.has("craftRefill")) {
+                    merged.craftRefill = obj.get("craftRefill").getAsBoolean();
+                } else {
+                    changed = true;
+                }
+                if (obj.has("autoDeposit")) {
+                    merged.autoDeposit = obj.get("autoDeposit").getAsBoolean();
+                } else {
+                    changed = true;
+                }
+                if (obj.has("smartCollapse")) {
+                    merged.smartCollapse = obj.get("smartCollapse").getAsBoolean();
+                } else {
+                    changed = true;
+                }
+                if (obj.has("searchPos")) {
+                    try {
+                        merged.searchPos = SearchPos.valueOf(obj.get("searchPos").getAsString());
+                    } catch (IllegalArgumentException ignored) { /* 保持默认 */ }
+                } else {
+                    changed = true;
+                }
+
+                INSTANCE = merged;
+                if (changed) {
+                    save();
+                }
+                PortableStorage.LOGGER.info("Loaded client config from {} (merged defaults if missing)", CONFIG_PATH);
             } catch (IOException e) {
                 PortableStorage.LOGGER.error("Failed to load client config", e);
                 INSTANCE = new ClientConfig();

@@ -21,6 +21,7 @@
   "portable_storage.ui.upgrade_help.hopper": "Hopper: Automatically picks up dropped items within 5 blocks",
   "portable_storage.ui.upgrade_help.chest": "Chest: Adds extended slots (6-11), you can right-click to toggle disabled state",
   "portable_storage.ui.upgrade_help.barrel": "Barrel: Creates bound container, supports automation device access",
+  "portable_storage.ui.upgrade_right_click_bed": "Right-click to sleep (won't set spawn)",
   "portable_storage.ui.upgrade_slot": "Slot %d",
   "portable_storage.ui.upgrade_name": "%s Upgrade",
   "portable_storage.ui.upgrade_status": "[%s]",

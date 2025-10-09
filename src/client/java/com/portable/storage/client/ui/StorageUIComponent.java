@@ -374,8 +374,12 @@ public class StorageUIComponent {
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_status", "✗"));
                 }
                 
-                // 添加右键提示
-                tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_hint"));
+                // 添加右键提示：槽位6为床升级，右键睡觉；其他槽位右键切换禁用
+                if (slotIndex == 6) {
+                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_bed"));
+                } else {
+                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_hint"));
+                }
 
                 context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
             }

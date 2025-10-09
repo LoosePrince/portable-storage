@@ -992,6 +992,14 @@ public final class ServerNetworkingHandlers {
 		net.minecraft.util.math.BlockPos bedPos = player.getBlockPos();
 		net.minecraft.util.math.Direction facing = player.getHorizontalFacing();
 		net.minecraft.util.math.BlockPos footPos = bedPos.offset(facing.getOpposite());
+
+		// 若脚下或计划放置的脚部位置已经是床，则拒绝放置
+		net.minecraft.block.BlockState curState = player.getWorld().getBlockState(bedPos);
+		net.minecraft.block.BlockState footCurState = player.getWorld().getBlockState(footPos);
+		if (curState.getBlock() instanceof net.minecraft.block.BedBlock || footCurState.getBlock() instanceof net.minecraft.block.BedBlock) {
+			player.sendMessage(Text.translatable("portable_storage.bed.no_safe_place"), true);
+			return;
+		}
 		
 		// 检查该位置是否已经有临时床
 		if (tempBeds.containsKey(bedPos) || tempBeds.containsKey(footPos)) {

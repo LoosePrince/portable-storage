@@ -21,6 +21,7 @@
   "portable_storage.ui.upgrade_help.hopper": "漏斗：自动拾取周围5格范围的掉落物到仓库",
   "portable_storage.ui.upgrade_help.chest": "箱子：增加扩展槽位（6-11），可右键升级槽位切换禁用状态",
   "portable_storage.ui.upgrade_help.barrel": "木桶：创建绑定容器，支持自动化设备访问仓库",
+  "portable_storage.ui.upgrade_right_click_bed": "右键睡觉（不保存重生点）",
   "portable_storage.ui.upgrade_slot": "槽位 %d",
   "portable_storage.ui.upgrade_name": "%s升级",
   "portable_storage.ui.upgrade_status": "[%s]",
