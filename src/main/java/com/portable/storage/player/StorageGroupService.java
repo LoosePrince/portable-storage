@@ -108,7 +108,7 @@ public final class StorageGroupService {
         // 发送给所有者
         ServerPlayerEntity owner = server.getPlayerManager().getPlayer(ownerUuid);
         if (owner != null) {
-            com.portable.storage.net.ServerNetworkingHandlers.sendSync(owner);
+            com.portable.storage.net.ServerNetworkingHandlers.sendIncrementalSyncOnDemand(owner);
         }
 
         // 发送给所有使用该ownerUuid绑定木桶的玩家
@@ -130,7 +130,7 @@ public final class StorageGroupService {
             }
 
             if (usesThisOwner) {
-                com.portable.storage.net.ServerNetworkingHandlers.sendSync(player);
+                com.portable.storage.net.ServerNetworkingHandlers.sendIncrementalSyncOnDemand(player);
             }
         }
     }

@@ -19,10 +19,31 @@ public final class ClientStorageState {
 
     private ClientStorageState() {}
 
-    public static DefaultedList<ItemStack> getStacks() { return display; }
-    public static int getCapacity() { return capacity; }
-    public static long getCount(int index) { return (index>=0 && index<counts.length) ? counts[index] : 0L; }
-    public static long getTimestamp(int index) { return (index>=0 && index<timestamps.length) ? timestamps[index] : 0L; }
+    public static DefaultedList<ItemStack> getStacks() { 
+        // 优先使用增量同步状态，如果没有数据则使用传统状态
+        if (IncrementalStorageState.hasData()) {
+            return IncrementalStorageState.getDisplayList();
+        }
+        return display; 
+    }
+    public static int getCapacity() { 
+        if (IncrementalStorageState.hasData()) {
+            return IncrementalStorageState.getCapacity();
+        }
+        return capacity; 
+    }
+    public static long getCount(int index) { 
+        if (IncrementalStorageState.hasData()) {
+            return IncrementalStorageState.getCount(index);
+        }
+        return (index>=0 && index<counts.length) ? counts[index] : 0L; 
+    }
+    public static long getTimestamp(int index) { 
+        if (IncrementalStorageState.hasData()) {
+            return IncrementalStorageState.getTimestamp(index);
+        }
+        return (index>=0 && index<timestamps.length) ? timestamps[index] : 0L; 
+    }
     public static boolean isStorageEnabled() { return storageEnabled; }
     
     public static void setStorageEnabled(boolean enabled) {

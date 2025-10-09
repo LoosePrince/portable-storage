@@ -190,7 +190,7 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
                 var storage = com.portable.storage.player.PlayerStorageService.getInventory(owner);
                 storage.insertItemStack(stack, System.currentTimeMillis());
                 // 发送同步消息给客户端
-                com.portable.storage.net.ServerNetworkingHandlers.sendSync(owner);
+                com.portable.storage.net.ServerNetworkingHandlers.sendIncrementalSyncOnDemand(owner);
                 // PortableStorage.LOGGER.info("Inserted {} x{} into owner's storage", stack.getItem(), stack.getCount());
             } else {
                 // 离线玩家：加载并保存

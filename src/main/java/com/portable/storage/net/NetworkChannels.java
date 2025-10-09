@@ -19,9 +19,11 @@ public final class NetworkChannels {
 		PayloadTypeRegistry.playC2S().register(UpgradeSlotClickC2SPayload.ID, UpgradeSlotClickC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(EmiRecipeFillC2SPayload.ID, EmiRecipeFillC2SPayload.PACKET_CODEC);
         PayloadTypeRegistry.playC2S().register(RequestVanillaCraftingOpenC2SPayload.ID, RequestVanillaCraftingOpenC2SPayload.PACKET_CODEC);
+		PayloadTypeRegistry.playC2S().register(SyncAckC2SPayload.ID, SyncAckC2SPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(StorageSyncS2CPayload.ID, StorageSyncS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(UpgradeSyncS2CPayload.ID, UpgradeSyncS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(StorageEnablementSyncS2CPayload.ID, StorageEnablementSyncS2CPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(IncrementalStorageSyncS2CPayload.ID, IncrementalStorageSyncS2CPayload.CODEC);
 	}
 }
 

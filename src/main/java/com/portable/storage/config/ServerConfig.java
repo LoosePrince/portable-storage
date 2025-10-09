@@ -22,6 +22,7 @@ public class ServerConfig {
     private boolean requireConditionToEnable = false;
     private String enableItem = "minecraft:nether_star";
     private boolean consumeEnableItem = true;
+    private boolean enableIncrementalSync = true;
     
     private FileConfig config;
     private Path configPath;
@@ -115,6 +116,11 @@ public class ServerConfig {
             # 开启后启用玩家随身仓库时会消耗该物品一个
             # 默认值: true
             consume_enable_item = true
+            
+            # 是否启用增量同步
+            # 启用后只同步发生变化的数据，减少网络传输量
+            # 默认值: true
+            enable_incremental_sync = true
             """;
         
         Files.writeString(configPath, defaultConfig);
@@ -130,6 +136,7 @@ public class ServerConfig {
             requireConditionToEnable = storageConfig.getOrElse("require_condition_to_enable", false);
             enableItem = storageConfig.getOrElse("enable_item", "minecraft:nether_star");
             consumeEnableItem = storageConfig.getOrElse("consume_enable_item", true);
+            enableIncrementalSync = storageConfig.getOrElse("enable_incremental_sync", true);
         } else {
             PortableStorage.LOGGER.warn("配置文件中未找到 [storage] 部分，使用默认值");
             setDefaultValues();
@@ -148,6 +155,7 @@ public class ServerConfig {
         storageConfig.set("require_condition_to_enable", requireConditionToEnable);
         storageConfig.set("enable_item", enableItem);
         storageConfig.set("consume_enable_item", consumeEnableItem);
+        storageConfig.set("enable_incremental_sync", enableIncrementalSync);
     }
     
     /**
@@ -157,6 +165,7 @@ public class ServerConfig {
         requireConditionToEnable = false;
         enableItem = "minecraft:nether_star";
         consumeEnableItem = true;
+        enableIncrementalSync = true;
     }
     
     // Getter 方法
@@ -172,6 +181,10 @@ public class ServerConfig {
         return consumeEnableItem;
     }
     
+    public boolean isEnableIncrementalSync() {
+        return enableIncrementalSync;
+    }
+    
     // Setter 方法（用于运行时修改配置）
     public void setRequireConditionToEnable(boolean requireConditionToEnable) {
         this.requireConditionToEnable = requireConditionToEnable;
@@ -183,5 +196,9 @@ public class ServerConfig {
     
     public void setConsumeEnableItem(boolean consumeEnableItem) {
         this.consumeEnableItem = consumeEnableItem;
+    }
+    
+    public void setEnableIncrementalSync(boolean enableIncrementalSync) {
+        this.enableIncrementalSync = enableIncrementalSync;
     }
 }

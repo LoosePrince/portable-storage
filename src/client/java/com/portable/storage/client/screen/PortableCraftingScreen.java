@@ -81,6 +81,9 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
             ClientPlayNetworking.send(new RequestVanillaCraftingOpenC2SPayload());
         });
 
+        // 标记开始查看仓库界面
+        com.portable.storage.sync.PlayerViewState.startViewing(MinecraftClient.getInstance().player.getUuid());
+        
         // 打开自定义工作台界面时请求同步仓库数据
         ClientPlayNetworking.send(RequestSyncC2SPayload.INSTANCE);
     }
@@ -90,6 +93,15 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
         int x0 = this.x;
         int y0 = this.y;
         context.drawTexture(BACKGROUND_TEXTURE, x0, y0, 0, 0, this.backgroundWidth, this.backgroundHeight);
+    }
+
+    @Override
+    public void close() {
+        // 标记停止查看仓库界面
+        if (MinecraftClient.getInstance().player != null) {
+            com.portable.storage.sync.PlayerViewState.stopViewing(MinecraftClient.getInstance().player.getUuid());
+        }
+        super.close();
     }
 
     @Override

@@ -57,6 +57,9 @@ public abstract class CraftingScreenMixin {
 
         PortableStorage.LOGGER.debug("Portable Storage: Crafting screen UI component initialized");
 
+        // 标记开始查看仓库界面
+        com.portable.storage.sync.PlayerViewState.startViewing(MinecraftClient.getInstance().player.getUuid());
+        
         // 打开界面时请求同步
         ClientPlayNetworking.send(RequestSyncC2SPayload.INSTANCE);
     }

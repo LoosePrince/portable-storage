@@ -56,6 +56,9 @@ public abstract class InventoryScreenMixin {
 
         PortableStorage.LOGGER.debug("Portable Storage: UI component initialized, collapsed={}", portableStorage$uiComponent.isCollapsed());
 
+        // 标记开始查看仓库界面
+        com.portable.storage.sync.PlayerViewState.startViewing(MinecraftClient.getInstance().player.getUuid());
+        
         // 打开界面时请求同步
         ClientPlayNetworking.send(RequestSyncC2SPayload.INSTANCE);
     }

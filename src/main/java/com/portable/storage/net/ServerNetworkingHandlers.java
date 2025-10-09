@@ -7,6 +7,7 @@ import com.portable.storage.player.PlayerStorageService;
 import com.portable.storage.player.StoragePersistence;
 import com.portable.storage.storage.StorageInventory;
 import com.portable.storage.storage.UpgradeInventory;
+import com.portable.storage.sync.StorageSyncManager;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.inventory.Inventory;
@@ -40,12 +41,26 @@ public final class ServerNetworkingHandlers {
 		ServerPlayNetworking.registerGlobalReceiver(RequestSyncC2SPayload.ID, (payload, context) -> {
             context.server().execute(() -> {
 				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				// 标记玩家开始查看仓库界面
+				com.portable.storage.sync.PlayerViewState.startViewing(player.getUuid());
+				
+				// 处理积攒的变化
+				com.portable.storage.sync.ChangeAccumulator.processPlayerChanges(player);
+				
 				// 总是发送启用状态同步，让客户端知道当前状态
 				sendEnablementSync(player);
 				// 只有启用时才发送其他同步
 				if (!checkAndRejectIfNotEnabled(player)) {
-					sendSync(player);
+					sendIncrementalSync(player);
 				}
+			});
+		});
+		
+		// 注册同步确认处理器
+		ServerPlayNetworking.registerGlobalReceiver(SyncAckC2SPayload.ID, (payload, context) -> {
+			context.server().execute(() -> {
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				StorageSyncManager.handleSyncAck(player.getUuid(), payload.syncId(), payload.success());
 			});
 		});
 
@@ -64,7 +79,7 @@ public final class ServerNetworkingHandlers {
                 ItemStack moved = disp.copy();
                 moved.setCount((int)Math.min(disp.getMaxCount(), got));
                 insertIntoPlayerInventory(player, moved);
-                sendSync(player);
+                sendIncrementalSyncOnDemand(player);
 			});
 		});
 
@@ -86,7 +101,7 @@ public final class ServerNetworkingHandlers {
 				ItemStack moved = disp.copy();
 				moved.setCount((int)Math.min(disp.getMaxCount(), got));
 				insertIntoPlayerInventory(player, moved);
-				sendSync(player);
+				sendIncrementalSync(player);
 			});
 		});
 
@@ -139,7 +154,7 @@ public final class ServerNetworkingHandlers {
 				}
 
 				player.currentScreenHandler.sendContentUpdates();
-				sendSync(player);
+				sendIncrementalSync(player);
 			});
 		});
 
@@ -159,7 +174,7 @@ public final class ServerNetworkingHandlers {
                 slot.setStack(remainder);
 				slot.markDirty();
 				sh.sendContentUpdates();
-				sendSync(player);
+				sendIncrementalSync(player);
 			});
 		});
 
@@ -191,7 +206,7 @@ public final class ServerNetworkingHandlers {
 				}
 				
 				serverPlayer.currentScreenHandler.sendContentUpdates();
-				sendSync(serverPlayer);
+				sendIncrementalSync(serverPlayer);
 			});
 		});
 
@@ -213,7 +228,7 @@ public final class ServerNetworkingHandlers {
 				ItemStack drop = disp.copy();
 				drop.setCount((int)Math.min(disp.getMaxCount(), got));
 				dropItemTowardsLook(player, drop);
-				sendSync(player);
+				sendIncrementalSync(player);
 			});
 		});
 
@@ -326,7 +341,7 @@ public final class ServerNetworkingHandlers {
 					gs.markDirty();
 				}
 				handler.sendContentUpdates();
-				sendSync(player);
+				sendIncrementalSync(player);
 			});
 		});
 
@@ -344,7 +359,7 @@ public final class ServerNetworkingHandlers {
 				// 右键点击切换禁用状态
 				if (button == 1) {
 					upgrades.toggleSlotDisabled(slot);
-					sendSync(player);
+					sendIncrementalSync(player);
 					return;
 				}
 				
@@ -402,7 +417,7 @@ public final class ServerNetworkingHandlers {
 						ItemStack taken = upgrades.takeStack(slot);
 						player.currentScreenHandler.setCursorStack(taken);
 						player.currentScreenHandler.sendContentUpdates();
-						sendSync(player);
+						sendIncrementalSync(player);
 					}
 				} else {
 					// 手持物品
@@ -412,7 +427,7 @@ public final class ServerNetworkingHandlers {
 							if (upgrades.tryInsert(slot, cursor)) {
 								player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
 								player.currentScreenHandler.sendContentUpdates();
-								sendSync(player);
+								sendIncrementalSync(player);
 							}
 						}
 					} else {
@@ -422,7 +437,7 @@ public final class ServerNetworkingHandlers {
 							if (upgrades.tryInsert(slot, cursor)) {
 								player.currentScreenHandler.setCursorStack(taken);
 								player.currentScreenHandler.sendContentUpdates();
-								sendSync(player);
+								sendIncrementalSync(player);
 							} else {
 								// 放入失败，恢复
 								upgrades.setStack(slot, taken);
@@ -595,6 +610,38 @@ public final class ServerNetworkingHandlers {
 		sendUpgradeSync(player);
 		sendEnablementSync(player);
 	}
+	
+	/**
+	 * 发送增量同步（异步）
+	 */
+	public static void sendIncrementalSync(ServerPlayerEntity player) {
+		StorageInventory merged = buildMergedSnapshot(player);
+		
+		// 检查是否启用增量同步
+		if (ServerConfig.getInstance().isEnableIncrementalSync()) {
+			StorageSyncManager.sendIncrementalSync(player, merged);
+		} else {
+			// 回退到传统全量同步
+			sendSync(player);
+			return;
+		}
+		
+		sendUpgradeSync(player);
+		sendEnablementSync(player);
+	}
+	
+	/**
+	 * 发送按需增量同步（只对正在查看的玩家发送）
+	 */
+	public static void sendIncrementalSyncOnDemand(ServerPlayerEntity player) {
+		StorageInventory merged = buildMergedSnapshot(player);
+		
+		// 使用按需同步
+		StorageSyncManager.sendIncrementalSyncOnDemand(player, merged);
+		
+		sendUpgradeSync(player);
+		sendEnablementSync(player);
+	}
 
 	/**
 	 * 按玩家视角方向丢出物品，速度与原版 Q 丢弃相近。
@@ -693,7 +740,7 @@ public final class ServerNetworkingHandlers {
         return list;
     }
 
-    private static StorageInventory buildMergedSnapshot(ServerPlayerEntity viewer) {
+    public static StorageInventory buildMergedSnapshot(ServerPlayerEntity viewer) {
         StorageInventory agg = new StorageInventory(0);
         for (StorageInventory s : getViewStorages(viewer)) {
             for (int i = 0; i < s.getCapacity(); i++) {
@@ -742,7 +789,7 @@ public final class ServerNetworkingHandlers {
         // 给自身与所有"同组根拥有者相关"的在线玩家发送同步
         var players = actor.server.getPlayerManager().getPlayerList();
         for (ServerPlayerEntity p : players) {
-            sendSync(p);
+            sendIncrementalSyncOnDemand(p);
         }
     }
 
@@ -811,7 +858,7 @@ public final class ServerNetworkingHandlers {
         }
 
         handler.sendContentUpdates();
-        sendSync(player);
+        sendIncrementalSyncOnDemand(player);
         org.slf4j.LoggerFactory.getLogger("portable-storage/emi").debug("Server EmiRecipeFill finished: synced storage state");
     }
 
