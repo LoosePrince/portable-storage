@@ -25,8 +25,8 @@ public final class ClientUpgradeState {
         }
         
         // 读取禁用状态
-        if (nbt.contains("disabledSlots")) {
-            NbtCompound disabledNbt = nbt.getCompound("disabledSlots");
+        if (nbt.contains("DisabledSlots")) {
+            NbtCompound disabledNbt = nbt.getCompound("DisabledSlots");
             for (int i = 0; i < 11; i++) {
                 disabledSlots[i] = disabledNbt.getBoolean("slot" + i);
             }

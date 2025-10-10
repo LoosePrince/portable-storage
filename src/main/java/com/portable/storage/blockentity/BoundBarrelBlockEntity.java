@@ -1,15 +1,16 @@
 package com.portable.storage.blockentity;
 
 import com.portable.storage.PortableStorage;
+import net.minecraft.block.HopperBlock;
 import com.portable.storage.player.StorageGroupService;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.LootableContainerBlockEntity;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.NbtComponent;
-import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.Inventories;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.SidedInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
@@ -159,20 +160,72 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
     @Override
     public void setStack(int slot, ItemStack stack) {
         // 拦截设置物品的操作，如果不是标记槽位，则存入仓库
-        if (ownerUuid != null && slot != 0 && !stack.isEmpty() && world != null && world.getServer() != null) {
-            // 创建副本存入仓库
-            ItemStack copy = stack.copy();
-            insertIntoOwnerStorage(copy);
-            // 设置为空物品栈（物品已被存入仓库）
-            super.setStack(slot, ItemStack.EMPTY);
-            // 标记已更改
-            markDirty();
-            return;
-        }
+		if (ownerUuid != null && slot != 0 && !stack.isEmpty() && world != null && world.getServer() != null) {
+			ItemStack toInsert = stack.copy();
+			// 来自漏斗时，尝试从相邻、面向本方块的漏斗一次性抽取同类物品，合并为一组
+			if (isHopperOperation()) {
+				tryBatchDrainFromAdjacentHopper(toInsert);
+			}
+			insertIntoOwnerStorage(toInsert);
+			// 置空插入槽位（物品已被存入仓库）
+			super.setStack(slot, ItemStack.EMPTY);
+			markDirty();
+			return;
+		}
 
         // 标记槽位正常设置
         super.setStack(slot, stack);
     }
+
+	/**
+	 * 若此次插入来自漏斗，则尝试从面向本方块的相邻漏斗中一次性额外抽取同类物品，
+	 * 将传入物品补足到最大堆叠（或直到漏斗耗尽）。
+	 */
+	private void tryBatchDrainFromAdjacentHopper(ItemStack accumulating) {
+		if (world == null || accumulating.isEmpty()) return;
+		// 需要补足的数量
+		int targetMax = Math.min(accumulating.getMaxCount(), accumulating.getItem().getMaxCount());
+		int need = targetMax - accumulating.getCount();
+		if (need <= 0) return;
+
+		// 扫描六个相邻方块，寻找输出口朝向本方块的漏斗
+		for (Direction dir : Direction.values()) {
+			BlockPos neighborPos = pos.offset(dir);
+			BlockState neighborState = world.getBlockState(neighborPos);
+			BlockEntity be = world.getBlockEntity(neighborPos);
+			if (!(be instanceof net.minecraft.block.entity.HopperBlockEntity hopper)) continue;
+
+			// 判断该漏斗是否将物品输出到本方块
+			Direction facing;
+			try {
+				facing = neighborState.get(HopperBlock.FACING);
+			} catch (Exception e) {
+				// 属性不存在时保守跳过
+				continue;
+			}
+			BlockPos outputPos = neighborPos.offset(facing);
+			if (!outputPos.equals(this.pos)) continue;
+
+			// 匹配并从漏斗的物品栏中提取同类物品
+			Inventory hopperInv = hopper;
+			for (int slot = 0; slot < hopperInv.size() && need > 0; slot++) {
+				ItemStack inHopper = hopperInv.getStack(slot);
+				if (inHopper.isEmpty()) continue;
+				if (!ItemStack.areItemsAndComponentsEqual(inHopper, accumulating)) continue;
+
+				int move = Math.min(need, inHopper.getCount());
+				if (move <= 0) continue;
+				inHopper.decrement(move);
+				hopperInv.setStack(slot, inHopper.isEmpty() ? ItemStack.EMPTY : inHopper);
+				accumulating.increment(move);
+				need -= move;
+			}
+
+			// 已满足或已尽力，刷新漏斗状态
+			hopper.markDirty();
+			if (need <= 0) break;
+		}
+	}
 
     /**
      * 将物品存入所有者的仓库

@@ -21,6 +21,12 @@ import java.util.Locale;
  * 仓库UI组件，可在不同界面复用
  */
 public class StorageUIComponent {
+    // 当前激活实例（用于全局滚轮转发）
+    private static StorageUIComponent currentInstance;
+
+    public static StorageUIComponent getCurrentInstance() {
+        return currentInstance;
+    }
     // 纹理
     private static final Identifier TEX_BG = Identifier.of("portable-storage", "textures/gui/portable_storage_gui_1.png");
     private static final Identifier TEX_SETTINGS_BG = Identifier.of("portable-storage", "textures/gui/portable_storage_gui.png");
@@ -79,12 +85,6 @@ public class StorageUIComponent {
     private final int[] upgradeSlotTops = new int[11];
     private final int[] upgradeSlotRights = new int[11];
     private final int[] upgradeSlotBottoms = new int[11];
-    
-    // 升级说明按钮
-    private int upgradeHelpLeft;
-    private int upgradeHelpTop;
-    private int upgradeHelpRight;
-    private int upgradeHelpBottom;
     
     // 设置面板点击区域
     private int sortModeLeft, sortModeTop, sortModeRight, sortModeBottom;
@@ -152,6 +152,8 @@ public class StorageUIComponent {
      * 渲染仓库UI（支持折叠功能，仅在背包界面使用）
      */
     public void render(DrawContext context, int mouseX, int mouseY, float delta, int screenX, int screenY, int backgroundWidth, int backgroundHeight, boolean enableCollapse) {
+        // 记录当前实例，便于全局滚轮注入转发
+        currentInstance = this;
         // 每次渲染前重置缓存，确保排序配置改变时能正确响应
         resetSortCache();
 
@@ -372,20 +374,8 @@ public class StorageUIComponent {
             }
         }
         
-        // 检查是否悬停在升级说明按钮上
-        if (isIn(mouseX, mouseY, upgradeHelpLeft, upgradeHelpTop, upgradeHelpRight, upgradeHelpBottom)) {
-            List<Text> helpLines = List.of(
-                Text.translatable("portable_storage.ui.upgrade_help.title"),
-                Text.empty(),
-                Text.translatable("portable_storage.ui.upgrade_help.crafting_table"),
-                Text.translatable("portable_storage.ui.upgrade_help.hopper"),
-                Text.translatable("portable_storage.ui.upgrade_help.chest"),
-                Text.translatable("portable_storage.ui.upgrade_help.barrel")
-            );
-            context.drawTooltip(client.textRenderer, helpLines, mouseX, mouseY);
-        }
         // 检查是否悬停在升级槽位上
-        else if (portableStorage$isOverUpgradeSlot(mouseX, mouseY)) {
+        if (portableStorage$isOverUpgradeSlot(mouseX, mouseY)) {
             int slotIndex = portableStorage$getHoveredUpgradeSlot(mouseX, mouseY);
             if (slotIndex >= 0) {
                 ItemStack stack = ClientUpgradeState.getStack(slotIndex);
@@ -393,18 +383,28 @@ public class StorageUIComponent {
                 boolean isDisabled = ClientUpgradeState.isSlotDisabled(slotIndex);
 
                 List<Text> tooltipLines = new java.util.ArrayList<>();
-                tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_slot", slotIndex + 1));
+                // 第一行：槽位 + 勾选/叉号
+                boolean hasItem = !stack.isEmpty();
+                boolean ok = hasItem && !isDisabled;
+                String symbol = ok ? "[✓]" : "[✗]"; // ✓ / ✗
+                Text slotLine = Text.translatable("portable_storage.ui.upgrade_slot", slotIndex + 1).copy().append(symbol);
+                tooltipLines.add(slotLine);
+                // 第二行：升级名称
                 tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_name", upgradeName));
 
-                if (!stack.isEmpty()) {
-                    if (isDisabled) {
-                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_status", "✗").formatted(net.minecraft.util.Formatting.RED));
-                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_disabled"));
-                    } else {
-                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_status", "✓").formatted(net.minecraft.util.Formatting.GREEN));
-                    }
-                } else {
-                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_status", "✗"));
+                // 附加升级说明（末尾追加）
+                switch (slotIndex) {
+                    case 0 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.crafting_table"));
+                    case 1 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.hopper"));
+                    case 2 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.chest"));
+                    case 3 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.barrel"));
+                    case 5 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.spectral_arrow"));
+                    case 6 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.bed"));
+                    case 7 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.experience_bottle"));
+                }
+
+                if (hasItem && isDisabled) {
+                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_disabled"));
                 }
                 
                 // 添加右键提示：槽位6为床升级，右键睡觉；其他槽位右键切换禁用
@@ -426,6 +426,9 @@ public class StorageUIComponent {
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_level_maintenance", maintenanceStatus));
                 } else {
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_hint"));
+                    if (slotIndex == 0) {
+                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_middle_click_portable_crafting"));
+                    }
                 }
 
                 context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
@@ -595,27 +598,7 @@ public class StorageUIComponent {
             }
         }
         
-        // 添加升级说明按钮（在基础槽位下方）
-        int helpButtonSize = 16;
-        int helpX = upgradeLeft + 1;
-        int helpY = upgradeTop + baseUpgradeCount * (upgradeSlotSize + upgradeSpacing) + 2;
-        
-        // 绘制按钮背景
-        context.fill(helpX, helpY, helpX + helpButtonSize, helpY + helpButtonSize, 0xFF404040);
-        
-        // 绘制"？"文本
-        String helpText = "?";
-        var textRenderer = MinecraftClient.getInstance().textRenderer;
-        int textWidth = textRenderer.getWidth(helpText);
-        int textX = helpX + (helpButtonSize - textWidth) / 2;
-        int textY = helpY + (helpButtonSize - 8) / 2;
-        context.drawText(textRenderer, helpText, textX, textY, 0xFFFFFF, true);
-        
-        // 记录按钮位置
-        upgradeHelpLeft = helpX;
-        upgradeHelpTop = helpY;
-        upgradeHelpRight = helpX + helpButtonSize;
-        upgradeHelpBottom = helpY + helpButtonSize;
+        // 升级说明按钮已移除
     }
     
     /**
@@ -1157,10 +1140,18 @@ public class StorageUIComponent {
                         ClientPlayNetworking.send(new UpgradeSlotClickC2SPayload(i, button));
                         return true;
                     }
+                    // 其他槽位右键：发送到服务器（用于切换禁用等）
+                    ClientPlayNetworking.send(new UpgradeSlotClickC2SPayload(i, button));
+                    return true;
                 } else if (button == 2) { // 中键点击
                     // 附魔之瓶槽位中键：切换等级维持状态
                     if (i == 7 && ClientUpgradeState.isXpBottleUpgradeActive()) {
                         com.portable.storage.client.ClientNetworkingHandlers.sendXpBottleMaintenanceToggle();
+                        return true;
+                    }
+                    // 工作台升级槽位中键：打开自定义工作台界面
+                    if (i == 0 && ClientUpgradeState.getStack(0) != null && !ClientUpgradeState.getStack(0).isEmpty() && !ClientUpgradeState.isSlotDisabled(0)) {
+                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.RequestPortableCraftingOpenC2SPayload());
                         return true;
                     }
                     // 其他槽位切换禁用状态

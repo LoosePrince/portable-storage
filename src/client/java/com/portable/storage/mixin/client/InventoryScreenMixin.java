@@ -9,6 +9,9 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.util.Identifier;
+import net.minecraft.item.Items;
 import net.minecraft.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -28,6 +31,8 @@ public abstract class InventoryScreenMixin {
     @Unique private ItemStack portableStorage$lastCraftingOutput = ItemStack.EMPTY;
     @Unique private long portableStorage$lastCraftRefillCheck = 0;
     @Unique private long portableStorage$lastCraftingSlotClickTime = 0;
+    // 槽位贴图（用于绘制3x3覆盖槽位）
+    @Unique private static final Identifier portableStorage$SLOT_TEX = Identifier.of("portable-storage", "textures/gui/slot.png");
 
     @Inject(method = "init", at = @At("TAIL"))
     private void portableStorage$init(CallbackInfo ci) {
@@ -80,6 +85,64 @@ public abstract class InventoryScreenMixin {
                 // 渲染仓库UI（启用折叠功能）
                 portableStorage$uiComponent.render(context, mouseX, mouseY, delta, x, y, backgroundWidth, backgroundHeight, true);
             }
+            // 若启用工作台升级，则在2x2合成区域上覆盖3x3槽位提示（严格根据实际槽位坐标对齐）
+            if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient()) {
+                MinecraftClient mc2 = MinecraftClient.getInstance();
+                if (mc2 != null && mc2.player != null && mc2.player.currentScreenHandler instanceof net.minecraft.screen.PlayerScreenHandler handler) {
+                    // PlayerScreenHandler: 0=输出, 1..4=2x2输入
+                    if (handler.slots.size() > 4) {
+                        int slotSize = 18;
+                        // 顶左输入槽（索引1）作为3x3左上基准
+                        int sx1 = x + handler.getSlot(1).x;
+                        int sy1 = y + handler.getSlot(1).y;
+                        // 3x3 覆盖左上与 2x2 顶左对齐，并向右下扩展
+                        int overlayLeft = sx1;
+                        int overlayTop = sy1;
+                        int hoveredSlotIdx = -1;
+                        for (int r = 0; r < 3; r++) {
+                            for (int c = 0; c < 3; c++) {
+                                int sxOverlay = overlayLeft + c * slotSize - 1;
+                                int syOverlay = overlayTop + r * slotSize - 1;
+                                context.drawTexture(portableStorage$SLOT_TEX, sxOverlay, syOverlay, 0, 0, 18, 18, 18, 18);
+                                // 渲染虚拟物品（若已同步）
+                                int idx = 1 + r * 3 + c;
+                                net.minecraft.item.ItemStack vis = com.portable.storage.client.ui.VirtualCraftingOverlayState.get(idx);
+                                if (!vis.isEmpty()) {
+                                    context.drawItem(vis, sxOverlay + 1, syOverlay + 1);
+                                    context.drawItemInSlot(MinecraftClient.getInstance().textRenderer, vis, sxOverlay + 1, syOverlay + 1);
+                                }
+                                // 悬停检测 + 半透明遮罩
+                                if (mouseX >= sxOverlay && mouseX < sxOverlay + 18 && mouseY >= syOverlay && mouseY < syOverlay + 18) {
+                                    hoveredSlotIdx = idx;
+                                    // 内缩1像素，不遮住槽位边框
+                                    context.fill(sxOverlay + 1, syOverlay + 1, sxOverlay + 17, syOverlay + 17, 0x80FFFFFF);
+                                }
+                            }
+                        }
+                        // 结果槽提示（使用实际输出槽 index 0 的坐标）
+                        int outX = x + handler.getSlot(0).x - 1;
+                        int outY = y + handler.getSlot(0).y - 1;
+                        context.drawTexture(portableStorage$SLOT_TEX, outX, outY, 0, 0, 18, 18, 18, 18);
+                        net.minecraft.item.ItemStack resultVis = com.portable.storage.client.ui.VirtualCraftingOverlayState.get(0);
+                        if (!resultVis.isEmpty()) {
+                            context.drawItem(resultVis, outX + 1, outY + 1);
+                            context.drawItemInSlot(MinecraftClient.getInstance().textRenderer, resultVis, outX + 1, outY + 1);
+                        }
+                        if (mouseX >= outX && mouseX < outX + 18 && mouseY >= outY && mouseY < outY + 18) {
+                            hoveredSlotIdx = 0;
+                            // 内缩1像素，不遮住槽位边框
+                            context.fill(outX + 1, outY + 1, outX + 17, outY + 17, 0x80FFFFFF);
+                        }
+                        // 悬停工具提示
+                        if (hoveredSlotIdx >= 0) {
+                            net.minecraft.item.ItemStack tip = com.portable.storage.client.ui.VirtualCraftingOverlayState.get(hoveredSlotIdx);
+                            if (!tip.isEmpty()) {
+                                context.drawItemTooltip(MinecraftClient.getInstance().textRenderer, tip, mouseX, mouseY);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // 合成补充检测（在render之外也调用，避免折叠时失效）
@@ -117,10 +180,124 @@ public abstract class InventoryScreenMixin {
             }
         }
 
+        // 覆盖层虚拟3x3交互：将点击转发给服务端进行合成/取出
+        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient()) {
+            InventoryScreen self2 = (InventoryScreen)(Object)this;
+            int screenWidth2 = self2.width;
+            int screenHeight2 = self2.height;
+            int backgroundWidth2 = 176;
+            int backgroundHeight2 = 166;
+            int x2 = (screenWidth2 - backgroundWidth2) / 2;
+            int y2 = (screenHeight2 - backgroundHeight2) / 2;
+
+            MinecraftClient mc2 = MinecraftClient.getInstance();
+            if (mc2 != null && mc2.player != null && mc2.player.currentScreenHandler instanceof net.minecraft.screen.PlayerScreenHandler handler) {
+                if (handler.slots.size() > 4) {
+                    int slotSize = 18;
+                    int sx1 = x2 + handler.getSlot(1).x;
+                    int sy1 = y2 + handler.getSlot(1).y;
+                    int overlayLeft = sx1;
+                    int overlayTop = sy1;
+                    int overlayRight = overlayLeft + 3 * slotSize;
+                    int overlayBottom = overlayTop + 3 * slotSize;
+                    boolean shift = (mc2.options != null && mc2.options.sneakKey.isPressed()) || Screen.hasShiftDown();
+
+                    // 命中3x3输入区
+                    if (mouseX >= overlayLeft && mouseX < overlayRight && mouseY >= overlayTop && mouseY < overlayBottom) {
+                        int relX = (int)(mouseX - overlayLeft);
+                        int relY = (int)(mouseY - overlayTop);
+                        int col = Math.min(2, Math.max(0, relX / slotSize));
+                        int row = Math.min(2, Math.max(0, relY / slotSize));
+                        int slotIndex = 1 + row * 3 + col; // 1..9
+                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.OverlayCraftingClickC2SPayload(slotIndex, button, shift));
+                        cir.setReturnValue(true);
+                        return;
+                    }
+
+                    // 命中结果槽（索引0，使用实际输出槽坐标范围）
+                    int outX = x2 + handler.getSlot(0).x;
+                    int outY = y2 + handler.getSlot(0).y;
+                    if (mouseX >= outX && mouseX < outX + 18 && mouseY >= outY && mouseY < outY + 18) {
+                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.OverlayCraftingClickC2SPayload(0, button, shift));
+                        cir.setReturnValue(true);
+                        return;
+                    }
+                }
+            }
+        }
+
+        // 覆盖层激活时，阻断对原 2x2 槽位(1..4)的交互
+        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient()) {
+            MinecraftClient mc3 = MinecraftClient.getInstance();
+            if (mc3 != null && mc3.player != null && mc3.player.currentScreenHandler instanceof net.minecraft.screen.PlayerScreenHandler handler) {
+                int screenX = ((InventoryScreen)(Object)this).width;
+                int screenY = ((InventoryScreen)(Object)this).height;
+                int backgroundWidth = 176;
+                int backgroundHeight = 166;
+                int x0 = (screenX - backgroundWidth) / 2;
+                int y0 = (screenY - backgroundHeight) / 2;
+                for (int i = 1; i <= 4 && i < handler.slots.size(); i++) {
+                    int sx = x0 + handler.getSlot(i).x;
+                    int sy = y0 + handler.getSlot(i).y;
+                    if (mouseX >= sx && mouseX < sx + 18 && mouseY >= sy && mouseY < sy + 18) {
+                        cir.setReturnValue(true);
+                        return;
+                    }
+                }
+            }
+        }
+
         // 检查仓库是否已启用
         if (com.portable.storage.client.ClientStorageState.isStorageEnabled()) {
             // 委托给UI组件处理（启用折叠功能）
             if (portableStorage$uiComponent.mouseClicked(mouseX, mouseY, button, true)) {
+                cir.setReturnValue(true);
+                return;
+            }
+        }
+    }
+
+    @Inject(method = "mouseReleased", at = @At("HEAD"), cancellable = true)
+    private void portableStorage$mouseReleased(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
+        // 在覆盖层启用时，阻断原 2x2 槽位与覆盖区域的释放事件，防止穿透
+        if (!(com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient())) return;
+
+        InventoryScreen self = (InventoryScreen)(Object)this;
+        int screenWidth = self.width;
+        int screenHeight = self.height;
+        int backgroundWidth = 176;
+        int backgroundHeight = 166;
+        int x = (screenWidth - backgroundWidth) / 2;
+        int y = (screenHeight - backgroundHeight) / 2;
+
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc == null || mc.player == null || !(mc.player.currentScreenHandler instanceof net.minecraft.screen.PlayerScreenHandler handler)) return;
+        if (handler.slots.size() <= 4) return;
+
+        // 覆盖 3x3 区域
+        int slotSize = 18;
+        int sx1 = x + handler.getSlot(1).x;
+        int sy1 = y + handler.getSlot(1).y;
+        int overlayLeft = sx1;
+        int overlayTop = sy1;
+        int overlayRight = overlayLeft + 3 * slotSize;
+        int overlayBottom = overlayTop + 3 * slotSize;
+        if (mouseX >= overlayLeft && mouseX < overlayRight && mouseY >= overlayTop && mouseY < overlayBottom) {
+            cir.setReturnValue(true);
+            return;
+        }
+        // 结果槽
+        int outX = x + handler.getSlot(0).x;
+        int outY = y + handler.getSlot(0).y;
+        if (mouseX >= outX && mouseX < outX + 18 && mouseY >= outY && mouseY < outY + 18) {
+            cir.setReturnValue(true);
+            return;
+        }
+        // 原 2x2 槽位(1..4)
+        for (int i = 1; i <= 4 && i < handler.slots.size(); i++) {
+            int sx = x + handler.getSlot(i).x;
+            int sy = y + handler.getSlot(i).y;
+            if (mouseX >= sx && mouseX < sx + 18 && mouseY >= sy && mouseY < sy + 18) {
                 cir.setReturnValue(true);
                 return;
             }
@@ -245,5 +422,16 @@ public abstract class InventoryScreenMixin {
         
         // 发送补充请求到服务器
         ClientPlayNetworking.send(new RefillCraftingC2SPayload(slotIndex, targetStack));
+    }
+
+    @Unique
+    private boolean portableStorage$hasCraftingUpgradeClient() {
+        for (int i = 0; i < com.portable.storage.client.ClientUpgradeState.getSlotCount(); i++) {
+            ItemStack st = com.portable.storage.client.ClientUpgradeState.getStack(i);
+            if (!st.isEmpty() && st.getItem() == Items.CRAFTING_TABLE && !com.portable.storage.client.ClientUpgradeState.isSlotDisabled(i)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

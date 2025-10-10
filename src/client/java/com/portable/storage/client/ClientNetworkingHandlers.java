@@ -41,6 +41,16 @@ public final class ClientNetworkingHandlers {
 				ClientStorageState.setStorageEnabled(payload.enabled());
 			});
 		});
+
+		// 覆盖层虚拟合成同步
+		ClientPlayNetworking.registerGlobalReceiver(com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload.ID, (payload, context) -> {
+			context.client().execute(() -> {
+				try {
+					// 将最新的虚拟槽位状态交给 UI 组件缓存（如需渲染数量/图标）
+					com.portable.storage.client.ui.VirtualCraftingOverlayState.update(payload.slots());
+				} catch (Throwable ignored) {}
+			});
+		});
 		
 		ClientPlayNetworking.registerGlobalReceiver(XpStepSyncS2CPayload.ID, (payload, context) -> {
 			context.client().execute(() -> {

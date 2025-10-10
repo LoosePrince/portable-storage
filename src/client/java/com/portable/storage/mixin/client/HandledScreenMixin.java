@@ -69,6 +69,8 @@ public abstract class HandledScreenMixin {
 		}
 	}
 
+    // 滚轮事件转发改为在 ScreenMixin 中统一处理
+
 	@Unique
 	private boolean portableStorage$isOverStorage(double mouseX, double mouseY) {
 		// 折叠状态下不拦截

@@ -6,6 +6,7 @@ import com.portable.storage.client.screen.PortableCraftingScreen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.CraftingScreen;
+import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.Items;
 import com.portable.storage.screen.PortableCraftingScreenHandler;
@@ -18,13 +19,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(MinecraftClient.class)
 public abstract class MinecraftClientMixin {
 
-    @Inject(method = "setScreen", at = @At("TAIL"))
-    private void portableStorage$replaceCraftingScreen(Screen newScreen, CallbackInfo ci) {
-        if (!(newScreen instanceof CraftingScreen)) return;
-        if (newScreen instanceof PortableCraftingScreen) return;
-
-        // 禁用对原版工作台界面的替换，直接使用原版界面（通过 CraftingScreenMixin 叠加仓库与补充逻辑）
-        return;
+    @Inject(method = "setScreen", at = @At("HEAD"))
+    private void portableStorage$onSetScreen(Screen newScreen, CallbackInfo ci) {
+        // 当离开背包界面（newScreen 不是 InventoryScreen 且旧屏幕是 InventoryScreen）时，返还虚拟合成槽物品
+        MinecraftClient self = (MinecraftClient)(Object)this;
+        Screen old = self.currentScreen;
+        if (old instanceof InventoryScreen && !(newScreen instanceof InventoryScreen)) {
+            if (com.portable.storage.client.ClientStorageState.isStorageEnabled()) {
+                net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
+                    new com.portable.storage.net.payload.OverlayCraftingClickC2SPayload(-1, 0, false)
+                );
+            }
+        }
     }
 }
 

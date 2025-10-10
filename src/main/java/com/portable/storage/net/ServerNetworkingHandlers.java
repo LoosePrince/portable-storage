@@ -9,6 +9,7 @@ import com.portable.storage.storage.StorageInventory;
 import com.portable.storage.storage.UpgradeInventory;
 import com.portable.storage.sync.StorageSyncManager;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
@@ -211,6 +212,23 @@ public final class ServerNetworkingHandlers {
 				
 				serverPlayer.currentScreenHandler.sendContentUpdates();
 				sendIncrementalSync(serverPlayer);
+			});
+		});
+
+		// 覆盖层虚拟合成点击：slotIndex 0=结果，1..9=输入；button 0/1 左右键；shift 是否按住
+		ServerPlayNetworking.registerGlobalReceiver(com.portable.storage.net.payload.OverlayCraftingClickC2SPayload.ID, (payload, context) -> {
+			int slotIndex = payload.slotIndex();
+			int button = payload.button();
+			boolean shift = payload.shift();
+			context.server().execute(() -> {
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				if (checkAndRejectIfNotEnabled(player)) return;
+				com.portable.storage.crafting.OverlayCraftingManager.handleClick(player, slotIndex, button, shift);
+				// 同步当前虚拟槽位
+				com.portable.storage.crafting.OverlayCraftingManager.State st = com.portable.storage.crafting.OverlayCraftingManager.get(player);
+				net.minecraft.item.ItemStack[] copy = new net.minecraft.item.ItemStack[st.slots.length];
+				for (int i = 0; i < st.slots.length; i++) copy[i] = st.slots[i].copy();
+				ServerPlayNetworking.send(player, new com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload(copy));
 			});
 		});
 
@@ -505,6 +523,16 @@ public final class ServerNetworkingHandlers {
 				// 处理配方填充
 				handleEmiRecipeFill(player, payload);
 			});
+
+			// 断开连接时兜底返还虚拟合成槽物品（防未正常关闭界面时材料丢失）
+			ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+				try {
+					ServerPlayerEntity player = handler.player;
+					if (player != null) {
+						com.portable.storage.crafting.OverlayCraftingManager.refundAll(player);
+					}
+				} catch (Throwable ignored) {}
+			});
 		});
 
 		// 虚拟“瓶装经验”点击：button=0 左键取出，1 右键存入
@@ -679,6 +707,37 @@ public final class ServerNetworkingHandlers {
 			});
 		});
 
+		// 打开自定义工作台：在任意界面请求打开 PortableCraftingScreenHandler（需启用仓库且拥有工作台升级）
+		ServerPlayNetworking.registerGlobalReceiver(com.portable.storage.net.payload.RequestPortableCraftingOpenC2SPayload.ID, (payload, context) -> {
+			context.server().execute(() -> {
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				if (checkAndRejectIfNotEnabled(player)) return;
+				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
+				boolean hasCraftingUpgrade = false;
+				for (int i = 0; i < upgrades.getSlotCount(); i++) {
+					ItemStack st = upgrades.getStack(i);
+					if (!st.isEmpty() && st.getItem() == net.minecraft.item.Items.CRAFTING_TABLE && !upgrades.isSlotDisabled(i)) {
+						hasCraftingUpgrade = true;
+						break;
+					}
+				}
+				if (!hasCraftingUpgrade) return;
+				// 关闭当前容器并打开自定义工作台
+				player.closeHandledScreen();
+				player.openHandledScreen(new net.minecraft.screen.NamedScreenHandlerFactory() {
+					@Override
+					public net.minecraft.text.Text getDisplayName() {
+						return net.minecraft.text.Text.translatable("container.crafting");
+					}
+
+					@Override
+					public net.minecraft.screen.ScreenHandler createMenu(int syncId, net.minecraft.entity.player.PlayerInventory inv, net.minecraft.entity.player.PlayerEntity p) {
+						return new com.portable.storage.screen.PortableCraftingScreenHandler(syncId, inv, net.minecraft.screen.ScreenHandlerContext.create(player.getWorld(), player.getBlockPos()));
+					}
+				});
+			});
+		});
+
 	}
 
 	private static net.minecraft.nbt.NbtCompound getOrCreateCustom(net.minecraft.item.ItemStack stack) {
@@ -697,14 +756,6 @@ public final class ServerNetworkingHandlers {
 		if (level <= 15) return 2 * level + 7;
 		if (level <= 30) return 5 * level - 38;
 		return 9 * level - 158;
-	}
-
-	private static int currentTotalXp(ServerPlayerEntity player) {
-		int level = player.experienceLevel;
-		float progress = player.experienceProgress;
-		int base = totalXpForLevel(level);
-		int next = xpToNextLevel(level);
-		return Math.max(0, base + (int)Math.floor(next * Math.max(0f, Math.min(1f, progress))));
 	}
 
 	// 新的经验值操作：使用等级和经验值混合，避免残留

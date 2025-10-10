@@ -143,6 +143,8 @@ public abstract class CraftingScreenMixin {
         }
     }
 
+    // 移除无效的 mouseScrolled 注入（该屏幕类无对应方法）
+
     /**
      * 检测合成补充需求并发送请求
      */

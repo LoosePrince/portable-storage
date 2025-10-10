@@ -16,13 +16,9 @@
   "portable_storage.sort.descending": "Desc",
   "portable_storage.toggle.enabled": "ON",
   "portable_storage.toggle.disabled": "OFF",
-  "portable_storage.ui.upgrade_help.title": "Upgrade Help",
-  "portable_storage.ui.upgrade_help.crafting_table": "Crafting Table: Shows storage UI at bottom of crafting table, supports craft refill",
-  "portable_storage.ui.upgrade_help.hopper": "Hopper: Automatically picks up dropped items within 5 blocks",
-  "portable_storage.ui.upgrade_help.chest": "Chest: Adds extended slots (6-11), you can right-click to toggle disabled state",
-  "portable_storage.ui.upgrade_help.barrel": "Barrel: Creates bound container, supports automation device access",
   "portable_storage.ui.upgrade_right_click_bed": "Right-click to sleep (won't set spawn)",
   "portable_storage.ui.upgrade_right_click_xp": "Right-click to cycle XP step (1/5/10/100)",
+  "portable_storage.ui.upgrade_middle_click_portable_crafting": "Middle-click to open portable crafting",
   "portable_storage.ui.upgrade_middle_click_maintenance": "Middle-click to toggle level maintenance",
   "portable_storage.exp_bottle.title": "Bottled XP",
   "portable_storage.exp_bottle.current": "Current XP: %s",
@@ -61,6 +57,13 @@
   "container.portable_storage.bound_barrel": "%s's Bound Barrel",
   "container.portable_storage.bound_barrel.unknown": "Bound Barrel",
   "portable_storage.tooltip.last_modified": "Last Modified: %s",
-  "portable_storage.message.storage_enabled": "Used %s to enable portable storage!"
+  "portable_storage.message.storage_enabled": "Used %s to enable portable storage!",
+  "portable_storage.ui.upgrade_desc.crafting_table": "Crafting Table: Show storage in crafting screen",
+  "portable_storage.ui.upgrade_desc.hopper": "Hopper: Auto-pickup drops within 5 blocks into storage",
+  "portable_storage.ui.upgrade_desc.chest": "Chest: Adds 6 extended upgrade slots",
+  "portable_storage.ui.upgrade_desc.barrel": "Barrel: Create bound barrel",
+  "portable_storage.ui.upgrade_desc.spectral_arrow": "Spectral Arrow: Normal arrows apply 10s glowing",
+  "portable_storage.ui.upgrade_desc.bed": "Bed (any bed): Right-click to sleep in place (no spawn point)",
+  "portable_storage.ui.upgrade_desc.experience_bottle": "Experience Bottle: Store XP in storage"
 }
 

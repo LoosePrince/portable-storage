@@ -16,13 +16,9 @@
   "portable_storage.sort.descending": "倒序",
   "portable_storage.toggle.enabled": "启用",
   "portable_storage.toggle.disabled": "禁用",
-  "portable_storage.ui.upgrade_help.title": "升级说明",
-  "portable_storage.ui.upgrade_help.crafting_table": "工作台：在工作台界面底部显示仓库界面，支持合成补充",
-  "portable_storage.ui.upgrade_help.hopper": "漏斗：自动拾取周围5格范围的掉落物到仓库",
-  "portable_storage.ui.upgrade_help.chest": "箱子：增加扩展槽位（6-11），可右键升级槽位切换禁用状态",
-  "portable_storage.ui.upgrade_help.barrel": "木桶：创建绑定容器，支持自动化设备访问仓库",
   "portable_storage.ui.upgrade_right_click_bed": "右键睡觉（不保存重生点）",
   "portable_storage.ui.upgrade_right_click_xp": "右键切换存取等级（1/5/10/100）",
+  "portable_storage.ui.upgrade_middle_click_portable_crafting": "中键打开自定义工作台界面",
   "portable_storage.ui.upgrade_middle_click_maintenance": "中键切换等级维持",
   "portable_storage.exp_bottle.title": "瓶装经验",
   "portable_storage.exp_bottle.current": "当前经验：%s",
@@ -61,6 +57,13 @@
   "container.portable_storage.bound_barrel": "%s的绑定木桶",
   "container.portable_storage.bound_barrel.unknown": "绑定木桶",
   "portable_storage.tooltip.last_modified": "最后修改：%s",
-  "portable_storage.message.storage_enabled": "已使用 %s 启用随身仓库功能！"
+  "portable_storage.message.storage_enabled": "已使用 %s 启用随身仓库功能！",
+  "portable_storage.ui.upgrade_desc.crafting_table": "工作台：在工作台界面显示仓库",
+  "portable_storage.ui.upgrade_desc.hopper": "漏斗：自动拾取周围5格范围内的掉落物到仓库中",
+  "portable_storage.ui.upgrade_desc.chest": "箱子：增加扩展升级槽6个",
+  "portable_storage.ui.upgrade_desc.barrel": "木桶：创建绑定木桶",
+  "portable_storage.ui.upgrade_desc.spectral_arrow": "光灵箭：射出的普通箭矢将使目标获得10s的发光效果",
+  "portable_storage.ui.upgrade_desc.bed": "床（任意床）：右键原地睡觉（不记录重生点）",
+  "portable_storage.ui.upgrade_desc.experience_bottle": "附魔之瓶：在仓库储存经验"
 }
 
