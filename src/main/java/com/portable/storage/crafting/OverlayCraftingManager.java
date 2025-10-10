@@ -101,14 +101,28 @@ public final class OverlayCraftingManager {
             return;
         }
         if (slotIndex >= 1 && slotIndex <= 9) {
-            handleInputClick(player, st, slotIndex, button);
+            handleInputClick(player, st, slotIndex, button, shift);
             return;
         }
     }
 
-    private static void handleInputClick(ServerPlayerEntity player, State st, int slot, int button) {
+    private static void handleInputClick(ServerPlayerEntity player, State st, int slot, int button, boolean shift) {
         ItemStack cursor = player.currentScreenHandler.getCursorStack();
         ItemStack slotStack = st.slots[slot];
+        
+        if (shift) {
+            // Shift+点击：移动到背包
+            if (!slotStack.isEmpty()) {
+                if (!player.getInventory().insertStack(slotStack)) {
+                    // 放不下则丢在地上
+                    player.dropItem(slotStack, false);
+                }
+                st.slots[slot] = ItemStack.EMPTY;
+            }
+            updateResult(player);
+            return;
+        }
+        
         if (button == 0) { // 左键
             if (cursor.isEmpty()) {
                 // 拿起槽内
@@ -190,31 +204,37 @@ public final class OverlayCraftingManager {
             // 单次：放到光标（若光标为空或可合堆）否则塞背包
             ItemStack out = resultTemplate.copy();
             ItemStack cursor = player.currentScreenHandler.getCursorStack();
-            boolean placed = false;
-            if (cursor.isEmpty()) {
-                player.currentScreenHandler.setCursorStack(out);
-                placed = true;
-            } else if (ItemStack.areItemsAndComponentsEqual(cursor, out)) {
-                int max = Math.min(out.getMaxCount(), player.getInventory().getMaxCountPerStack());
-                int can = Math.min(out.getCount(), Math.max(0, max - cursor.getCount()));
-                if (can > 0) {
-                    cursor.increment(can);
-                    out.decrement(can);
-                    player.currentScreenHandler.setCursorStack(cursor);
-                    placed = out.isEmpty();
-                }
-            }
-            if (!placed) {
-                if (!player.getInventory().insertStack(out)) {
-                    // 放不下则丢在地上
-                    player.dropItem(out, false);
-                }
-            }
+            // 右键：只取 1 个
+            if (button == 1) out.setCount(1);
+            boolean placed = tryPlaceToCursorOrInventory(player, cursor, out);
             consumeOnce(player, st);
         }
 
         updateResult(player, st);
         player.currentScreenHandler.sendContentUpdates();
+    }
+
+    private static boolean tryPlaceToCursorOrInventory(ServerPlayerEntity player, ItemStack cursor, ItemStack out) {
+        boolean placed = false;
+        if (cursor.isEmpty()) {
+            player.currentScreenHandler.setCursorStack(out);
+            placed = true;
+        } else if (ItemStack.areItemsAndComponentsEqual(cursor, out)) {
+            int max = Math.min(out.getMaxCount(), player.getInventory().getMaxCountPerStack());
+            int can = Math.min(out.getCount(), Math.max(0, max - cursor.getCount()));
+            if (can > 0) {
+                cursor.increment(can);
+                out.decrement(can);
+                player.currentScreenHandler.setCursorStack(cursor);
+                placed = out.isEmpty();
+            }
+        }
+        if (!placed) {
+            if (!player.getInventory().insertStack(out)) {
+                player.dropItem(out, false);
+            }
+        }
+        return true;
     }
 
     private static int maxCraftableTimes(World world, State st) {

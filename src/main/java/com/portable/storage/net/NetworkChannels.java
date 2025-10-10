@@ -24,6 +24,7 @@ public final class NetworkChannels {
         PayloadTypeRegistry.playC2S().register(RequestVanillaCraftingOpenC2SPayload.ID, RequestVanillaCraftingOpenC2SPayload.PACKET_CODEC);
 		PayloadTypeRegistry.playC2S().register(com.portable.storage.net.payload.RequestPortableCraftingOpenC2SPayload.ID, com.portable.storage.net.payload.RequestPortableCraftingOpenC2SPayload.PACKET_CODEC);
 		PayloadTypeRegistry.playC2S().register(com.portable.storage.net.payload.OverlayCraftingClickC2SPayload.ID, com.portable.storage.net.payload.OverlayCraftingClickC2SPayload.PACKET_CODEC);
+		PayloadTypeRegistry.playC2S().register(com.portable.storage.net.payload.OverlayCraftingDoubleClickC2SPayload.ID, com.portable.storage.net.payload.OverlayCraftingDoubleClickC2SPayload.PACKET_CODEC);
 		PayloadTypeRegistry.playC2S().register(SyncAckC2SPayload.ID, SyncAckC2SPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(StorageSyncS2CPayload.ID, StorageSyncS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload.ID, com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload.PACKET_CODEC);

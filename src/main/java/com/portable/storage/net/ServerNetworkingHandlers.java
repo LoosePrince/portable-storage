@@ -232,6 +232,35 @@ public final class ServerNetworkingHandlers {
 			});
 		});
 
+		// 覆盖层双击拾取：将虚拟 1..9 槽位中与光标相同的物品合并到光标，直到满堆
+		ServerPlayNetworking.registerGlobalReceiver(com.portable.storage.net.payload.OverlayCraftingDoubleClickC2SPayload.ID, (payload, context) -> {
+			context.server().execute(() -> {
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				if (checkAndRejectIfNotEnabled(player)) return;
+				var st = com.portable.storage.crafting.OverlayCraftingManager.get(player);
+				net.minecraft.item.ItemStack cursor = player.currentScreenHandler.getCursorStack();
+				if (cursor.isEmpty()) return;
+				int maxPer = Math.min(cursor.getMaxCount(), player.getInventory().getMaxCountPerStack());
+				for (int i = 1; i <= 9 && cursor.getCount() < maxPer; i++) {
+					net.minecraft.item.ItemStack s = st.slots[i];
+					if (!s.isEmpty() && net.minecraft.item.ItemStack.areItemsAndComponentsEqual(s, cursor)) {
+						int can = Math.min(maxPer - cursor.getCount(), s.getCount());
+						if (can > 0) {
+							cursor.increment(can);
+							s.decrement(can);
+							if (s.isEmpty()) st.slots[i] = net.minecraft.item.ItemStack.EMPTY;
+						}
+					}
+				}
+				player.currentScreenHandler.setCursorStack(cursor);
+				com.portable.storage.crafting.OverlayCraftingManager.updateResult(player);
+				// 同步
+				net.minecraft.item.ItemStack[] copy = new net.minecraft.item.ItemStack[st.slots.length];
+				for (int i = 0; i < st.slots.length; i++) copy[i] = st.slots[i].copy();
+				ServerPlayNetworking.send(player, new com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload(copy));
+			});
+		});
+
 		// 从仓库直接丢出悬停物品（Q/CTRL+Q）
 		ServerPlayNetworking.registerGlobalReceiver(StorageDropC2SPayload.ID, (payload, context) -> {
 			int slotIndex = payload.index();

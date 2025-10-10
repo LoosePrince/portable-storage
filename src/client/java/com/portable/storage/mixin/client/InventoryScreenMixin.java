@@ -13,6 +13,8 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.util.Identifier;
 import net.minecraft.item.Items;
 import net.minecraft.item.ItemStack;
+import java.util.ArrayList;
+import java.util.List;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -33,6 +35,10 @@ public abstract class InventoryScreenMixin {
     @Unique private long portableStorage$lastCraftingSlotClickTime = 0;
     // 槽位贴图（用于绘制3x3覆盖槽位）
     @Unique private static final Identifier portableStorage$SLOT_TEX = Identifier.of("portable-storage", "textures/gui/slot.png");
+    // 双击检测状态
+    @Unique private long portableStorage$lastClickTs = 0L;
+    @Unique private double portableStorage$lastClickX = 0;
+    @Unique private double portableStorage$lastClickY = 0;
 
     @Inject(method = "init", at = @At("TAIL"))
     private void portableStorage$init(CallbackInfo ci) {
@@ -201,9 +207,25 @@ public abstract class InventoryScreenMixin {
                     int overlayRight = overlayLeft + 3 * slotSize;
                     int overlayBottom = overlayTop + 3 * slotSize;
                     boolean shift = (mc2.options != null && mc2.options.sneakKey.isPressed()) || Screen.hasShiftDown();
+                    // 双击判断（250ms 内、移动不超过6像素，且光标不为空）
+                    boolean isDoubleClick = false;
+                    long nowTs = System.currentTimeMillis();
+                    if (nowTs - portableStorage$lastClickTs < 250 && Math.hypot(mouseX - portableStorage$lastClickX, mouseY - portableStorage$lastClickY) <= 6.0) {
+                        ItemStack cursorNow = mc2.player.currentScreenHandler.getCursorStack();
+                        isDoubleClick = !cursorNow.isEmpty();
+                    }
+                    portableStorage$lastClickTs = nowTs;
+                    portableStorage$lastClickX = mouseX;
+                    portableStorage$lastClickY = mouseY;
 
                     // 命中3x3输入区
                     if (mouseX >= overlayLeft && mouseX < overlayRight && mouseY >= overlayTop && mouseY < overlayBottom) {
+                        // 双击合并到光标
+                        if (isDoubleClick) {
+                            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.OverlayCraftingDoubleClickC2SPayload());
+                            cir.setReturnValue(true);
+                            return;
+                        }
                         int relX = (int)(mouseX - overlayLeft);
                         int relY = (int)(mouseY - overlayTop);
                         int col = Math.min(2, Math.max(0, relX / slotSize));
@@ -218,6 +240,31 @@ public abstract class InventoryScreenMixin {
                     int outX = x2 + handler.getSlot(0).x;
                     int outY = y2 + handler.getSlot(0).y;
                     if (mouseX >= outX && mouseX < outX + 18 && mouseY >= outY && mouseY < outY + 18) {
+                        // 双击合并到光标
+                        if (isDoubleClick) {
+                            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.OverlayCraftingDoubleClickC2SPayload());
+                            cir.setReturnValue(true);
+                            return;
+                        }
+                        // 客户端前置校验：若光标已达最大或继续取会超过最大，则不发送取出
+                        ItemStack resultVis = com.portable.storage.client.ui.VirtualCraftingOverlayState.get(0);
+                        if (!resultVis.isEmpty()) {
+                            ItemStack cursor = mc2.player.currentScreenHandler.getCursorStack();
+                            if (!cursor.isEmpty() && !ItemStack.areItemsAndComponentsEqual(cursor, resultVis)) {
+                                // 光标物品与合成结果不同，不取出
+                                cir.setReturnValue(true);
+                                return;
+                            }
+                            if (!cursor.isEmpty() && ItemStack.areItemsAndComponentsEqual(cursor, resultVis)) {
+                                int maxPerStack = Math.min(resultVis.getMaxCount(), mc2.player.getInventory().getMaxCountPerStack());
+                                int would = cursor.getCount() + resultVis.getCount();
+                                if (cursor.getCount() >= maxPerStack || would > maxPerStack) {
+                                    // 阻止继续取出，避免超过最大堆叠
+                                    cir.setReturnValue(true);
+                                    return;
+                                }
+                            }
+                        }
                         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.OverlayCraftingClickC2SPayload(0, button, shift));
                         cir.setReturnValue(true);
                         return;
