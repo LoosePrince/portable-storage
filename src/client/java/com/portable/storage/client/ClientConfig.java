@@ -36,6 +36,9 @@ public class ClientConfig {
     // 搜索位置
     public SearchPos searchPos = SearchPos.BOTTOM; // 默认底部
     
+    // 仓库位置
+    public StoragePos storagePos = StoragePos.BOTTOM; // 默认底部
+    
     public enum SortMode {
         COUNT("count"),           // 数量
         NAME("name"),            // 物品名称
@@ -69,6 +72,15 @@ public class ClientConfig {
         }
     }
     
+    public enum StoragePos {
+        BOTTOM,    // 仓库在底部（默认）
+        TOP;       // 仓库在顶部
+        public StoragePos next() {
+            StoragePos[] v = values();
+            return v[(this.ordinal() + 1) % v.length];
+        }
+    }
+    
     public static ClientConfig getInstance() {
         return INSTANCE;
     }
@@ -92,6 +104,7 @@ public class ClientConfig {
                 merged.autoDeposit = defaults.autoDeposit;
                 merged.smartCollapse = defaults.smartCollapse;
                 merged.searchPos = defaults.searchPos;
+                merged.storagePos = defaults.storagePos;
 
                 // 再按文件中存在的键覆盖
                 if (obj.has("collapsed")) {
@@ -129,6 +142,13 @@ public class ClientConfig {
                 if (obj.has("searchPos")) {
                     try {
                         merged.searchPos = SearchPos.valueOf(obj.get("searchPos").getAsString());
+                    } catch (IllegalArgumentException ignored) { /* 保持默认 */ }
+                } else {
+                    changed = true;
+                }
+                if (obj.has("storagePos")) {
+                    try {
+                        merged.storagePos = StoragePos.valueOf(obj.get("storagePos").getAsString());
                     } catch (IllegalArgumentException ignored) { /* 保持默认 */ }
                 } else {
                     changed = true;

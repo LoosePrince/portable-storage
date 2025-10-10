@@ -44,6 +44,9 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
     private ItemStack portableStorage$lastCraftingOutput = ItemStack.EMPTY;
     private long portableStorage$lastCraftRefillCheck = 0;
     private long portableStorage$lastCraftingSlotClickTime = 0;
+    
+    // 配置变化监听
+    private com.portable.storage.client.ClientConfig.StoragePos portableStorage$lastStoragePos = null;
 
     public PortableCraftingScreen(PortableCraftingScreenHandler handler, PlayerInventory playerInventory, Text title) {
         super(handler, playerInventory, title);
@@ -57,12 +60,25 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
     protected void init() {
         super.init();
         
-        // 计算整体内容高度：工作台 + 间距 + 仓库UI
-        int totalContentHeight = BG_HEIGHT + GAP_BETWEEN + STORAGE_UI_HEIGHT;
+        // 根据仓库位置设置计算整体内容高度和位置
+        com.portable.storage.client.ClientConfig config = com.portable.storage.client.ClientConfig.getInstance();
+        int totalContentHeight;
         
-        // 计算居中位置：让整体内容在屏幕中垂直居中
-        this.x = (this.width - this.backgroundWidth) / 2;
-        this.y = (this.height - totalContentHeight) / 2;
+        if (config.storagePos == com.portable.storage.client.ClientConfig.StoragePos.TOP) {
+            // 仓库在顶部时：仓库UI + 间距 + 工作台
+            totalContentHeight = STORAGE_UI_HEIGHT + GAP_BETWEEN + BG_HEIGHT;
+            // 计算居中位置：让整体内容在屏幕中垂直居中
+            this.x = (this.width - this.backgroundWidth) / 2;
+            this.y = (this.height - totalContentHeight) / 2;
+            // 工作台界面需要下移：y + 仓库UI高度 + 间距
+            this.y = this.y + STORAGE_UI_HEIGHT + GAP_BETWEEN;
+        } else {
+            // 仓库在底部时：工作台 + 间距 + 仓库UI
+            totalContentHeight = BG_HEIGHT + GAP_BETWEEN + STORAGE_UI_HEIGHT;
+            // 计算居中位置：让整体内容在屏幕中垂直居中
+            this.x = (this.width - this.backgroundWidth) / 2;
+            this.y = (this.height - totalContentHeight) / 2;
+        }
 
         // 初始化仓库搜索框（不折叠）
         MinecraftClient client = MinecraftClient.getInstance();
@@ -70,7 +86,16 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
             int fieldWidth = 120;
             int fieldHeight = 18;
             int fieldX = this.x + this.backgroundWidth - fieldWidth - 8;
-            int fieldY = this.y - fieldHeight - 6;
+            int fieldY;
+            
+            if (config.storagePos == com.portable.storage.client.ClientConfig.StoragePos.TOP) {
+                // 仓库在顶部时，搜索框在仓库上方
+                fieldY = this.y - fieldHeight - 6;
+            } else {
+                // 仓库在底部时，搜索框在工作台上方
+                fieldY = this.y - fieldHeight - 6;
+            }
+            
             storageUi.initSearchField(client, fieldX, fieldY, fieldWidth, fieldHeight);
             storageUi.setCollapsed(false);
         }
@@ -86,6 +111,52 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
         
         // 打开自定义工作台界面时请求同步仓库数据
         ClientPlayNetworking.send(RequestSyncC2SPayload.INSTANCE);
+        
+        // 初始化配置监听
+        this.portableStorage$lastStoragePos = config.storagePos;
+    }
+    
+    /**
+     * 重新计算界面位置
+     */
+    private void portableStorage$recalculatePosition() {
+        com.portable.storage.client.ClientConfig config = com.portable.storage.client.ClientConfig.getInstance();
+        int totalContentHeight;
+        
+        if (config.storagePos == com.portable.storage.client.ClientConfig.StoragePos.TOP) {
+            // 仓库在顶部时：仓库UI + 间距 + 工作台
+            totalContentHeight = STORAGE_UI_HEIGHT + GAP_BETWEEN + BG_HEIGHT;
+            // 计算居中位置：让整体内容在屏幕中垂直居中
+            this.x = (this.width - this.backgroundWidth) / 2;
+            this.y = (this.height - totalContentHeight) / 2;
+            // 工作台界面需要下移：y + 仓库UI高度 + 间距
+            this.y = this.y + STORAGE_UI_HEIGHT + GAP_BETWEEN;
+        } else {
+            // 仓库在底部时：工作台 + 间距 + 仓库UI
+            totalContentHeight = BG_HEIGHT + GAP_BETWEEN + STORAGE_UI_HEIGHT;
+            // 计算居中位置：让整体内容在屏幕中垂直居中
+            this.x = (this.width - this.backgroundWidth) / 2;
+            this.y = (this.height - totalContentHeight) / 2;
+        }
+        
+        // 重新初始化搜索框位置
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client != null && client.textRenderer != null) {
+            int fieldWidth = 120;
+            int fieldHeight = 18;
+            int fieldX = this.x + this.backgroundWidth - fieldWidth - 8;
+            int fieldY;
+            
+            if (config.storagePos == com.portable.storage.client.ClientConfig.StoragePos.TOP) {
+                // 仓库在顶部时，搜索框在仓库上方
+                fieldY = this.y - fieldHeight - 6;
+            } else {
+                // 仓库在底部时，搜索框在工作台上方
+                fieldY = this.y - fieldHeight - 6;
+            }
+            
+            storageUi.initSearchField(client, fieldX, fieldY, fieldWidth, fieldHeight);
+        }
     }
 
     @Override
@@ -106,6 +177,14 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        // 检查配置是否发生变化
+        com.portable.storage.client.ClientConfig config = com.portable.storage.client.ClientConfig.getInstance();
+        if (this.portableStorage$lastStoragePos != config.storagePos) {
+            // 配置发生变化，重新计算位置
+            portableStorage$recalculatePosition();
+            this.portableStorage$lastStoragePos = config.storagePos;
+        }
+        
         super.render(context, mouseX, mouseY, delta);
 
         // 检查仓库是否已启用
@@ -173,11 +252,21 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
      * 获取 EMI 排除区域
      */
     public void getExclusionAreas(Consumer<Bounds> consumer) {
+        com.portable.storage.client.ClientConfig config = com.portable.storage.client.ClientConfig.getInstance();
+        
         // 排除仓库UI区域
         int storageLeft = this.x + 8;
-        int storageTop = this.y + this.backgroundHeight + 6;
+        int storageTop;
         int storageWidth = 9 * 18; // 9列
         int storageHeight = 6 * 18; // 6行
+        
+        if (config.storagePos == com.portable.storage.client.ClientConfig.StoragePos.TOP) {
+            // 仓库在顶部时
+            storageTop = this.y - storageHeight - 6;
+        } else {
+            // 仓库在底部时
+            storageTop = this.y + this.backgroundHeight + 6;
+        }
         
         consumer.accept(new Bounds(storageLeft, storageTop, storageWidth, storageHeight));
         

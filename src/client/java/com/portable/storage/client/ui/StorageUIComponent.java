@@ -92,6 +92,7 @@ public class StorageUIComponent {
     private int craftRefillLeft, craftRefillTop, craftRefillRight, craftRefillBottom;
     private int autoDepositLeft, autoDepositTop, autoDepositRight, autoDepositBottom;
     private int searchPosLeft, searchPosTop, searchPosRight, searchPosBottom;
+    private int storagePosLeft, storagePosTop, storagePosRight, storagePosBottom;
     private int smartCollapseLeft, smartCollapseTop, smartCollapseRight, smartCollapseBottom;
     
     // 切换原版界面点击区域
@@ -177,14 +178,31 @@ public class StorageUIComponent {
         if (ClientConfig.getInstance().searchPos == ClientConfig.SearchPos.MIDDLE) {
             extraYOffset = searchH + 1; // 让仓库整体下移，给搜索框让位
         }
-        this.gridTop = screenY + backgroundHeight + gapBelow + extraYOffset;
+        
+        // 根据仓库位置设置计算gridTop
+        ClientConfig config = ClientConfig.getInstance();
+        if (config.storagePos == ClientConfig.StoragePos.TOP) {
+            // 仓库在顶部：计算仓库UI高度，然后让玩家背包下移
+            int storageHeight = visibleRows * (slotSize + slotSpacing);
+            this.gridTop = screenY - storageHeight - gapBelow - extraYOffset;
+        } else {
+            // 仓库在底部（默认）
+            this.gridTop = screenY + backgroundHeight + gapBelow + extraYOffset;
+        }
         
         // 折叠态：只显示一个"展开仓库"的小块
         if (enableCollapse && collapsed) {
             int tabW = 72;
             int tabH = 18;
             int tabLeft = screenX + (backgroundWidth - tabW) / 2; // 居中到背包下方
-            int tabTop = screenY + backgroundHeight + 6;
+            int tabTop;
+            if (config.storagePos == ClientConfig.StoragePos.TOP) {
+                // 仓库在顶部时，折叠标签显示在背包上方
+                tabTop = screenY - tabH - 6;
+            } else {
+                // 仓库在底部时，折叠标签显示在背包下方
+                tabTop = screenY + backgroundHeight + 6;
+            }
             this.expandTabLeft = tabLeft;
             this.expandTabTop = tabTop;
             this.expandTabRight = tabLeft + tabW;
@@ -206,7 +224,6 @@ public class StorageUIComponent {
             extendedSlotWidth = upgradeSlotSize + upgradeSpacing + 2; // 扩展槽位宽度 + 间距
         }
         
-        ClientConfig config = ClientConfig.getInstance();
         int panelWidth = calculatePanelWidth(client, config, enableCollapse);
         int panelLeft = screenX + backgroundWidth + 6;
         
@@ -690,11 +707,16 @@ public class StorageUIComponent {
 
         // 搜索位置
         String posKey;
-        switch (config.searchPos) {
-            case TOP: posKey = "portable_storage.search_pos.top"; break;
-            case TOP2: posKey = "portable_storage.search_pos.top2"; break;
-            case MIDDLE: posKey = "portable_storage.search_pos.middle"; break;
-            default: posKey = "portable_storage.search_pos.bottom";
+        if (config.storagePos == ClientConfig.StoragePos.TOP && config.searchPos == ClientConfig.SearchPos.TOP2) {
+            // 仓库在顶部时，TOP2显示为"顶部"
+            posKey = "portable_storage.search_pos.top";
+        } else {
+            switch (config.searchPos) {
+                case TOP: posKey = "portable_storage.search_pos.top"; break;
+                case TOP2: posKey = "portable_storage.search_pos.top2"; break;
+                case MIDDLE: posKey = "portable_storage.search_pos.middle"; break;
+                default: posKey = "portable_storage.search_pos.bottom";
+            }
         }
         String posLabel = Text.translatable(posKey).getString();
         Text searchPosText = Text.translatable("portable_storage.ui.search_pos", posLabel);
@@ -704,6 +726,19 @@ public class StorageUIComponent {
         this.searchPosTop = textY - 1;
         this.searchPosRight = textX + searchPosTextW + 2;
         this.searchPosBottom = textY + collapseTextH + 3;
+        textY += 12;
+        
+        // 仓库位置
+        String storagePosKey = config.storagePos == ClientConfig.StoragePos.TOP ? 
+            "portable_storage.storage_pos.top" : "portable_storage.storage_pos.bottom";
+        String storagePosLabel = Text.translatable(storagePosKey).getString();
+        Text storagePosText = Text.translatable("portable_storage.ui.storage_pos", storagePosLabel);
+        int storagePosTextW = client.textRenderer.getWidth(storagePosText);
+        context.drawText(client.textRenderer, storagePosText, textX, textY, 0xFFFFFF, true);
+        this.storagePosLeft = textX;
+        this.storagePosTop = textY - 1;
+        this.storagePosRight = textX + storagePosTextW + 2;
+        this.storagePosBottom = textY + collapseTextH + 3;
         textY += 12;
         
         // 切换原版界面（仅在自定义工作台界面显示）
@@ -767,23 +802,49 @@ public class StorageUIComponent {
         int fieldX = gridLeft;
         int h = this.searchField.getHeight();
         int fieldY;
-        switch (cfg.searchPos) {
-            case TOP:
-                // 玩家背包UI上方（紧贴）
-                fieldY = baseY - h - 6;
-                break;
-            case TOP2:
-                // 玩家背包UI上方（更靠上）
-                fieldY = baseY - h - 6 - 18;
-                break;
-            case MIDDLE:
-                // 背包与仓库之间
-                fieldY = baseY + baseBgH + 2;
-                break;
-            default:
-                // 底部（仓库下方）
-                fieldY = gridTop + visibleRows * (slotSize + slotSpacing) + 6;
+        
+        if (cfg.storagePos == ClientConfig.StoragePos.TOP) {
+            // 仓库在顶部时的搜索框位置
+            switch (cfg.searchPos) {
+                case TOP:
+                    // 仓库界面的上方
+                    fieldY = gridTop - h - 6;
+                    break;
+                case MIDDLE:
+                    // 仓库和玩家背包界面中间，即背包UI上面
+                    fieldY = baseY - h;
+                    break;
+                case BOTTOM:
+                default:
+                    // 玩家背包界面底部
+                    fieldY = baseY + baseBgH + 6;
+                    break;
+                case TOP2:
+                    // 仓库在顶部时，TOP2等同于TOP
+                    fieldY = gridTop - h - 6;
+                    break;
+            }
+        } else {
+            // 仓库在底部时的搜索框位置（原有逻辑）
+            switch (cfg.searchPos) {
+                case TOP:
+                    // 玩家背包UI上方（紧贴）
+                    fieldY = baseY - h - 6;
+                    break;
+                case TOP2:
+                    // 玩家背包UI上方（更靠上）
+                    fieldY = baseY - h - 6 - 18;
+                    break;
+                case MIDDLE:
+                    // 背包与仓库之间
+                    fieldY = baseY + baseBgH + 1;
+                    break;
+                default:
+                    // 底部（仓库下方）
+                    fieldY = gridTop + visibleRows * (slotSize + slotSpacing) + 6;
+            }
         }
+        
         this.searchField.setWidth(fieldWidth);
         this.searchField.setX(fieldX);
         this.searchField.setY(fieldY);
@@ -996,6 +1057,28 @@ public class StorageUIComponent {
         String autoDepositKey = config.autoDeposit ? "portable_storage.toggle.enabled" : "portable_storage.toggle.disabled";
         Text autoDepositText = Text.translatable("portable_storage.ui.auto_deposit", Text.translatable(autoDepositKey).getString());
         maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(autoDepositText) + padding);
+        
+        // 搜索位置文本宽度
+        String posKey;
+        if (config.storagePos == ClientConfig.StoragePos.TOP && config.searchPos == ClientConfig.SearchPos.TOP2) {
+            // 仓库在顶部时，TOP2显示为"顶部"
+            posKey = "portable_storage.search_pos.top";
+        } else {
+            switch (config.searchPos) {
+                case TOP: posKey = "portable_storage.search_pos.top"; break;
+                case TOP2: posKey = "portable_storage.search_pos.top2"; break;
+                case MIDDLE: posKey = "portable_storage.search_pos.middle"; break;
+                default: posKey = "portable_storage.search_pos.bottom";
+            }
+        }
+        Text searchPosText = Text.translatable("portable_storage.ui.search_pos", Text.translatable(posKey).getString());
+        maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(searchPosText) + padding);
+        
+        // 仓库位置文本宽度
+        String storagePosKey = config.storagePos == ClientConfig.StoragePos.TOP ? 
+            "portable_storage.storage_pos.top" : "portable_storage.storage_pos.bottom";
+        Text storagePosText = Text.translatable("portable_storage.ui.storage_pos", Text.translatable(storagePosKey).getString());
+        maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(storagePosText) + padding);
         
         // 切换原版界面文本宽度
         if (switchToVanillaCallback != null) {
@@ -1305,7 +1388,41 @@ public class StorageUIComponent {
             }
             // 搜索位置切换
             if (isIn(mouseX, mouseY, searchPosLeft, searchPosTop, searchPosRight, searchPosBottom)) {
-                config.searchPos = config.searchPos.next();
+                if (config.storagePos == ClientConfig.StoragePos.TOP) {
+                    // 仓库在顶部时，搜索位置只能在顶部、中间、底部三个状态中循环
+                    switch (config.searchPos) {
+                        case TOP:
+                            config.searchPos = ClientConfig.SearchPos.MIDDLE;
+                            break;
+                        case MIDDLE:
+                            config.searchPos = ClientConfig.SearchPos.BOTTOM;
+                            break;
+                        case BOTTOM:
+                        default:
+                            config.searchPos = ClientConfig.SearchPos.TOP;
+                            break;
+                        case TOP2:
+                            // 特殊情况：如果当前是TOP2，则视为TOP，切换到中间
+                            config.searchPos = ClientConfig.SearchPos.MIDDLE;
+                            break;
+                    }
+                } else {
+                    // 仓库在底部时，使用原有的循环逻辑
+                    config.searchPos = config.searchPos.next();
+                }
+                ClientConfig.save();
+                return true;
+            }
+            // 仓库位置切换
+            if (isIn(mouseX, mouseY, storagePosLeft, storagePosTop, storagePosRight, storagePosBottom)) {
+                ClientConfig.StoragePos oldPos = config.storagePos;
+                config.storagePos = config.storagePos.next();
+                
+                // 当仓库位置切换到顶部时，自动将搜索位置设置为中间
+                if (oldPos == ClientConfig.StoragePos.BOTTOM && config.storagePos == ClientConfig.StoragePos.TOP) {
+                    config.searchPos = ClientConfig.SearchPos.MIDDLE;
+                }
+                
                 ClientConfig.save();
                 return true;
             }
