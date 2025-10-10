@@ -4,6 +4,8 @@ import com.portable.storage.net.payload.StorageEnablementSyncS2CPayload;
 import com.portable.storage.net.payload.StorageSyncS2CPayload;
 import com.portable.storage.net.payload.UpgradeSyncS2CPayload;
 import com.portable.storage.net.payload.IncrementalStorageSyncS2CPayload;
+import com.portable.storage.net.payload.XpBottleMaintenanceToggleC2SPayload;
+import com.portable.storage.net.payload.XpStepSyncS2CPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
 public final class ClientNetworkingHandlers {
@@ -39,6 +41,17 @@ public final class ClientNetworkingHandlers {
 				ClientStorageState.setStorageEnabled(payload.enabled());
 			});
 		});
+		
+		ClientPlayNetworking.registerGlobalReceiver(XpStepSyncS2CPayload.ID, (payload, context) -> {
+			context.client().execute(() -> {
+				if (context.client().player == null) return;
+				ClientUpgradeState.setXpTransferStep(payload.stepIndex());
+			});
+		});
+	}
+	
+	public static void sendXpBottleMaintenanceToggle() {
+		ClientPlayNetworking.send(new XpBottleMaintenanceToggleC2SPayload());
 	}
 }
 

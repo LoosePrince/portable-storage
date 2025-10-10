@@ -15,6 +15,14 @@ public final class ClientUpgradeState {
 
     public static void updateFromNbt(NbtCompound nbt) {
         upgradeInventory.readNbt(nbt);
+        // XP 池（客户端仅用于显示）
+        if (nbt.contains("XpPool")) {
+            cachedXpPool = Math.max(0L, nbt.getLong("XpPool"));
+        }
+        // 等级维持状态
+        if (nbt.contains("LevelMaintenanceEnabled")) {
+            cachedLevelMaintenanceEnabled = nbt.getBoolean("LevelMaintenanceEnabled");
+        }
         
         // 读取禁用状态
         if (nbt.contains("disabledSlots")) {
@@ -90,6 +98,34 @@ public final class ClientUpgradeState {
      */
     public static boolean isBedUpgradeActive() {
         return upgradeInventory.isBedUpgradeActive();
+    }
+
+    /**
+     * 检查附魔之瓶（经验）升级是否激活（槽位7）
+     */
+    public static boolean isXpBottleUpgradeActive() {
+        net.minecraft.item.ItemStack stack = upgradeInventory.getStack(7);
+        return stack != null && !stack.isEmpty() && !upgradeInventory.isSlotDisabled(7);
+    }
+
+    // ===== XP 池缓存（只用来显示） =====
+    private static long cachedXpPool = 0L;
+    public static long getCachedXpPool() { return Math.max(0L, cachedXpPool); }
+    
+    // ===== 等级维持状态缓存 =====
+    private static boolean cachedLevelMaintenanceEnabled = false;
+    public static boolean isLevelMaintenanceEnabled() { return cachedLevelMaintenanceEnabled; }
+    
+    // ===== XP 传输步长管理 =====
+    private static int xpTransferStep = 0; // 0=1级, 1=5级, 2=10级, 3=100级
+    public static int getXpTransferStep() { return xpTransferStep; }
+    
+    public static void cycleXpTransferStep() {
+        xpTransferStep = (xpTransferStep + 1) % 4; // 循环 0,1,2,3
+    }
+    
+    public static void setXpTransferStep(int step) {
+        xpTransferStep = Math.max(0, Math.min(3, step)); // 确保在 0-3 范围内
     }
 }
 

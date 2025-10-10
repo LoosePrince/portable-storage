@@ -19,6 +19,9 @@ import net.minecraft.text.Text;
 
 public final class ServerNetworkingHandlers {
 	private ServerNetworkingHandlers() {}
+    // 附魔之瓶升级：循环的存取等级索引，简单存内存，不做持久化
+    private static final java.util.Map<java.util.UUID, Integer> xpStepIndexByPlayer = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final int[] XP_STEPS = new int[] {1, 5, 10, 100};
 	
 	/**
 	 * 检查玩家是否已启用随身仓库功能
@@ -358,20 +361,31 @@ public final class ServerNetworkingHandlers {
 				if (slot < 0 || slot >= upgrades.getSlotCount()) return;
 
 				// 扩展槽位检查特定操作
-				if (com.portable.storage.storage.UpgradeInventory.isExtendedSlot(slot)) {
-					// 槽位5（光灵箭）和槽位6（床）可以接受操作
-					if (slot != 5 && slot != 6) {
+                if (com.portable.storage.storage.UpgradeInventory.isExtendedSlot(slot)) {
+                    // 槽位5（光灵箭）、槽位6（床）、槽位7（附魔之瓶）可以接受操作
+                    if (slot != 5 && slot != 6 && slot != 7) {
 						return;
 					}
 				}
 
 				// 右键点击处理
-				if (button == 1) {
+                if (button == 1) {
 					// 床升级槽位右键睡觉
-					if (slot == 6 && upgrades.isBedUpgradeActive()) {
+                    if (slot == 6 && upgrades.isBedUpgradeActive()) {
 						handleBedUpgradeSleep(player);
 						return;
 					}
+                    // 附魔之瓶升级：右键循环存取等级
+                    if (slot == 7 && !upgrades.isSlotDisabled(7) && !upgrades.getStack(7).isEmpty()) {
+                        int idx = xpStepIndexByPlayer.getOrDefault(player.getUuid(), 0);
+                        idx = (idx + 1) % XP_STEPS.length;
+                        xpStepIndexByPlayer.put(player.getUuid(), idx);
+                        int step = XP_STEPS[idx];
+                        player.sendMessage(net.minecraft.text.Text.translatable("portable_storage.exp_bottle.step", step), true);
+                        // 同步XP步长到客户端
+                        ServerPlayNetworking.send(player, new com.portable.storage.net.payload.XpStepSyncS2CPayload(idx));
+                        return;
+                    }
 					// 其他槽位切换禁用状态
 					upgrades.toggleSlotDisabled(slot);
 					sendIncrementalSync(player);
@@ -493,6 +507,73 @@ public final class ServerNetworkingHandlers {
 			});
 		});
 
+		// 虚拟“瓶装经验”点击：button=0 左键取出，1 右键存入
+		ServerPlayNetworking.registerGlobalReceiver(com.portable.storage.net.payload.XpBottleClickC2SPayload.ID, (payload, context) -> {
+			int button = payload.button();
+			context.server().execute(() -> {
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				if (checkAndRejectIfNotEnabled(player)) return;
+				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
+				// 必须有附魔之瓶升级且未禁用
+				if (upgrades.isSlotDisabled(7) || upgrades.getStack(7).isEmpty()) return;
+				int idx = xpStepIndexByPlayer.getOrDefault(player.getUuid(), 0);
+				int levels = XP_STEPS[idx];
+				if (button == 0) {
+					// 左键：从"仓库XP池"取出经验，增加给玩家
+					// 先计算需要取出的经验值
+					int xpNeeded = xpForLevels(player.experienceLevel, levels);
+					long availableXp = upgrades.getXpPool();
+					
+					if (availableXp >= xpNeeded) {
+						// 经验足够，按等级提升
+						long taken = upgrades.removeFromXpPool(xpNeeded);
+						if (taken > 0) {
+							int actualWithdrawn = withdrawPlayerXpByLevels(player, levels);
+							player.sendMessage(Text.translatable("portable_storage.exp_bottle.delta", "+" + actualWithdrawn), true);
+						}
+					} else if (availableXp > 0) {
+						// 经验不足，取出全部剩余经验
+						long taken = upgrades.removeFromXpPool(availableXp);
+						if (taken > 0) {
+							// 直接增加经验值，不按等级提升
+							player.addExperience((int)Math.min(Integer.MAX_VALUE, taken));
+							player.sendMessage(Text.translatable("portable_storage.exp_bottle.delta", "+" + taken), true);
+						}
+					}
+					sendUpgradeSync(player);
+				} else {
+					// 右键：从玩家扣除经验，存入"仓库XP池"
+					// 使用新的方法扣除玩家经验，避免残留
+					int deposited = depositPlayerXpByLevels(player, levels);
+					if (deposited > 0) {
+						upgrades.addToXpPool(deposited);
+						player.sendMessage(Text.translatable("portable_storage.exp_bottle.delta", "-" + deposited), true);
+					}
+					sendUpgradeSync(player);
+				}
+			});
+		});
+
+		// 附魔之瓶等级维持切换
+		ServerPlayNetworking.registerGlobalReceiver(com.portable.storage.net.payload.XpBottleMaintenanceToggleC2SPayload.ID, (payload, context) -> {
+			context.server().execute(() -> {
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				if (checkAndRejectIfNotEnabled(player)) return;
+				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
+				// 必须有附魔之瓶升级且未禁用
+				if (upgrades.isSlotDisabled(7) || upgrades.getStack(7).isEmpty()) return;
+				
+				// 切换等级维持状态
+				upgrades.toggleLevelMaintenance();
+				boolean enabled = upgrades.isLevelMaintenanceEnabled();
+				Text status = enabled ? 
+					Text.translatable("portable_storage.toggle.enabled") : 
+					Text.translatable("portable_storage.toggle.disabled");
+				player.sendMessage(Text.translatable("portable_storage.exp_bottle.maintenance_toggle", status), true);
+				sendUpgradeSync(player);
+			});
+		});
+
         // 切回原版工作台：确保关闭旧容器并清理自定义容器的输入/输出槽位，避免残留状态影响原版合成
         ServerPlayNetworking.registerGlobalReceiver(com.portable.storage.net.payload.RequestVanillaCraftingOpenC2SPayload.ID, (payload, context) -> {
 			context.server().execute(() -> {
@@ -541,6 +622,94 @@ public final class ServerNetworkingHandlers {
 	private static net.minecraft.nbt.NbtCompound getOrCreateCustom(net.minecraft.item.ItemStack stack) {
 		net.minecraft.component.type.NbtComponent comp = stack.get(net.minecraft.component.DataComponentTypes.CUSTOM_DATA);
 		return comp != null ? comp.copyNbt() : new net.minecraft.nbt.NbtCompound();
+	}
+
+	// ===== XP 计算与增减（基于等级与进度的精确转换） =====
+	private static int totalXpForLevel(int level) {
+		if (level <= 16) return level * level + 6 * level;
+		if (level <= 31) return (int)Math.floor(2.5 * level * level - 40.5 * level + 360);
+		return (int)Math.floor(4.5 * level * level - 162.5 * level + 2220);
+	}
+
+	private static int xpToNextLevel(int level) {
+		if (level <= 15) return 2 * level + 7;
+		if (level <= 30) return 5 * level - 38;
+		return 9 * level - 158;
+	}
+
+	private static int currentTotalXp(ServerPlayerEntity player) {
+		int level = player.experienceLevel;
+		float progress = player.experienceProgress;
+		int base = totalXpForLevel(level);
+		int next = xpToNextLevel(level);
+		return Math.max(0, base + (int)Math.floor(next * Math.max(0f, Math.min(1f, progress))));
+	}
+
+	// 新的经验值操作：使用等级和经验值混合，避免残留
+	private static int depositPlayerXpByLevels(ServerPlayerEntity player, int levels) {
+		if (levels <= 0) return 0;
+		
+		int currentLevel = player.experienceLevel;
+		float currentProgress = player.experienceProgress;
+		int xpInCurrentLevel = (int) (currentProgress * xpToNextLevel(currentLevel));
+		
+		int totalDeposited = 0;
+		
+		// 先扣除当前等级的零头
+		if (xpInCurrentLevel > 0) {
+			totalDeposited += xpInCurrentLevel;
+			player.experienceProgress = 0.0f;
+		}
+		
+		// 然后逐级降低等级
+		for (int i = 0; i < levels && currentLevel > 0; i++) {
+			currentLevel--;
+			int xpForThisLevel = xpToNextLevel(currentLevel);
+			totalDeposited += xpForThisLevel;
+			player.experienceLevel = currentLevel;
+		}
+		
+		// 刷新客户端经验条显示（不改变经验值，只触发同步）
+		player.addExperience(0);
+		
+		return totalDeposited;
+	}
+
+	private static int withdrawPlayerXpByLevels(ServerPlayerEntity player, int levels) {
+		if (levels <= 0) return 0;
+		
+		int currentLevel = player.experienceLevel;
+		float currentProgress = player.experienceProgress;
+		int xpInCurrentLevel = (int) (currentProgress * xpToNextLevel(currentLevel));
+		
+		int totalWithdrawn = 0;
+		
+		// 先获取当前等级的零头
+		if (xpInCurrentLevel > 0) {
+			totalWithdrawn += xpInCurrentLevel;
+			player.experienceProgress = 0.0f;
+		}
+		
+		// 然后逐级增加等级
+		for (int i = 0; i < levels; i++) {
+			// 计算从当前等级到下一级还需要多少经验
+			int xpNeededToNextLevel = xpToNextLevel(currentLevel) - (int) (player.experienceProgress * xpToNextLevel(currentLevel));
+			totalWithdrawn += xpNeededToNextLevel;
+			currentLevel++;
+			player.experienceLevel = currentLevel;
+			player.experienceProgress = 0.0f; // 升级后进度重置为0
+		}
+		
+		// 刷新客户端经验条显示（不改变经验值，只触发同步）
+		player.addExperience(0);
+		
+		return totalWithdrawn;
+	}
+
+	private static int xpForLevels(int baseLevel, int levels) {
+		int from = totalXpForLevel(baseLevel);
+		int to = totalXpForLevel(baseLevel + levels);
+		return Math.max(0, to - from);
 	}
 
 	private static net.minecraft.nbt.NbtCompound getOrCreateBlockEntityData(net.minecraft.item.ItemStack stack) {
@@ -608,18 +777,9 @@ public final class ServerNetworkingHandlers {
 
     private static ItemStack insertIntoStorage(StorageInventory storage, ItemStack stack) {
         if (stack.isEmpty()) return ItemStack.EMPTY;
-        // Preserve full components by inserting the whole ItemStack variant
+        //通过插入整个 ItemStack 变体来保留完整组件
         storage.insertItemStack(stack.copy(), System.currentTimeMillis());
         return ItemStack.EMPTY;
-    }
-
-    private static long insertIntoStorageAsLong(StorageInventory storage, net.minecraft.item.Item item, long count) {
-        if (count <= 0) return 0;
-        // Fallback path kept for existing callers; wrap into ItemStack to preserve components if possible
-        ItemStack tmp = new ItemStack(item);
-        tmp.setCount((int)Math.min(Integer.MAX_VALUE, count));
-        storage.insertItemStack(tmp, System.currentTimeMillis());
-        return 0;
     }
 
     public static void sendSync(ServerPlayerEntity player) {
@@ -695,6 +855,9 @@ public final class ServerNetworkingHandlers {
 		NbtCompound nbt = new NbtCompound();
 		up.writeNbt(nbt);
 		ServerPlayNetworking.send(player, new UpgradeSyncS2CPayload(nbt));
+		// 同时同步XP步长
+		int xpStep = xpStepIndexByPlayer.getOrDefault(player.getUuid(), 0);
+		ServerPlayNetworking.send(player, new com.portable.storage.net.payload.XpStepSyncS2CPayload(xpStep));
 	}
 	
 	public static void sendEnablementSync(ServerPlayerEntity player) {

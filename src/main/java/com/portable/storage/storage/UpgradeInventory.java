@@ -20,6 +20,10 @@ public class UpgradeInventory {
     private static final int TOTAL_SLOT_COUNT = BASE_SLOT_COUNT + EXTENDED_SLOT_COUNT;
     private final ItemStack[] slots;
     private final boolean[] disabledSlots; // 每个槽位的禁用状态
+    // 附魔之瓶独立经验池（以经验点记录）
+    private long xpPool = 0L;
+    // 等级维持状态（是否启用智能等级维持）
+    private boolean levelMaintenanceEnabled = false;
     
     // 每个基础槽位对应的升级物品
     private static final ItemStack[] SLOT_UPGRADES = {
@@ -110,7 +114,9 @@ public class UpgradeInventory {
                            stack.isOf(Items.MAGENTA_BED) || stack.isOf(Items.ORANGE_BED) || 
                            stack.isOf(Items.PINK_BED) || stack.isOf(Items.PURPLE_BED) || 
                            stack.isOf(Items.WHITE_BED) || stack.isOf(Items.YELLOW_BED);
-                case 7: case 8: case 9: case 10:
+                case 7: // 附魔之瓶（经验）升级
+                    return stack.isOf(Items.EXPERIENCE_BOTTLE);
+                case 8: case 9: case 10:
                     // 其他扩展槽位暂时不接受任何物品
                     return false;
                 default:
@@ -141,7 +147,9 @@ public class UpgradeInventory {
                     return new ItemStack(Items.SPECTRAL_ARROW);
                 case 6: // 床升级
                     return new ItemStack(Items.RED_BED);
-                case 7: case 8: case 9: case 10:
+                case 7: // 附魔之瓶升级
+                    return new ItemStack(Items.EXPERIENCE_BOTTLE);
+                case 8: case 9: case 10:
                     // 其他扩展槽位返回屏障图标
                     return EXTENDED_SLOT_ICON.copy();
                 default:
@@ -206,6 +214,11 @@ public class UpgradeInventory {
         ItemStack bedStack = getStack(6); // 槽位6是床
         return !bedStack.isEmpty() && !isSlotDisabled(6);
     }
+
+    public boolean isXpBottleUpgradeActive() {
+        ItemStack xpStack = getStack(7); // 槽位7是附魔之瓶
+        return !xpStack.isEmpty() && !isSlotDisabled(7);
+    }
     
     /**
      * 获取扩展槽位的有效状态（仅在箱子升级激活时有效）
@@ -226,8 +239,8 @@ public class UpgradeInventory {
 
         // 扩展槽位检查特定物品
         if (isExtendedSlot(slot)) {
-            // 只有槽位5（光灵箭）和槽位6（床）可以接受物品
-            if (slot != 5 && slot != 6) {
+            // 只有槽位5（光灵箭）、槽位6（床）和槽位7（附魔之瓶）可以接受物品
+            if (slot != 5 && slot != 6 && slot != 7) {
                 return false;
             }
         }
@@ -309,6 +322,10 @@ public class UpgradeInventory {
             disabledNbt.putBoolean("slot" + i, disabledSlots[i]);
         }
         nbt.put("DisabledSlots", disabledNbt);
+        // 写入附魔之瓶经验池
+        nbt.putLong("XpPool", Math.max(0L, xpPool));
+        // 写入等级维持状态
+        nbt.putBoolean("LevelMaintenanceEnabled", levelMaintenanceEnabled);
     }
 
     /**
@@ -355,6 +372,18 @@ public class UpgradeInventory {
                 disabledSlots[i] = false;
             }
         }
+        // 读取附魔之瓶经验池
+        if (nbt.contains("XpPool", NbtElement.LONG_TYPE)) {
+            xpPool = Math.max(0L, nbt.getLong("XpPool"));
+        } else {
+            xpPool = 0L;
+        }
+        // 读取等级维持状态
+        if (nbt.contains("LevelMaintenanceEnabled", 1)) { // 1 = BOOLEAN_TYPE
+            levelMaintenanceEnabled = nbt.getBoolean("LevelMaintenanceEnabled");
+        } else {
+            levelMaintenanceEnabled = false;
+        }
     }
     
     /**
@@ -377,6 +406,41 @@ public class UpgradeInventory {
         for (int i = BASE_SLOT_COUNT; i < TOTAL_SLOT_COUNT; i++) {
             slots[i] = ItemStack.EMPTY;
         }
+    }
+
+    // ===== 附魔之瓶经验池 API =====
+    public long getXpPool() { return Math.max(0L, xpPool); }
+
+    public long addToXpPool(long amount) {
+        if (amount <= 0) return 0L;
+        long before = xpPool;
+        long after;
+        try {
+            after = Math.addExact(before, amount);
+        } catch (ArithmeticException ex) {
+            after = Long.MAX_VALUE;
+        }
+        xpPool = after;
+        return after - before;
+    }
+
+    public long removeFromXpPool(long amount) {
+        if (amount <= 0) return 0L;
+        long removed = Math.min(amount, Math.max(0L, xpPool));
+        xpPool -= removed;
+        if (xpPool < 0L) xpPool = 0L;
+        return removed;
+    }
+
+    // ===== 等级维持状态 API =====
+    public boolean isLevelMaintenanceEnabled() { return levelMaintenanceEnabled; }
+    
+    public void setLevelMaintenanceEnabled(boolean enabled) { 
+        levelMaintenanceEnabled = enabled; 
+    }
+    
+    public void toggleLevelMaintenance() { 
+        levelMaintenanceEnabled = !levelMaintenanceEnabled; 
     }
 }
 

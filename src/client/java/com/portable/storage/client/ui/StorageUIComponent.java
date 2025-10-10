@@ -253,6 +253,11 @@ public class StorageUIComponent {
      */
     private void renderStorageGrid(DrawContext context, MinecraftClient client, int mouseX, int mouseY) {
         List<Integer> filtered = buildFilteredIndices();
+        // 如果启用附魔之瓶升级，则追加一个虚拟条目到末尾用于显示“瓶装经验”
+        boolean showXpBottle = com.portable.storage.client.ClientUpgradeState.isXpBottleUpgradeActive();
+        if (showXpBottle) {
+            filtered.add(Integer.MIN_VALUE); // 约定使用特殊索引表示虚拟条目
+        }
         this.filteredIndices = filtered;
         int filteredSize = filtered.size();
         this.totalRows = Math.max(visibleRows, (int)Math.ceil(filteredSize / (double)cols));
@@ -280,7 +285,35 @@ public class StorageUIComponent {
                 if (modelRow < totalRows && filteredIndex >= 0 && filteredIndex < filteredSize) {
                     int storageIndex = filtered.get(filteredIndex);
                     var stacks = ClientStorageState.getStacks();
-                    if (storageIndex >= 0 && storageIndex < stacks.size()) {
+                    if (storageIndex == Integer.MIN_VALUE) {
+                        // 渲染虚拟“瓶装经验”
+                        ItemStack display = new ItemStack(net.minecraft.item.Items.EXPERIENCE_BOTTLE);
+                        context.getMatrices().push();
+                        context.getMatrices().translate(0.0f, 0.0f, 100.0f);
+                        context.drawItem(display, sx + 1, sy + 1);
+                        // 渲染数量为“仓库XP池”的数值
+                        long totalXp = com.portable.storage.client.ClientUpgradeState.getCachedXpPool();
+                        if (totalXp > 0) {
+                            String countText = formatCount((int)Math.min(Integer.MAX_VALUE, totalXp));
+                            float scale = 0.75f;
+                            int textWidth = client.textRenderer.getWidth(countText);
+                            int txUnscaled = sx + slotSize - 1 - (int)(textWidth * scale);
+                            int tyUnscaled = sy + slotSize - (int)(9 * scale);
+                            context.getMatrices().push();
+                            context.getMatrices().translate(0.0f, 0.0f, 200.0f);
+                            context.getMatrices().scale(scale, scale, 1.0f);
+                            context.drawText(client.textRenderer, countText, (int)(txUnscaled / scale), (int)(tyUnscaled / scale), 0xFFFFFF, true);
+                            context.getMatrices().pop();
+                        }
+                        context.getMatrices().pop();
+
+                        if (hoveredStack.isEmpty() && mouseX >= sx && mouseX < sx + slotSize && mouseY >= sy && mouseY < sy + slotSize) {
+                            // 使用占位堆叠标记悬停
+                            hoveredStack = display;
+                            hoveredIndex = Integer.MIN_VALUE;
+                        }
+                        visibleIndexMap[row * cols + col] = -2; // -2 表示虚拟XP条目
+                    } else if (storageIndex >= 0 && storageIndex < stacks.size()) {
                         var stack = stacks.get(storageIndex);
                         if (stack != null && !stack.isEmpty()) {
                             // 渲染物品
@@ -377,6 +410,19 @@ public class StorageUIComponent {
                 // 添加右键提示：槽位6为床升级，右键睡觉；其他槽位右键切换禁用
                 if (slotIndex == 6) {
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_bed"));
+                } else if (slotIndex == 7) {
+                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_xp"));
+                    // 添加当前存取等级信息
+                    int currentStep = com.portable.storage.client.ClientUpgradeState.getXpTransferStep();
+                    int[] steps = {1, 5, 10, 100};
+                    int level = steps[currentStep];
+                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_current_step", level));
+                    // 添加等级维持状态
+                    boolean maintenanceEnabled = com.portable.storage.client.ClientUpgradeState.isLevelMaintenanceEnabled();
+                    Text maintenanceStatus = maintenanceEnabled ? 
+                        Text.translatable("portable_storage.toggle.enabled") : 
+                        Text.translatable("portable_storage.toggle.disabled");
+                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_level_maintenance", maintenanceStatus));
                 } else {
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_hint"));
                 }
@@ -386,7 +432,18 @@ public class StorageUIComponent {
         }
         // 检查是否悬停在物品上
         else if (!hoveredStack.isEmpty()) {
-            List<Text> lines = net.minecraft.client.gui.screen.Screen.getTooltipFromItem(client, hoveredStack);
+            List<Text> lines;
+            if (hoveredIndex == Integer.MIN_VALUE) {
+                // 瓶装经验自定义悬停提示
+                long totalXp = com.portable.storage.client.ClientUpgradeState.getCachedXpPool();
+                int level = portableStorage$levelFromTotalXp((int)Math.min(Integer.MAX_VALUE, totalXp));
+                lines = new java.util.ArrayList<>();
+                lines.add(Text.translatable("portable_storage.exp_bottle.title"));
+                lines.add(Text.translatable("portable_storage.exp_bottle.current", String.valueOf(totalXp)));
+                lines.add(Text.translatable("portable_storage.exp_bottle.equivalent", String.valueOf(level)));
+            } else {
+                lines = net.minecraft.client.gui.screen.Screen.getTooltipFromItem(client, hoveredStack);
+            }
             if (hoveredIndex >= 0) {
                 long exact = ClientStorageState.getCount(hoveredIndex);
                 if (exact > 999) {
@@ -884,6 +941,46 @@ public class StorageUIComponent {
         java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy MM-dd HH:mm");
         return dateTime.format(formatter);
     }
+
+    // 计算玩家总经验（客户端估算：基于等级与进度）
+    private long portableStorage$computePlayerTotalXp() {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc == null || mc.player == null) return 0L;
+        int level = mc.player.experienceLevel;
+        float progress = mc.player.experienceProgress; // 0..1 之间
+        // 1.21 经验公式（与 1.17+ 一致）：
+        // totalXp(level) = if level<=16: level^2 + 6*level
+        //                 else if level<=31: 2.5*level^2 - 40.5*level + 360
+        //                 else: 4.5*level^2 - 162.5*level + 2220
+        int base = portableStorage$xpForLevel(level);
+        int next = portableStorage$xpToNextLevel(level);
+        return Math.max(0L, (long)base + (long)Math.floor(next * Math.max(0f, Math.min(1f, progress))));
+    }
+
+    private int portableStorage$xpForLevel(int level) {
+        if (level <= 16) return level * level + 6 * level;
+        if (level <= 31) return (int)Math.floor(2.5 * level * level - 40.5 * level + 360);
+        return (int)Math.floor(4.5 * level * level - 162.5 * level + 2220);
+    }
+
+    private int portableStorage$xpToNextLevel(int level) {
+        if (level <= 15) return 2 * level + 7;
+        if (level <= 30) return 5 * level - 38;
+        return 9 * level - 158;
+    }
+
+    private int portableStorage$levelFromTotalXp(int total) {
+        total = Math.max(0, total);
+        int lvl = 0;
+        int remain = total;
+        while (true) {
+            int need = portableStorage$xpToNextLevel(lvl);
+            if (remain < need) return lvl;
+            remain -= need;
+            lvl++;
+            if (lvl > 10000) return lvl; // 安全上限
+        }
+    }
     
     private int calculatePanelWidth(MinecraftClient client, ClientConfig config, boolean enableCollapse) {
         int padding = 12;
@@ -1041,8 +1138,8 @@ public class StorageUIComponent {
             if (isIn(mouseX, mouseY, upgradeSlotLefts[i], upgradeSlotTops[i], upgradeSlotRights[i], upgradeSlotBottoms[i])) {
                 // 扩展槽位检查特定操作
                 if (ClientUpgradeState.isExtendedSlot(i)) {
-                    // 槽位5（光灵箭）和槽位6（床）可以接受点击
-                    if (i != 5 && i != 6) {
+                    // 槽位5（光灵箭）、槽位6（床）、槽位7（附魔之瓶）可以接受点击
+                    if (i != 5 && i != 6 && i != 7) {
                         return true; // 阻止进一步处理
                     }
                 }
@@ -1052,6 +1149,17 @@ public class StorageUIComponent {
                     if (i == 6 && ClientUpgradeState.isBedUpgradeActive()) {
                         // 发送睡觉请求到服务器
                         ClientPlayNetworking.send(new UpgradeSlotClickC2SPayload(i, button));
+                        return true;
+                    }
+                    // 附魔之瓶槽位右键：切换存取等级
+                    if (i == 7 && ClientUpgradeState.isXpBottleUpgradeActive()) {
+                        ClientPlayNetworking.send(new UpgradeSlotClickC2SPayload(i, button));
+                        return true;
+                    }
+                } else if (button == 2) { // 中键点击
+                    // 附魔之瓶槽位中键：切换等级维持状态
+                    if (i == 7 && ClientUpgradeState.isXpBottleUpgradeActive()) {
+                        com.portable.storage.client.ClientNetworkingHandlers.sendXpBottleMaintenanceToggle();
                         return true;
                     }
                     // 其他槽位切换禁用状态
@@ -1102,6 +1210,11 @@ public class StorageUIComponent {
                         int visIdx = row * cols + col;
                         if (visIdx < visibleIndexMap.length) {
                             int storageIndex = visibleIndexMap[visIdx];
+                             // 虚拟“瓶装经验”条目点击：发送独立消息给服务端
+                             if (storageIndex == -2 && com.portable.storage.client.ClientUpgradeState.isXpBottleUpgradeActive()) {
+                                 net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.XpBottleClickC2SPayload(button));
+                                 return true;
+                             }
                             if (storageIndex >= 0) {
                                 // 优先处理：智能折叠代表项的右键 → 展开（填充搜索框），避免与“右键取1个”冲突
                                 if (button == 1 && ClientConfig.getInstance().smartCollapse && collapsedInfoByRep.containsKey(storageIndex)) {
@@ -1392,7 +1505,8 @@ public class StorageUIComponent {
             case 4: key = "block.minecraft.shulker_box"; break;
             case 5: key = "item.minecraft.spectral_arrow"; break; // 光灵箭升级
             case 6: key = "block.minecraft.red_bed"; break; // 床升级
-            case 7: case 8: case 9: case 10: 
+            case 7: key = "item.minecraft.experience_bottle"; break; // 附魔之瓶升级
+            case 8: case 9: case 10: 
                 key = "portable_storage.upgrade.extended_slot"; break;
             default: key = "portable_storage.upgrade.unknown";
         }
