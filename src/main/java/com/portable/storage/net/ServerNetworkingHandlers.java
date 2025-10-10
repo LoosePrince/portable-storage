@@ -516,6 +516,13 @@ public final class ServerNetworkingHandlers {
 				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
 				// 必须有附魔之瓶升级且未禁用
 				if (upgrades.isSlotDisabled(7) || upgrades.getStack(7).isEmpty()) return;
+				
+				// 检查是否启用了等级维持，如果启用则拒绝手动存取
+				if (upgrades.isLevelMaintenanceEnabled()) {
+					player.sendMessage(Text.translatable("portable_storage.exp_bottle.maintenance_blocked"), true);
+					return;
+				}
+				
 				int idx = xpStepIndexByPlayer.getOrDefault(player.getUuid(), 0);
 				int levels = XP_STEPS[idx];
 				if (button == 0) {
@@ -571,6 +578,61 @@ public final class ServerNetworkingHandlers {
 					Text.translatable("portable_storage.toggle.disabled");
 				player.sendMessage(Text.translatable("portable_storage.exp_bottle.maintenance_toggle", status), true);
 				sendUpgradeSync(player);
+			});
+		});
+
+		// 附魔之瓶转换：玻璃瓶右键瓶装经验转换为附魔之瓶
+		ServerPlayNetworking.registerGlobalReceiver(com.portable.storage.net.payload.XpBottleConversionC2SPayload.ID, (payload, context) -> {
+			context.server().execute(() -> {
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				if (checkAndRejectIfNotEnabled(player)) return;
+				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
+				// 必须有附魔之瓶升级且未禁用
+				if (upgrades.isSlotDisabled(7) || upgrades.getStack(7).isEmpty()) return;
+				
+				// 检查玩家是否拿着玻璃瓶
+				ItemStack cursorStack = player.currentScreenHandler.getCursorStack();
+				if (cursorStack.isEmpty() || !cursorStack.isOf(net.minecraft.item.Items.GLASS_BOTTLE)) {
+					player.sendMessage(Text.translatable("portable_storage.exp_bottle.conversion.no_bottle"), true);
+					return;
+				}
+				
+				int bottleCount = cursorStack.getCount();
+				long availableXp = upgrades.getXpPool();
+				
+				// 计算可以转换的附魔之瓶数量（每11点经验=1个附魔之瓶）
+				int maxConvertible = (int) Math.min(bottleCount, availableXp / 11);
+				
+				if (maxConvertible <= 0) {
+					player.sendMessage(Text.translatable("portable_storage.exp_bottle.conversion.insufficient_xp"), true);
+					return;
+				}
+				
+				// 扣除经验值
+				long xpUsed = maxConvertible * 11L;
+				upgrades.removeFromXpPool(xpUsed);
+				
+				// 创建附魔之瓶
+				ItemStack experienceBottles = new ItemStack(net.minecraft.item.Items.EXPERIENCE_BOTTLE, maxConvertible);
+				
+				// 处理剩余的玻璃瓶
+				int remainingBottles = bottleCount - maxConvertible;
+				if (remainingBottles > 0) {
+					// 将剩余玻璃瓶存入仓库
+					StorageInventory storage = PlayerStorageService.getInventory(player);
+					ItemStack remainingBottleStack = new ItemStack(net.minecraft.item.Items.GLASS_BOTTLE, remainingBottles);
+					storage.insertItemStack(remainingBottleStack, System.currentTimeMillis());
+					player.currentScreenHandler.setCursorStack(experienceBottles);
+					player.sendMessage(Text.translatable("portable_storage.exp_bottle.conversion.partial", maxConvertible, remainingBottles), true);
+				} else {
+					// 全部转换
+					player.currentScreenHandler.setCursorStack(experienceBottles);
+					player.sendMessage(Text.translatable("portable_storage.exp_bottle.conversion.complete", maxConvertible), true);
+				}
+				
+				// 同步数据
+				sendUpgradeSync(player);
+				sendSync(player);
 			});
 		});
 

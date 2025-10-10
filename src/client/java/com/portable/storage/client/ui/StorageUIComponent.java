@@ -253,10 +253,10 @@ public class StorageUIComponent {
      */
     private void renderStorageGrid(DrawContext context, MinecraftClient client, int mouseX, int mouseY) {
         List<Integer> filtered = buildFilteredIndices();
-        // 如果启用附魔之瓶升级，则追加一个虚拟条目到末尾用于显示“瓶装经验”
+        // 如果启用附魔之瓶升级，则在开头插入一个虚拟条目用于显示"瓶装经验"
         boolean showXpBottle = com.portable.storage.client.ClientUpgradeState.isXpBottleUpgradeActive();
         if (showXpBottle) {
-            filtered.add(Integer.MIN_VALUE); // 约定使用特殊索引表示虚拟条目
+            filtered.add(0, Integer.MIN_VALUE); // 在开头插入虚拟条目
         }
         this.filteredIndices = filtered;
         int filteredSize = filtered.size();
@@ -412,6 +412,7 @@ public class StorageUIComponent {
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_bed"));
                 } else if (slotIndex == 7) {
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_xp"));
+                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_middle_click_maintenance"));
                     // 添加当前存取等级信息
                     int currentStep = com.portable.storage.client.ClientUpgradeState.getXpTransferStep();
                     int[] steps = {1, 5, 10, 100};
@@ -1210,8 +1211,21 @@ public class StorageUIComponent {
                         int visIdx = row * cols + col;
                         if (visIdx < visibleIndexMap.length) {
                             int storageIndex = visibleIndexMap[visIdx];
-                             // 虚拟“瓶装经验”条目点击：发送独立消息给服务端
+                             // 虚拟"瓶装经验"条目点击：发送独立消息给服务端
                              if (storageIndex == -2 && com.portable.storage.client.ClientUpgradeState.isXpBottleUpgradeActive()) {
+                                 if (button == 1) {
+                                     // 右键：检查是否拿着玻璃瓶进行转换
+                                     MinecraftClient client = MinecraftClient.getInstance();
+                                     if (client.player != null) {
+                                         ItemStack cursorStack = client.player.currentScreenHandler.getCursorStack();
+                                         if (!cursorStack.isEmpty() && cursorStack.isOf(net.minecraft.item.Items.GLASS_BOTTLE)) {
+                                             // 发送转换请求
+                                             net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.XpBottleConversionC2SPayload(button));
+                                             return true;
+                                         }
+                                     }
+                                 }
+                                 // 左键或其他情况：正常的经验存取
                                  net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.XpBottleClickC2SPayload(button));
                                  return true;
                              }
