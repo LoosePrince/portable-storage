@@ -67,6 +67,17 @@
   "portable_storage.ui.upgrade_desc.barrel": "Barrel: Create bound barrel",
   "portable_storage.ui.upgrade_desc.spectral_arrow": "Spectral Arrow: Normal arrows apply 10s glowing",
   "portable_storage.ui.upgrade_desc.bed": "Bed (any bed): Right-click to sleep in place (no spawn point)",
-  "portable_storage.ui.upgrade_desc.experience_bottle": "Experience Bottle: Store XP in storage"
+  "portable_storage.ui.upgrade_desc.experience_bottle": "Experience Bottle: Store XP in storage",
+  "item.portable_storage.storage_key": "Storage Key",
+  "portable_storage.tooltip.storage_key_usage": "Right-click to reactivate your storage",
+  "portable_storage.message.key_not_owner": "This storage key does not belong to you!",
+  "portable_storage.message.storage_already_enabled": "Your storage is already active!",
+  "portable_storage.message.storage_reactivated": "Storage reactivated! Your items are safe.",
+  "portable_storage.message.key_belongs_to": "This key belongs to: %s",
+  "portable_storage.message.key_unauthorized": "You are not authorized to use this key!",
+  "portable_storage.message.key_indestructible": "Storage keys cannot be destroyed!",
+  "portable_storage.message.confirm_activation": "Are you sure you want to continue activating storage? This will cause your storage data to be lost!",
+  "portable_storage.message.confirm_activation_hint": "Right-click again within 5 seconds to confirm activation",
+  "portable_storage.message.activation_timeout": "Activation confirmation has timed out, please try again"
 }
 

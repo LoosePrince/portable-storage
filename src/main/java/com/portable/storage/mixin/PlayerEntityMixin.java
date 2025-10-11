@@ -77,9 +77,12 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 	
 	@Override
 	public boolean portableStorage$isStorageEnabled() {
-		// 配置不需要条件启用 → 始终启用
+		// 配置不需要条件启用 → 检查本地字段状态
 		ServerConfig config = ServerConfig.getInstance();
-		if (!config.isRequireConditionToEnable()) return true;
+		if (!config.isRequireConditionToEnable()) {
+			// 即使不需要条件启用，也要检查本地字段状态（用于死亡后禁用）
+			return portableStorage$enabled;
+		}
 		// 需要条件启用 → 直接读取随玩家 NBT 同步的本地字段
 		return portableStorage$enabled;
 	}
@@ -122,6 +125,10 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 		
 		if (nbt.contains(PORTABLE_STORAGE_ENABLED_NBT)) {
 			this.portableStorage$enabled = nbt.getBoolean(PORTABLE_STORAGE_ENABLED_NBT);
+		} else {
+			// 新玩家默认启用（如果配置不需要条件启用）
+			ServerConfig config = ServerConfig.getInstance();
+			this.portableStorage$enabled = !config.isRequireConditionToEnable();
 		}
 	}
 

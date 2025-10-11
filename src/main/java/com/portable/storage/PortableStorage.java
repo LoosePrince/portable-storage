@@ -5,6 +5,7 @@ import com.portable.storage.blockentity.ModBlockEntities;
 import com.portable.storage.config.ServerConfig;
 import com.portable.storage.event.PlayerInteractEventHandler;
 import com.portable.storage.event.PlayerJoinEventHandler;
+import com.portable.storage.item.ModItems;
 import com.portable.storage.screen.PortableCraftingScreenHandler;
 import net.fabricmc.api.ModInitializer;
 import org.slf4j.Logger;
@@ -19,6 +20,7 @@ import net.minecraft.util.Identifier;
 public class PortableStorage implements ModInitializer {
     public static final String MOD_ID = "portable-storage";
     public static net.minecraft.screen.ScreenHandlerType<PortableCraftingScreenHandler> PORTABLE_CRAFTING_HANDLER;
+    public static final net.minecraft.item.Item STORAGE_KEY_ITEM = ModItems.STORAGE_KEY;
 
 	// This logger is used to write text to the console and the log file.
 	// It is considered best practice to use your mod id as the logger's name.
@@ -37,6 +39,9 @@ public class PortableStorage implements ModInitializer {
 		// 注册自定义方块和方块实体
 		ModBlocks.register();
 		ModBlockEntities.register();
+		
+		// 注册自定义物品
+		ModItems.register();
 
         NetworkChannels.registerCodecs();
 

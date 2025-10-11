@@ -51,5 +51,22 @@ public class PortableStorageClient implements ClientModInitializer {
                 }
             } catch (Throwable ignored) {}
         });
+
+        // 仓库钥匙：在物品提示中显示绑定信息
+        ItemTooltipCallback.EVENT.register((stack, context, type, lines) -> {
+            try {
+                if (stack != null && stack.getItem() == PortableStorage.STORAGE_KEY_ITEM) {
+                    // 显示绑定信息
+                    Text boundText = com.portable.storage.item.StorageKeyItem.getBoundTooltip(stack);
+                    if (boundText != null) {
+                        lines.add(boundText);
+                    }
+                    
+                    // 显示使用说明
+                    lines.add(Text.translatable("portable_storage.tooltip.storage_key_usage")
+                            .formatted(Formatting.GRAY));
+                }
+            } catch (Throwable ignored) {}
+        });
 	}
 }

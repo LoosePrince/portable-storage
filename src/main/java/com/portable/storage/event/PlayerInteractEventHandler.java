@@ -3,6 +3,7 @@ package com.portable.storage.event;
 import com.portable.storage.PortableStorage;
 import com.portable.storage.config.ServerConfig;
 import com.portable.storage.player.PlayerStorageAccess;
+import com.portable.storage.util.StorageActivationConfirmation;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
@@ -54,8 +55,53 @@ public class PlayerInteractEventHandler {
             return TypedActionResult.pass(stack);
         }
         
+        // 检查是否有待确认的激活请求
+        if (StorageActivationConfirmation.hasPendingConfirmation(serverPlayer)) {
+            // 确认激活
+            if (StorageActivationConfirmation.confirmActivation(serverPlayer)) {
+                return performStorageActivation(serverPlayer, stack, hand, config);
+            } else {
+                // 确认超时，取消激活
+                StorageActivationConfirmation.cancelPendingConfirmation(serverPlayer);
+                player.sendMessage(Text.translatable("portable_storage.message.activation_timeout")
+                        .formatted(net.minecraft.util.Formatting.RED), false);
+                return TypedActionResult.fail(stack);
+            }
+        }
+        
+        // 检查是否需要清空仓库数据，如果需要且仓库有数据，则要求确认
+        if (config.isClearStorageOnEnable() && !access.portableStorage$getInventory().isEmpty()) {
+            // 设置待确认状态
+            StorageActivationConfirmation.setPendingConfirmation(serverPlayer);
+            
+            // 发送确认消息
+            player.sendMessage(Text.translatable("portable_storage.message.confirm_activation")
+                    .formatted(net.minecraft.util.Formatting.YELLOW), false);
+            player.sendMessage(Text.translatable("portable_storage.message.confirm_activation_hint")
+                    .formatted(net.minecraft.util.Formatting.GRAY), false);
+            
+            return TypedActionResult.fail(stack);
+        }
+        
+        // 直接激活（仓库为空或不需要清空数据）
+        return performStorageActivation(serverPlayer, stack, hand, config);
+    }
+    
+    /**
+     * 执行仓库激活流程
+     */
+    private static TypedActionResult<ItemStack> performStorageActivation(ServerPlayerEntity player, ItemStack stack, Hand hand, ServerConfig config) {
+        PlayerStorageAccess access = (PlayerStorageAccess) player;
+        
         // 启用玩家随身仓库
         access.portableStorage$setStorageEnabled(true);
+        
+        // 检查是否需要清空仓库数据
+        if (config.isClearStorageOnEnable()) {
+            access.portableStorage$getInventory().clear();
+            PortableStorage.LOGGER.info("Cleared storage data for player {} when enabling storage", 
+                player.getName().getString());
+        }
         
         // 检查是否需要消耗道具
         if (config.isConsumeEnableItem()) {
@@ -68,10 +114,11 @@ public class PlayerInteractEventHandler {
         
         // 发送成功消息
         String itemName = stack.getItem().getName().getString();
-        player.sendMessage(Text.translatable("portable_storage.message.storage_enabled", itemName), false);
+        player.sendMessage(Text.translatable("portable_storage.message.storage_enabled", itemName)
+                .formatted(net.minecraft.util.Formatting.GREEN), false);
         
         PortableStorage.LOGGER.info("Player {} enabled portable storage with item {}", 
-            player.getName().getString(), enableItemId);
+            player.getName().getString(), config.getEnableItem());
         
         return TypedActionResult.success(player.getStackInHand(hand));
     }

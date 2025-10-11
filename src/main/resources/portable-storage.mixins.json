@@ -13,7 +13,9 @@
 		"ArrowEntityMixin",
 		"PlayerEntitySleepMixin",
 		"BedBlockMixin",
-		"PlayerEntitySpawnMixin"
+		"PlayerEntitySpawnMixin",
+		"ItemEntityMixin",
+		"ItemEntityStorageKeyMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

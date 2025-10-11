@@ -24,6 +24,9 @@ public class ServerConfig {
     private boolean consumeEnableItem = true;
     private boolean enableIncrementalSync = false;
     
+    // 启用仓库时是否清空现有数据
+    private boolean clearStorageOnEnable = true;
+    
     // 工作台升级容器界面显示配置
     private boolean stonecutter = false;
     private boolean cartographyTable = false;
@@ -155,6 +158,11 @@ public class ServerConfig {
             # 默认值: false
             enable_incremental_sync = false
             
+            # 启用仓库时是否清空现有数据
+            # 启用后使用仓库激活物品时会清空玩家现有的仓库数据
+            # 默认值: true
+            clear_storage_on_enable = true
+            
             [container_display]
             # 工作台升级在容器界面显示仓库的配置
             # 启用工作台升级后，以下容器界面将显示仓库界面
@@ -226,6 +234,7 @@ public class ServerConfig {
             enableItem = storageConfig.getOrElse("enable_item", "minecraft:nether_star");
             consumeEnableItem = storageConfig.getOrElse("consume_enable_item", true);
             enableIncrementalSync = storageConfig.getOrElse("enable_incremental_sync", false);
+            clearStorageOnEnable = storageConfig.getOrElse("clear_storage_on_enable", true);
         } else {
             PortableStorage.LOGGER.warn("配置文件中未找到 [storage] 部分，使用默认值");
         }
@@ -275,6 +284,7 @@ public class ServerConfig {
         storageConfig.set("enable_item", enableItem);
         storageConfig.set("consume_enable_item", consumeEnableItem);
         storageConfig.set("enable_incremental_sync", enableIncrementalSync);
+        storageConfig.set("clear_storage_on_enable", clearStorageOnEnable);
         
         Config containerConfig = config.get("container_display");
         if (containerConfig == null) {
@@ -641,6 +651,10 @@ public class ServerConfig {
     
     public boolean isEnableIncrementalSync() {
         return enableIncrementalSync;
+    }
+    
+    public boolean isClearStorageOnEnable() {
+        return clearStorageOnEnable;
     }
     
     // Setter 方法（用于运行时修改配置）
