@@ -107,6 +107,16 @@ public final class ClientUpgradeState {
         net.minecraft.item.ItemStack stack = upgradeInventory.getStack(7);
         return stack != null && !stack.isEmpty() && !upgradeInventory.isSlotDisabled(7);
     }
+    
+    /**
+     * 检查工作台升级是否激活（槽位0）
+     */
+    public static boolean isCraftingTableUpgradeActive() {
+        net.minecraft.item.ItemStack stack = upgradeInventory.getStack(0);
+        return stack != null && !stack.isEmpty() && 
+               stack.getItem() == net.minecraft.item.Items.CRAFTING_TABLE && 
+               !isSlotDisabled(0);
+    }
 
     // ===== XP 池缓存（只用来显示） =====
     private static long cachedXpPool = 0L;
