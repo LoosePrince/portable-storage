@@ -2,6 +2,8 @@ package com.portable.storage.mixin.client;
 
 import com.portable.storage.client.ClientConfig;
 import com.portable.storage.client.ClientUpgradeState;
+import com.portable.storage.client.ClientContainerDisplayConfig;
+import com.portable.storage.util.ContainerTypeDetector;
 import com.portable.storage.net.payload.DepositSlotC2SPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
@@ -69,20 +71,42 @@ public abstract class HandledScreenMixin {
 		}
 	}
 
-    // 滚轮事件转发改为在 ScreenMixin 中统一处理
+	/**
+	 * 计算仓库UI的顶部位置
+	 * @return 仓库UI的gridTop坐标
+	 */
+	@Unique
+	private int portableStorage$calculateStorageGridTop() {
+		int visibleRows = 6;
+		int slotSize = 18;
+		int slotSpacing = 0;
+		int gapBelow = 6;
+		
+		ClientConfig config = ClientConfig.getInstance();
+		if (config.storagePos == ClientConfig.StoragePos.TOP) {
+			// 仓库在顶部
+			int storageHeight = visibleRows * (slotSize + slotSpacing);
+			return this.y - storageHeight - gapBelow;
+		} else {
+			// 仓库在底部（默认）
+			return this.y + this.backgroundHeight + gapBelow;
+		}
+	}
 
 	@Unique
 	private boolean portableStorage$isOverStorage(double mouseX, double mouseY) {
 		// 折叠状态下不拦截
 		if (ClientConfig.getInstance().collapsed) return false;
-		if (!(((HandledScreen<?>)(Object)this) instanceof InventoryScreen)) return false;
+		
+		// 检查是否应该显示仓库
+		if (!portableStorage$shouldShowStorageInContainer()) return false;
+		
 		int cols = 9;
 		int visibleRows = 6;
 		int slotSize = 18;
 		int slotSpacing = 0;
 		int gridLeft = this.x + 8;
-		int gapBelow = 6;
-		int gridTop = this.y + this.backgroundHeight + gapBelow;
+		int gridTop = portableStorage$calculateStorageGridTop();
 		int width = cols * (slotSize + slotSpacing);
 		int height = visibleRows * (slotSize + slotSpacing);
 		return mouseX >= gridLeft && mouseX < gridLeft + width && mouseY >= gridTop && mouseY < gridTop + height;
@@ -92,14 +116,16 @@ public abstract class HandledScreenMixin {
 	private boolean portableStorage$isOverScrollbar(double mouseX, double mouseY) {
 		// 折叠状态下不拦截
 		if (ClientConfig.getInstance().collapsed) return false;
-		if (!(((HandledScreen<?>)(Object)this) instanceof InventoryScreen)) return false;
+		
+		// 检查是否应该显示仓库
+		if (!portableStorage$shouldShowStorageInContainer()) return false;
+		
 		int cols = 9;
 		int visibleRows = 6;
 		int slotSize = 18;
 		int slotSpacing = 0;
 		int gridLeft = this.x + 8;
-		int gapBelow = 6;
-		int gridTop = this.y + this.backgroundHeight + gapBelow;
+		int gridTop = portableStorage$calculateStorageGridTop();
 		int trackLeft = gridLeft + cols * (slotSize + slotSpacing) + 4;
 		int trackTop = gridTop;
 		int trackWidth = 6;
@@ -111,9 +137,11 @@ public abstract class HandledScreenMixin {
 	private boolean portableStorage$isOverUpgradeSlots(double mouseX, double mouseY) {
 		// 折叠状态下不拦截
 		if (ClientConfig.getInstance().collapsed) return false;
-		if (!(((HandledScreen<?>)(Object)this) instanceof InventoryScreen)) return false;
-		int gapBelow = 6;
-		int gridTop = this.y + this.backgroundHeight + gapBelow;
+		
+		// 检查是否应该显示仓库
+		if (!portableStorage$shouldShowStorageInContainer()) return false;
+		
+		int gridTop = portableStorage$calculateStorageGridTop();
 		int upgradeLeft = this.x - 24;
 		int upgradeSlotSize = 18;
 		int upgradeSpacing = 0;
@@ -158,8 +186,7 @@ public abstract class HandledScreenMixin {
 		int slotSize = 18;
 		int slotSpacing = 0;
 		int gridLeft = this.x + 8;
-		int gapBelow = 6;
-		int gridTop = this.y + this.backgroundHeight + gapBelow;
+		int gridTop = portableStorage$calculateStorageGridTop();
 		int width = cols * (slotSize + slotSpacing);
 		int height = visibleRows * (slotSize + slotSpacing);
 		return mouseX >= gridLeft && mouseX < gridLeft + width && mouseY >= gridTop && mouseY < gridTop + height;
@@ -174,8 +201,7 @@ public abstract class HandledScreenMixin {
 		// 检查是否有工作台升级
         if (!portableStorage$hasCraftingTableUpgrade()) return false;
 		
-		int gapBelow = 6;
-		int gridTop = this.y + this.backgroundHeight + gapBelow;
+		int gridTop = portableStorage$calculateStorageGridTop();
 		int upgradeLeft = this.x - 24;
 		int upgradeSlotSize = 18;
 		int upgradeSpacing = 0;
@@ -225,6 +251,31 @@ public abstract class HandledScreenMixin {
 			}
 		}
 		return false;
+	}
+	
+	@Unique
+	private boolean portableStorage$shouldShowStorageInContainer() {
+		// 检查仓库是否已启用
+		if (!ClientStorageState.isStorageEnabled()) return false;
+		
+		// 检查是否有工作台升级
+		if (!portableStorage$hasCraftingTableUpgrade()) return false;
+		
+		// 获取当前容器类型
+		MinecraftClient client = MinecraftClient.getInstance();
+		if (client == null || client.player == null) return false;
+		
+		var handler = client.player.currentScreenHandler;
+		if (handler == null) return false;
+		
+		String containerId = ContainerTypeDetector.getContainerId(handler);
+		if (containerId == null) return false;
+		
+		// 检查是否为支持的容器类型
+		if (!ContainerTypeDetector.isSupportedContainer(containerId)) return false;
+		
+		// 检查配置是否允许在此容器显示仓库
+		return ClientContainerDisplayConfig.getInstance().shouldShowStorageInContainer(containerId);
 	}
 }
 

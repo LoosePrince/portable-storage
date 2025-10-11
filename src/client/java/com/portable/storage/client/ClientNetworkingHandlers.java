@@ -6,6 +6,7 @@ import com.portable.storage.net.payload.UpgradeSyncS2CPayload;
 import com.portable.storage.net.payload.IncrementalStorageSyncS2CPayload;
 import com.portable.storage.net.payload.XpBottleMaintenanceToggleC2SPayload;
 import com.portable.storage.net.payload.XpStepSyncS2CPayload;
+import com.portable.storage.net.payload.ContainerDisplayConfigSyncS2CPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
 public final class ClientNetworkingHandlers {
@@ -56,6 +57,39 @@ public final class ClientNetworkingHandlers {
 			context.client().execute(() -> {
 				if (context.client().player == null) return;
 				ClientUpgradeState.setXpTransferStep(payload.stepIndex());
+			});
+		});
+		
+		// 容器显示配置同步
+		ClientPlayNetworking.registerGlobalReceiver(ContainerDisplayConfigSyncS2CPayload.ID, (payload, context) -> {
+			context.client().execute(() -> {
+				ClientContainerDisplayConfig.getInstance().updateConfig(
+					payload.stonecutter(),
+					payload.cartographyTable(),
+					payload.smithingTable(),
+					payload.grindstone(),
+					payload.loom(),
+					payload.furnace(),
+					payload.smoker(),
+					payload.blastFurnace(),
+					payload.anvil(),
+					payload.enchantingTable(),
+					payload.brewingStand(),
+					payload.beacon(),
+					payload.chest(),
+					payload.barrel(),
+					payload.enderChest(),
+					payload.shulkerBox(),
+					payload.dispenser(),
+					payload.dropper(),
+					payload.crafter(),
+					payload.hopper(),
+					payload.trappedChest(),
+					payload.hopperMinecart(),
+					payload.chestMinecart(),
+					payload.chestBoat(),
+					payload.bambooChestRaft()
+				);
 			});
 		});
 	}

@@ -32,6 +32,7 @@ public final class NetworkChannels {
 		PayloadTypeRegistry.playS2C().register(StorageEnablementSyncS2CPayload.ID, StorageEnablementSyncS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IncrementalStorageSyncS2CPayload.ID, IncrementalStorageSyncS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(XpStepSyncS2CPayload.ID, XpStepSyncS2CPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(ContainerDisplayConfigSyncS2CPayload.ID, ContainerDisplayConfigSyncS2CPayload.CODEC);
 	}
 }
 

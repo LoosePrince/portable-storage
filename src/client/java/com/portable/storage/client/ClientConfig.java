@@ -39,6 +39,9 @@ public class ClientConfig {
     // 仓库位置
     public StoragePos storagePos = StoragePos.BOTTOM; // 默认底部
     
+    // 虚拟合成显示状态
+    public boolean virtualCraftingVisible = false; // 默认不显示
+    
     public enum SortMode {
         COUNT("count"),           // 数量
         NAME("name"),            // 物品名称
@@ -105,6 +108,7 @@ public class ClientConfig {
                 merged.smartCollapse = defaults.smartCollapse;
                 merged.searchPos = defaults.searchPos;
                 merged.storagePos = defaults.storagePos;
+                merged.virtualCraftingVisible = defaults.virtualCraftingVisible;
 
                 // 再按文件中存在的键覆盖
                 if (obj.has("collapsed")) {
@@ -150,6 +154,11 @@ public class ClientConfig {
                     try {
                         merged.storagePos = StoragePos.valueOf(obj.get("storagePos").getAsString());
                     } catch (IllegalArgumentException ignored) { /* 保持默认 */ }
+                } else {
+                    changed = true;
+                }
+                if (obj.has("virtualCraftingVisible")) {
+                    merged.virtualCraftingVisible = obj.get("virtualCraftingVisible").getAsBoolean();
                 } else {
                     changed = true;
                 }

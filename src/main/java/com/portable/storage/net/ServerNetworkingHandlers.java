@@ -563,6 +563,41 @@ public final class ServerNetworkingHandlers {
 				} catch (Throwable ignored) {}
 			});
 		});
+		
+		// 玩家加入时发送容器显示配置同步
+		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+			ServerPlayerEntity player = handler.player;
+			if (player != null) {
+				ServerConfig config = ServerConfig.getInstance();
+				ServerPlayNetworking.send(player, new ContainerDisplayConfigSyncS2CPayload(
+					config.isStonecutter(),
+					config.isCartographyTable(),
+					config.isSmithingTable(),
+					config.isGrindstone(),
+					config.isLoom(),
+					config.isFurnace(),
+					config.isSmoker(),
+					config.isBlastFurnace(),
+					config.isAnvil(),
+					config.isEnchantingTable(),
+					config.isBrewingStand(),
+					config.isBeacon(),
+					config.isChest(),
+					config.isBarrel(),
+					config.isEnderChest(),
+					config.isShulkerBox(),
+					config.isDispenser(),
+					config.isDropper(),
+					config.isCrafter(),
+					config.isHopper(),
+					config.isTrappedChest(),
+					config.isHopperMinecart(),
+					config.isChestMinecart(),
+					config.isChestBoat(),
+					config.isBambooChestRaft()
+				));
+			}
+		});
 
 		// 虚拟“瓶装经验”点击：button=0 左键取出，1 右键存入
 		ServerPlayNetworking.registerGlobalReceiver(com.portable.storage.net.payload.XpBottleClickC2SPayload.ID, (payload, context) -> {

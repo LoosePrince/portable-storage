@@ -91,8 +91,8 @@ public abstract class InventoryScreenMixin {
                 // 渲染仓库UI（启用折叠功能）
                 portableStorage$uiComponent.render(context, mouseX, mouseY, delta, x, y, backgroundWidth, backgroundHeight, true);
             }
-            // 若启用工作台升级，则在2x2合成区域上覆盖3x3槽位提示（严格根据实际槽位坐标对齐）
-            if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient()) {
+            // 若启用工作台升级且配置允许，则在2x2合成区域上覆盖3x3槽位提示（严格根据实际槽位坐标对齐）
+            if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient() && com.portable.storage.client.ClientConfig.getInstance().virtualCraftingVisible) {
                 MinecraftClient mc2 = MinecraftClient.getInstance();
                 if (mc2 != null && mc2.player != null && mc2.player.currentScreenHandler instanceof net.minecraft.screen.PlayerScreenHandler handler) {
                     // PlayerScreenHandler: 0=输出, 1..4=2x2输入
@@ -306,6 +306,15 @@ public abstract class InventoryScreenMixin {
 
     @Inject(method = "mouseReleased", at = @At("HEAD"), cancellable = true)
     private void portableStorage$mouseReleased(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
+        // 检查仓库是否已启用
+        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient()) {
+            // 检查鼠标是否在仓库UI区域内，如果是则阻止事件穿透
+            if (portableStorage$uiComponent.isOverAnyComponent(mouseX, mouseY)) {
+                cir.setReturnValue(true);
+                return;
+            }
+        }
+
         // 在覆盖层启用时，阻断原 2x2 槽位与覆盖区域的释放事件，防止穿透
         if (!(com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient())) return;
 
@@ -350,6 +359,7 @@ public abstract class InventoryScreenMixin {
             }
         }
     }
+
 
     // 注意：InventoryScreen 可能没有 mouseScrolled 方法，我们通过其他方式处理滚轮事件
 

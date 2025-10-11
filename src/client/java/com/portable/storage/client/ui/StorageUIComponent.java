@@ -175,7 +175,9 @@ public class StorageUIComponent {
         int gapBelow = 6;
         int extraYOffset = 0;
         int searchH = (this.searchField != null ? this.searchField.getHeight() : 18);
-        if (ClientConfig.getInstance().searchPos == ClientConfig.SearchPos.MIDDLE) {
+        
+        // 搜索位置为中间时的空间留白只在背包和工作台界面生效
+        if (ClientConfig.getInstance().searchPos == ClientConfig.SearchPos.MIDDLE && portableStorage$isInventoryOrCraftingScreen()) {
             extraYOffset = searchH + 1; // 让仓库整体下移，给搜索框让位
         }
         
@@ -442,9 +444,19 @@ public class StorageUIComponent {
                         Text.translatable("portable_storage.toggle.disabled");
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_level_maintenance", maintenanceStatus));
                 } else {
-                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_hint"));
                     if (slotIndex == 0) {
-                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_middle_click_portable_crafting"));
+                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_custom_crafting"));
+                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_middle_click_virtual_crafting"));
+                        // 添加虚拟合成状态信息
+                        boolean virtualCraftingVisible = com.portable.storage.client.ClientConfig.getInstance().virtualCraftingVisible;
+                        Text virtualCraftingStatus = virtualCraftingVisible ? 
+                            Text.translatable("portable_storage.toggle.enabled") : 
+                            Text.translatable("portable_storage.toggle.disabled");
+                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_virtual_crafting_status", virtualCraftingStatus));
+                        // 添加警告信息
+                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_virtual_crafting_warning"));
+                    } else {
+                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_hint"));
                     }
                 }
 
@@ -628,8 +640,6 @@ public class StorageUIComponent {
         
         int textX = panelLeft + 6;
         int textY = panelTop + 6;
-        context.drawText(client.textRenderer, Text.translatable("portable_storage.ui.settings"), textX, textY, 0xFFFFFF, true);
-        textY += 14;
         
         int collapseTextH = 9;
         
@@ -718,15 +728,24 @@ public class StorageUIComponent {
                 default: posKey = "portable_storage.search_pos.bottom";
             }
         }
-        String posLabel = Text.translatable(posKey).getString();
-        Text searchPosText = Text.translatable("portable_storage.ui.search_pos", posLabel);
-        int searchPosTextW = client.textRenderer.getWidth(searchPosText);
-        context.drawText(client.textRenderer, searchPosText, textX, textY, 0xFFFFFF, true);
-        this.searchPosLeft = textX;
-        this.searchPosTop = textY - 1;
-        this.searchPosRight = textX + searchPosTextW + 2;
-        this.searchPosBottom = textY + collapseTextH + 3;
-        textY += 12;
+        // 搜索位置设置（只在背包和工作台界面显示）
+        if (portableStorage$isInventoryOrCraftingScreen()) {
+            String posLabel = Text.translatable(posKey).getString();
+            Text searchPosText = Text.translatable("portable_storage.ui.search_pos", posLabel);
+            int searchPosTextW = client.textRenderer.getWidth(searchPosText);
+            context.drawText(client.textRenderer, searchPosText, textX, textY, 0xFFFFFF, true);
+            this.searchPosLeft = textX;
+            this.searchPosTop = textY - 1;
+            this.searchPosRight = textX + searchPosTextW + 2;
+            this.searchPosBottom = textY + collapseTextH + 3;
+            textY += 12;
+        } else {
+            // 非背包/工作台界面时，搜索位置设置不可见
+            this.searchPosLeft = 0;
+            this.searchPosTop = 0;
+            this.searchPosRight = 0;
+            this.searchPosBottom = 0;
+        }
         
         // 仓库位置
         String storagePosKey = config.storagePos == ClientConfig.StoragePos.TOP ? 
@@ -1071,8 +1090,11 @@ public class StorageUIComponent {
                 default: posKey = "portable_storage.search_pos.bottom";
             }
         }
-        Text searchPosText = Text.translatable("portable_storage.ui.search_pos", Text.translatable(posKey).getString());
-        maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(searchPosText) + padding);
+        // 搜索位置设置宽度计算（只在背包和工作台界面计算）
+        if (portableStorage$isInventoryOrCraftingScreen()) {
+            Text searchPosText = Text.translatable("portable_storage.ui.search_pos", Text.translatable(posKey).getString());
+            maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(searchPosText) + padding);
+        }
         
         // 仓库位置文本宽度
         String storagePosKey = config.storagePos == ClientConfig.StoragePos.TOP ? 
@@ -1212,6 +1234,11 @@ public class StorageUIComponent {
                 }
                 
                 if (button == 1) { // 右键点击
+                    // 工作台升级槽位右键：打开自定义工作台界面
+                    if (i == 0 && ClientUpgradeState.getStack(0) != null && !ClientUpgradeState.getStack(0).isEmpty() && !ClientUpgradeState.isSlotDisabled(0)) {
+                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.RequestPortableCraftingOpenC2SPayload());
+                        return true;
+                    }
                     // 床升级槽位右键睡觉
                     if (i == 6 && ClientUpgradeState.isBedUpgradeActive()) {
                         // 发送睡觉请求到服务器
@@ -1227,14 +1254,16 @@ public class StorageUIComponent {
                     ClientPlayNetworking.send(new UpgradeSlotClickC2SPayload(i, button));
                     return true;
                 } else if (button == 2) { // 中键点击
+                    // 工作台升级槽位中键：切换虚拟合成显示状态
+                    if (i == 0 && ClientUpgradeState.getStack(0) != null && !ClientUpgradeState.getStack(0).isEmpty() && !ClientUpgradeState.isSlotDisabled(0)) {
+                        com.portable.storage.client.ClientConfig config = com.portable.storage.client.ClientConfig.getInstance();
+                        config.virtualCraftingVisible = !config.virtualCraftingVisible;
+                        com.portable.storage.client.ClientConfig.save();
+                        return true;
+                    }
                     // 附魔之瓶槽位中键：切换等级维持状态
                     if (i == 7 && ClientUpgradeState.isXpBottleUpgradeActive()) {
                         com.portable.storage.client.ClientNetworkingHandlers.sendXpBottleMaintenanceToggle();
-                        return true;
-                    }
-                    // 工作台升级槽位中键：打开自定义工作台界面
-                    if (i == 0 && ClientUpgradeState.getStack(0) != null && !ClientUpgradeState.getStack(0).isEmpty() && !ClientUpgradeState.isSlotDisabled(0)) {
-                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.RequestPortableCraftingOpenC2SPayload());
                         return true;
                     }
                     // 其他槽位切换禁用状态
@@ -1386,8 +1415,8 @@ public class StorageUIComponent {
                 ClientConfig.save();
                 return true;
             }
-            // 搜索位置切换
-            if (isIn(mouseX, mouseY, searchPosLeft, searchPosTop, searchPosRight, searchPosBottom)) {
+            // 搜索位置切换（只在背包和工作台界面响应）
+            if (portableStorage$isInventoryOrCraftingScreen() && isIn(mouseX, mouseY, searchPosLeft, searchPosTop, searchPosRight, searchPosBottom)) {
                 if (config.storagePos == ClientConfig.StoragePos.TOP) {
                     // 仓库在顶部时，搜索位置只能在顶部、中间、底部三个状态中循环
                     switch (config.searchPos) {
@@ -1612,6 +1641,20 @@ public class StorageUIComponent {
             }
         }
         return -1;
+    }
+    
+    /**
+     * 检查当前界面是否为背包或工作台界面
+     */
+    private boolean portableStorage$isInventoryOrCraftingScreen() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client == null || client.currentScreen == null) {
+            return false;
+        }
+        
+        return client.currentScreen instanceof net.minecraft.client.gui.screen.ingame.InventoryScreen ||
+               client.currentScreen instanceof net.minecraft.client.gui.screen.ingame.CraftingScreen ||
+               client.currentScreen instanceof com.portable.storage.client.screen.PortableCraftingScreen;
     }
     
     /**

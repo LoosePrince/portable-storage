@@ -24,6 +24,33 @@ public class ServerConfig {
     private boolean consumeEnableItem = true;
     private boolean enableIncrementalSync = false;
     
+    // 工作台升级容器界面显示配置
+    private boolean stonecutter = false;
+    private boolean cartographyTable = false;
+    private boolean smithingTable = false;
+    private boolean grindstone = false;
+    private boolean loom = false;
+    private boolean furnace = false;
+    private boolean smoker = false;
+    private boolean blastFurnace = false;
+    private boolean anvil = false;
+    private boolean enchantingTable = false;
+    private boolean brewingStand = false;
+    private boolean beacon = false;
+    private boolean chest = false;
+    private boolean barrel = false;
+    private boolean enderChest = false;
+    private boolean shulkerBox = false;
+    private boolean dispenser = false;
+    private boolean dropper = false;
+    private boolean crafter = false;
+    private boolean hopper = false;
+    private boolean trappedChest = false;
+    private boolean hopperMinecart = false;
+    private boolean chestMinecart = false;
+    private boolean chestBoat = false;
+    private boolean bambooChestRaft = false;
+    
     private CommentedFileConfig config;
     private Path configPath;
     
@@ -127,6 +154,62 @@ public class ServerConfig {
             # 可能存在BUG未发现或未修复的错误
             # 默认值: false
             enable_incremental_sync = false
+            
+            [container_display]
+            # 工作台升级在容器界面显示仓库的配置
+            # 启用工作台升级后，以下容器界面将显示仓库界面
+            # 默认值: 全部为 false
+            
+            # 切石机
+            stonecutter = false
+            # 制图台
+            cartography_table = false
+            # 锻造台
+            smithing_table = false
+            # 砂轮
+            grindstone = false
+            # 织布机
+            loom = false
+            # 熔炉
+            furnace = false
+            # 烟熏炉
+            smoker = false
+            # 高炉
+            blast_furnace = false
+            # 铁砧
+            anvil = false
+            # 附魔台
+            enchanting_table = false
+            # 酿造台
+            brewing_stand = false
+            # 信标
+            beacon = false
+            # 箱子
+            chest = false
+            # 木桶
+            barrel = false
+            # 末影箱
+            ender_chest = false
+            # 潜影盒
+            shulker_box = false
+            # 发射器
+            dispenser = false
+            # 投掷器
+            dropper = false
+            # 合成器
+            crafter = false
+            # 漏斗
+            hopper = false
+            # 陷阱箱
+            trapped_chest = false
+            # 漏斗矿车
+            hopper_minecart = false
+            # 运输矿车
+            chest_minecart = false
+            # 运输船
+            chest_boat = false
+            # 运输竹筏
+            bamboo_chest_raft = false
             """;
         
         Files.writeString(configPath, defaultConfig);
@@ -145,7 +228,37 @@ public class ServerConfig {
             enableIncrementalSync = storageConfig.getOrElse("enable_incremental_sync", false);
         } else {
             PortableStorage.LOGGER.warn("配置文件中未找到 [storage] 部分，使用默认值");
-            setDefaultValues();
+        }
+        
+        Config containerConfig = config.get("container_display");
+        if (containerConfig != null) {
+            stonecutter = containerConfig.getOrElse("stonecutter", false);
+            cartographyTable = containerConfig.getOrElse("cartography_table", false);
+            smithingTable = containerConfig.getOrElse("smithing_table", false);
+            grindstone = containerConfig.getOrElse("grindstone", false);
+            loom = containerConfig.getOrElse("loom", false);
+            furnace = containerConfig.getOrElse("furnace", false);
+            smoker = containerConfig.getOrElse("smoker", false);
+            blastFurnace = containerConfig.getOrElse("blast_furnace", false);
+            anvil = containerConfig.getOrElse("anvil", false);
+            enchantingTable = containerConfig.getOrElse("enchanting_table", false);
+            brewingStand = containerConfig.getOrElse("brewing_stand", false);
+            beacon = containerConfig.getOrElse("beacon", false);
+            chest = containerConfig.getOrElse("chest", false);
+            barrel = containerConfig.getOrElse("barrel", false);
+            enderChest = containerConfig.getOrElse("ender_chest", false);
+            shulkerBox = containerConfig.getOrElse("shulker_box", false);
+            dispenser = containerConfig.getOrElse("dispenser", false);
+            dropper = containerConfig.getOrElse("dropper", false);
+            crafter = containerConfig.getOrElse("crafter", false);
+            hopper = containerConfig.getOrElse("hopper", false);
+            trappedChest = containerConfig.getOrElse("trapped_chest", false);
+            hopperMinecart = containerConfig.getOrElse("hopper_minecart", false);
+            chestMinecart = containerConfig.getOrElse("chest_minecart", false);
+            chestBoat = containerConfig.getOrElse("chest_boat", false);
+            bambooChestRaft = containerConfig.getOrElse("bamboo_chest_raft", false);
+        } else {
+            PortableStorage.LOGGER.warn("配置文件中未找到 [container_display] 部分，使用默认值");
         }
     }
     
@@ -162,6 +275,37 @@ public class ServerConfig {
         storageConfig.set("enable_item", enableItem);
         storageConfig.set("consume_enable_item", consumeEnableItem);
         storageConfig.set("enable_incremental_sync", enableIncrementalSync);
+        
+        Config containerConfig = config.get("container_display");
+        if (containerConfig == null) {
+            containerConfig = config.createSubConfig();
+            config.set("container_display", containerConfig);
+        }
+        containerConfig.set("stonecutter", stonecutter);
+        containerConfig.set("cartography_table", cartographyTable);
+        containerConfig.set("smithing_table", smithingTable);
+        containerConfig.set("grindstone", grindstone);
+        containerConfig.set("loom", loom);
+        containerConfig.set("furnace", furnace);
+        containerConfig.set("smoker", smoker);
+        containerConfig.set("blast_furnace", blastFurnace);
+        containerConfig.set("anvil", anvil);
+        containerConfig.set("enchanting_table", enchantingTable);
+        containerConfig.set("brewing_stand", brewingStand);
+        containerConfig.set("beacon", beacon);
+        containerConfig.set("chest", chest);
+        containerConfig.set("barrel", barrel);
+        containerConfig.set("ender_chest", enderChest);
+        containerConfig.set("shulker_box", shulkerBox);
+        containerConfig.set("dispenser", dispenser);
+        containerConfig.set("dropper", dropper);
+        containerConfig.set("crafter", crafter);
+        containerConfig.set("hopper", hopper);
+        containerConfig.set("trapped_chest", trappedChest);
+        containerConfig.set("hopper_minecart", hopperMinecart);
+        containerConfig.set("chest_minecart", chestMinecart);
+        containerConfig.set("chest_boat", chestBoat);
+        containerConfig.set("bamboo_chest_raft", bambooChestRaft);
     }
 
     /**
@@ -190,6 +334,29 @@ public class ServerConfig {
         if (storageConfig == null || !storageConfig.contains("enable_incremental_sync")) {
             storageConfig.set("enable_incremental_sync", false);
             changed = true;
+        }
+
+        Config containerConfig = config.get("container_display");
+        if (containerConfig == null) {
+            containerConfig = config.createSubConfig();
+            config.set("container_display", containerConfig);
+            changed = true;
+        }
+
+        // 检查所有容器配置项
+        String[] containerKeys = {
+            "stonecutter", "cartography_table", "smithing_table", "grindstone", "loom",
+            "furnace", "smoker", "blast_furnace", "anvil", "enchanting_table",
+            "brewing_stand", "beacon", "chest", "barrel", "ender_chest",
+            "shulker_box", "dispenser", "dropper", "crafter", "hopper",
+            "trapped_chest", "hopper_minecart", "chest_minecart", "chest_boat", "bamboo_chest_raft"
+        };
+
+        for (String key : containerKeys) {
+            if (!containerConfig.contains(key)) {
+                containerConfig.set(key, false);
+                changed = true;
+            }
         }
 
         return changed;
@@ -227,6 +394,31 @@ public class ServerConfig {
             }
             if (!containsKey(section, "enable_incremental_sync")) {
                 toAppend.append(buildIncrementalSyncBlock());
+            }
+            
+            // 检查容器配置部分
+            int containerSectionStart = findSectionStart(content, "[container_display]");
+            if (containerSectionStart < 0) {
+                // 整个容器配置分节不存在：追加完整分节
+                toAppend.append(System.lineSeparator()).append(buildFullContainerDisplaySection());
+            } else {
+                // 容器配置分节存在，检查缺失的键
+                int containerSectionEnd = findSectionEnd(content, containerSectionStart);
+                String containerSection = content.substring(containerSectionStart, containerSectionEnd);
+                
+                String[] containerKeys = {
+                    "stonecutter", "cartography_table", "smithing_table", "grindstone", "loom",
+                    "furnace", "smoker", "blast_furnace", "anvil", "enchanting_table",
+                    "brewing_stand", "beacon", "chest", "barrel", "ender_chest",
+                    "shulker_box", "dispenser", "dropper", "crafter", "hopper",
+                    "trapped_chest", "hopper_minecart", "chest_minecart", "chest_boat", "bamboo_chest_raft"
+                };
+                
+                for (String key : containerKeys) {
+                    if (!containsKey(containerSection, key)) {
+                        toAppend.append(buildContainerConfigBlock(key));
+                    }
+                }
             }
 
             if (toAppend.length() == 0) {
@@ -276,6 +468,7 @@ public class ServerConfig {
         sb.append(buildEnableItemBlock());
         sb.append(buildConsumeEnableBlock());
         sb.append(buildIncrementalSyncBlock());
+        sb.append(ls).append(buildFullContainerDisplaySection());
         return sb.toString();
     }
 
@@ -312,6 +505,89 @@ public class ServerConfig {
             + "# 默认值: false" + ls
             + "enable_incremental_sync = false" + ls + ls;
     }
+
+    private static String buildFullContainerDisplaySection() {
+        String ls = System.lineSeparator();
+        StringBuilder sb = new StringBuilder();
+        sb.append("[container_display]").append(ls);
+        sb.append("# 工作台升级在容器界面显示仓库的配置").append(ls);
+        sb.append("# 启用工作台升级后，以下容器界面将显示仓库界面").append(ls);
+        sb.append("# 默认值: 全部为 false").append(ls).append(ls);
+        
+        String[] containerConfigs = {
+            "stonecutter", "切石机",
+            "cartography_table", "制图台", 
+            "smithing_table", "锻造台",
+            "grindstone", "砂轮",
+            "loom", "织布机",
+            "furnace", "熔炉",
+            "smoker", "烟熏炉",
+            "blast_furnace", "高炉",
+            "anvil", "铁砧",
+            "enchanting_table", "附魔台",
+            "brewing_stand", "酿造台",
+            "beacon", "信标",
+            "chest", "箱子",
+            "barrel", "木桶",
+            "ender_chest", "末影箱",
+            "shulker_box", "潜影盒",
+            "dispenser", "发射器",
+            "dropper", "投掷器",
+            "crafter", "合成器",
+            "hopper", "漏斗",
+            "trapped_chest", "陷阱箱",
+            "hopper_minecart", "漏斗矿车",
+            "chest_minecart", "运输矿车",
+            "chest_boat", "运输船",
+            "bamboo_chest_raft", "运输竹筏"
+        };
+        
+        for (int i = 0; i < containerConfigs.length; i += 2) {
+            String key = containerConfigs[i];
+            String comment = containerConfigs[i + 1];
+            sb.append("# ").append(comment).append(ls);
+            sb.append(key).append(" = false").append(ls);
+        }
+        
+        return sb.toString();
+    }
+
+    private static String buildContainerConfigBlock(String key) {
+        String ls = System.lineSeparator();
+        String comment = getContainerComment(key);
+        return "# " + comment + ls + key + " = false" + ls;
+    }
+
+    private static String getContainerComment(String key) {
+        switch (key) {
+            case "stonecutter": return "切石机";
+            case "cartography_table": return "制图台";
+            case "smithing_table": return "锻造台";
+            case "grindstone": return "砂轮";
+            case "loom": return "织布机";
+            case "furnace": return "熔炉";
+            case "smoker": return "烟熏炉";
+            case "blast_furnace": return "高炉";
+            case "anvil": return "铁砧";
+            case "enchanting_table": return "附魔台";
+            case "brewing_stand": return "酿造台";
+            case "beacon": return "信标";
+            case "chest": return "箱子";
+            case "barrel": return "木桶";
+            case "ender_chest": return "末影箱";
+            case "shulker_box": return "潜影盒";
+            case "dispenser": return "发射器";
+            case "dropper": return "投掷器";
+            case "crafter": return "合成器";
+            case "hopper": return "漏斗";
+            case "trapped_chest": return "陷阱箱";
+            case "hopper_minecart": return "漏斗矿车";
+            case "chest_minecart": return "运输矿车";
+            case "chest_boat": return "运输船";
+            case "bamboo_chest_raft": return "运输竹筏";
+            default: return key;
+        }
+    }
     
     /**
      * 设置默认值
@@ -321,6 +597,33 @@ public class ServerConfig {
         enableItem = "minecraft:nether_star";
         consumeEnableItem = true;
         enableIncrementalSync = false;
+        
+        // 容器配置默认值
+        stonecutter = false;
+        cartographyTable = false;
+        smithingTable = false;
+        grindstone = false;
+        loom = false;
+        furnace = false;
+        smoker = false;
+        blastFurnace = false;
+        anvil = false;
+        enchantingTable = false;
+        brewingStand = false;
+        beacon = false;
+        chest = false;
+        barrel = false;
+        enderChest = false;
+        shulkerBox = false;
+        dispenser = false;
+        dropper = false;
+        crafter = false;
+        hopper = false;
+        trappedChest = false;
+        hopperMinecart = false;
+        chestMinecart = false;
+        chestBoat = false;
+        bambooChestRaft = false;
     }
     
     // Getter 方法
@@ -355,5 +658,103 @@ public class ServerConfig {
     
     public void setEnableIncrementalSync(boolean enableIncrementalSync) {
         this.enableIncrementalSync = enableIncrementalSync;
+    }
+    
+    // 容器配置 Getter 方法
+    public boolean isStonecutter() { return stonecutter; }
+    public boolean isCartographyTable() { return cartographyTable; }
+    public boolean isSmithingTable() { return smithingTable; }
+    public boolean isGrindstone() { return grindstone; }
+    public boolean isLoom() { return loom; }
+    public boolean isFurnace() { return furnace; }
+    public boolean isSmoker() { return smoker; }
+    public boolean isBlastFurnace() { return blastFurnace; }
+    public boolean isAnvil() { return anvil; }
+    public boolean isEnchantingTable() { return enchantingTable; }
+    public boolean isBrewingStand() { return brewingStand; }
+    public boolean isBeacon() { return beacon; }
+    public boolean isChest() { return chest; }
+    public boolean isBarrel() { return barrel; }
+    public boolean isEnderChest() { return enderChest; }
+    public boolean isShulkerBox() { return shulkerBox; }
+    public boolean isDispenser() { return dispenser; }
+    public boolean isDropper() { return dropper; }
+    public boolean isCrafter() { return crafter; }
+    public boolean isHopper() { return hopper; }
+    public boolean isTrappedChest() { return trappedChest; }
+    public boolean isHopperMinecart() { return hopperMinecart; }
+    public boolean isChestMinecart() { return chestMinecart; }
+    public boolean isChestBoat() { return chestBoat; }
+    public boolean isBambooChestRaft() { return bambooChestRaft; }
+    
+    // 容器配置 Setter 方法
+    public void setStonecutter(boolean stonecutter) { this.stonecutter = stonecutter; }
+    public void setCartographyTable(boolean cartographyTable) { this.cartographyTable = cartographyTable; }
+    public void setSmithingTable(boolean smithingTable) { this.smithingTable = smithingTable; }
+    public void setGrindstone(boolean grindstone) { this.grindstone = grindstone; }
+    public void setLoom(boolean loom) { this.loom = loom; }
+    public void setFurnace(boolean furnace) { this.furnace = furnace; }
+    public void setSmoker(boolean smoker) { this.smoker = smoker; }
+    public void setBlastFurnace(boolean blastFurnace) { this.blastFurnace = blastFurnace; }
+    public void setAnvil(boolean anvil) { this.anvil = anvil; }
+    public void setEnchantingTable(boolean enchantingTable) { this.enchantingTable = enchantingTable; }
+    public void setBrewingStand(boolean brewingStand) { this.brewingStand = brewingStand; }
+    public void setBeacon(boolean beacon) { this.beacon = beacon; }
+    public void setChest(boolean chest) { this.chest = chest; }
+    public void setBarrel(boolean barrel) { this.barrel = barrel; }
+    public void setEnderChest(boolean enderChest) { this.enderChest = enderChest; }
+    public void setShulkerBox(boolean shulkerBox) { this.shulkerBox = shulkerBox; }
+    public void setDispenser(boolean dispenser) { this.dispenser = dispenser; }
+    public void setDropper(boolean dropper) { this.dropper = dropper; }
+    public void setCrafter(boolean crafter) { this.crafter = crafter; }
+    public void setHopper(boolean hopper) { this.hopper = hopper; }
+    public void setTrappedChest(boolean trappedChest) { this.trappedChest = trappedChest; }
+    public void setHopperMinecart(boolean hopperMinecart) { this.hopperMinecart = hopperMinecart; }
+    public void setChestMinecart(boolean chestMinecart) { this.chestMinecart = chestMinecart; }
+    public void setChestBoat(boolean chestBoat) { this.chestBoat = chestBoat; }
+    public void setBambooChestRaft(boolean bambooChestRaft) { this.bambooChestRaft = bambooChestRaft; }
+    
+    /**
+     * 根据容器标识符检查是否应该显示仓库
+     */
+    public boolean shouldShowStorageInContainer(String containerId) {
+        if (containerId == null) return false;
+        
+        switch (containerId) {
+            case "minecraft:stonecutter": return stonecutter;
+            case "minecraft:cartography_table": return cartographyTable;
+            case "minecraft:smithing_table": return smithingTable;
+            case "minecraft:grindstone": return grindstone;
+            case "minecraft:loom": return loom;
+            case "minecraft:furnace": return furnace;
+            case "minecraft:smoker": return smoker;
+            case "minecraft:blast_furnace": return blastFurnace;
+            case "minecraft:anvil": return anvil;
+            case "minecraft:enchanting_table": return enchantingTable;
+            case "minecraft:brewing_stand": return brewingStand;
+            case "minecraft:beacon": return beacon;
+            case "minecraft:chest": return chest;
+            case "minecraft:barrel": return barrel;
+            case "minecraft:ender_chest": return enderChest;
+            case "minecraft:shulker_box": return shulkerBox;
+            case "minecraft:dispenser": return dispenser;
+            case "minecraft:dropper": return dropper;
+            case "minecraft:crafter": return crafter;
+            case "minecraft:hopper": return hopper;
+            case "minecraft:trapped_chest": return trappedChest;
+            case "minecraft:hopper_minecart": return hopperMinecart;
+            case "minecraft:chest_minecart": return chestMinecart;
+            case "minecraft:oak_chest_boat":
+            case "minecraft:birch_chest_boat":
+            case "minecraft:spruce_chest_boat":
+            case "minecraft:jungle_chest_boat":
+            case "minecraft:acacia_chest_boat":
+            case "minecraft:dark_oak_chest_boat":
+            case "minecraft:mangrove_chest_boat":
+            case "minecraft:cherry_chest_boat":
+                return chestBoat;
+            case "minecraft:bamboo_chest_raft": return bambooChestRaft;
+            default: return false;
+        }
     }
 }
