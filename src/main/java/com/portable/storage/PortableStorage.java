@@ -68,6 +68,9 @@ public class PortableStorage implements ModInitializer {
 		// 注册经验维持事件处理器
 		com.portable.storage.event.XpMaintenanceEventHandler.register();
 		
+		// 注册仓库钥匙自动使用事件处理器
+		com.portable.storage.event.StorageKeyAutoUseHandler.register();
+		
 		LOGGER.info("Portable Storage initialized");
 	}
 }

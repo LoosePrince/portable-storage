@@ -82,6 +82,7 @@
   "portable_storage.message.key_not_owner": "This storage key does not belong to you!",
   "portable_storage.message.storage_already_enabled": "Your storage is already active!",
   "portable_storage.message.storage_reactivated": "Storage reactivated! Your items are safe.",
+  "portable_storage.message.storage_key_consumed_already_enabled": "Storage key automatically consumed (storage already enabled)",
   "portable_storage.message.key_belongs_to": "This key belongs to: %s",
   "portable_storage.message.key_unauthorized": "You are not authorized to use this key!",
   "portable_storage.message.key_indestructible": "Storage keys cannot be destroyed!",

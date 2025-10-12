@@ -85,6 +85,7 @@
   "portable_storage.message.key_not_owner": "这个仓库钥匙不属于你！",
   "portable_storage.message.storage_already_enabled": "你的仓库已经激活了！",
   "portable_storage.message.storage_reactivated": "仓库已重新激活！你的物品很安全。",
+  "portable_storage.message.storage_key_consumed_already_enabled": "仓库钥匙已自动消耗（仓库已激活）",
   "portable_storage.message.key_belongs_to": "这个钥匙属于：%s",
   "portable_storage.message.key_unauthorized": "你无权使用这个钥匙！",
   "portable_storage.message.key_indestructible": "仓库钥匙无法被销毁！",
