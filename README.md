@@ -13,8 +13,8 @@
 ## 模组UI
 
 <!-- <img width="1153" height="1111" alt="image" src="https://github.com/user-attachments/assets/4d751127-eda9-40a2-9191-b466d3901880" /> -->
-<img width="1204" height="1049" alt="42a13c3fdfdecd3f477c93942435c204" src="https://github.com/user-attachments/assets/1eae7b0b-da81-47e6-b028-f1a42a54937a" />
-
+<!-- <img width="1204" height="1049" alt="42a13c3fdfdecd3f477c93942435c204" src="https://github.com/user-attachments/assets/1eae7b0b-da81-47e6-b028-f1a42a54937a" /> -->
+![](docs/img/01.png)
 
 
 ### 升级（放入升级槽位的物品，右键升级槽位可停用）：
@@ -72,6 +72,18 @@
 **包含：**
 
 - 绑定木桶的详细说明
+
+### 配置
+
+1. 客户端配置
+
+`config\portable-storage-client.json`
+
+2. 服务端配置
+
+`config\portable-storage-server.toml`
+
+具体配置说明查 [配置说明](docs/配置.md)
 
 ## 系统要求
 
