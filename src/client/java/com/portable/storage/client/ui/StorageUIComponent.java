@@ -358,10 +358,10 @@ public class StorageUIComponent {
                         if (fluidType != null) {
                             int units = com.portable.storage.client.ClientUpgradeState.getFluidUnits(fluidType);
                             if (units > 0) {
-                                ItemStack display = createFluidDisplayStack(fluidType);
+                                // 直接绘制自定义流体贴图
                                 context.getMatrices().push();
                                 context.getMatrices().translate(0.0f, 0.0f, 100.0f);
-                                context.drawItem(display, sx + 1, sy + 1);
+                                drawFluidTexture(context, fluidType, sx + 1, sy + 1);
                                 // 渲染数量
                                 String countText = formatCount(units);
                                 float scale = 0.75f;
@@ -376,7 +376,8 @@ public class StorageUIComponent {
                                 context.getMatrices().pop();
                                 
                                 if (hoveredStack.isEmpty() && mouseX >= sx && mouseX < sx + slotSize && mouseY >= sy && mouseY < sy + slotSize) {
-                                    hoveredStack = display;
+                                    // 为虚拟流体创建悬停显示物品
+                                    hoveredStack = createFluidDisplayStack(fluidType);
                                     hoveredIndex = storageIndex;
                                 }
                                 visibleIndexMap[row * cols + col] = storageIndex;
@@ -1809,6 +1810,22 @@ public class StorageUIComponent {
             case "milk" -> new ItemStack(net.minecraft.item.Items.MILK_BUCKET);
             default -> ItemStack.EMPTY;
         };
+    }
+    
+    /**
+     * 绘制自定义流体贴图
+     */
+    private void drawFluidTexture(DrawContext context, String fluidType, int x, int y) {
+        net.minecraft.util.Identifier textureId = switch (fluidType) {
+            case "lava" -> net.minecraft.util.Identifier.of("portable-storage", "textures/item/lava.png");
+            case "water" -> net.minecraft.util.Identifier.of("portable-storage", "textures/item/water.png");
+            case "milk" -> net.minecraft.util.Identifier.of("portable-storage", "textures/item/milk.png");
+            default -> null;
+        };
+        
+        if (textureId != null) {
+            context.drawTexture(textureId, x, y, 0, 0, 16, 16, 16, 16);
+        }
     }
     
     /**
