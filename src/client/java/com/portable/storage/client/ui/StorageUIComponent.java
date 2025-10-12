@@ -86,6 +86,9 @@ public class StorageUIComponent {
     private final int[] upgradeSlotRights = new int[11];
     private final int[] upgradeSlotBottoms = new int[11];
     
+    // 流体槽位点击区域
+    private int fluidSlotLeft, fluidSlotTop, fluidSlotRight, fluidSlotBottom;
+    
     // 设置面板点击区域
     private int sortModeLeft, sortModeTop, sortModeRight, sortModeBottom;
     private int sortOrderLeft, sortOrderTop, sortOrderRight, sortOrderBottom;
@@ -279,6 +282,21 @@ public class StorageUIComponent {
         if (showXpBottle) {
             filtered.add(0, Integer.MIN_VALUE); // 在开头插入虚拟条目
         }
+        
+        // 添加虚拟流体条目
+        for (String fluidType : new String[]{"lava", "water", "milk"}) {
+            int units = com.portable.storage.client.ClientUpgradeState.getFluidUnits(fluidType);
+            if (units > 0) {
+                // 为每种流体分配唯一的虚拟索引，使用固定的偏移量
+                int fluidIndex = switch (fluidType) {
+                    case "lava" -> Integer.MIN_VALUE + 1;
+                    case "water" -> Integer.MIN_VALUE + 2;
+                    case "milk" -> Integer.MIN_VALUE + 3;
+                    default -> Integer.MIN_VALUE + 4;
+                };
+                filtered.add(fluidIndex);
+            }
+        }
         this.filteredIndices = filtered;
         int filteredSize = filtered.size();
         this.totalRows = Math.max(visibleRows, (int)Math.ceil(filteredSize / (double)cols));
@@ -334,6 +352,36 @@ public class StorageUIComponent {
                             hoveredIndex = Integer.MIN_VALUE;
                         }
                         visibleIndexMap[row * cols + col] = -2; // -2 表示虚拟XP条目
+                    } else if (storageIndex < Integer.MIN_VALUE + 1000) {
+                        // 渲染虚拟流体
+                        String fluidType = getFluidTypeFromVirtualIndex(storageIndex);
+                        if (fluidType != null) {
+                            int units = com.portable.storage.client.ClientUpgradeState.getFluidUnits(fluidType);
+                            if (units > 0) {
+                                ItemStack display = createFluidDisplayStack(fluidType);
+                                context.getMatrices().push();
+                                context.getMatrices().translate(0.0f, 0.0f, 100.0f);
+                                context.drawItem(display, sx + 1, sy + 1);
+                                // 渲染数量
+                                String countText = formatCount(units);
+                                float scale = 0.75f;
+                                int textWidth = client.textRenderer.getWidth(countText);
+                                int txUnscaled = sx + slotSize - 1 - (int)(textWidth * scale);
+                                int tyUnscaled = sy + slotSize - (int)(9 * scale);
+                                context.getMatrices().push();
+                                context.getMatrices().translate(0.0f, 0.0f, 200.0f);
+                                context.getMatrices().scale(scale, scale, 1.0f);
+                                context.drawText(client.textRenderer, countText, (int)(txUnscaled / scale), (int)(tyUnscaled / scale), 0xFFFFFF, true);
+                                context.getMatrices().pop();
+                                context.getMatrices().pop();
+                                
+                                if (hoveredStack.isEmpty() && mouseX >= sx && mouseX < sx + slotSize && mouseY >= sy && mouseY < sy + slotSize) {
+                                    hoveredStack = display;
+                                    hoveredIndex = storageIndex;
+                                }
+                                visibleIndexMap[row * cols + col] = storageIndex;
+                            }
+                        }
                     } else if (storageIndex >= 0 && storageIndex < stacks.size()) {
                         var stack = stacks.get(storageIndex);
                         if (stack != null && !stack.isEmpty()) {
@@ -393,8 +441,29 @@ public class StorageUIComponent {
             }
         }
         
+        // 检查是否悬停在流体槽位上
+        if (isIn(mouseX, mouseY, fluidSlotLeft, fluidSlotTop, fluidSlotRight, fluidSlotBottom)) {
+            ItemStack fluidStack = ClientUpgradeState.getFluidStack();
+            List<Text> tooltipLines = new java.util.ArrayList<>();
+            
+            // 第一行：流体槽位
+            Text fluidSlotLine = Text.translatable("portable_storage.ui.fluid_slot");
+            tooltipLines.add(fluidSlotLine);
+            
+            // 第二行：流体名称
+            if (!fluidStack.isEmpty()) {
+                tooltipLines.add(Text.translatable("portable_storage.ui.fluid_name", fluidStack.getName().getString()));
+            } else {
+                tooltipLines.add(Text.translatable("portable_storage.ui.fluid_name", Text.translatable("portable_storage.ui.fluid_empty").getString()));
+            }
+            
+            // 第三行：说明
+            tooltipLines.add(Text.translatable("portable_storage.ui.fluid_desc"));
+            
+            context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
+        }
         // 检查是否悬停在升级槽位上
-        if (portableStorage$isOverUpgradeSlot(mouseX, mouseY)) {
+        else if (portableStorage$isOverUpgradeSlot(mouseX, mouseY)) {
             int slotIndex = portableStorage$getHoveredUpgradeSlot(mouseX, mouseY);
             if (slotIndex >= 0) {
                 ItemStack stack = ClientUpgradeState.getStack(slotIndex);
@@ -474,6 +543,18 @@ public class StorageUIComponent {
                 lines.add(Text.translatable("portable_storage.exp_bottle.title"));
                 lines.add(Text.translatable("portable_storage.exp_bottle.current", String.valueOf(totalXp)));
                 lines.add(Text.translatable("portable_storage.exp_bottle.equivalent", String.valueOf(level)));
+            } else if (hoveredIndex < Integer.MIN_VALUE + 1000) {
+                // 虚拟流体自定义悬停提示
+                String fluidType = getFluidTypeFromVirtualIndex(hoveredIndex);
+                if (fluidType != null) {
+                    int units = com.portable.storage.client.ClientUpgradeState.getFluidUnits(fluidType);
+                    lines = new java.util.ArrayList<>();
+                    lines.add(Text.translatable("portable_storage.fluid." + fluidType + ".title"));
+                    lines.add(Text.translatable("portable_storage.fluid.units", String.valueOf(units)));
+                    lines.add(Text.translatable("portable_storage.fluid.desc"));
+                } else {
+                    lines = net.minecraft.client.gui.screen.Screen.getTooltipFromItem(client, hoveredStack);
+                }
             } else {
                 lines = net.minecraft.client.gui.screen.Screen.getTooltipFromItem(client, hoveredStack);
             }
@@ -625,6 +706,32 @@ public class StorageUIComponent {
                 context.fill(sx + 1, sy + 1, sx + upgradeSlotSize - 1, sy + upgradeSlotSize - 1, 0x80FFFFFF);
                 context.getMatrices().pop();
             }
+        }
+        
+        // 渲染流体槽位（在升级槽位5下面）
+        int fluidSlotY = upgradeTop + 5 * (upgradeSlotSize + upgradeSpacing);
+        drawSlotInset(context, upgradeLeft, fluidSlotY, upgradeSlotSize, upgradeSlotSize);
+        
+        fluidSlotLeft = upgradeLeft;
+        fluidSlotTop = fluidSlotY;
+        fluidSlotRight = upgradeLeft + upgradeSlotSize;
+        fluidSlotBottom = fluidSlotY + upgradeSlotSize;
+        
+        ItemStack fluidStack = ClientUpgradeState.getFluidStack();
+        ItemStack expectedFluidStack = com.portable.storage.storage.UpgradeInventory.getExpectedFluidForSlot();
+        
+        if (!fluidStack.isEmpty()) {
+            // 有物品，正常渲染
+            context.drawItem(fluidStack, upgradeLeft + 1, fluidSlotY + 1);
+        } else {
+            // 空槽位，显示预期物品图标并叠加白色半透明遮罩
+            context.drawItem(expectedFluidStack, upgradeLeft + 1, fluidSlotY + 1);
+            
+            // 叠加白色半透明遮罩（在物品图标上方）
+            context.getMatrices().push();
+            context.getMatrices().translate(0, 0, 200); // 提高层级
+            context.fill(upgradeLeft + 1, fluidSlotY + 1, upgradeLeft + upgradeSlotSize - 1, fluidSlotY + upgradeSlotSize - 1, 0x80FFFFFF);
+            context.getMatrices().pop();
         }
         
         // 升级说明按钮已移除
@@ -1222,6 +1329,13 @@ public class StorageUIComponent {
             return true;
         }
         
+        // 流体槽位点击
+        if (isIn(mouseX, mouseY, fluidSlotLeft, fluidSlotTop, fluidSlotRight, fluidSlotBottom)) {
+            // 发送流体槽位点击到服务器
+            ClientPlayNetworking.send(new FluidSlotClickC2SPayload(button));
+            return true;
+        }
+        
         // 升级槽位点击
         for (int i = 0; i < totalUpgradeCount; i++) {
             if (isIn(mouseX, mouseY, upgradeSlotLefts[i], upgradeSlotTops[i], upgradeSlotRights[i], upgradeSlotBottoms[i])) {
@@ -1259,6 +1373,8 @@ public class StorageUIComponent {
                         com.portable.storage.client.ClientConfig config = com.portable.storage.client.ClientConfig.getInstance();
                         config.virtualCraftingVisible = !config.virtualCraftingVisible;
                         com.portable.storage.client.ClientConfig.save();
+                        // 切换状态时返还所有合成槽位的物品
+                        com.portable.storage.client.ClientNetworkingHandlers.sendRefundCraftingSlots();
                         return true;
                     }
                     // 附魔之瓶槽位中键：切换等级维持状态
@@ -1331,6 +1447,28 @@ public class StorageUIComponent {
                                  // 左键或其他情况：正常的经验存取
                                  net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.XpBottleClickC2SPayload(button));
                                  return true;
+                             }
+                             // 虚拟流体条目点击：发送独立消息给服务端
+                             else if (storageIndex < Integer.MIN_VALUE + 1000) {
+                                 String fluidType = getFluidTypeFromVirtualIndex(storageIndex);
+                                 if (fluidType != null) {
+                                     if (button == 1) {
+                                         // 右键：检查是否拿着空桶进行转换
+                                         MinecraftClient client = MinecraftClient.getInstance();
+                                         if (client.player != null) {
+                                             ItemStack cursorStack = client.player.currentScreenHandler.getCursorStack();
+                                             if (!cursorStack.isEmpty() && cursorStack.isOf(net.minecraft.item.Items.BUCKET)) {
+                                                 // 发送流体转换请求
+                                                 net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.FluidConversionC2SPayload(fluidType, button));
+                                                 return true;
+                                             }
+                                         }
+                                     }
+                                     // 左键点击虚拟流体：不处理
+                                     if (button == 0) {
+                                         return true;
+                                     }
+                                 }
                              }
                             if (storageIndex >= 0) {
                                 // 优先处理：智能折叠代表项的右键 → 展开（填充搜索框），避免与“右键取1个”冲突
@@ -1611,6 +1749,12 @@ public class StorageUIComponent {
     }
     
     private boolean isOverUpgradeArea(double mouseX, double mouseY) {
+        // 检查流体槽位
+        if (isIn(mouseX, mouseY, fluidSlotLeft, fluidSlotTop, fluidSlotRight, fluidSlotBottom)) {
+            return true;
+        }
+        
+        // 检查升级槽位
         for (int i = 0; i < totalUpgradeCount; i++) {
             if (isIn(mouseX, mouseY, upgradeSlotLefts[i], upgradeSlotTops[i], upgradeSlotRights[i], upgradeSlotBottoms[i])) {
                 return true;
@@ -1641,6 +1785,30 @@ public class StorageUIComponent {
             }
         }
         return -1;
+    }
+    
+    /**
+     * 根据虚拟索引获取流体类型
+     */
+    private String getFluidTypeFromVirtualIndex(int virtualIndex) {
+        return switch (virtualIndex) {
+            case Integer.MIN_VALUE + 1 -> "lava";
+            case Integer.MIN_VALUE + 2 -> "water";
+            case Integer.MIN_VALUE + 3 -> "milk";
+            default -> null;
+        };
+    }
+    
+    /**
+     * 创建流体显示物品
+     */
+    private ItemStack createFluidDisplayStack(String fluidType) {
+        return switch (fluidType) {
+            case "lava" -> new ItemStack(net.minecraft.item.Items.LAVA_BUCKET);
+            case "water" -> new ItemStack(net.minecraft.item.Items.WATER_BUCKET);
+            case "milk" -> new ItemStack(net.minecraft.item.Items.MILK_BUCKET);
+            default -> ItemStack.EMPTY;
+        };
     }
     
     /**
@@ -1701,4 +1869,5 @@ public class StorageUIComponent {
         this.collapsed = ClientConfig.getInstance().collapsed;
     }
 }
+
 

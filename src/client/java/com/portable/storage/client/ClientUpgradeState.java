@@ -10,6 +10,12 @@ import net.minecraft.nbt.NbtCompound;
 public final class ClientUpgradeState {
     private static final UpgradeInventory upgradeInventory = new UpgradeInventory();
     private static final boolean[] disabledSlots = new boolean[11]; // 11个槽位的禁用状态（5个基础+6个扩展）
+    private static ItemStack fluidStack = ItemStack.EMPTY; // 流体槽位物品
+    
+    // 流体单位缓存
+    private static int cachedLavaUnits = 0;
+    private static int cachedWaterUnits = 0;
+    private static int cachedMilkUnits = 0;
 
     private ClientUpgradeState() {}
 
@@ -31,10 +37,31 @@ public final class ClientUpgradeState {
                 disabledSlots[i] = disabledNbt.getBoolean("slot" + i);
             }
         }
+        
+        // 读取流体槽位
+        fluidStack = upgradeInventory.getFluidStack();
+        
+        // 读取流体单位
+        cachedLavaUnits = upgradeInventory.getFluidUnits("lava");
+        cachedWaterUnits = upgradeInventory.getFluidUnits("water");
+        cachedMilkUnits = upgradeInventory.getFluidUnits("milk");
     }
 
     public static ItemStack getStack(int slot) {
         return upgradeInventory.getStack(slot);
+    }
+    
+    public static ItemStack getFluidStack() {
+        return fluidStack;
+    }
+    
+    public static int getFluidUnits(String fluidType) {
+        return switch (fluidType) {
+            case "lava" -> cachedLavaUnits;
+            case "water" -> cachedWaterUnits;
+            case "milk" -> cachedMilkUnits;
+            default -> 0;
+        };
     }
 
     public static int getSlotCount() {

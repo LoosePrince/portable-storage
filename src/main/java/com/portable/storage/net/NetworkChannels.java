@@ -17,9 +17,13 @@ public final class NetworkChannels {
 		PayloadTypeRegistry.playC2S().register(StorageDropC2SPayload.ID, StorageDropC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(RefillCraftingC2SPayload.ID, RefillCraftingC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(UpgradeSlotClickC2SPayload.ID, UpgradeSlotClickC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(FluidSlotClickC2SPayload.ID, FluidSlotClickC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(XpBottleClickC2SPayload.ID, XpBottleClickC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(XpBottleMaintenanceToggleC2SPayload.ID, XpBottleMaintenanceToggleC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(XpBottleConversionC2SPayload.ID, XpBottleConversionC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(FluidClickC2SPayload.ID, FluidClickC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(FluidConversionC2SPayload.ID, FluidConversionC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(RefundCraftingSlotsC2SPayload.ID, RefundCraftingSlotsC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(EmiRecipeFillC2SPayload.ID, EmiRecipeFillC2SPayload.PACKET_CODEC);
         PayloadTypeRegistry.playC2S().register(RequestVanillaCraftingOpenC2SPayload.ID, RequestVanillaCraftingOpenC2SPayload.PACKET_CODEC);
 		PayloadTypeRegistry.playC2S().register(com.portable.storage.net.payload.RequestPortableCraftingOpenC2SPayload.ID, com.portable.storage.net.payload.RequestPortableCraftingOpenC2SPayload.PACKET_CODEC);

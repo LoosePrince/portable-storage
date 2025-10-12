@@ -175,6 +175,26 @@ public final class ServerNetworkingHandlers {
 				if (from.isEmpty()) return;
 
 				StorageInventory inv = PlayerStorageService.getInventory(player);
+				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
+				
+				// 检查是否是流体桶，如果是则转换为空桶并添加虚拟流体单位
+				if (com.portable.storage.storage.UpgradeInventory.isValidFluidItem(from) && !from.isOf(net.minecraft.item.Items.BUCKET)) {
+					String fluidType = com.portable.storage.storage.UpgradeInventory.getFluidType(from);
+					if (fluidType != null) {
+						// 将流体桶转换为空桶并存入仓库
+						int count = from.getCount();
+						upgrades.addFluidUnits(fluidType, count);
+						ItemStack emptyBuckets = new ItemStack(net.minecraft.item.Items.BUCKET, count);
+						ItemStack remainder = insertIntoStorage(inv, emptyBuckets);
+						slot.setStack(remainder);
+						slot.markDirty();
+						sh.sendContentUpdates();
+						sendIncrementalSync(player);
+						return;
+					}
+				}
+				
+				// 普通物品的原有逻辑
                 ItemStack remainder = insertIntoStorage(inv, from);
                 slot.setStack(remainder);
 				slot.markDirty();
@@ -396,6 +416,177 @@ public final class ServerNetworkingHandlers {
 			});
 		});
 
+		// 流体槽位点击
+		ServerPlayNetworking.registerGlobalReceiver(FluidSlotClickC2SPayload.ID, (payload, context) -> {
+			context.server().execute(() -> {
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				if (checkAndRejectIfNotEnabled(player)) return;
+				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
+				
+				ItemStack cursor = player.currentScreenHandler.getCursorStack();
+				ItemStack fluidStack = upgrades.getFluidStack();
+				
+				if (cursor.isEmpty()) {
+					// 手持空，取出流体槽位物品
+					if (!fluidStack.isEmpty()) {
+						upgrades.setFluidStack(ItemStack.EMPTY);
+						player.currentScreenHandler.setCursorStack(fluidStack);
+						player.currentScreenHandler.sendContentUpdates();
+						sendIncrementalSync(player);
+					}
+				} else {
+					// 手持物品，检查是否有效
+					if (com.portable.storage.storage.UpgradeInventory.isValidFluidItem(cursor)) {
+						if (cursor.isOf(net.minecraft.item.Items.BUCKET)) {
+							// 空桶：检查是否有流体可以转换
+							boolean hasFluid = false;
+							for (String fluidType : new String[]{"lava", "water", "milk"}) {
+								if (upgrades.getFluidUnits(fluidType) > 0) {
+									// 转换为流体桶并减少流体单位
+									upgrades.removeFluidUnits(fluidType, 1);
+									player.currentScreenHandler.setCursorStack(com.portable.storage.storage.UpgradeInventory.createFluidBucket(fluidType));
+									hasFluid = true;
+									break;
+								}
+							}
+							if (!hasFluid) {
+								// 没有流体，正常交换
+								upgrades.setFluidStack(cursor.copy());
+								player.currentScreenHandler.setCursorStack(fluidStack);
+							}
+						} else {
+							// 流体桶：转换为空桶并添加流体单位
+							String fluidType = com.portable.storage.storage.UpgradeInventory.getFluidType(cursor);
+							if (fluidType != null) {
+								upgrades.addFluidUnits(fluidType, 1);
+								player.currentScreenHandler.setCursorStack(new ItemStack(net.minecraft.item.Items.BUCKET));
+							} else {
+								// 其他有效物品，正常交换
+								upgrades.setFluidStack(cursor.copy());
+								player.currentScreenHandler.setCursorStack(fluidStack);
+							}
+						}
+						player.currentScreenHandler.sendContentUpdates();
+						sendIncrementalSync(player);
+					}
+				}
+			});
+		});
+		
+		// 虚拟流体点击
+		ServerPlayNetworking.registerGlobalReceiver(FluidClickC2SPayload.ID, (payload, context) -> {
+			context.server().execute(() -> {
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				if (checkAndRejectIfNotEnabled(player)) return;
+				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
+				
+				String fluidType = payload.fluidType();
+				int button = payload.button();
+				
+				// 左键点击虚拟流体：不处理
+				if (button == 0) {
+					return;
+				}
+				// 右键：存入一个单位的流体（从流体桶转换）
+				else if (button == 1) {
+					ItemStack cursor = player.currentScreenHandler.getCursorStack();
+					if (!cursor.isEmpty() && cursor.isOf(com.portable.storage.storage.UpgradeInventory.createFluidBucket(fluidType).getItem())) {
+						upgrades.addFluidUnits(fluidType, 1);
+						player.currentScreenHandler.setCursorStack(new ItemStack(net.minecraft.item.Items.BUCKET));
+						player.currentScreenHandler.sendContentUpdates();
+						sendIncrementalSync(player);
+					}
+				}
+			});
+		});
+		
+		// 虚拟流体转换
+		ServerPlayNetworking.registerGlobalReceiver(FluidConversionC2SPayload.ID, (payload, context) -> {
+			context.server().execute(() -> {
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				if (checkAndRejectIfNotEnabled(player)) return;
+				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
+				
+				String fluidType = payload.fluidType();
+				int button = payload.button();
+				
+				// 右键：空桶转换为流体桶
+				if (button == 1) {
+					ItemStack cursor = player.currentScreenHandler.getCursorStack();
+					if (!cursor.isEmpty() && cursor.isOf(net.minecraft.item.Items.BUCKET)) {
+						int units = upgrades.getFluidUnits(fluidType);
+						if (units > 0) {
+							upgrades.removeFluidUnits(fluidType, 1);
+							ItemStack fluidBucket = com.portable.storage.storage.UpgradeInventory.createFluidBucket(fluidType);
+							
+							// 如果手中有多个空桶，将多余的空桶放入仓库
+							if (cursor.getCount() > 1) {
+								ItemStack remainingBuckets = cursor.copy();
+								remainingBuckets.decrement(1); // 减少一个空桶用于转换
+								
+								// 将剩余的空桶放入仓库
+								StorageInventory storage = PlayerStorageService.getInventory(player);
+								ItemStack remainder = insertIntoStorage(storage, remainingBuckets);
+								
+								// 给玩家一个流体桶
+								player.currentScreenHandler.setCursorStack(fluidBucket);
+							} else {
+								// 只有一个空桶，直接转换
+								player.currentScreenHandler.setCursorStack(fluidBucket);
+							}
+							
+							player.currentScreenHandler.sendContentUpdates();
+							sendIncrementalSync(player);
+						}
+					}
+				}
+			});
+		});
+		
+		// 返还合成槽位物品
+		ServerPlayNetworking.registerGlobalReceiver(RefundCraftingSlotsC2SPayload.ID, (payload, context) -> {
+			context.server().execute(() -> {
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				if (checkAndRejectIfNotEnabled(player)) return;
+				
+				// 返还虚拟3x3合成槽位的物品
+				com.portable.storage.crafting.OverlayCraftingManager.refundAll(player);
+				
+				// 返还原版2x2合成槽位的物品
+				ScreenHandler handler = player.currentScreenHandler;
+				if (handler instanceof net.minecraft.screen.PlayerScreenHandler playerHandler) {
+					// 槽位0是输出，1-4是输入
+					for (int i = 1; i <= 4 && i < playerHandler.slots.size(); i++) {
+						Slot slot = playerHandler.getSlot(i);
+						ItemStack stack = slot.getStack();
+						if (!stack.isEmpty()) {
+							// 将物品放入玩家背包
+							if (!player.getInventory().insertStack(stack)) {
+								// 背包满了，丢弃到地上
+								player.dropItem(stack, false);
+							}
+							slot.setStack(ItemStack.EMPTY);
+							slot.markDirty();
+						}
+					}
+					// 清空输出槽
+					Slot outputSlot = playerHandler.getSlot(0);
+					if (!outputSlot.getStack().isEmpty()) {
+						ItemStack outputStack = outputSlot.getStack();
+						if (!player.getInventory().insertStack(outputStack)) {
+							player.dropItem(outputStack, false);
+						}
+						outputSlot.setStack(ItemStack.EMPTY);
+						outputSlot.markDirty();
+					}
+				}
+				
+				// 发送更新
+				handler.sendContentUpdates();
+				sendIncrementalSync(player);
+			});
+		});
+		
 		// 升级槽位点击
 		ServerPlayNetworking.registerGlobalReceiver(UpgradeSlotClickC2SPayload.ID, (payload, context) -> {
 			int slot = payload.slot();

@@ -97,6 +97,10 @@ public final class ClientNetworkingHandlers {
 	public static void sendXpBottleMaintenanceToggle() {
 		ClientPlayNetworking.send(new XpBottleMaintenanceToggleC2SPayload());
 	}
+	
+	public static void sendRefundCraftingSlots() {
+		ClientPlayNetworking.send(new com.portable.storage.net.payload.RefundCraftingSlotsC2SPayload());
+	}
 }
 
 

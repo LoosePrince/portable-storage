@@ -37,6 +37,14 @@ public class UpgradeInventory {
     // 扩展槽位使用屏障图标
     private static final ItemStack EXTENDED_SLOT_ICON = new ItemStack(Items.BARRIER);
     
+    // 流体槽位物品
+    private ItemStack fluidStack = ItemStack.EMPTY;
+    
+    // 流体单位存储
+    private int lavaUnits = 0;
+    private int waterUnits = 0;
+    private int milkUnits = 0;
+    
     public UpgradeInventory() {
         this.slots = new ItemStack[TOTAL_SLOT_COUNT];
         this.disabledSlots = new boolean[TOTAL_SLOT_COUNT];
@@ -75,6 +83,62 @@ public class UpgradeInventory {
             return ItemStack.EMPTY;
         }
         return slots[slot];
+    }
+    
+    /**
+     * 获取流体槽位的物品
+     */
+    public ItemStack getFluidStack() {
+        return fluidStack;
+    }
+    
+    /**
+     * 设置流体槽位的物品
+     */
+    public void setFluidStack(ItemStack stack) {
+        this.fluidStack = stack;
+    }
+    
+    /**
+     * 获取流体单位数量
+     */
+    public int getFluidUnits(String fluidType) {
+        return switch (fluidType) {
+            case "lava" -> lavaUnits;
+            case "water" -> waterUnits;
+            case "milk" -> milkUnits;
+            default -> 0;
+        };
+    }
+    
+    /**
+     * 设置流体单位数量
+     */
+    public void setFluidUnits(String fluidType, int units) {
+        switch (fluidType) {
+            case "lava" -> this.lavaUnits = Math.max(0, units);
+            case "water" -> this.waterUnits = Math.max(0, units);
+            case "milk" -> this.milkUnits = Math.max(0, units);
+        }
+    }
+    
+    /**
+     * 添加流体单位
+     */
+    public void addFluidUnits(String fluidType, int units) {
+        setFluidUnits(fluidType, getFluidUnits(fluidType) + units);
+    }
+    
+    /**
+     * 减少流体单位
+     */
+    public boolean removeFluidUnits(String fluidType, int units) {
+        int current = getFluidUnits(fluidType);
+        if (current >= units) {
+            setFluidUnits(fluidType, current - units);
+            return true;
+        }
+        return false;
     }
     
     /**
@@ -126,6 +190,46 @@ public class UpgradeInventory {
         
         return false;
     }
+    
+    /**
+     * 检查物品是否是有效的流体槽位物品
+     */
+    public static boolean isValidFluidItem(ItemStack stack) {
+        if (stack.isEmpty()) {
+            return false;
+        }
+        
+        return stack.isOf(Items.LAVA_BUCKET) || 
+               stack.isOf(Items.WATER_BUCKET) || 
+               stack.isOf(Items.MILK_BUCKET) || 
+               stack.isOf(Items.BUCKET);
+    }
+    
+    /**
+     * 获取流体桶对应的流体类型
+     */
+    public static String getFluidType(ItemStack stack) {
+        if (stack.isOf(Items.LAVA_BUCKET)) {
+            return "lava";
+        } else if (stack.isOf(Items.WATER_BUCKET)) {
+            return "water";
+        } else if (stack.isOf(Items.MILK_BUCKET)) {
+            return "milk";
+        }
+        return null;
+    }
+    
+    /**
+     * 根据流体类型创建流体桶
+     */
+    public static ItemStack createFluidBucket(String fluidType) {
+        return switch (fluidType) {
+            case "lava" -> new ItemStack(Items.LAVA_BUCKET);
+            case "water" -> new ItemStack(Items.WATER_BUCKET);
+            case "milk" -> new ItemStack(Items.MILK_BUCKET);
+            default -> ItemStack.EMPTY;
+        };
+    }
 
     /**
      * 获取指定槽位对应的升级物品（用于UI显示）
@@ -158,6 +262,13 @@ public class UpgradeInventory {
         }
         
         return ItemStack.EMPTY;
+    }
+    
+    /**
+     * 获取流体槽位对应的预期物品（用于UI显示）
+     */
+    public static ItemStack getExpectedFluidForSlot() {
+        return new ItemStack(Items.BUCKET);
     }
 
     /**
@@ -322,6 +433,25 @@ public class UpgradeInventory {
             disabledNbt.putBoolean("slot" + i, disabledSlots[i]);
         }
         nbt.put("DisabledSlots", disabledNbt);
+        
+        // 保存流体槽位
+        if (!fluidStack.isEmpty()) {
+            NbtCompound fluidNbt = new NbtCompound();
+            fluidNbt.putString("id", Registries.ITEM.getId(fluidStack.getItem()).toString());
+            fluidNbt.putByte("Count", (byte) fluidStack.getCount());
+            // 写入自定义数据
+            NbtComponent custom = fluidStack.get(DataComponentTypes.CUSTOM_DATA);
+            if (custom != null) {
+                fluidNbt.put("CustomData", custom.copyNbt());
+            }
+            nbt.put("FluidStack", fluidNbt);
+        }
+        
+        // 保存流体单位
+        nbt.putInt("LavaUnits", lavaUnits);
+        nbt.putInt("WaterUnits", waterUnits);
+        nbt.putInt("MilkUnits", milkUnits);
+        
         // 写入附魔之瓶经验池
         nbt.putLong("XpPool", Math.max(0L, xpPool));
         // 写入等级维持状态
@@ -372,6 +502,33 @@ public class UpgradeInventory {
                 disabledSlots[i] = false;
             }
         }
+        // 读取流体槽位
+        if (nbt.contains("FluidStack", NbtElement.COMPOUND_TYPE)) {
+            NbtCompound fluidNbt = nbt.getCompound("FluidStack");
+            if (fluidNbt.contains("id")) {
+                net.minecraft.util.Identifier id = net.minecraft.util.Identifier.tryParse(fluidNbt.getString("id"));
+                if (id != null) {
+                    net.minecraft.item.Item item = Registries.ITEM.get(id);
+                    if (item != null && item != Items.AIR) {
+                        ItemStack stack = new ItemStack(item);
+                        stack.setCount(fluidNbt.getByte("Count"));
+                        if (fluidNbt.contains("CustomData", NbtElement.COMPOUND_TYPE)) {
+                            NbtCompound custom = fluidNbt.getCompound("CustomData");
+                            stack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(custom));
+                        }
+                        fluidStack = stack;
+                    }
+                }
+            }
+        } else {
+            fluidStack = ItemStack.EMPTY;
+        }
+        
+        // 读取流体单位
+        lavaUnits = nbt.getInt("LavaUnits");
+        waterUnits = nbt.getInt("WaterUnits");
+        milkUnits = nbt.getInt("MilkUnits");
+        
         // 读取附魔之瓶经验池
         if (nbt.contains("XpPool", NbtElement.LONG_TYPE)) {
             xpPool = Math.max(0L, nbt.getLong("XpPool"));

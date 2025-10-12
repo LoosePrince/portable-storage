@@ -187,7 +187,7 @@ public abstract class InventoryScreenMixin {
         }
 
         // 覆盖层虚拟3x3交互：将点击转发给服务端进行合成/取出
-        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient()) {
+        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient() && com.portable.storage.client.ClientConfig.getInstance().virtualCraftingVisible) {
             InventoryScreen self2 = (InventoryScreen)(Object)this;
             int screenWidth2 = self2.width;
             int screenHeight2 = self2.height;
@@ -274,7 +274,7 @@ public abstract class InventoryScreenMixin {
         }
 
         // 覆盖层激活时，阻断对原 2x2 槽位(1..4)的交互
-        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient()) {
+        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient() && com.portable.storage.client.ClientConfig.getInstance().virtualCraftingVisible) {
             MinecraftClient mc3 = MinecraftClient.getInstance();
             if (mc3 != null && mc3.player != null && mc3.player.currentScreenHandler instanceof net.minecraft.screen.PlayerScreenHandler handler) {
                 int screenX = ((InventoryScreen)(Object)this).width;
@@ -307,7 +307,7 @@ public abstract class InventoryScreenMixin {
     @Inject(method = "mouseReleased", at = @At("HEAD"), cancellable = true)
     private void portableStorage$mouseReleased(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
         // 检查仓库是否已启用
-        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient()) {
+        if (com.portable.storage.client.ClientStorageState.isStorageEnabled()) {
             // 检查鼠标是否在仓库UI区域内，如果是则阻止事件穿透
             if (portableStorage$uiComponent.isOverAnyComponent(mouseX, mouseY)) {
                 cir.setReturnValue(true);
@@ -316,7 +316,7 @@ public abstract class InventoryScreenMixin {
         }
 
         // 在覆盖层启用时，阻断原 2x2 槽位与覆盖区域的释放事件，防止穿透
-        if (!(com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient())) return;
+        if (!(com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient() && com.portable.storage.client.ClientConfig.getInstance().virtualCraftingVisible)) return;
 
         InventoryScreen self = (InventoryScreen)(Object)this;
         int screenWidth = self.width;
