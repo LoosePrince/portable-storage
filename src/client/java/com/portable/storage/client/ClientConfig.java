@@ -42,6 +42,9 @@ public class ClientConfig {
     // 虚拟合成显示状态
     public boolean virtualCraftingVisible = false; // 默认不显示
     
+    // 最大可见行数
+    public int maxVisibleRows = 6; // 默认最大6行
+    
     public enum SortMode {
         COUNT("count"),           // 数量
         NAME("name"),            // 物品名称
@@ -109,6 +112,7 @@ public class ClientConfig {
                 merged.searchPos = defaults.searchPos;
                 merged.storagePos = defaults.storagePos;
                 merged.virtualCraftingVisible = defaults.virtualCraftingVisible;
+                merged.maxVisibleRows = defaults.maxVisibleRows;
 
                 // 再按文件中存在的键覆盖
                 if (obj.has("collapsed")) {
@@ -159,6 +163,11 @@ public class ClientConfig {
                 }
                 if (obj.has("virtualCraftingVisible")) {
                     merged.virtualCraftingVisible = obj.get("virtualCraftingVisible").getAsBoolean();
+                } else {
+                    changed = true;
+                }
+                if (obj.has("maxVisibleRows")) {
+                    merged.maxVisibleRows = obj.get("maxVisibleRows").getAsInt();
                 } else {
                     changed = true;
                 }

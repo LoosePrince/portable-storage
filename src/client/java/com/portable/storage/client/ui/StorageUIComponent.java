@@ -31,12 +31,14 @@ public class StorageUIComponent {
     private static final Identifier TEX_BG = Identifier.of("portable-storage", "textures/gui/portable_storage_gui_1.png");
     private static final Identifier TEX_SETTINGS_BG = Identifier.of("portable-storage", "textures/gui/portable_storage_gui.png");
     private static final Identifier TEX_SLOT = Identifier.of("portable-storage", "textures/gui/slot.png");
+    private static final Identifier TEX_ICONS = Identifier.of("portable-storage", "textures/gui/icon.png");
     
     // 切换原版界面回调
     private Runnable switchToVanillaCallback = null;
     // 仓库网格参数
     private final int cols = 9;
-    private final int visibleRows = 6;
+    private int visibleRows = 6; // 改为可变，支持自适应
+    private final int minVisibleRows = 2; // 最小行数，最大行数由配置决定
     private final int slotSize = 18;
     private final int slotSpacing = 0;
     
@@ -85,6 +87,12 @@ public class StorageUIComponent {
     private final int[] upgradeSlotTops = new int[11];
     private final int[] upgradeSlotRights = new int[11];
     private final int[] upgradeSlotBottoms = new int[11];
+    
+    // 升级槽位滚动相关
+    private float upgradeScroll = 0.0f;
+    private boolean dragUpgradeScrollbar = false;
+    private int dragUpgradeGrabOffset = 0;
+    private int upgradeScrollbarLeft, upgradeScrollbarTop, upgradeScrollbarHeight, upgradeScrollbarWidth;
     
     // 流体槽位点击区域
     private int fluidSlotLeft, fluidSlotTop, fluidSlotRight, fluidSlotBottom;
@@ -169,6 +177,13 @@ public class StorageUIComponent {
             return;
         }
         
+        // 计算自适应高度
+        ClientConfig config = ClientConfig.getInstance();
+        int screenHeight = client.getWindow().getScaledHeight();
+        int inventoryTop = screenY;
+        int inventoryBottom = screenY + backgroundHeight;
+        this.visibleRows = calculateAdaptiveHeight(screenHeight, inventoryTop, inventoryBottom, config);
+        
         // 计算位置
         this.baseX = screenX;
         this.baseY = screenY;
@@ -185,7 +200,6 @@ public class StorageUIComponent {
         }
         
         // 根据仓库位置设置计算gridTop
-        ClientConfig config = ClientConfig.getInstance();
         if (config.storagePos == ClientConfig.StoragePos.TOP) {
             // 仓库在顶部：计算仓库UI高度，然后让玩家背包下移
             int storageHeight = visibleRows * (slotSize + slotSpacing);
@@ -230,11 +244,11 @@ public class StorageUIComponent {
         }
         
         int panelWidth = calculatePanelWidth(client, config, enableCollapse);
-        int panelLeft = screenX + backgroundWidth + 6;
+        int panelLeft = screenX + backgroundWidth + 8;
         
         int extLeft = upgradeLeft - 2 - extendedSlotWidth; // 向左扩展以包含扩展槽位
         int extTop = gridTop - 2;
-        int extRight = panelLeft + panelWidth + 2;
+        int extRight = panelLeft - 2; // 不包含设置面板区域
         int extBottom = gridTop + visibleRows * (slotSize + slotSpacing) + 2;
         
         // 绘制扩展背景（左上偏移，九宫格拉伸中心区域）
@@ -254,7 +268,7 @@ public class StorageUIComponent {
         // 渲染升级槽位
         renderUpgradeSlots(context, upgradeLeft);
         
-        // 渲染设置面板（无背景）
+        // 渲染设置面板（独立显示，无背景）
         renderSettingsPanel(context, client, config, panelLeft, panelWidth, enableCollapse);
         
         // 渲染搜索框
@@ -442,8 +456,85 @@ public class StorageUIComponent {
             }
         }
         
+        // 检查是否悬停在设置面板上
+        if (isIn(mouseX, mouseY, collapseLeft, collapseTop, collapseRight, collapseBottom)) {
+            // 折叠仓库悬停提示
+            List<Text> tooltipLines = new java.util.ArrayList<>();
+            tooltipLines.add(Text.translatable("portable_storage.ui.collapse"));
+            context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
+        } else if (isIn(mouseX, mouseY, sortModeLeft, sortModeTop, sortModeRight, sortModeBottom)) {
+            // 排序模式悬停提示
+            ClientConfig config = ClientConfig.getInstance();
+            String sortModeKey = switch (config.sortMode) {
+                case COUNT -> "portable_storage.sort.count";
+                case NAME -> "portable_storage.sort.name";
+                case MOD_ID -> "portable_storage.sort.mod_id";
+                case UPDATE_TIME -> "portable_storage.sort.update_time";
+            };
+            List<Text> tooltipLines = new java.util.ArrayList<>();
+            tooltipLines.add(Text.translatable("portable_storage.ui.sort_mode", Text.translatable(sortModeKey).getString()));
+            context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
+        } else if (isIn(mouseX, mouseY, sortOrderLeft, sortOrderTop, sortOrderRight, sortOrderBottom)) {
+            // 排序顺序悬停提示
+            ClientConfig config = ClientConfig.getInstance();
+            String sortOrderKey = config.sortAscending ? "portable_storage.sort.ascending" : "portable_storage.sort.descending";
+            List<Text> tooltipLines = new java.util.ArrayList<>();
+            tooltipLines.add(Text.translatable("portable_storage.ui.sort_order", Text.translatable(sortOrderKey).getString()));
+            context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
+        } else if (isIn(mouseX, mouseY, craftRefillLeft, craftRefillTop, craftRefillRight, craftRefillBottom)) {
+            // 合成补充悬停提示
+            ClientConfig config = ClientConfig.getInstance();
+            String craftRefillKey = config.craftRefill ? "portable_storage.toggle.enabled" : "portable_storage.toggle.disabled";
+            List<Text> tooltipLines = new java.util.ArrayList<>();
+            tooltipLines.add(Text.translatable("portable_storage.ui.craft_refill", Text.translatable(craftRefillKey).getString()));
+            context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
+        } else if (isIn(mouseX, mouseY, autoDepositLeft, autoDepositTop, autoDepositRight, autoDepositBottom)) {
+            // 自动传入悬停提示
+            ClientConfig config = ClientConfig.getInstance();
+            String autoDepositKey = config.autoDeposit ? "portable_storage.toggle.enabled" : "portable_storage.toggle.disabled";
+            List<Text> tooltipLines = new java.util.ArrayList<>();
+            tooltipLines.add(Text.translatable("portable_storage.ui.auto_deposit", Text.translatable(autoDepositKey).getString()));
+            context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
+        } else if (isIn(mouseX, mouseY, smartCollapseLeft, smartCollapseTop, smartCollapseRight, smartCollapseBottom)) {
+            // 智能折叠悬停提示
+            ClientConfig config = ClientConfig.getInstance();
+            String smartCollapseKey = config.smartCollapse ? "portable_storage.toggle.enabled" : "portable_storage.toggle.disabled";
+            List<Text> tooltipLines = new java.util.ArrayList<>();
+            tooltipLines.add(Text.translatable("portable_storage.ui.smart_collapse", Text.translatable(smartCollapseKey).getString()));
+            context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
+        } else if (isIn(mouseX, mouseY, searchPosLeft, searchPosTop, searchPosRight, searchPosBottom)) {
+            // 搜索位置悬停提示
+            ClientConfig config = ClientConfig.getInstance();
+            String posKey;
+            if (config.storagePos == ClientConfig.StoragePos.TOP && config.searchPos == ClientConfig.SearchPos.TOP2) {
+                posKey = "portable_storage.search_pos.top";
+            } else {
+                switch (config.searchPos) {
+                    case TOP: posKey = "portable_storage.search_pos.top"; break;
+                    case TOP2: posKey = "portable_storage.search_pos.top2"; break;
+                    case MIDDLE: posKey = "portable_storage.search_pos.middle"; break;
+                    default: posKey = "portable_storage.search_pos.bottom";
+                }
+            }
+            List<Text> tooltipLines = new java.util.ArrayList<>();
+            tooltipLines.add(Text.translatable("portable_storage.ui.search_pos", Text.translatable(posKey).getString()));
+            context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
+        } else if (isIn(mouseX, mouseY, storagePosLeft, storagePosTop, storagePosRight, storagePosBottom)) {
+            // 仓库位置悬停提示
+            ClientConfig config = ClientConfig.getInstance();
+            String storagePosKey = config.storagePos == ClientConfig.StoragePos.TOP ? 
+                "portable_storage.storage_pos.top" : "portable_storage.storage_pos.bottom";
+            List<Text> tooltipLines = new java.util.ArrayList<>();
+            tooltipLines.add(Text.translatable("portable_storage.ui.storage_pos", Text.translatable(storagePosKey).getString()));
+            context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
+        } else if (isIn(mouseX, mouseY, switchVanillaLeft, switchVanillaTop, switchVanillaRight, switchVanillaBottom)) {
+            // 切换原版悬停提示
+            List<Text> tooltipLines = new java.util.ArrayList<>();
+            tooltipLines.add(Text.translatable("portable_storage.ui.switch_vanilla"));
+            context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
+        }
         // 检查是否悬停在流体槽位上
-        if (isIn(mouseX, mouseY, fluidSlotLeft, fluidSlotTop, fluidSlotRight, fluidSlotBottom)) {
+        else if (isIn(mouseX, mouseY, fluidSlotLeft, fluidSlotTop, fluidSlotRight, fluidSlotBottom)) {
             ItemStack fluidStack = ClientUpgradeState.getFluidStack();
             List<Text> tooltipLines = new java.util.ArrayList<>();
             
@@ -592,13 +683,44 @@ public class StorageUIComponent {
         this.scrollbarWidth = trackWidth;
         
         int maxScrollRows = Math.max(0, totalRows - visibleRows);
-        drawScrollbar(context, trackLeft, trackTop, trackWidth, trackHeight, maxScrollRows);
+        drawScrollbar(context, trackLeft, trackTop, trackWidth, trackHeight, maxScrollRows, visibleRows, totalRows, this.scroll);
     }
     
     /**
      * 更新滚动条拖动状态
      */
     private void updateScrollbarDrag(double mouseX, double mouseY) {
+        // 处理升级槽位滚动条拖动
+        if (dragUpgradeScrollbar) {
+            MinecraftClient mc = MinecraftClient.getInstance();
+            long window = mc != null && mc.getWindow() != null ? mc.getWindow().getHandle() : 0L;
+            boolean leftDown = false;
+            if (window != 0L) {
+                leftDown = org.lwjgl.glfw.GLFW.glfwGetMouseButton(window, org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+            }
+            if (!leftDown) {
+                dragUpgradeScrollbar = false;
+            } else {
+                int height = this.upgradeScrollbarHeight;
+                int upgradeVisibleRows = calculateUpgradeVisibleRows();
+                
+                // 计算每列的最大行数
+                int leftColumnMaxRows = ClientUpgradeState.isChestUpgradeActive() ? extendedUpgradeCount : 0;
+                int rightColumnMaxRows = baseUpgradeCount + 1;
+                int maxRowsInAnyColumn = Math.max(leftColumnMaxRows, rightColumnMaxRows);
+                
+                int visible = upgradeVisibleRows;
+                int total = Math.max(visible, maxRowsInAnyColumn);
+                int thumbMin = 8;
+                int thumbHeight = Math.max(thumbMin, (int)(height * ((float)visible / (float)total)));
+                int maxScrollPx = Math.max(1, height - thumbHeight);
+                int top = this.upgradeScrollbarTop;
+                int mouseOffset = (int)mouseY - top - dragUpgradeGrabOffset;
+                float newScroll = (float)mouseOffset / (float)maxScrollPx;
+                this.upgradeScroll = Math.max(0.0f, Math.min(1.0f, newScroll));
+            }
+        }
+        
         if (dragScrollbar) {
             MinecraftClient mc = MinecraftClient.getInstance();
             long window = mc != null && mc.getWindow() != null ? mc.getWindow().getHandle() : 0L;
@@ -630,14 +752,42 @@ public class StorageUIComponent {
     private void renderUpgradeSlots(DrawContext context, int upgradeLeft) {
         int upgradeTop = gridTop;
         
+        // 升级槽位是两列布局，每列最多6行
+        // 左列：扩展升级槽位（5-10，6个槽位）
+        // 右列：基础升级槽位（0-4，5个槽位）+ 流体槽位（1个槽位）
+        
+        int upgradeVisibleRows = calculateUpgradeVisibleRows();
+        
+        // 计算每列的最大行数
+        int leftColumnMaxRows = ClientUpgradeState.isChestUpgradeActive() ? extendedUpgradeCount : 0; // 扩展槽位行数
+        int rightColumnMaxRows = baseUpgradeCount + 1; // 基础槽位 + 流体槽位行数
+        
+        // 计算滚动范围 - 基于最大列的行数
+        int maxRowsInAnyColumn = Math.max(leftColumnMaxRows, rightColumnMaxRows);
+        int maxUpgradeScrollRows = Math.max(0, maxRowsInAnyColumn - upgradeVisibleRows);
+        
+        // 如果没有滚动内容，重置滚动位置
+        if (maxUpgradeScrollRows <= 0) {
+            this.upgradeScroll = 0.0f;
+        }
+        
+        int upgradeRowOffset = (int)Math.floor(upgradeScroll * maxUpgradeScrollRows + 0.5f);
+        upgradeRowOffset = Math.max(0, Math.min(maxUpgradeScrollRows, upgradeRowOffset));
+        
+        // 为了兼容性，保留 maxVisibleUpgradeSlots 变量
+        int maxVisibleUpgradeSlots = upgradeVisibleRows;
+        
         // 渲染扩展升级槽位（5-10），仅在箱子升级激活时显示，显示在左侧
         if (ClientUpgradeState.isChestUpgradeActive()) {
             int extendedLeft = upgradeLeft - (upgradeSlotSize + upgradeSpacing + 2); // 左侧留一些间距
             
             for (int i = 0; i < extendedUpgradeCount; i++) {
                 int slotIndex = baseUpgradeCount + i; // 槽位5-10
+                int displayRow = i - upgradeRowOffset;
+                if (displayRow < 0 || displayRow >= maxVisibleUpgradeSlots) continue; // 跳过不可见的槽位
+                
                 int sx = extendedLeft;
-                int sy = upgradeTop + i * (upgradeSlotSize + upgradeSpacing);
+                int sy = upgradeTop + displayRow * (upgradeSlotSize + upgradeSpacing);
                 drawSlotInset(context, sx, sy, upgradeSlotSize, upgradeSlotSize);
                 
                 upgradeSlotLefts[slotIndex] = sx;
@@ -674,8 +824,11 @@ public class StorageUIComponent {
         
         // 渲染基础升级槽位（0-4）
         for (int i = 0; i < baseUpgradeCount; i++) {
+            int displayRow = i - upgradeRowOffset;
+            if (displayRow < 0 || displayRow >= maxVisibleUpgradeSlots) continue; // 跳过不可见的槽位
+            
             int sx = upgradeLeft;
-            int sy = upgradeTop + i * (upgradeSlotSize + upgradeSpacing);
+            int sy = upgradeTop + displayRow * (upgradeSlotSize + upgradeSpacing);
             drawSlotInset(context, sx, sy, upgradeSlotSize, upgradeSlotSize);
             
             upgradeSlotLefts[i] = sx;
@@ -710,143 +863,182 @@ public class StorageUIComponent {
         }
         
         // 渲染流体槽位（在升级槽位5下面）
-        int fluidSlotY = upgradeTop + 5 * (upgradeSlotSize + upgradeSpacing);
-        drawSlotInset(context, upgradeLeft, fluidSlotY, upgradeSlotSize, upgradeSlotSize);
-        
-        fluidSlotLeft = upgradeLeft;
-        fluidSlotTop = fluidSlotY;
-        fluidSlotRight = upgradeLeft + upgradeSlotSize;
-        fluidSlotBottom = fluidSlotY + upgradeSlotSize;
-        
-        ItemStack fluidStack = ClientUpgradeState.getFluidStack();
-        ItemStack expectedFluidStack = com.portable.storage.storage.UpgradeInventory.getExpectedFluidForSlot();
-        
-        if (!fluidStack.isEmpty()) {
-            // 有物品，正常渲染
-            context.drawItem(fluidStack, upgradeLeft + 1, fluidSlotY + 1);
-        } else {
-            // 空槽位，显示预期物品图标并叠加白色半透明遮罩
-            context.drawItem(expectedFluidStack, upgradeLeft + 1, fluidSlotY + 1);
+        int fluidDisplayRow = 5 - upgradeRowOffset;
+        if (fluidDisplayRow >= 0 && fluidDisplayRow < maxVisibleUpgradeSlots) {
+            int fluidSlotY = upgradeTop + fluidDisplayRow * (upgradeSlotSize + upgradeSpacing);
+            drawSlotInset(context, upgradeLeft, fluidSlotY, upgradeSlotSize, upgradeSlotSize);
             
-            // 叠加白色半透明遮罩（在物品图标上方）
-            context.getMatrices().push();
-            context.getMatrices().translate(0, 0, 200); // 提高层级
-            context.fill(upgradeLeft + 1, fluidSlotY + 1, upgradeLeft + upgradeSlotSize - 1, fluidSlotY + upgradeSlotSize - 1, 0x80FFFFFF);
-            context.getMatrices().pop();
+            fluidSlotLeft = upgradeLeft;
+            fluidSlotTop = fluidSlotY;
+            fluidSlotRight = upgradeLeft + upgradeSlotSize;
+            fluidSlotBottom = fluidSlotY + upgradeSlotSize;
+            
+            ItemStack fluidStack = ClientUpgradeState.getFluidStack();
+            ItemStack expectedFluidStack = com.portable.storage.storage.UpgradeInventory.getExpectedFluidForSlot();
+            
+            if (!fluidStack.isEmpty()) {
+                // 有物品，正常渲染
+                context.drawItem(fluidStack, upgradeLeft + 1, fluidSlotY + 1);
+            } else {
+                // 空槽位，显示预期物品图标并叠加白色半透明遮罩
+                context.drawItem(expectedFluidStack, upgradeLeft + 1, fluidSlotY + 1);
+                
+                // 叠加白色半透明遮罩（在物品图标上方）
+                context.getMatrices().push();
+                context.getMatrices().translate(0, 0, 200); // 提高层级
+                context.fill(upgradeLeft + 1, fluidSlotY + 1, upgradeLeft + upgradeSlotSize - 1, fluidSlotY + upgradeSlotSize - 1, 0x80FFFFFF);
+                context.getMatrices().pop();
+            }
+        }
+        
+        // 渲染升级槽位滚动条（如果需要）
+        if (maxUpgradeScrollRows > 0) {
+            renderUpgradeScrollbar(context, upgradeLeft, upgradeTop, upgradeVisibleRows, maxRowsInAnyColumn, upgradeVisibleRows);
         }
         
         // 升级说明按钮已移除
     }
     
     /**
+     * 渲染升级槽位滚动条
+     */
+    private void renderUpgradeScrollbar(DrawContext context, int upgradeLeft, int upgradeTop, int visibleRows, int totalRows, int upgradeVisibleRows) {
+        // 滚动条位于升级槽位右侧（仓库槽位左侧），与仓库槽位滚动条对称
+        int trackLeft = upgradeLeft + upgradeSlotSize + 4; // 在升级槽位右侧
+        int trackTop = upgradeTop;
+        int trackHeight = upgradeVisibleRows * (upgradeSlotSize + upgradeSpacing);
+        int trackWidth = 6;
+        
+        this.upgradeScrollbarLeft = trackLeft;
+        this.upgradeScrollbarTop = trackTop;
+        this.upgradeScrollbarHeight = trackHeight;
+        this.upgradeScrollbarWidth = trackWidth;
+        
+        int maxUpgradeScrollRows = Math.max(0, totalRows - visibleRows);
+        
+        // 使用通用滚动条绘制方法
+        drawScrollbar(context, trackLeft, trackTop, trackWidth, trackHeight, maxUpgradeScrollRows, visibleRows, totalRows, this.upgradeScroll);
+    }
+    
+    /**
      * 渲染设置面板
      */
     private void renderSettingsPanel(DrawContext context, MinecraftClient client, ClientConfig config, int panelLeft, int panelWidth, boolean enableCollapse) {
-        int panelTop = gridTop;
-        int panelBottom = gridTop + visibleRows * (slotSize + slotSpacing);
-        drawSettingsBackground(context, panelLeft, panelTop, panelWidth, panelBottom - panelTop);
+        int panelTop = gridTop - 6; // 对齐仓库界面顶部
+        int panelBottom = gridTop + visibleRows * (slotSize + slotSpacing) + 8;
+        // 不再绘制背景，因为每个图标都自带背景
         
-        int textX = panelLeft + 6;
-        int textY = panelTop + 6;
+        final int iconSize = 16;
+        final int iconSpacing = 15; // 图标间距
         
-        int collapseTextH = 9;
+        // 计算设置图标区域的实际可用高度
+        int availableHeight = panelBottom - panelTop;
+        // 基于图标间距计算每列最大图标数
+        final int maxIconsPerColumn = Math.max(1, availableHeight / iconSpacing);
+        final int columnWidth = iconSize + 1; // 列宽度（图标宽度 + 间距）
+        
+        // 使用数组来存储位置信息，这样内部类可以访问
+        final int[] position = {0, 0, panelLeft + 2, panelTop}; // [currentColumn, currentRow, iconX, iconY]
+        
+        // 辅助方法：计算下一个图标位置
+        class IconPositionCalculator {
+            void nextPosition() {
+                position[1]++; // currentRow++
+                
+                // 计算下一个图标的位置
+                int nextIconY = panelTop + position[1] * iconSpacing;
+                int nextIconBottom = nextIconY + iconSize;
+                
+                // 检查下一个图标是否会超出可用高度
+                if (nextIconBottom > panelBottom) {
+                    position[1] = 0; // currentRow = 0
+                    position[0]++; // currentColumn++
+                    position[2] = panelLeft + 2 + position[0] * columnWidth; // iconX
+                    position[3] = panelTop; // iconY 重置到顶部
+                } else {
+                    position[3] = nextIconY; // iconY
+                }
+            }
+        }
+        IconPositionCalculator positionCalc = new IconPositionCalculator();
         
         // 折叠仓库（仅在背包界面显示）
         if (enableCollapse) {
-            Text collapseText = Text.translatable("portable_storage.ui.collapse");
-            int collapseTextW = client.textRenderer.getWidth(collapseText);
-            context.drawText(client.textRenderer, collapseText, textX, textY, 0xFFFFFF, true);
-            this.collapseLeft = textX;
-            this.collapseTop = textY - 1;
-            this.collapseRight = textX + collapseTextW + 2;
-            this.collapseBottom = textY + collapseTextH + 3;
-            textY += 12;
+            drawIcon(context, 1, 1, position[2], position[3]);
+            this.collapseLeft = position[2];
+            this.collapseTop = position[3];
+            this.collapseRight = position[2] + iconSize;
+            this.collapseBottom = position[3] + iconSize;
+            positionCalc.nextPosition();
         }
         
         // 排序模式
-        String sortModeKey = switch (config.sortMode) {
-            case COUNT -> "portable_storage.sort.count";
-            case NAME -> "portable_storage.sort.name";
-            case MOD_ID -> "portable_storage.sort.mod_id";
-            case UPDATE_TIME -> "portable_storage.sort.update_time";
-        };
-        Text sortModeText = Text.translatable("portable_storage.ui.sort_mode", Text.translatable(sortModeKey).getString());
-        int sortModeTextW = client.textRenderer.getWidth(sortModeText);
-        context.drawText(client.textRenderer, sortModeText, textX, textY, 0xFFFFFF, true);
-        this.sortModeLeft = textX;
-        this.sortModeTop = textY - 1;
-        this.sortModeRight = textX + sortModeTextW + 2;
-        this.sortModeBottom = textY + collapseTextH + 3;
-        textY += 12;
+        int sortModeRow = 1, sortModeCol = 2; // 默认值
+        switch (config.sortMode) {
+            case COUNT -> { sortModeRow = 1; sortModeCol = 2; }
+            case NAME -> { sortModeRow = 1; sortModeCol = 3; }
+            case MOD_ID -> { sortModeRow = 1; sortModeCol = 4; }
+            case UPDATE_TIME -> { sortModeRow = 1; sortModeCol = 5; }
+        }
+        drawIcon(context, sortModeRow, sortModeCol, position[2], position[3]);
+        this.sortModeLeft = position[2];
+        this.sortModeTop = position[3];
+        this.sortModeRight = position[2] + iconSize;
+        this.sortModeBottom = position[3] + iconSize;
+        positionCalc.nextPosition();
         
         // 排序顺序
-        String sortOrderKey = config.sortAscending ? "portable_storage.sort.ascending" : "portable_storage.sort.descending";
-        Text sortOrderText = Text.translatable("portable_storage.ui.sort_order", Text.translatable(sortOrderKey).getString());
-        int sortOrderTextW = client.textRenderer.getWidth(sortOrderText);
-        context.drawText(client.textRenderer, sortOrderText, textX, textY, 0xFFFFFF, true);
-        this.sortOrderLeft = textX;
-        this.sortOrderTop = textY - 1;
-        this.sortOrderRight = textX + sortOrderTextW + 2;
-        this.sortOrderBottom = textY + collapseTextH + 3;
-        textY += 12;
+        int sortOrderRow = 2, sortOrderCol = config.sortAscending ? 1 : 2;
+        drawIcon(context, sortOrderRow, sortOrderCol, position[2], position[3]);
+        this.sortOrderLeft = position[2];
+        this.sortOrderTop = position[3];
+        this.sortOrderRight = position[2] + iconSize;
+        this.sortOrderBottom = position[3] + iconSize;
+        positionCalc.nextPosition();
         
         // 合成补充
-        String craftRefillKey = config.craftRefill ? "portable_storage.toggle.enabled" : "portable_storage.toggle.disabled";
-        Text craftRefillText = Text.translatable("portable_storage.ui.craft_refill", Text.translatable(craftRefillKey).getString());
-        int craftRefillTextW = client.textRenderer.getWidth(craftRefillText);
-        context.drawText(client.textRenderer, craftRefillText, textX, textY, 0xFFFFFF, true);
-        this.craftRefillLeft = textX;
-        this.craftRefillTop = textY - 1;
-        this.craftRefillRight = textX + craftRefillTextW + 2;
-        this.craftRefillBottom = textY + collapseTextH + 3;
-        textY += 12;
+        int craftRefillRow = 2, craftRefillCol = config.craftRefill ? 3 : 4;
+        drawIcon(context, craftRefillRow, craftRefillCol, position[2], position[3]);
+        this.craftRefillLeft = position[2];
+        this.craftRefillTop = position[3];
+        this.craftRefillRight = position[2] + iconSize;
+        this.craftRefillBottom = position[3] + iconSize;
+        positionCalc.nextPosition();
         
         // 自动传入
-        String autoDepositKey = config.autoDeposit ? "portable_storage.toggle.enabled" : "portable_storage.toggle.disabled";
-        Text autoDepositText = Text.translatable("portable_storage.ui.auto_deposit", Text.translatable(autoDepositKey).getString());
-        int autoDepositTextW = client.textRenderer.getWidth(autoDepositText);
-        context.drawText(client.textRenderer, autoDepositText, textX, textY, 0xFFFFFF, true);
-        this.autoDepositLeft = textX;
-        this.autoDepositTop = textY - 1;
-        this.autoDepositRight = textX + autoDepositTextW + 2;
-        this.autoDepositBottom = textY + collapseTextH + 3;
-        textY += 12;
+        int autoDepositRow = 2, autoDepositCol = config.autoDeposit ? 5 : 5; // 启用和禁用都用同一个图标位置
+        drawIcon(context, autoDepositRow, autoDepositCol, position[2], position[3]);
+        this.autoDepositLeft = position[2];
+        this.autoDepositTop = position[3];
+        this.autoDepositRight = position[2] + iconSize;
+        this.autoDepositBottom = position[3] + iconSize;
+        positionCalc.nextPosition();
 
         // 智能折叠开关
-        String smartCollapseKey = config.smartCollapse ? "portable_storage.toggle.enabled" : "portable_storage.toggle.disabled";
-        Text smartCollapseText = Text.translatable("portable_storage.ui.smart_collapse", Text.translatable(smartCollapseKey).getString());
-        int smartCollapseTextW = client.textRenderer.getWidth(smartCollapseText);
-        context.drawText(client.textRenderer, smartCollapseText, textX, textY, 0xFFFFFF, true);
-        this.smartCollapseLeft = textX;
-        this.smartCollapseTop = textY - 1;
-        this.smartCollapseRight = textX + smartCollapseTextW + 2;
-        this.smartCollapseBottom = textY + collapseTextH + 3;
-        textY += 12;
+        int smartCollapseRow = 3, smartCollapseCol = config.smartCollapse ? 1 : 2;
+        drawIcon(context, smartCollapseRow, smartCollapseCol, position[2], position[3]);
+        this.smartCollapseLeft = position[2];
+        this.smartCollapseTop = position[3];
+        this.smartCollapseRight = position[2] + iconSize;
+        this.smartCollapseBottom = position[3] + iconSize;
+        positionCalc.nextPosition();
 
-        // 搜索位置
-        String posKey;
-        if (config.storagePos == ClientConfig.StoragePos.TOP && config.searchPos == ClientConfig.SearchPos.TOP2) {
-            // 仓库在顶部时，TOP2显示为"顶部"
-            posKey = "portable_storage.search_pos.top";
-        } else {
-            switch (config.searchPos) {
-                case TOP: posKey = "portable_storage.search_pos.top"; break;
-                case TOP2: posKey = "portable_storage.search_pos.top2"; break;
-                case MIDDLE: posKey = "portable_storage.search_pos.middle"; break;
-                default: posKey = "portable_storage.search_pos.bottom";
-            }
-        }
         // 搜索位置设置（只在背包和工作台界面显示）
         if (portableStorage$isInventoryOrCraftingScreen()) {
-            String posLabel = Text.translatable(posKey).getString();
-            Text searchPosText = Text.translatable("portable_storage.ui.search_pos", posLabel);
-            int searchPosTextW = client.textRenderer.getWidth(searchPosText);
-            context.drawText(client.textRenderer, searchPosText, textX, textY, 0xFFFFFF, true);
-            this.searchPosLeft = textX;
-            this.searchPosTop = textY - 1;
-            this.searchPosRight = textX + searchPosTextW + 2;
-            this.searchPosBottom = textY + collapseTextH + 3;
-            textY += 12;
+            int searchPosRow = 3, searchPosCol;
+            switch (config.searchPos) {
+                case BOTTOM -> searchPosCol = 3;
+                case TOP -> searchPosCol = 3;
+                case TOP2 -> searchPosCol = 3;
+                case MIDDLE -> searchPosCol = 3;
+                default -> searchPosCol = 3;
+            }
+            drawIcon(context, searchPosRow, searchPosCol, position[2], position[3]);
+            this.searchPosLeft = position[2];
+            this.searchPosTop = position[3];
+            this.searchPosRight = position[2] + iconSize;
+            this.searchPosBottom = position[3] + iconSize;
+            positionCalc.nextPosition();
         } else {
             // 非背包/工作台界面时，搜索位置设置不可见
             this.searchPosLeft = 0;
@@ -856,28 +1048,22 @@ public class StorageUIComponent {
         }
         
         // 仓库位置
-        String storagePosKey = config.storagePos == ClientConfig.StoragePos.TOP ? 
-            "portable_storage.storage_pos.top" : "portable_storage.storage_pos.bottom";
-        String storagePosLabel = Text.translatable(storagePosKey).getString();
-        Text storagePosText = Text.translatable("portable_storage.ui.storage_pos", storagePosLabel);
-        int storagePosTextW = client.textRenderer.getWidth(storagePosText);
-        context.drawText(client.textRenderer, storagePosText, textX, textY, 0xFFFFFF, true);
-        this.storagePosLeft = textX;
-        this.storagePosTop = textY - 1;
-        this.storagePosRight = textX + storagePosTextW + 2;
-        this.storagePosBottom = textY + collapseTextH + 3;
-        textY += 12;
+        int storagePosRow = 3, storagePosCol = config.storagePos == ClientConfig.StoragePos.TOP ? 4 : 4;
+        drawIcon(context, storagePosRow, storagePosCol, position[2], position[3]);
+        this.storagePosLeft = position[2];
+        this.storagePosTop = position[3];
+        this.storagePosRight = position[2] + iconSize;
+        this.storagePosBottom = position[3] + iconSize;
+        positionCalc.nextPosition();
         
         // 切换原版界面（仅在自定义工作台界面显示）
         if (switchToVanillaCallback != null) {
-            Text switchVanillaText = Text.translatable("portable_storage.ui.switch_vanilla");
-            int switchVanillaTextW = client.textRenderer.getWidth(switchVanillaText);
-            context.drawText(client.textRenderer, switchVanillaText, textX, textY, 0xFFFFFF, true);
-            this.switchVanillaLeft = textX;
-            this.switchVanillaTop = textY - 1;
-            this.switchVanillaRight = textX + switchVanillaTextW + 2;
-            this.switchVanillaBottom = textY + collapseTextH + 3;
-            textY += 12;
+            drawIcon(context, 3, 5, position[2], position[3]);
+            this.switchVanillaLeft = position[2];
+            this.switchVanillaTop = position[3];
+            this.switchVanillaRight = position[2] + iconSize;
+            this.switchVanillaBottom = position[3] + iconSize;
+            positionCalc.nextPosition();
         }
     }
 
@@ -1155,68 +1341,85 @@ public class StorageUIComponent {
     }
     
     private int calculatePanelWidth(MinecraftClient client, ClientConfig config, boolean enableCollapse) {
-        int padding = 12;
-        int maxWidth = 80;
+        // 计算设置项数量
+        int settingCount = 0;
+        if (enableCollapse) settingCount++; // 折叠仓库
+        settingCount += 4; // 排序模式、排序顺序、合成补充、自动传入
+        settingCount += 1; // 智能折叠
+        if (portableStorage$isInventoryOrCraftingScreen()) settingCount += 1; // 搜索位置
+        settingCount += 1; // 仓库位置
+        if (switchToVanillaCallback != null) settingCount += 1; // 切换原版
         
-        // 折叠仓库文本
-        if (enableCollapse) {
-            Text collapseText = Text.translatable("portable_storage.ui.collapse");
-            maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(collapseText) + padding);
-        }
+        // 计算设置图标区域的实际可用高度
+        int panelTop = gridTop - 6;
+        int panelBottom = gridTop + visibleRows * (slotSize + slotSpacing) + 8;
+        int availableHeight = panelBottom - panelTop;
         
-        String sortModeKey = switch (config.sortMode) {
-            case COUNT -> "portable_storage.sort.count";
-            case NAME -> "portable_storage.sort.name";
-            case MOD_ID -> "portable_storage.sort.mod_id";
-            case UPDATE_TIME -> "portable_storage.sort.update_time";
-        };
-        Text sortModeText = Text.translatable("portable_storage.ui.sort_mode", Text.translatable(sortModeKey).getString());
-        maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(sortModeText) + padding);
+        // 模拟图标布局来计算实际需要的列数
+        final int iconSpacing = 15;
+        final int iconSize = 16;
         
-        String sortOrderKey = config.sortAscending ? "portable_storage.sort.ascending" : "portable_storage.sort.descending";
-        Text sortOrderText = Text.translatable("portable_storage.ui.sort_order", Text.translatable(sortOrderKey).getString());
-        maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(sortOrderText) + padding);
+        int currentColumn = 0;
+        int currentRow = 0;
         
-        String craftRefillKey = config.craftRefill ? "portable_storage.toggle.enabled" : "portable_storage.toggle.disabled";
-        Text craftRefillText = Text.translatable("portable_storage.ui.craft_refill", Text.translatable(craftRefillKey).getString());
-        maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(craftRefillText) + padding);
-        
-        String autoDepositKey = config.autoDeposit ? "portable_storage.toggle.enabled" : "portable_storage.toggle.disabled";
-        Text autoDepositText = Text.translatable("portable_storage.ui.auto_deposit", Text.translatable(autoDepositKey).getString());
-        maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(autoDepositText) + padding);
-        
-        // 搜索位置文本宽度
-        String posKey;
-        if (config.storagePos == ClientConfig.StoragePos.TOP && config.searchPos == ClientConfig.SearchPos.TOP2) {
-            // 仓库在顶部时，TOP2显示为"顶部"
-            posKey = "portable_storage.search_pos.top";
-        } else {
-            switch (config.searchPos) {
-                case TOP: posKey = "portable_storage.search_pos.top"; break;
-                case TOP2: posKey = "portable_storage.search_pos.top2"; break;
-                case MIDDLE: posKey = "portable_storage.search_pos.middle"; break;
-                default: posKey = "portable_storage.search_pos.bottom";
+        for (int i = 0; i < settingCount; i++) {
+            // 计算下一个图标的位置
+            int nextIconY = panelTop + currentRow * iconSpacing;
+            int nextIconBottom = nextIconY + iconSize;
+            
+            // 检查下一个图标是否会超出可用高度
+            if (nextIconBottom > panelBottom) {
+                currentRow = 0;
+                currentColumn++;
+            } else {
+                currentRow++;
             }
         }
-        // 搜索位置设置宽度计算（只在背包和工作台界面计算）
-        if (portableStorage$isInventoryOrCraftingScreen()) {
-            Text searchPosText = Text.translatable("portable_storage.ui.search_pos", Text.translatable(posKey).getString());
-            maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(searchPosText) + padding);
+        
+        int columns = currentColumn + 1; // 列数从0开始，所以+1
+        
+        // 计算总宽度
+        final int columnWidth = iconSize + 2; // 图标宽度 + 间距
+        final int padding = 4; // 左右边距
+        
+        return columns * columnWidth + padding;
+    }
+    
+    /**
+     * 计算自适应的高度
+     * @param screenHeight 屏幕高度
+     * @param inventoryTop 背包界面顶部位置
+     * @param inventoryBottom 背包界面底部位置
+     * @param config 客户端配置
+     * @return 计算出的可见行数
+     */
+    private int calculateAdaptiveHeight(int screenHeight, int inventoryTop, int inventoryBottom, ClientConfig config) {
+        int availableHeight;
+        
+        if (config.storagePos == ClientConfig.StoragePos.TOP) {
+            // 仓库在顶部：从屏幕顶部到背包界面顶部的空间
+            availableHeight = inventoryTop - 20; // 留20px边距
+        } else {
+            // 仓库在底部：从背包界面底部到屏幕底部的空间
+            availableHeight = screenHeight - inventoryBottom - 20; // 留20px边距
         }
         
-        // 仓库位置文本宽度
-        String storagePosKey = config.storagePos == ClientConfig.StoragePos.TOP ? 
-            "portable_storage.storage_pos.top" : "portable_storage.storage_pos.bottom";
-        Text storagePosText = Text.translatable("portable_storage.ui.storage_pos", Text.translatable(storagePosKey).getString());
-        maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(storagePosText) + padding);
+        // 计算可以容纳的行数
+        int slotHeight = slotSize + slotSpacing;
+        int maxRows = Math.max(minVisibleRows, availableHeight / slotHeight);
         
-        // 切换原版界面文本宽度
-        if (switchToVanillaCallback != null) {
-            Text switchVanillaText = Text.translatable("portable_storage.ui.switch_vanilla");
-            maxWidth = Math.max(maxWidth, client.textRenderer.getWidth(switchVanillaText) + padding);
-        }
-        
-        return maxWidth;
+        // 限制在最小和最大行数之间
+        int configMaxRows = config.maxVisibleRows;
+        return Math.min(configMaxRows, Math.max(minVisibleRows, maxRows));
+    }
+    
+    /**
+     * 计算升级槽位的可见行数
+     */
+    private int calculateUpgradeVisibleRows() {
+        // 升级槽位使用与仓库相同的可见行数，但可以独立调整
+        // 这里可以根据需要实现独立的升级槽位高度计算逻辑
+        return visibleRows;
     }
     
     private void drawExtensionBackground(DrawContext ctx, int x, int y, int w, int h) {
@@ -1268,6 +1471,28 @@ public class StorageUIComponent {
         ctx.getMatrices().pop();
     }
     
+    /**
+     * 从图标表中绘制指定位置的16x16图标
+     * @param context 绘制上下文
+     * @param row 行号 (1-3)
+     * @param col 列号 (1-5)
+     * @param x 绘制位置X
+     * @param y 绘制位置Y
+     */
+    private void drawIcon(DrawContext context, int row, int col, int x, int y) {
+        // 图标表是3行5列，每个图标16x16像素
+        final int iconSize = 16;
+        final int cols = 5;
+        final int rows = 3;
+        
+        // 计算源纹理中的位置
+        int srcX = (col - 1) * iconSize;
+        int srcY = (row - 1) * iconSize;
+        
+        // 绘制16x16的图标
+        context.drawTexture(TEX_ICONS, x, y, srcX, srcY, iconSize, iconSize, cols * iconSize, rows * iconSize);
+    }
+    
     private void drawPanel(DrawContext ctx, int x, int y, int w, int h) {
         // 使用背景纹理铺满面板区域
         drawExtensionBackground(ctx, x, y, w, h);
@@ -1278,20 +1503,32 @@ public class StorageUIComponent {
         ctx.drawTexture(TEX_SLOT, x, y, 0, 0, w, h, 18, 18);
     }
     
-    private void drawScrollbar(DrawContext ctx, int left, int top, int width, int height, int maxScrollRows) {
+    /**
+     * 通用滚动条绘制函数
+     * @param ctx 绘制上下文
+     * @param left 滚动条左边界
+     * @param top 滚动条顶部边界
+     * @param width 滚动条宽度
+     * @param height 滚动条高度
+     * @param maxScrollRows 最大滚动行数
+     * @param visibleSlots 可见槽位数
+     * @param totalSlots 总槽位数
+     * @param scroll 当前滚动位置 (0.0-1.0)
+     */
+    private void drawScrollbar(DrawContext ctx, int left, int top, int width, int height, int maxScrollRows, int visibleSlots, int totalSlots, float scroll) {
         // 轨道
         int track = 0x55000000;
         ctx.fill(left, top, left + width, top + height, track);
 
         // 滑块高度与可视比例相关
-        int visible = this.visibleRows;
-        int total = Math.max(visible, this.totalRows);
+        int visible = visibleSlots;
+        int total = Math.max(visible, totalSlots);
         float frac = (float)visible / (float)total;
         int thumbMin = 8;
         int thumbHeight = Math.max(thumbMin, (int)(height * frac));
 
         int maxScrollPx = height - thumbHeight;
-        int thumbOffset = (maxScrollRows <= 0) ? 0 : (int)(this.scroll * maxScrollPx);
+        int thumbOffset = (maxScrollRows <= 0) ? 0 : (int)(scroll * maxScrollPx);
         int thumbTop = top + thumbOffset;
 
         int thumbBg = 0xFF999999;
@@ -1303,6 +1540,13 @@ public class StorageUIComponent {
         ctx.fill(left + width - 1, thumbTop, left + width, thumbTop + thumbHeight, thumbDark);
         ctx.fill(left, thumbTop + thumbHeight - 1, left + width, thumbTop + thumbHeight, thumbLight);
         ctx.fill(left, thumbTop, left + 1, thumbTop + thumbHeight, thumbLight);
+    }
+    
+    /**
+     * 仓库槽位滚动条绘制函数（兼容性包装）
+     */
+    private void drawStorageScrollbar(DrawContext ctx, int left, int top, int width, int height, int maxScrollRows) {
+        drawScrollbar(ctx, left, top, width, height, maxScrollRows, this.visibleRows, this.totalRows, this.scroll);
     }
     
     // ========== 事件处理 ==========
@@ -1393,6 +1637,38 @@ public class StorageUIComponent {
                     return true;
                 }
             }
+        }
+        
+        // 升级槽位滚动条点击
+        if (button == 0 && isOverUpgradeScrollbar(mouseX, mouseY)) {
+            int height = this.upgradeScrollbarHeight;
+            int upgradeVisibleRows = calculateUpgradeVisibleRows();
+            
+            // 计算每列的最大行数
+            int leftColumnMaxRows = ClientUpgradeState.isChestUpgradeActive() ? extendedUpgradeCount : 0;
+            int rightColumnMaxRows = baseUpgradeCount + 1;
+            int maxRowsInAnyColumn = Math.max(leftColumnMaxRows, rightColumnMaxRows);
+            
+            int visible = upgradeVisibleRows;
+            int total = Math.max(visible, maxRowsInAnyColumn);
+            int thumbMin = 8;
+            int thumbHeight = Math.max(thumbMin, (int)(height * ((float)visible / (float)total)));
+            int maxScrollPx = Math.max(1, height - thumbHeight);
+            int top = this.upgradeScrollbarTop;
+            
+            int currentThumbTop = top + (int)((maxScrollPx) * this.upgradeScroll + 0.5f);
+            boolean overThumb = mouseY >= currentThumbTop && mouseY < currentThumbTop + thumbHeight;
+            if (overThumb) {
+                dragUpgradeScrollbar = true;
+                dragUpgradeGrabOffset = (int)mouseY - currentThumbTop;
+            } else {
+                int mouseOffset = (int)mouseY - top - thumbHeight / 2;
+                float newScroll = (float)mouseOffset / (float)maxScrollPx;
+                this.upgradeScroll = Math.max(0.0f, Math.min(1.0f, newScroll));
+                dragUpgradeScrollbar = true;
+                dragUpgradeGrabOffset = thumbHeight / 2;
+            }
+            return true;
         }
         
         // 滚动条点击
@@ -1615,6 +1891,28 @@ public class StorageUIComponent {
      * 处理鼠标滚轮
      */
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        // 检查是否在升级槽位区域
+        if (isOverUpgradeArea(mouseX, mouseY)) {
+            int upgradeVisibleRows = calculateUpgradeVisibleRows();
+            
+            // 计算每列的最大行数
+            int leftColumnMaxRows = ClientUpgradeState.isChestUpgradeActive() ? extendedUpgradeCount : 0;
+            int rightColumnMaxRows = baseUpgradeCount + 1;
+            int maxRowsInAnyColumn = Math.max(leftColumnMaxRows, rightColumnMaxRows);
+            int maxUpgradeScrollRows = Math.max(0, maxRowsInAnyColumn - upgradeVisibleRows);
+            
+            if (maxUpgradeScrollRows > 0) {
+                float delta = (float)verticalAmount * -0.1f;
+                this.upgradeScroll = Math.max(0.0f, Math.min(1.0f, this.upgradeScroll + delta));
+                return true;
+            } else {
+                // 如果没有滚动内容，重置滚动位置
+                this.upgradeScroll = 0.0f;
+                return true;
+            }
+        }
+        
+        // 检查是否在仓库区域
         if (isOverStorageArea(mouseX, mouseY)) {
             float delta = (float)verticalAmount * -0.1f;
             this.scroll = Math.max(0.0f, Math.min(1.0f, this.scroll + delta));
@@ -1739,30 +2037,49 @@ public class StorageUIComponent {
                mouseY >= scrollbarTop && mouseY < scrollbarTop + scrollbarHeight;
     }
     
+    private boolean isOverUpgradeScrollbar(double mouseX, double mouseY) {
+        return mouseX >= upgradeScrollbarLeft && mouseX < upgradeScrollbarLeft + upgradeScrollbarWidth && 
+               mouseY >= upgradeScrollbarTop && mouseY < upgradeScrollbarTop + upgradeScrollbarHeight;
+    }
+    
     private boolean isOverStorageArea(double mouseX, double mouseY) {
         int width = cols * (slotSize + slotSpacing);
         int height = visibleRows * (slotSize + slotSpacing);
         return mouseX >= gridLeft && mouseX < gridLeft + width && mouseY >= gridTop && mouseY < gridTop + height;
     }
     
+    /**
+     * 检查鼠标是否在升级槽位区域
+     */
+    private boolean isOverUpgradeArea(double mouseX, double mouseY) {
+        int upgradeLeft = gridLeft - upgradeSlotSize - upgradeSpacing - 2;
+        int upgradeTop = gridTop;
+        int upgradeWidth = upgradeSlotSize;
+        int upgradeVisibleRows = calculateUpgradeVisibleRows();
+        int upgradeHeight = upgradeVisibleRows * (upgradeSlotSize + upgradeSpacing);
+        
+        // 检查基础升级槽位区域
+        if (mouseX >= upgradeLeft && mouseX < upgradeLeft + upgradeWidth && 
+            mouseY >= upgradeTop && mouseY < upgradeTop + upgradeHeight) {
+            return true;
+        }
+        
+        // 检查扩展升级槽位区域（如果激活）
+        if (ClientUpgradeState.isChestUpgradeActive()) {
+            int extendedLeft = upgradeLeft - (upgradeSlotSize + upgradeSpacing + 2);
+            if (mouseX >= extendedLeft && mouseX < extendedLeft + upgradeSlotSize && 
+                mouseY >= upgradeTop && mouseY < upgradeTop + upgradeHeight) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
     public boolean isOverAnyComponent(double mouseX, double mouseY) {
         return isOverStorageArea(mouseX, mouseY) || isOverScrollbar(mouseX, mouseY) || isOverUpgradeArea(mouseX, mouseY);
     }
     
-    private boolean isOverUpgradeArea(double mouseX, double mouseY) {
-        // 检查流体槽位
-        if (isIn(mouseX, mouseY, fluidSlotLeft, fluidSlotTop, fluidSlotRight, fluidSlotBottom)) {
-            return true;
-        }
-        
-        // 检查升级槽位
-        for (int i = 0; i < totalUpgradeCount; i++) {
-            if (isIn(mouseX, mouseY, upgradeSlotLefts[i], upgradeSlotTops[i], upgradeSlotRights[i], upgradeSlotBottoms[i])) {
-                return true;
-            }
-        }
-        return false;
-    }
     
     /**
      * 检查鼠标是否悬停在升级槽位上
