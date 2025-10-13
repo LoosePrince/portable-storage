@@ -318,6 +318,37 @@ public class StorageUIComponent {
                 filtered.add(0, Integer.MIN_VALUE); // 在开头插入虚拟条目
             }
         }
+        // 将收藏（星标）物品移动到最前（但在虚拟条目之后）
+        // 虚拟条目使用 Integer.MIN_VALUE 及其附近的负值作为索引，真实物品索引为 >=0
+        {
+            java.util.Set<String> fav = com.portable.storage.client.ClientConfig.getInstance().favorites;
+            if (fav != null && !fav.isEmpty()) {
+                var stacks = com.portable.storage.client.ClientStorageState.getStacks();
+                java.util.List<Integer> favs = new java.util.ArrayList<>();
+                java.util.List<Integer> normals = new java.util.ArrayList<>();
+                for (int idx : filtered) {
+                    if (idx >= 0 && idx < stacks.size()) {
+                        var st = stacks.get(idx);
+                        if (st != null && !st.isEmpty()) {
+                            String id = net.minecraft.registry.Registries.ITEM.getId(st.getItem()).toString();
+                            if (fav.contains(id)) {
+                                favs.add(idx);
+                                continue;
+                            }
+                        }
+                    }
+                    normals.add(idx);
+                }
+                // 将虚拟条目（负值）保持在最前，其后插入收藏，再接其余
+                java.util.List<Integer> reordered = new java.util.ArrayList<>(filtered.size());
+                for (int v : filtered) if (v < 0) reordered.add(v);
+                reordered.addAll(favs);
+                // 保持 normals 中的负值不会重复加入（已在前面处理），仅加入非负或未分类的
+                for (int v : normals) if (v >= 0) reordered.add(v); else if (!reordered.contains(v)) reordered.add(v);
+                filtered = reordered;
+            }
+        }
+
         this.filteredIndices = filtered;
         int filteredSize = filtered.size();
         this.totalRows = Math.max(visibleRows, (int)Math.ceil(filteredSize / (double)cols));
@@ -412,6 +443,19 @@ public class StorageUIComponent {
                             context.getMatrices().translate(0.0f, 0.0f, 100.0f);
                             CollapsedInfo cinfo = collapsedInfoByRep.get(storageIndex);
                             ItemStack toRender = (cinfo != null && cinfo.displayStack != null) ? cinfo.displayStack : stack;
+                            // 收藏（星标）金色覆盖层：应在物品下方、槽位贴图上方 → 先绘制覆盖层，再绘制物品
+                            {
+                                java.util.Set<String> fav = com.portable.storage.client.ClientConfig.getInstance().favorites;
+                                if (fav != null && !fav.isEmpty()) {
+                                    String id = net.minecraft.registry.Registries.ITEM.getId(stack.getItem()).toString();
+                                    if (fav.contains(id)) {
+                                        context.getMatrices().push();
+                                        context.getMatrices().translate(0.0f, 0.0f, 95.0f);
+                                        context.fill(sx + 1, sy + 1, sx + slotSize - 1, sy + slotSize - 1, 0x4063C1ED);
+                                        context.getMatrices().pop();
+                                    }
+                                }
+                            }
                             context.drawItem(toRender, sx + 1, sy + 1);
                             // 使用覆盖层渲染耐久条，但抑制默认数量渲染（将计数临时设为1）
                             int originalCount = toRender.getCount();
@@ -426,6 +470,8 @@ public class StorageUIComponent {
                                 context.fill(sx + 1, sy + 1, sx + slotSize - 1, sy + slotSize - 1, 0x4055FF55);
                                 context.getMatrices().pop();
                             }
+
+                            
 
                             // 数量渲染：0.75 缩放，右下角
                             long logicalCount = (cinfo != null) ? cinfo.totalCount : ClientStorageState.getCount(storageIndex);
@@ -1719,7 +1765,8 @@ public class StorageUIComponent {
         }
         
         // 仓库槽位点击（支持 Shift 快捷取出）
-        if (button == 0 || button == 1) {
+        // 同时支持中键（button==2）切换收藏
+        if (button == 0 || button == 1 || button == 2) {
             for (int row = 0; row < visibleRows; row++) {
                 for (int col = 0; col < cols; col++) {
                     int sx = gridLeft + col * (slotSize + slotSpacing);
@@ -1728,6 +1775,20 @@ public class StorageUIComponent {
                         int visIdx = row * cols + col;
                         if (visIdx < visibleIndexMap.length) {
                             int storageIndex = visibleIndexMap[visIdx];
+                            // 中键：切换收藏（仅真实物品）
+                            if (button == 2 && storageIndex >= 0) {
+                                var stacks = com.portable.storage.client.ClientStorageState.getStacks();
+                                if (storageIndex < stacks.size()) {
+                                    var st = stacks.get(storageIndex);
+                                    if (st != null && !st.isEmpty()) {
+                                        String id = net.minecraft.registry.Registries.ITEM.getId(st.getItem()).toString();
+                                        var cfg = com.portable.storage.client.ClientConfig.getInstance();
+                                        if (cfg.favorites.contains(id)) cfg.favorites.remove(id); else cfg.favorites.add(id);
+                                        com.portable.storage.client.ClientConfig.save();
+                                        return true;
+                                    }
+                                }
+                            }
                              // 虚拟"瓶装经验"条目点击：发送独立消息给服务端
                              if (storageIndex == -2 && com.portable.storage.client.ClientUpgradeState.isXpBottleUpgradeActive()) {
                                  if (button == 1) {

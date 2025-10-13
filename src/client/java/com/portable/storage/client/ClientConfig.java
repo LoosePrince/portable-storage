@@ -3,6 +3,7 @@ package com.portable.storage.client;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonParser;
 import com.portable.storage.PortableStorage;
 import net.fabricmc.loader.api.FabricLoader;
@@ -44,6 +45,9 @@ public class ClientConfig {
     
     // 最大可见行数
     public int maxVisibleRows = 6; // 默认最大6行
+    
+    // 收藏（星标）物品：以物品ID（namespace:id）标识，客户端本地配置
+    public java.util.Set<String> favorites = new java.util.LinkedHashSet<>();
     
     public enum SortMode {
         COUNT("count"),           // 数量
@@ -113,6 +117,7 @@ public class ClientConfig {
                 merged.storagePos = defaults.storagePos;
                 merged.virtualCraftingVisible = defaults.virtualCraftingVisible;
                 merged.maxVisibleRows = defaults.maxVisibleRows;
+                merged.favorites = new java.util.LinkedHashSet<>(defaults.favorites);
 
                 // 再按文件中存在的键覆盖
                 if (obj.has("collapsed")) {
@@ -168,6 +173,20 @@ public class ClientConfig {
                 }
                 if (obj.has("maxVisibleRows")) {
                     merged.maxVisibleRows = obj.get("maxVisibleRows").getAsInt();
+                } else {
+                    changed = true;
+                }
+                // 读取收藏集合（如果存在）
+                if (obj.has("favorites")) {
+                    try {
+                        JsonArray arr = obj.getAsJsonArray("favorites");
+                        java.util.Set<String> fav = new java.util.LinkedHashSet<>();
+                        for (int i = 0; i < arr.size(); i++) {
+                            String s = arr.get(i).getAsString();
+                            if (s != null && !s.isEmpty()) fav.add(s);
+                        }
+                        merged.favorites = fav;
+                    } catch (Exception ignored) { /* 保持默认 */ }
                 } else {
                     changed = true;
                 }
