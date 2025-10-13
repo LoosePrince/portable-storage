@@ -136,6 +136,14 @@ public final class ClientUpgradeState {
     }
     
     /**
+     * 检查垃圾桶槽位是否激活（槽位10）
+     */
+    public static boolean isTrashSlotActive() {
+        net.minecraft.item.ItemStack stack = upgradeInventory.getStack(10);
+        return stack != null && !stack.isEmpty() && !upgradeInventory.isSlotDisabled(10);
+    }
+    
+    /**
      * 检查工作台升级是否激活（槽位0）
      */
     public static boolean isCraftingTableUpgradeActive() {

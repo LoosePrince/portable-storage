@@ -180,9 +180,12 @@ public class UpgradeInventory {
                            stack.isOf(Items.WHITE_BED) || stack.isOf(Items.YELLOW_BED);
                 case 7: // 附魔之瓶（经验）升级
                     return stack.isOf(Items.EXPERIENCE_BOTTLE);
-                case 8: case 9: case 10:
+                case 8: case 9:
                     // 其他扩展槽位暂时不接受任何物品
                     return false;
+                case 10: // 垃圾桶槽位
+                    // 垃圾桶槽位接受任何物品
+                    return true;
                 default:
                     return false;
             }
@@ -253,9 +256,11 @@ public class UpgradeInventory {
                     return new ItemStack(Items.RED_BED);
                 case 7: // 附魔之瓶升级
                     return new ItemStack(Items.EXPERIENCE_BOTTLE);
-                case 8: case 9: case 10:
+                case 8: case 9:
                     // 其他扩展槽位返回屏障图标
                     return EXTENDED_SLOT_ICON.copy();
+                case 10: // 垃圾桶槽位
+                    return new ItemStack(Items.CAULDRON); // 使用炼药锅作为垃圾桶图标
                 default:
                     return EXTENDED_SLOT_ICON.copy();
             }
@@ -332,6 +337,14 @@ public class UpgradeInventory {
     }
     
     /**
+     * 检查垃圾桶槽位是否激活（槽位10有物品且未被禁用）
+     */
+    public boolean isTrashSlotActive() {
+        ItemStack trashStack = getStack(10); // 槽位10是垃圾桶
+        return !trashStack.isEmpty() && !isSlotDisabled(10);
+    }
+    
+    /**
      * 获取扩展槽位的有效状态（仅在箱子升级激活时有效）
      */
     public boolean isExtendedSlotEnabled(int slot) {
@@ -348,9 +361,18 @@ public class UpgradeInventory {
             return false;
         }
 
+        // 垃圾桶槽位特殊处理
+        if (slot == 10) {
+            // 垃圾桶槽位：接受任何物品，最大一组，覆盖机制
+            int maxCount = Math.min(stack.getCount(), stack.getMaxCount());
+            slots[slot] = stack.copy();
+            slots[slot].setCount(maxCount);
+            return true;
+        }
+
         // 扩展槽位检查特定物品
         if (isExtendedSlot(slot)) {
-            // 只有槽位5（光灵箭）、槽位6（床）和槽位7（附魔之瓶）可以接受物品
+            // 只有槽位5（光灵箭）、槽位6（床）、槽位7（附魔之瓶）可以接受物品
             if (slot != 5 && slot != 6 && slot != 7) {
                 return false;
             }

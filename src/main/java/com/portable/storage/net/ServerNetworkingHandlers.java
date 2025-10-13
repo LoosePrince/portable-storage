@@ -637,8 +637,8 @@ public final class ServerNetworkingHandlers {
 
 				// 扩展槽位检查特定操作
                 if (com.portable.storage.storage.UpgradeInventory.isExtendedSlot(slot)) {
-                    // 槽位5（光灵箭）、槽位6（床）、槽位7（附魔之瓶）可以接受操作
-                    if (slot != 5 && slot != 6 && slot != 7) {
+                    // 槽位5（光灵箭）、槽位6（床）、槽位7（附魔之瓶）、槽位10（垃圾桶）可以接受操作
+                    if (slot != 5 && slot != 6 && slot != 7 && slot != 10) {
 						return;
 					}
 				}
@@ -659,6 +659,12 @@ public final class ServerNetworkingHandlers {
                         player.sendMessage(net.minecraft.text.Text.translatable("portable_storage.exp_bottle.step", step), true);
                         // 同步XP步长到客户端
                         ServerPlayNetworking.send(player, new com.portable.storage.net.payload.XpStepSyncS2CPayload(idx));
+                        return;
+                    }
+                    // 垃圾桶槽位：右键清空槽位
+                    if (slot == 10 && upgrades.isTrashSlotActive()) {
+                        upgrades.setStack(10, net.minecraft.item.ItemStack.EMPTY);
+                        sendIncrementalSync(player);
                         return;
                     }
 					// 其他槽位切换禁用状态
@@ -733,7 +739,8 @@ public final class ServerNetworkingHandlers {
 					// 手持物品
 					if (slotStack.isEmpty()) {
 						// 槽位为空，尝试放入
-						if (cursor.getCount() == 1) {
+						// 垃圾桶槽位允许放入任意数量，其他槽位只允许1个
+						if (slot == 10 || cursor.getCount() == 1) {
 							if (upgrades.tryInsert(slot, cursor)) {
 								player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
 								player.currentScreenHandler.sendContentUpdates();
@@ -741,16 +748,26 @@ public final class ServerNetworkingHandlers {
 							}
 						}
 					} else {
-						// 槽位有物品，交换
-						if (cursor.getCount() == 1) {
-							ItemStack taken = upgrades.takeStack(slot);
+						// 槽位有物品
+						if (slot == 10) {
+							// 垃圾桶槽位：直接覆盖，不交换
 							if (upgrades.tryInsert(slot, cursor)) {
-								player.currentScreenHandler.setCursorStack(taken);
+								player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
 								player.currentScreenHandler.sendContentUpdates();
 								sendIncrementalSync(player);
-							} else {
-								// 放入失败，恢复
-								upgrades.setStack(slot, taken);
+							}
+						} else {
+							// 其他槽位：交换（只允许1个）
+							if (cursor.getCount() == 1) {
+								ItemStack taken = upgrades.takeStack(slot);
+								if (upgrades.tryInsert(slot, cursor)) {
+									player.currentScreenHandler.setCursorStack(taken);
+									player.currentScreenHandler.sendContentUpdates();
+									sendIncrementalSync(player);
+								} else {
+									// 放入失败，恢复
+									upgrades.setStack(slot, taken);
+								}
 							}
 						}
 					}

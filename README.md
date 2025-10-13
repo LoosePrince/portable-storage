@@ -12,8 +12,6 @@
 
 ## 模组UI
 
-<!-- <img width="1153" height="1111" alt="image" src="https://github.com/user-attachments/assets/4d751127-eda9-40a2-9191-b466d3901880" /> -->
-<!-- <img width="1204" height="1049" alt="42a13c3fdfdecd3f477c93942435c204" src="https://github.com/user-attachments/assets/1eae7b0b-da81-47e6-b028-f1a42a54937a" /> -->
 ![](docs/img/01.png)
 
 
@@ -40,6 +38,10 @@
   - 等级维持：将维持玩家等级为当前等级，变化时会将多的存入少的取出
   - 空手右键瓶装经验存入相应等级的经验，左键取出
   - 持有空玻璃瓶右键瓶装经验以11点经验换1个附魔之瓶，经验不足时多出的玻璃瓶会被放入仓库
+- **垃圾桶**：有箱子升级即可用，可以放入任何物品
+  - 物品会在退出存档或离线时销毁
+  - 使用不同的物品覆盖以销毁
+  - 在销毁前可以取出物品
 
 ### 客户端设置
 
@@ -87,8 +89,8 @@
 
 ## 系统要求
 
-- **Minecraft 版本**：1.21
-- **Java 版本**：Java 21 或更高
+- **Minecraft 版本**：
+  - 1.21
 - **Fabric Loader**：0.17.2 或更高版本
 - **Fabric API**：兼容版本（推荐最新稳定版）
 
