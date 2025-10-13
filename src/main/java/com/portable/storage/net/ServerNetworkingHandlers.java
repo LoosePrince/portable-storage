@@ -540,6 +540,43 @@ public final class ServerNetworkingHandlers {
 						}
 					}
 				}
+				// 左键：从背包中消耗桶取出流体桶
+				else if (button == 0) {
+					int units = upgrades.getFluidUnits(fluidType);
+					if (units > 0) {
+						// 在背包中查找空桶
+						ItemStack bucketToConsume = null;
+						int bucketSlot = -1;
+						
+						var handler = player.currentScreenHandler;
+						for (int i = 0; i < handler.slots.size(); i++) {
+							var slot = handler.slots.get(i);
+							if (slot.hasStack() && slot.getStack().isOf(net.minecraft.item.Items.BUCKET)) {
+								bucketToConsume = slot.getStack();
+								bucketSlot = i;
+								break;
+							}
+						}
+						
+						if (bucketToConsume != null) {
+							// 消耗一个桶
+							bucketToConsume.decrement(1);
+							if (bucketToConsume.isEmpty()) {
+								handler.slots.get(bucketSlot).setStack(ItemStack.EMPTY);
+							}
+							
+							// 消耗一个流体单位并创建流体桶
+							upgrades.removeFluidUnits(fluidType, 1);
+							ItemStack fluidBucket = com.portable.storage.storage.UpgradeInventory.createFluidBucket(fluidType);
+							
+							// 将流体桶放入背包
+							insertIntoPlayerInventory(player, fluidBucket);
+							
+							player.currentScreenHandler.sendContentUpdates();
+							sendIncrementalSync(player);
+						}
+					}
+				}
 			});
 		});
 		

@@ -291,13 +291,8 @@ public class StorageUIComponent {
      */
     private void renderStorageGrid(DrawContext context, MinecraftClient client, int mouseX, int mouseY) {
         List<Integer> filtered = buildFilteredIndices();
-        // 如果启用附魔之瓶升级，则在开头插入一个虚拟条目用于显示"瓶装经验"
-        boolean showXpBottle = com.portable.storage.client.ClientUpgradeState.isXpBottleUpgradeActive();
-        if (showXpBottle) {
-            filtered.add(0, Integer.MIN_VALUE); // 在开头插入虚拟条目
-        }
         
-        // 添加虚拟流体条目
+        // 添加虚拟流体条目（在最前面显示）
         for (String fluidType : new String[]{"lava", "water", "milk"}) {
             int units = com.portable.storage.client.ClientUpgradeState.getFluidUnits(fluidType);
             if (units > 0) {
@@ -308,7 +303,19 @@ public class StorageUIComponent {
                     case "milk" -> Integer.MIN_VALUE + 3;
                     default -> Integer.MIN_VALUE + 4;
                 };
-                filtered.add(fluidIndex);
+                // 检查是否匹配搜索条件
+                if (query == null || query.isEmpty() || matchesVirtualFluidQuery(fluidType, query)) {
+                    filtered.add(0, fluidIndex); // 在开头插入虚拟流体条目
+                }
+            }
+        }
+        
+        // 如果启用附魔之瓶升级，则在虚拟流体后面插入一个虚拟条目用于显示"瓶装经验"
+        boolean showXpBottle = com.portable.storage.client.ClientUpgradeState.isXpBottleUpgradeActive();
+        if (showXpBottle) {
+            // 检查是否匹配搜索条件
+            if (query == null || query.isEmpty() || matchesXpBottleQuery(query)) {
+                filtered.add(0, Integer.MIN_VALUE); // 在开头插入虚拟条目
             }
         }
         this.filteredIndices = filtered;
@@ -635,6 +642,12 @@ public class StorageUIComponent {
                 lines.add(Text.translatable("portable_storage.exp_bottle.title"));
                 lines.add(Text.translatable("portable_storage.exp_bottle.current", String.valueOf(totalXp)));
                 lines.add(Text.translatable("portable_storage.exp_bottle.equivalent", String.valueOf(level)));
+                
+                // 添加交互声明
+                lines.add(Text.empty()); // 空行分隔
+                lines.add(Text.translatable("portable_storage.exp_bottle.interact.left_click"));
+                lines.add(Text.translatable("portable_storage.exp_bottle.interact.right_click"));
+                lines.add(Text.translatable("portable_storage.exp_bottle.interact.glass_bottle"));
             } else if (hoveredIndex < Integer.MIN_VALUE + 1000) {
                 // 虚拟流体自定义悬停提示
                 String fluidType = getFluidTypeFromVirtualIndex(hoveredIndex);
@@ -1246,6 +1259,61 @@ public class StorageUIComponent {
         }
     }
     
+    /**
+     * 检查虚拟流体是否匹配搜索条件
+     */
+    private boolean matchesVirtualFluidQuery(String fluidType, String q) {
+        String lower = q.toLowerCase(Locale.ROOT);
+        
+        // 获取流体的翻译文本
+        String fluidName = Text.translatable("portable_storage.fluid." + fluidType + ".title").getString().toLowerCase(Locale.ROOT);
+        
+        // 检查流体名称是否匹配
+        if (fluidName.contains(lower)) {
+            return true;
+        }
+        
+        // 检查通用流体相关关键词
+        String fluidDesc = Text.translatable("portable_storage.fluid.desc").getString().toLowerCase(Locale.ROOT);
+        if (fluidDesc.contains(lower)) {
+            return true;
+        }
+        
+        // 检查英文流体名称（作为备用）
+        String fluidNameEn = switch (fluidType) {
+            case "lava" -> "lava";
+            case "water" -> "water";
+            case "milk" -> "milk";
+            default -> fluidType;
+        };
+        
+        return fluidNameEn.toLowerCase(Locale.ROOT).contains(lower);
+    }
+    
+    /**
+     * 检查瓶装经验是否匹配搜索条件
+     */
+    private boolean matchesXpBottleQuery(String q) {
+        String lower = q.toLowerCase(Locale.ROOT);
+        
+        // 获取瓶装经验的翻译文本
+        String xpBottleTitle = Text.translatable("portable_storage.exp_bottle.title").getString().toLowerCase(Locale.ROOT);
+        String xpBottleCurrent = Text.translatable("portable_storage.exp_bottle.current", "").getString().toLowerCase(Locale.ROOT);
+        String xpBottleEquivalent = Text.translatable("portable_storage.exp_bottle.equivalent", "").getString().toLowerCase(Locale.ROOT);
+        
+        // 检查翻译文本是否匹配
+        if (xpBottleTitle.contains(lower) || 
+            xpBottleCurrent.contains(lower) || 
+            xpBottleEquivalent.contains(lower)) {
+            return true;
+        }
+        
+        // 检查通用经验相关关键词（作为备用）
+        return "经验".toLowerCase(Locale.ROOT).contains(lower) ||
+               "experience".toLowerCase(Locale.ROOT).contains(lower) ||
+               "xp".toLowerCase(Locale.ROOT).contains(lower);
+    }
+    
     private void sortIndices(List<Integer> indices) {
         // 缓存已在render时重置，这里直接排序即可
         ClientConfig config = ClientConfig.getInstance();
@@ -1741,10 +1809,33 @@ public class StorageUIComponent {
                                              }
                                          }
                                      }
-                                     // 左键点击虚拟流体：不处理
-                                     if (button == 0) {
-                                         return true;
-                                     }
+                                    // 左键点击虚拟流体：检查是否开启自动传入且按着shift
+                                    if (button == 0) {
+                                        boolean shift = isShiftDown();
+                                        if (shift && ClientConfig.getInstance().autoDeposit) {
+                                            // Shift+左键：检查仓库或背包中是否有桶，消耗一个桶取出对应流体桶
+                                            MinecraftClient client = MinecraftClient.getInstance();
+                                            if (client.player != null) {
+                                                // 检查背包中是否有空桶
+                                                boolean hasBucket = false;
+                                                var handler = client.player.currentScreenHandler;
+                                                for (int i = 0; i < handler.slots.size(); i++) {
+                                                    var slot = handler.slots.get(i);
+                                                    if (slot.hasStack() && slot.getStack().isOf(net.minecraft.item.Items.BUCKET)) {
+                                                        hasBucket = true;
+                                                        break;
+                                                    }
+                                                }
+                                                
+                                                if (hasBucket) {
+                                                    // 发送流体转换请求（左键）
+                                                    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.FluidConversionC2SPayload(fluidType, button));
+                                                    return true;
+                                                }
+                                            }
+                                        }
+                                        return true;
+                                    }
                                  }
                              }
                             if (storageIndex >= 0) {
