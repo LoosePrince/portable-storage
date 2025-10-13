@@ -5,7 +5,6 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.registry.RegistryWrapper;
 import com.mojang.serialization.DynamicOps;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.collection.DefaultedList;

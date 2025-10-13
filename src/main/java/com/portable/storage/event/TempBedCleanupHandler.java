@@ -15,7 +15,6 @@ public class TempBedCleanupHandler {
     
     private static long lastCleanupTime = 0;
     private static final long CLEANUP_INTERVAL = 20; // 每1秒检查一次
-    private static final long BED_TIMEOUT = 200; // 10秒 = 200 ticks
     
     /**
      * 定期清理临时床

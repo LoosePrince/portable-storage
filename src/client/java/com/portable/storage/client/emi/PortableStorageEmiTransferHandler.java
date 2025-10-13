@@ -1,14 +1,12 @@
 package com.portable.storage.client.emi;
 
 import com.portable.storage.client.ClientStorageState;
-import com.portable.storage.client.screen.PortableCraftingScreen;
 import dev.emi.emi.api.recipe.EmiPlayerInventory;
 import dev.emi.emi.api.recipe.EmiRecipe;
 import dev.emi.emi.api.recipe.VanillaEmiRecipeCategories;
 import dev.emi.emi.api.recipe.handler.EmiCraftContext;
 import dev.emi.emi.api.recipe.handler.StandardRecipeHandler;
 import dev.emi.emi.api.stack.EmiStack;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.slot.Slot;
 import org.slf4j.Logger;
@@ -90,66 +88,4 @@ public class PortableStorageEmiTransferHandler implements StandardRecipeHandler<
         return false;
     }
 
-    /**
-     * 处理配方填充
-     */
-    private boolean handleRecipe(EmiRecipe recipe, net.minecraft.client.gui.screen.ingame.HandledScreen<com.portable.storage.screen.PortableCraftingScreenHandler> screen, boolean simulate) {
-        // 获取配方输入
-        var inputs = recipe.getInputs();
-        if (inputs.isEmpty()) {
-            return false;
-        }
-
-        // 检查材料是否足够
-        var storageStacks = ClientStorageState.getStacks();
-        var playerInventory = MinecraftClient.getInstance().player.getInventory();
-        
-        // 为每个输入槽位查找合适的材料
-        for (int i = 0; i < Math.min(inputs.size(), 9); i++) {
-            var input = inputs.get(i);
-            var emiStacks = input.getEmiStacks();
-            
-            boolean found = false;
-            for (var emiStack : emiStacks) {
-                ItemStack stack = emiStack.getItemStack();
-                if (stack.isEmpty()) continue;
-                
-                // 检查玩家背包
-                for (int j = 0; j < playerInventory.size(); j++) {
-                    ItemStack invStack = playerInventory.getStack(j);
-                    if (!invStack.isEmpty() && (ItemStack.areItemsEqual(invStack, stack) || ItemStack.areItemsAndComponentsEqual(invStack, stack))) {
-                        found = true;
-                        break;
-                    }
-                }
-                
-                if (!found) {
-                    // 检查仓库
-                    for (int j = 0; j < storageStacks.size(); j++) {
-                        ItemStack storageStack = storageStacks.get(j);
-                        if (!storageStack.isEmpty() && (ItemStack.areItemsEqual(storageStack, stack) || ItemStack.areItemsAndComponentsEqual(storageStack, stack))) {
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-                
-                if (found) break;
-            }
-            
-            if (!found) {
-                LOG.debug("EMI missing ingredient at slot {} for recipe {}", i, recipe.getId());
-                return false; // 缺少材料
-            }
-        }
-        
-        if (!simulate) {
-            // 发送配方填充请求到服务器
-            if (screen instanceof PortableCraftingScreen portableScreen) {
-                portableScreen.fillRecipeFromStorage(recipe);
-            }
-        }
-        
-        return true;
-    }
 }

@@ -13,8 +13,6 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.util.Identifier;
 import net.minecraft.item.Items;
 import net.minecraft.item.ItemStack;
-import java.util.ArrayList;
-import java.util.List;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;

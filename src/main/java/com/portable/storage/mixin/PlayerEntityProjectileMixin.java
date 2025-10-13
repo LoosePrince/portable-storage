@@ -2,7 +2,6 @@ package com.portable.storage.mixin;
 
 import com.portable.storage.player.PlayerStorageService;
 import com.portable.storage.storage.StorageInventory;
-import com.portable.storage.storage.UpgradeInventory;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.BowItem;
 import net.minecraft.item.ItemStack;
@@ -32,10 +31,6 @@ public abstract class PlayerEntityProjectileMixin {
 
             // 背包无箭，检查随身仓库
             StorageInventory inv = PlayerStorageService.getInventory(self);
-            UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(self);
-            
-            // 检查是否有光灵箭升级
-            boolean hasSpectralArrowUpgrade = upgrades.isSpectralArrowUpgradeActive();
             
             // 优先查找普通箭
             int spectralIdx = -1;
@@ -87,10 +82,6 @@ public abstract class PlayerEntityProjectileMixin {
 
             // 背包无弹药，检查随身仓库
             StorageInventory inv = PlayerStorageService.getInventory(self);
-            UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(self);
-            
-            // 检查是否有光灵箭升级
-            boolean hasSpectralArrowUpgrade = upgrades.isSpectralArrowUpgradeActive();
             
             // 优先查找普通箭
             int spectralIdx = -1;

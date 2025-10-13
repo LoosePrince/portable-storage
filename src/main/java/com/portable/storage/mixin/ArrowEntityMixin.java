@@ -2,7 +2,6 @@ package com.portable.storage.mixin;
 
 import com.portable.storage.player.PlayerStorageService;
 import com.portable.storage.storage.UpgradeInventory;
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.effect.StatusEffectInstance;

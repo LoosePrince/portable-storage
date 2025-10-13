@@ -55,7 +55,6 @@ public abstract class CrossbowItemMixin {
             
             // 优先查找普通箭，与PlayerEntityProjectileMixin保持一致
             int spectralIdx = -1;
-            int normalIdx = -1;
             ItemStack matchedAmmo = null;
             int idx = -1;
             
@@ -63,7 +62,6 @@ public abstract class CrossbowItemMixin {
                 ItemStack disp = inv.getDisplayStack(i);
                 if (!disp.isEmpty() && isCrossbowAmmo(disp) && inv.getCountByIndex(i) > 0) {
                     if (disp.isOf(Items.ARROW)) {
-                        normalIdx = i;
                         matchedAmmo = disp;
                         idx = i;
                         break; // 优先使用普通箭

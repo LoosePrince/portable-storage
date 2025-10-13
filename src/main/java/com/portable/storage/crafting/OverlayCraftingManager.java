@@ -1,9 +1,5 @@
 package com.portable.storage.crafting;
 
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.CraftingInventory;
-import net.minecraft.inventory.CraftingResultInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.recipe.RecipeEntry;
 import net.minecraft.recipe.RecipeType;
@@ -206,7 +202,7 @@ public final class OverlayCraftingManager {
             ItemStack cursor = player.currentScreenHandler.getCursorStack();
             // 右键：只取 1 个
             if (button == 1) out.setCount(1);
-            boolean placed = tryPlaceToCursorOrInventory(player, cursor, out);
+            tryPlaceToCursorOrInventory(player, cursor, out);
             consumeOnce(player, st);
         }
 
@@ -243,7 +239,7 @@ public final class OverlayCraftingManager {
         for (int i = 1; i <= 9; i++) list.add(st.slots[i].copy());
         CraftingRecipeInput input = CraftingRecipeInput.create(3, 3, list);
         RecipeEntry<?> match = world.getRecipeManager().getFirstMatch(RecipeType.CRAFTING, input, world).orElse(null);
-        if (match == null || !(match.value() instanceof net.minecraft.recipe.CraftingRecipe crafting)) return 0;
+        if (match == null || !(match.value() instanceof net.minecraft.recipe.CraftingRecipe)) return 0;
         // 粗略算法：按非空输入格的最小计数
         int min = Integer.MAX_VALUE;
         for (int i = 1; i <= 9; i++) {

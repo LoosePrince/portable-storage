@@ -54,7 +54,6 @@ public abstract class BowItemMixin {
 
             // 优先查找普通箭，与PlayerEntityProjectileMixin保持一致
             int spectralIdx = -1;
-            int normalIdx = -1;
             ItemStack matchedArrow = null;
             int matchIndex = -1;
             
@@ -63,7 +62,6 @@ public abstract class BowItemMixin {
                 if (disp.isEmpty()) continue;
                 if (isArrow(disp) && inv.getCountByIndex(i) > 0) {
                     if (disp.isOf(Items.ARROW)) {
-                        normalIdx = i;
                         matchedArrow = disp;
                         matchIndex = i;
                         break; // 优先使用普通箭

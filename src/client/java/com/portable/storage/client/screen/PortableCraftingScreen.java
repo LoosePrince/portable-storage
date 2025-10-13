@@ -1,6 +1,5 @@
 package com.portable.storage.client.screen;
 
-import com.portable.storage.client.ClientStorageState;
 import com.portable.storage.client.ScreenSwapBypass;
 import com.portable.storage.client.ui.StorageUIComponent;
 import com.portable.storage.net.payload.EmiRecipeFillC2SPayload;
@@ -35,8 +34,6 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
     private static final int STORAGE_UI_HEIGHT = 108; // 6行 * 18像素
     private static final int GAP_BETWEEN = 6; // 工作台与仓库UI之间的间距
 
-    private final PlayerInventory playerInventoryRef;
-    private final Text titleRef;
     private final StorageUIComponent storageUi = new StorageUIComponent();
 
     // 合成补充相关字段
@@ -50,8 +47,6 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
 
     public PortableCraftingScreen(PortableCraftingScreenHandler handler, PlayerInventory playerInventory, Text title) {
         super(handler, playerInventory, title);
-        this.playerInventoryRef = playerInventory;
-        this.titleRef = title;
         this.backgroundWidth = BG_WIDTH;
         this.backgroundHeight = BG_HEIGHT;
     }

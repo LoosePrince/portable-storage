@@ -28,8 +28,7 @@ public class StorageUIComponent {
         return currentInstance;
     }
     // 纹理
-    private static final Identifier TEX_BG = Identifier.of("portable-storage", "textures/gui/portable_storage_gui_1.png");
-    private static final Identifier TEX_SETTINGS_BG = Identifier.of("portable-storage", "textures/gui/portable_storage_gui.png");
+    private static final Identifier TEX_BG = Identifier.of("portable-storage", "textures/gui/portable_storage_gui.png");
     private static final Identifier TEX_SLOT = Identifier.of("portable-storage", "textures/gui/slot.png");
     private static final Identifier TEX_ICONS = Identifier.of("portable-storage", "textures/gui/icon.png");
     
@@ -944,10 +943,6 @@ public class StorageUIComponent {
         final int iconSize = 16;
         final int iconSpacing = 15; // 图标间距
         
-        // 计算设置图标区域的实际可用高度
-        int availableHeight = panelBottom - panelTop;
-        // 基于图标间距计算每列最大图标数
-        final int maxIconsPerColumn = Math.max(1, availableHeight / iconSpacing);
         final int columnWidth = iconSize + 1; // 列宽度（图标宽度 + 间距）
         
         // 使用数组来存储位置信息，这样内部类可以访问
@@ -1080,43 +1075,6 @@ public class StorageUIComponent {
         }
     }
 
-    private void drawSettingsBackground(DrawContext ctx, int x, int y, int w, int h) {
-        // 右侧设置背景：64x109，边框4px（九宫格）
-        final int texW = 64;
-        final int texH = 109;
-        final int border = 4;
-
-        int srcLeft = border;
-        int srcRight = texW - border;
-        int srcTop = border;
-        int srcBottom = texH - border;
-
-        int dstMidW = Math.max(0, w - border * 2);
-        int dstMidH = Math.max(0, h - border * 2);
-        int srcMidW = texW - border * 2;
-        int srcMidH = texH - border * 2;
-
-        // 四角
-        ctx.drawTexture(TEX_SETTINGS_BG, x, y, 0, 0, border, border, texW, texH);
-        ctx.drawTexture(TEX_SETTINGS_BG, x + w - border, y, srcRight, 0, border, border, texW, texH);
-        ctx.drawTexture(TEX_SETTINGS_BG, x, y + h - border, 0, srcBottom, border, border, texW, texH);
-        ctx.drawTexture(TEX_SETTINGS_BG, x + w - border, y + h - border, srcRight, srcBottom, border, border, texW, texH);
-
-        // 上下边
-        if (dstMidW > 0) {
-            drawRegionScaled(ctx, TEX_SETTINGS_BG, x + border, y, srcLeft, 0, srcMidW, border, dstMidW, border, texW, texH);
-            drawRegionScaled(ctx, TEX_SETTINGS_BG, x + border, y + h - border, srcLeft, srcBottom, srcMidW, border, dstMidW, border, texW, texH);
-        }
-        // 左右边
-        if (dstMidH > 0) {
-            drawRegionScaled(ctx, TEX_SETTINGS_BG, x, y + border, 0, srcTop, border, srcMidH, border, dstMidH, texW, texH);
-            drawRegionScaled(ctx, TEX_SETTINGS_BG, x + w - border, y + border, srcRight, srcTop, border, srcMidH, border, dstMidH, texW, texH);
-        }
-        // 中心
-        if (dstMidW > 0 && dstMidH > 0) {
-            drawRegionScaled(ctx, TEX_SETTINGS_BG, x + border, y + border, srcLeft, srcTop, srcMidW, srcMidH, dstMidW, dstMidH, texW, texH);
-        }
-    }
     
     /**
      * 更新搜索框位置
@@ -1368,26 +1326,7 @@ public class StorageUIComponent {
         return dateTime.format(formatter);
     }
 
-    // 计算玩家总经验（客户端估算：基于等级与进度）
-    private long portableStorage$computePlayerTotalXp() {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc == null || mc.player == null) return 0L;
-        int level = mc.player.experienceLevel;
-        float progress = mc.player.experienceProgress; // 0..1 之间
-        // 1.21 经验公式（与 1.17+ 一致）：
-        // totalXp(level) = if level<=16: level^2 + 6*level
-        //                 else if level<=31: 2.5*level^2 - 40.5*level + 360
-        //                 else: 4.5*level^2 - 162.5*level + 2220
-        int base = portableStorage$xpForLevel(level);
-        int next = portableStorage$xpToNextLevel(level);
-        return Math.max(0L, (long)base + (long)Math.floor(next * Math.max(0f, Math.min(1f, progress))));
-    }
 
-    private int portableStorage$xpForLevel(int level) {
-        if (level <= 16) return level * level + 6 * level;
-        if (level <= 31) return (int)Math.floor(2.5 * level * level - 40.5 * level + 360);
-        return (int)Math.floor(4.5 * level * level - 162.5 * level + 2220);
-    }
 
     private int portableStorage$xpToNextLevel(int level) {
         if (level <= 15) return 2 * level + 7;
@@ -1421,7 +1360,6 @@ public class StorageUIComponent {
         // 计算设置图标区域的实际可用高度
         int panelTop = gridTop - 6;
         int panelBottom = gridTop + visibleRows * (slotSize + slotSpacing) + 8;
-        int availableHeight = panelBottom - panelTop;
         
         // 模拟图标布局来计算实际需要的列数
         final int iconSpacing = 15;
@@ -1610,12 +1548,6 @@ public class StorageUIComponent {
         ctx.fill(left, thumbTop, left + 1, thumbTop + thumbHeight, thumbLight);
     }
     
-    /**
-     * 仓库槽位滚动条绘制函数（兼容性包装）
-     */
-    private void drawStorageScrollbar(DrawContext ctx, int left, int top, int width, int height, int maxScrollRows) {
-        drawScrollbar(ctx, left, top, width, height, maxScrollRows, this.visibleRows, this.totalRows, this.scroll);
-    }
     
     // ========== 事件处理 ==========
     
