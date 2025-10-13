@@ -19,7 +19,7 @@ public class ServerConfig {
     private static ServerConfig INSTANCE = new ServerConfig();
     
     // 配置项
-    private boolean requireConditionToEnable = false;
+    private boolean requireConditionToEnable = true;
     private String enableItem = "minecraft:nether_star";
     private boolean consumeEnableItem = true;
     private boolean enableIncrementalSync = false;
@@ -138,8 +138,8 @@ public class ServerConfig {
             [storage]
             # 是否需要条件启用玩家随身仓库
             # 启用后玩家的随身仓库不再是默认就有的，而是需要达成条件才会有
-            # 默认值: false
-            require_condition_to_enable = false
+            # 默认值: true
+            require_condition_to_enable = true
             
             # 启用玩家随身仓库的道具
             # 启用"需要条件启用玩家随身仓库"后用以启用玩家仓库的物品，手持右键以启用
@@ -230,7 +230,7 @@ public class ServerConfig {
     private void readConfigValues() {
         Config storageConfig = config.get("storage");
         if (storageConfig != null) {
-            requireConditionToEnable = storageConfig.getOrElse("require_condition_to_enable", false);
+            requireConditionToEnable = storageConfig.getOrElse("require_condition_to_enable", true);
             enableItem = storageConfig.getOrElse("enable_item", "minecraft:nether_star");
             consumeEnableItem = storageConfig.getOrElse("consume_enable_item", true);
             enableIncrementalSync = storageConfig.getOrElse("enable_incremental_sync", false);
@@ -486,8 +486,8 @@ public class ServerConfig {
         String ls = System.lineSeparator();
         return "# 是否需要条件启用玩家随身仓库" + ls
             + "# 启用后玩家的随身仓库不再是默认就有的，而是需要达成条件才会有" + ls
-            + "# 默认值: false" + ls
-            + "require_condition_to_enable = false" + ls + ls;
+            + "# 默认值: true" + ls
+            + "require_condition_to_enable = true" + ls + ls;
     }
 
     private static String buildEnableItemBlock() {
@@ -603,7 +603,7 @@ public class ServerConfig {
      * 设置默认值
      */
     private void setDefaultValues() {
-        requireConditionToEnable = false;
+        requireConditionToEnable = true;
         enableItem = "minecraft:nether_star";
         consumeEnableItem = true;
         enableIncrementalSync = false;

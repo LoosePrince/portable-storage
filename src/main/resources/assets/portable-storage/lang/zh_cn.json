@@ -85,6 +85,7 @@
   "portable_storage.ui.upgrade_desc.experience_bottle": "附魔之瓶：在仓库储存经验",
   "item.portable_storage.storage_key": "仓库钥匙",
   "portable_storage.tooltip.storage_key_usage": "右键点击重新激活你的仓库",
+  "portable_storage.tooltip.enable_item_usage": "右键消耗并启用仓库",
   "portable_storage.message.key_not_owner": "这个仓库钥匙不属于你！",
   "portable_storage.message.storage_already_enabled": "你的仓库已经激活了！",
   "portable_storage.message.storage_reactivated": "仓库已重新激活！你的物品很安全。",

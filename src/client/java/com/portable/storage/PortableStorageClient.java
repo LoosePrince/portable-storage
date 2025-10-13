@@ -68,5 +68,30 @@ public class PortableStorageClient implements ClientModInitializer {
                 }
             } catch (Throwable ignored) {}
         });
+
+        // 启用物品：为配置的启用物品添加提示消息
+        ItemTooltipCallback.EVENT.register((stack, context, type, lines) -> {
+            try {
+                if (stack != null) {
+                    // 获取配置的启用物品
+                    String enableItem = com.portable.storage.config.ServerConfig.getInstance().getEnableItem();
+                    if (enableItem != null && !enableItem.isEmpty()) {
+                        // 解析物品ID
+                        String[] parts = enableItem.split(":");
+                        if (parts.length == 2) {
+                            String namespace = parts[0];
+                            String itemId = parts[1];
+                            
+                            // 检查当前物品是否匹配配置的启用物品
+                            if (stack.getItem().toString().equals(namespace + ":" + itemId)) {
+                                // 添加提示消息
+                                lines.add(Text.translatable("portable_storage.tooltip.enable_item_usage")
+                                        .formatted(Formatting.GOLD));
+                            }
+                        }
+                    }
+                }
+            } catch (Throwable ignored) {}
+        });
 	}
 }

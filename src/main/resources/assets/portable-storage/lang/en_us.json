@@ -82,6 +82,7 @@
   "portable_storage.ui.upgrade_desc.experience_bottle": "Experience Bottle: Store XP in storage",
   "item.portable_storage.storage_key": "Storage Key",
   "portable_storage.tooltip.storage_key_usage": "Right-click to reactivate your storage",
+  "portable_storage.tooltip.enable_item_usage": "Right-click to consume and enable storage",
   "portable_storage.message.key_not_owner": "This storage key does not belong to you!",
   "portable_storage.message.storage_already_enabled": "Your storage is already active!",
   "portable_storage.message.storage_reactivated": "Storage reactivated! Your items are safe.",
