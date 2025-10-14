@@ -51,22 +51,27 @@ public class StorageSyncManager {
     public static CompletableFuture<Void> sendIncrementalSyncOnDemand(ServerPlayerEntity player, StorageInventory currentInventory) {
         UUID playerId = player.getUuid();
         
-        // 检查是否启用按需同步
-        if (com.portable.storage.config.ServerConfig.getInstance().isEnableIncrementalSync()) {
-            // 如果玩家正在查看，立即同步
-            if (PlayerViewState.isViewing(playerId)) {
-                return sendIncrementalSync(player, currentInventory);
-            } else {
-                // 否则积攒变化
-                ChangeAccumulator.markFullSync(playerId);
-                return CompletableFuture.completedFuture(null);
-            }
-        } else {
-            // 回退到传统全量同步
+        // 新逻辑：增量同步开关控制“增量算法”；按需同步开关控制“是否仅在查看时发送”
+        var config = com.portable.storage.config.ServerConfig.getInstance();
+        if (!config.isEnableIncrementalSync()) {
+            // 未开启增量 → 回退全量同步
             return CompletableFuture.runAsync(() -> {
                 com.portable.storage.net.ServerNetworkingHandlers.sendSync(player);
             }, SYNC_EXECUTOR);
         }
+
+        if (config.isEnableOnDemandSync()) {
+            // 按需：仅查看时发送，否则积攒
+            if (PlayerViewState.isViewing(playerId)) {
+                return sendIncrementalSync(player, currentInventory);
+            } else {
+                ChangeAccumulator.markFullSync(playerId);
+                return CompletableFuture.completedFuture(null);
+            }
+        }
+
+        // 非按需：始终发送增量
+        return sendIncrementalSync(player, currentInventory);
     }
     
     /**

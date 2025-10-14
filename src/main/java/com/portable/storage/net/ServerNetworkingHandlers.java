@@ -904,8 +904,16 @@ public final class ServerNetworkingHandlers {
 	public static void sendIncrementalSyncOnDemand(ServerPlayerEntity player) {
 		StorageInventory merged = buildMergedSnapshot(player);
 		
-		// 使用按需同步
-		StorageSyncManager.sendIncrementalSyncOnDemand(player, merged);
+		// 根据配置选择按需或立即增量
+		if (com.portable.storage.config.ServerConfig.getInstance().isEnableOnDemandSync()) {
+			StorageSyncManager.sendIncrementalSyncOnDemand(player, merged);
+		} else {
+			if (com.portable.storage.config.ServerConfig.getInstance().isEnableIncrementalSync()) {
+				StorageSyncManager.sendIncrementalSync(player, merged);
+			} else {
+				sendSync(player);
+			}
+		}
 		
 		sendUpgradeSync(player);
 		sendEnablementSync(player);

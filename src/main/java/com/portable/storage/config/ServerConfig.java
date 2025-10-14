@@ -23,8 +23,7 @@ public class ServerConfig {
     private String enableItem = "minecraft:nether_star";
     private boolean consumeEnableItem = true;
     private boolean enableIncrementalSync = false;
-    
-    // 启用仓库时是否清空现有数据
+    private boolean enableOnDemandSync = true;
     private boolean clearStorageOnEnable = true;
     
     // 工作台升级容器界面显示配置
@@ -158,6 +157,12 @@ public class ServerConfig {
             # 默认值: false
             enable_incremental_sync = false
             
+            # 是否启用按需同步
+            # 启用后只在玩家查看仓库界面时才同步，否则积攒变化
+            # 可以显著减少服务器负载，但可能导致数据延迟
+            # 默认值: true
+            enable_on_demand_sync = true
+            
             # 启用仓库时是否清空现有数据
             # 启用后使用仓库激活物品时会清空玩家现有的仓库数据
             # 默认值: true
@@ -234,6 +239,7 @@ public class ServerConfig {
             enableItem = storageConfig.getOrElse("enable_item", "minecraft:nether_star");
             consumeEnableItem = storageConfig.getOrElse("consume_enable_item", true);
             enableIncrementalSync = storageConfig.getOrElse("enable_incremental_sync", false);
+            enableOnDemandSync = storageConfig.getOrElse("enable_on_demand_sync", true);
             clearStorageOnEnable = storageConfig.getOrElse("clear_storage_on_enable", true);
         } else {
             PortableStorage.LOGGER.warn("配置文件中未找到 [storage] 部分，使用默认值");
@@ -284,6 +290,7 @@ public class ServerConfig {
         storageConfig.set("enable_item", enableItem);
         storageConfig.set("consume_enable_item", consumeEnableItem);
         storageConfig.set("enable_incremental_sync", enableIncrementalSync);
+        storageConfig.set("enable_on_demand_sync", enableOnDemandSync);
         storageConfig.set("clear_storage_on_enable", clearStorageOnEnable);
         
         Config containerConfig = config.get("container_display");
@@ -345,6 +352,10 @@ public class ServerConfig {
             storageConfig.set("enable_incremental_sync", false);
             changed = true;
         }
+        if (storageConfig == null || !storageConfig.contains("enable_on_demand_sync")) {
+            storageConfig.set("enable_on_demand_sync", true);
+            changed = true;
+        }
 
         Config containerConfig = config.get("container_display");
         if (containerConfig == null) {
@@ -404,6 +415,9 @@ public class ServerConfig {
             }
             if (!containsKey(section, "enable_incremental_sync")) {
                 toAppend.append(buildIncrementalSyncBlock());
+            }
+            if (!containsKey(section, "enable_on_demand_sync")) {
+                toAppend.append(buildOnDemandSyncBlock());
             }
             
             // 检查容器配置部分
@@ -478,6 +492,7 @@ public class ServerConfig {
         sb.append(buildEnableItemBlock());
         sb.append(buildConsumeEnableBlock());
         sb.append(buildIncrementalSyncBlock());
+        sb.append(buildOnDemandSyncBlock());
         sb.append(ls).append(buildFullContainerDisplaySection());
         return sb.toString();
     }
@@ -514,6 +529,15 @@ public class ServerConfig {
             + "# 可能存在BUG未发现或未修复的错误" + ls
             + "# 默认值: false" + ls
             + "enable_incremental_sync = false" + ls + ls;
+    }
+
+    private static String buildOnDemandSyncBlock() {
+        String ls = System.lineSeparator();
+        return "# 是否启用按需同步" + ls
+            + "# 启用后只在玩家查看仓库界面时才同步，否则积攒变化" + ls
+            + "# 可以显著减少服务器负载，但可能导致数据延迟" + ls
+            + "# 默认值: false" + ls
+            + "enable_on_demand_sync = false" + ls + ls;
     }
 
     private static String buildFullContainerDisplaySection() {
@@ -607,6 +631,7 @@ public class ServerConfig {
         enableItem = "minecraft:nether_star";
         consumeEnableItem = true;
         enableIncrementalSync = false;
+        enableOnDemandSync = true;
         
         // 容器配置默认值
         stonecutter = false;
@@ -653,6 +678,10 @@ public class ServerConfig {
         return enableIncrementalSync;
     }
     
+    public boolean isEnableOnDemandSync() {
+        return enableOnDemandSync;
+    }
+    
     public boolean isClearStorageOnEnable() {
         return clearStorageOnEnable;
     }
@@ -672,6 +701,10 @@ public class ServerConfig {
     
     public void setEnableIncrementalSync(boolean enableIncrementalSync) {
         this.enableIncrementalSync = enableIncrementalSync;
+    }
+    
+    public void setEnableOnDemandSync(boolean enableOnDemandSync) {
+        this.enableOnDemandSync = enableOnDemandSync;
     }
     
     // 容器配置 Getter 方法
