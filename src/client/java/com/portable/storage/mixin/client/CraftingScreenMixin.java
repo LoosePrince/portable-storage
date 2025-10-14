@@ -4,7 +4,7 @@ import com.portable.storage.PortableStorage;
 import com.portable.storage.client.ClientConfig;
 import com.portable.storage.client.ClientUpgradeState;
 import com.portable.storage.client.ui.StorageUIComponent;
-import com.portable.storage.net.payload.RefillCraftingC2SPayload;
+// 统一后不再使用 RefillCraftingC2SPayload
 import com.portable.storage.net.payload.RequestSyncC2SPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
@@ -248,7 +248,14 @@ public abstract class CraftingScreenMixin {
         }
         
         // 发送补充请求到服务器
-        ClientPlayNetworking.send(new RefillCraftingC2SPayload(slotIndex, targetStack));
+        ClientPlayNetworking.send(new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
+            com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.REFILL,
+            slotIndex, 0, false,
+            targetStack,
+            "",
+            null,
+            null
+        ));
     }
     
     /**

@@ -2,7 +2,7 @@ package com.portable.storage.client.screen;
 
 import com.portable.storage.client.ScreenSwapBypass;
 import com.portable.storage.client.ui.StorageUIComponent;
-import com.portable.storage.net.payload.EmiRecipeFillC2SPayload;
+// 统一后不再使用 EmiRecipeFillC2SPayload
 import com.portable.storage.net.payload.RequestSyncC2SPayload;
 import com.portable.storage.net.payload.RequestVanillaCraftingOpenC2SPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -343,7 +343,14 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
 
     private void portableStorage$refillFromStorage(int slotIndex, ItemStack targetStack) {
         if (targetStack.isEmpty()) return;
-        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.RefillCraftingC2SPayload(slotIndex, targetStack));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
+            com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.REFILL,
+            slotIndex, 0, false,
+            targetStack,
+            "",
+            null,
+            null
+        ));
     }
 
     /**
@@ -381,7 +388,10 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
             int[] slotArray = slotIndices.stream().mapToInt(Integer::intValue).toArray();
             int[] countArray = itemCounts.stream().mapToInt(Integer::intValue).toArray();
             
-            ClientPlayNetworking.send(new EmiRecipeFillC2SPayload(
+            ClientPlayNetworking.send(new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
+                com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.EMI_FILL,
+                0, 0, false,
+                net.minecraft.item.ItemStack.EMPTY,
                 recipeId.toString(),
                 slotArray,
                 countArray

@@ -69,352 +69,102 @@ public final class ServerNetworkingHandlers {
 			});
 		});
 
-        ServerPlayNetworking.registerGlobalReceiver(StorageClickC2SPayload.ID, (payload, context) -> {
-			int slotIndex = payload.index();
-			context.server().execute(() -> {
-                ServerPlayerEntity player = (ServerPlayerEntity) context.player();
-				if (checkAndRejectIfNotEnabled(player)) return;
-                StorageInventory merged = buildMergedSnapshot(player);
-                if (slotIndex < 0 || slotIndex >= merged.getCapacity()) return;
-                ItemStack disp = merged.getDisplayStack(slotIndex);
-				if (disp.isEmpty()) return;
-				// 旧包：左键全取一组
-				long want = disp.getMaxCount();
-                long got = takeFromMerged(player, disp, (int) want);
-                ItemStack moved = disp.copy();
-                moved.setCount((int)Math.min(disp.getMaxCount(), got));
-                insertIntoPlayerInventory(player, moved);
-                sendIncrementalSyncOnDemand(player);
-			});
-		});
-
-		// Shift 直接取物：左键一组，右键一个
-		ServerPlayNetworking.registerGlobalReceiver(StorageShiftTakeC2SPayload.ID, (payload, context) -> {
-			int slotIndex = payload.index();
-			int button = payload.button();
+		// 新统一动作包：服务端集中处理
+		ServerPlayNetworking.registerGlobalReceiver(StorageActionC2SPayload.ID, (payload, context) -> {
+			final StorageActionC2SPayload p = payload;
 			context.server().execute(() -> {
 				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
 				if (checkAndRejectIfNotEnabled(player)) return;
-				StorageInventory merged = buildMergedSnapshot(player);
-				if (slotIndex < 0 || slotIndex >= merged.getCapacity()) return;
-				ItemStack disp = merged.getDisplayStack(slotIndex);
-				if (disp.isEmpty()) return;
-
-				int want = (button == 1) ? 1 : disp.getMaxCount();
-				long got = takeFromMerged(player, disp, want);
-				if (got <= 0) return;
-				ItemStack moved = disp.copy();
-				moved.setCount((int)Math.min(disp.getMaxCount(), got));
-				insertIntoPlayerInventory(player, moved);
-				sendIncrementalSync(player);
+				switch (p.target()) {
+					case STORAGE -> handleStorageAction(player, p);
+					case UPGRADE -> handleUpgradeAction(player, p);
+					case FLUID -> handleFluidAction(player, p);
+					case XP_BOTTLE -> handleXpBottleAction(player, p);
+					case SLOT -> handleSlotDepositAction(player, p);
+				}
 			});
 		});
 
-		// 统一槽位点击，遵循原版语义
-		ServerPlayNetworking.registerGlobalReceiver(StorageSlotClickC2SPayload.ID, (payload, context) -> {
-			int slotIndex = payload.index();
-			int button = payload.button(); // 0 左键，1 右键
+		// 兼容：保留旧接收器直到完全移除旧类
+
+
+
+
+
+        // 统一覆盖式合成/配方填充
+        ServerPlayNetworking.registerGlobalReceiver(CraftingOverlayActionC2SPayload.ID, (payload, context) -> {
+            final CraftingOverlayActionC2SPayload p = payload;
             context.server().execute(() -> {
                 ServerPlayerEntity player = (ServerPlayerEntity) context.player();
-				if (checkAndRejectIfNotEnabled(player)) return;
-                StorageInventory merged = buildMergedSnapshot(player);
-                if (slotIndex < 0 || slotIndex >= merged.getCapacity()) return;
-                ItemStack slotStack = merged.getDisplayStack(slotIndex);
-				ItemStack cursor = player.currentScreenHandler.getCursorStack();
-
-				if (cursor.isEmpty()) {
-					// 拿取：左键全拿，右键半拿（上取整，最大32）
-                    if (slotStack.isEmpty()) return;
-                    if (button == 0) {
-                        long want = slotStack.getMaxCount();
-                        long got = takeFromMerged(player, slotStack, (int) want);
-                        ItemStack taken = slotStack.copy();
-                        taken.setCount((int)Math.min(slotStack.getMaxCount(), got));
-						player.currentScreenHandler.setCursorStack(taken);
-                    } else {
-                        int half = Math.max(1, Math.min(32, (int)Math.ceil(slotStack.getMaxCount() / 2.0)));
-                        long got = takeFromMerged(player, slotStack, half);
-                        ItemStack taken = slotStack.copy();
-                        taken.setCount((int)Math.min(slotStack.getMaxCount(), got));
-						player.currentScreenHandler.setCursorStack(taken);
-					}
-				} else {
-					// 放入：左键全部，右键一个；均采用全局堆叠策略（同类合并→空槽），与左键行为保持一致
-                    if (button == 0) {
-                        StorageInventory self = PlayerStorageService.getInventory(player);
-                        ItemStack remainder = insertIntoStorage(self, cursor);
-						player.currentScreenHandler.setCursorStack(remainder);
-                    } else {
-                        if (cursor.getCount() > 0) {
-                            StorageInventory self = PlayerStorageService.getInventory(player);
-                            ItemStack singleStack = cursor.copy();
-                            singleStack.setCount(1);
-                            ItemStack remainder = insertIntoStorage(self, singleStack);
-							if (remainder.isEmpty()) {
-								cursor.decrement(1);
-								player.currentScreenHandler.setCursorStack(cursor);
-							}
-						}
-					}
-				}
-
-				player.currentScreenHandler.sendContentUpdates();
-				sendIncrementalSync(player);
-			});
-		});
-
-		ServerPlayNetworking.registerGlobalReceiver(DepositSlotC2SPayload.ID, (payload, context) -> {
-			int handlerSlotId = payload.handlerSlotId();
-			context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
-				if (checkAndRejectIfNotEnabled(player)) return;
-				ScreenHandler sh = player.currentScreenHandler;
-				if (handlerSlotId < 0 || handlerSlotId >= sh.slots.size()) return;
-				Slot slot = sh.getSlot(handlerSlotId);
-				ItemStack from = slot.getStack();
-				if (from.isEmpty()) return;
-
-				StorageInventory inv = PlayerStorageService.getInventory(player);
-				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
-				
-				// 检查是否是流体桶，如果是则转换为空桶并添加虚拟流体单位
-				if (com.portable.storage.storage.UpgradeInventory.isValidFluidItem(from) && !from.isOf(net.minecraft.item.Items.BUCKET)) {
-					String fluidType = com.portable.storage.storage.UpgradeInventory.getFluidType(from);
-					if (fluidType != null) {
-						// 将流体桶转换为空桶并存入仓库
-						int count = from.getCount();
-						upgrades.addFluidUnits(fluidType, count);
-						ItemStack emptyBuckets = new ItemStack(net.minecraft.item.Items.BUCKET, count);
-						ItemStack remainder = insertIntoStorage(inv, emptyBuckets);
-						slot.setStack(remainder);
-						slot.markDirty();
-						sh.sendContentUpdates();
-						sendIncrementalSync(player);
-						return;
-					}
-				}
-				
-				// 普通物品的原有逻辑
-                ItemStack remainder = insertIntoStorage(inv, from);
-                slot.setStack(remainder);
-				slot.markDirty();
-				sh.sendContentUpdates();
-				sendIncrementalSync(player);
-			});
-		});
-
-		ServerPlayNetworking.registerGlobalReceiver(DepositCursorC2SPayload.ID, (payload, context) -> {
-			context.server().execute(() -> {
-				var serverPlayer = (ServerPlayerEntity) context.player();
-				if (checkAndRejectIfNotEnabled(serverPlayer)) return;
-				var cursor = serverPlayer.currentScreenHandler.getCursorStack();
-				if (cursor.isEmpty()) return;
-				
-				int button = payload.button();
-				StorageInventory inv = PlayerStorageService.getInventory(serverPlayer);
-				
-				if (button == 0) {
-					// 左键：存入全部物品
-					ItemStack remainder = insertIntoStorage(inv, cursor);
-					serverPlayer.currentScreenHandler.setCursorStack(remainder);
-				} else if (button == 1) {
-					// 右键：只存入一个物品
-					if (cursor.getCount() > 0) {
-						ItemStack singleStack = cursor.copy();
-						singleStack.setCount(1);
-						ItemStack remainder = insertIntoStorage(inv, singleStack);
-						if (remainder.isEmpty()) {
-							cursor.decrement(1);
-							serverPlayer.currentScreenHandler.setCursorStack(cursor);
-						}
-					}
-				}
-				
-				serverPlayer.currentScreenHandler.sendContentUpdates();
-				sendIncrementalSync(serverPlayer);
-			});
-		});
-
-		// 覆盖层虚拟合成点击：slotIndex 0=结果，1..9=输入；button 0/1 左右键；shift 是否按住
-		ServerPlayNetworking.registerGlobalReceiver(com.portable.storage.net.payload.OverlayCraftingClickC2SPayload.ID, (payload, context) -> {
-			int slotIndex = payload.slotIndex();
-			int button = payload.button();
-			boolean shift = payload.shift();
-			context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
-				if (checkAndRejectIfNotEnabled(player)) return;
-				com.portable.storage.crafting.OverlayCraftingManager.handleClick(player, slotIndex, button, shift);
-				// 同步当前虚拟槽位
-				com.portable.storage.crafting.OverlayCraftingManager.State st = com.portable.storage.crafting.OverlayCraftingManager.get(player);
-				net.minecraft.item.ItemStack[] copy = new net.minecraft.item.ItemStack[st.slots.length];
-				for (int i = 0; i < st.slots.length; i++) copy[i] = st.slots[i].copy();
-				ServerPlayNetworking.send(player, new com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload(copy));
-			});
-		});
-
-		// 覆盖层双击拾取：将虚拟 1..9 槽位中与光标相同的物品合并到光标，直到满堆
-		ServerPlayNetworking.registerGlobalReceiver(com.portable.storage.net.payload.OverlayCraftingDoubleClickC2SPayload.ID, (payload, context) -> {
-			context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
-				if (checkAndRejectIfNotEnabled(player)) return;
-				var st = com.portable.storage.crafting.OverlayCraftingManager.get(player);
-				net.minecraft.item.ItemStack cursor = player.currentScreenHandler.getCursorStack();
-				if (cursor.isEmpty()) return;
-				int maxPer = Math.min(cursor.getMaxCount(), player.getInventory().getMaxCountPerStack());
-				for (int i = 1; i <= 9 && cursor.getCount() < maxPer; i++) {
-					net.minecraft.item.ItemStack s = st.slots[i];
-					if (!s.isEmpty() && net.minecraft.item.ItemStack.areItemsAndComponentsEqual(s, cursor)) {
-						int can = Math.min(maxPer - cursor.getCount(), s.getCount());
-						if (can > 0) {
-							cursor.increment(can);
-							s.decrement(can);
-							if (s.isEmpty()) st.slots[i] = net.minecraft.item.ItemStack.EMPTY;
-						}
-					}
-				}
-				player.currentScreenHandler.setCursorStack(cursor);
-				com.portable.storage.crafting.OverlayCraftingManager.updateResult(player);
-				// 同步
-				net.minecraft.item.ItemStack[] copy = new net.minecraft.item.ItemStack[st.slots.length];
-				for (int i = 0; i < st.slots.length; i++) copy[i] = st.slots[i].copy();
-				ServerPlayNetworking.send(player, new com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload(copy));
-			});
-		});
-
-		// 从仓库直接丢出悬停物品（Q/CTRL+Q）
-		ServerPlayNetworking.registerGlobalReceiver(StorageDropC2SPayload.ID, (payload, context) -> {
-			int slotIndex = payload.index();
-			int amountType = payload.amountType(); // 0 一个；1 一组
-			context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
-				if (checkAndRejectIfNotEnabled(player)) return;
-				StorageInventory merged = buildMergedSnapshot(player);
-				if (slotIndex < 0 || slotIndex >= merged.getCapacity()) return;
-				ItemStack disp = merged.getDisplayStack(slotIndex);
-				if (disp.isEmpty()) return;
-
-				int want = amountType == 1 ? disp.getMaxCount() : 1;
-				long got = takeFromMerged(player, disp, want);
-				if (got <= 0) return;
-				ItemStack drop = disp.copy();
-				drop.setCount((int)Math.min(disp.getMaxCount(), got));
-				dropItemTowardsLook(player, drop);
-				sendIncrementalSync(player);
-			});
-		});
+                if (checkAndRejectIfNotEnabled(player)) return;
+                switch (p.action()) {
+                    case CLICK -> {
+                        com.portable.storage.crafting.OverlayCraftingManager.handleClick(player, p.slotIndex(), p.button(), p.shift());
+                        com.portable.storage.crafting.OverlayCraftingManager.State st = com.portable.storage.crafting.OverlayCraftingManager.get(player);
+                        net.minecraft.item.ItemStack[] copy = new net.minecraft.item.ItemStack[st.slots.length];
+                        for (int i = 0; i < st.slots.length; i++) copy[i] = st.slots[i].copy();
+                        ServerPlayNetworking.send(player, new com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload(copy));
+                    }
+                    case DOUBLE_CLICK -> {
+                        var st = com.portable.storage.crafting.OverlayCraftingManager.get(player);
+                        net.minecraft.item.ItemStack cursor = player.currentScreenHandler.getCursorStack();
+                        if (cursor.isEmpty()) return;
+                        int maxPer = Math.min(cursor.getMaxCount(), player.getInventory().getMaxCountPerStack());
+                        for (int i = 1; i <= 9 && cursor.getCount() < maxPer; i++) {
+                            net.minecraft.item.ItemStack s = st.slots[i];
+                            if (!s.isEmpty() && net.minecraft.item.ItemStack.areItemsAndComponentsEqual(s, cursor)) {
+                                int can = Math.min(maxPer - cursor.getCount(), s.getCount());
+                                if (can > 0) {
+                                    cursor.increment(can);
+                                    s.decrement(can);
+                                    if (s.isEmpty()) st.slots[i] = net.minecraft.item.ItemStack.EMPTY;
+                                }
+                            }
+                        }
+                        player.currentScreenHandler.setCursorStack(cursor);
+                        com.portable.storage.crafting.OverlayCraftingManager.updateResult(player);
+                        net.minecraft.item.ItemStack[] copy = new net.minecraft.item.ItemStack[st.slots.length];
+                        for (int i = 0; i < st.slots.length; i++) copy[i] = st.slots[i].copy();
+                        ServerPlayNetworking.send(player, new com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload(copy));
+                    }
+                    case REFILL -> refillCraftingFromStorage(player, p.slotIndex(), p.targetStack());
+                    case EMI_FILL -> handleEmiRecipeFill(player, p.recipeId(), p.slotIndices(), p.itemCounts());
+                    case REFUND -> {
+                        com.portable.storage.crafting.OverlayCraftingManager.refundAll(player);
+                        var handler = player.currentScreenHandler;
+                        if (handler instanceof net.minecraft.screen.PlayerScreenHandler playerHandler) {
+                            for (int i = 1; i <= 4 && i < playerHandler.slots.size(); i++) {
+                                net.minecraft.screen.slot.Slot slot = playerHandler.getSlot(i);
+                                net.minecraft.item.ItemStack stack = slot.getStack();
+                                if (!stack.isEmpty()) {
+                                    if (!player.getInventory().insertStack(stack)) {
+                                        player.dropItem(stack, false);
+                                    }
+                                    slot.setStack(net.minecraft.item.ItemStack.EMPTY);
+                                    slot.markDirty();
+                                }
+                            }
+                            net.minecraft.screen.slot.Slot outputSlot = playerHandler.getSlot(0);
+                            if (!outputSlot.getStack().isEmpty()) {
+                                net.minecraft.item.ItemStack outputStack = outputSlot.getStack();
+                                if (!player.getInventory().insertStack(outputStack)) {
+                                    player.dropItem(outputStack, false);
+                                }
+                                outputSlot.setStack(net.minecraft.item.ItemStack.EMPTY);
+                                outputSlot.markDirty();
+                            }
+                        }
+                        handler.sendContentUpdates();
+                        sendIncrementalSync(player);
+                    }
+                }
+            });
+        });
 
 
-		ServerPlayNetworking.registerGlobalReceiver(RefillCraftingC2SPayload.ID, (payload, context) -> {
-			int slotIndex = payload.slotIndex();
-			ItemStack targetStack = payload.targetStack();
-			context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
-				if (checkAndRejectIfNotEnabled(player)) return;
 
-				ScreenHandler handler = player.currentScreenHandler;
-				// 允许的容器：
-				// - PortableCraftingScreenHandler：总是允许（已启用仓库即可）
-				// - CraftingScreenHandler（原版3x3）：需要工作台升级
-				// - PlayerScreenHandler（背包2x2）：允许
-				boolean allowed;
-				if (handler instanceof com.portable.storage.screen.PortableCraftingScreenHandler) {
-					allowed = true;
-				} else if (handler instanceof net.minecraft.screen.CraftingScreenHandler) {
-					allowed = portableStorage$hasCraftingTableUpgrade(player);
-				} else if (handler instanceof net.minecraft.screen.PlayerScreenHandler) {
-					allowed = true;
-				} else {
-					allowed = false;
-				}
-				if (!allowed) return;
 
-				// 验证槽位索引
-				if (slotIndex < 0 || slotIndex >= handler.slots.size()) return;
-				Slot slot = handler.getSlot(slotIndex);
-				
-				// 获取当前槽位物品
-				ItemStack current = slot.getStack();
-				
-				// 检查物品类型是否匹配（如果槽位不为空）
-				if (!current.isEmpty() && !ItemStack.areItemsAndComponentsEqual(current, targetStack)) {
-					// 槽位物品已经变了，不补充
-					return;
-				}
-
-				// 计算每槽上限
-				int maxPerSlot = Math.min(targetStack.getMaxCount(), player.getInventory().getMaxCountPerStack());
-
-				// 组装同类物品分组（保持摆放形状）：包括当前槽，以及其它与目标物品“完全一致”的非空槽
-				java.util.ArrayList<Integer> group = new java.util.ArrayList<>();
-				group.add(slotIndex);
-				for (int i = 1; i < Math.min(10, handler.slots.size()); i++) {
-					if (i == slotIndex) continue;
-					Slot s = handler.getSlot(i);
-					ItemStack st = s.getStack();
-					if (!st.isEmpty() && ItemStack.areItemsAndComponentsEqual(st, targetStack)) {
-						group.add(i);
-					}
-				}
-
-				// 计算各槽缺口
-				int[] needBySlot = new int[group.size()];
-				int totalNeed = 0;
-				for (int gi = 0; gi < group.size(); gi++) {
-					Slot gs = handler.getSlot(group.get(gi));
-					ItemStack cs = gs.getStack();
-					int curCnt = cs.isEmpty() ? 0 : cs.getCount();
-					int need = Math.max(0, maxPerSlot - curCnt);
-					needBySlot[gi] = need;
-					totalNeed += need;
-				}
-				// 若组内无缺口，但当前槽为空（仅当前槽需要），按目标计
-				if (totalNeed == 0 && current.isEmpty()) {
-					int need = Math.max(0, Math.min(maxPerSlot, targetStack.getMaxCount()));
-					needBySlot[0] = need;
-					totalNeed = need;
-				}
-				if (totalNeed <= 0) return;
-
-				// 统一从合并视图提取 totalNeed 个目标物品
-				long got = takeFromMerged(player, targetStack, totalNeed);
-				if (got <= 0) return;
-
-				// 使用轮询（round-robin）方式均衡分配，确保尽可能平均
-				int[] alloc = new int[group.size()];
-				int remain = (int)got;
-				while (remain > 0) {
-					boolean progressed = false;
-					for (int gi = 0; gi < group.size() && remain > 0; gi++) {
-						int room = needBySlot[gi] - alloc[gi];
-						if (room > 0) {
-							alloc[gi] += 1;
-							remain -= 1;
-							progressed = true;
-						}
-					}
-					if (!progressed) break; // 所有槽位都满或没有缺口
-				}
-
-				// 写回各槽
-				for (int gi = 0; gi < group.size(); gi++) {
-					int idx = group.get(gi);
-					int add = alloc[gi];
-					if (add <= 0) continue;
-					Slot gs = handler.getSlot(idx);
-					ItemStack cs = gs.getStack();
-					if (cs.isEmpty()) {
-						ItemStack put = targetStack.copy();
-						put.setCount(add);
-						gs.setStack(put);
-					} else {
-						cs.increment(add);
-					}
-					gs.markDirty();
-				}
-				handler.sendContentUpdates();
-				sendIncrementalSync(player);
-			});
-		});
+        // 旧 RefillCraftingC2SPayload 接收器已移除（使用统一 CraftingOverlayActionC2SPayload）
 
 		// 流体槽位点击
 		ServerPlayNetworking.registerGlobalReceiver(FluidSlotClickC2SPayload.ID, (payload, context) -> {
@@ -580,49 +330,7 @@ public final class ServerNetworkingHandlers {
 			});
 		});
 		
-		// 返还合成槽位物品
-		ServerPlayNetworking.registerGlobalReceiver(RefundCraftingSlotsC2SPayload.ID, (payload, context) -> {
-			context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
-				if (checkAndRejectIfNotEnabled(player)) return;
-				
-				// 返还虚拟3x3合成槽位的物品
-				com.portable.storage.crafting.OverlayCraftingManager.refundAll(player);
-				
-				// 返还原版2x2合成槽位的物品
-				ScreenHandler handler = player.currentScreenHandler;
-				if (handler instanceof net.minecraft.screen.PlayerScreenHandler playerHandler) {
-					// 槽位0是输出，1-4是输入
-					for (int i = 1; i <= 4 && i < playerHandler.slots.size(); i++) {
-						Slot slot = playerHandler.getSlot(i);
-						ItemStack stack = slot.getStack();
-						if (!stack.isEmpty()) {
-							// 将物品放入玩家背包
-							if (!player.getInventory().insertStack(stack)) {
-								// 背包满了，丢弃到地上
-								player.dropItem(stack, false);
-							}
-							slot.setStack(ItemStack.EMPTY);
-							slot.markDirty();
-						}
-					}
-					// 清空输出槽
-					Slot outputSlot = playerHandler.getSlot(0);
-					if (!outputSlot.getStack().isEmpty()) {
-						ItemStack outputStack = outputSlot.getStack();
-						if (!player.getInventory().insertStack(outputStack)) {
-							player.dropItem(outputStack, false);
-						}
-						outputSlot.setStack(ItemStack.EMPTY);
-						outputSlot.markDirty();
-					}
-				}
-				
-				// 发送更新
-				handler.sendContentUpdates();
-				sendIncrementalSync(player);
-			});
-		});
+        // 旧 RefundCraftingSlotsC2SPayload 接收器已移除（使用统一 CraftingOverlayActionC2SPayload）
 		
 		// 升级槽位点击
 		ServerPlayNetworking.registerGlobalReceiver(UpgradeSlotClickC2SPayload.ID, (payload, context) -> {
@@ -775,39 +483,7 @@ public final class ServerNetworkingHandlers {
 			});
 		});
 		
-		// EMI 配方填充处理
-		ServerPlayNetworking.registerGlobalReceiver(EmiRecipeFillC2SPayload.ID, (payload, context) -> {
-			context.server().execute(() -> {
-				org.slf4j.LoggerFactory.getLogger("portable-storage/emi").debug("Server received EmiRecipeFill payload: recipeId={}", payload.recipeId());
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
-				if (checkAndRejectIfNotEnabled(player)) return;
-				boolean hasUpgrade = portableStorage$hasCraftingTableUpgrade(player);
-				ScreenHandler handler = player.currentScreenHandler;
-				if (!(handler instanceof net.minecraft.screen.CraftingScreenHandler) &&
-					!(handler instanceof com.portable.storage.screen.PortableCraftingScreenHandler)) {
-					org.slf4j.LoggerFactory.getLogger("portable-storage/emi").debug("EMI fill ignored at receiver: handler={} not crafting", handler.getClass().getName());
-					return;
-				}
-				// 仅当是原版工作台容器时强制要求升级；自定义容器直接允许
-				if (handler instanceof net.minecraft.screen.CraftingScreenHandler && !hasUpgrade) {
-					org.slf4j.LoggerFactory.getLogger("portable-storage/emi").debug("EMI fill ignored at receiver: no upgrade present for vanilla crafting handler");
-					return;
-				}
-				
-				// 处理配方填充
-				handleEmiRecipeFill(player, payload);
-			});
-
-			// 断开连接时兜底返还虚拟合成槽物品（防未正常关闭界面时材料丢失）
-			ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
-				try {
-					ServerPlayerEntity player = handler.player;
-					if (player != null) {
-						com.portable.storage.crafting.OverlayCraftingManager.refundAll(player);
-					}
-				} catch (Throwable ignored) {}
-			});
-		});
+        // 旧 EmiRecipeFillC2SPayload 接收器已移除（使用统一 CraftingOverlayActionC2SPayload）
 		
 		// 玩家加入时发送容器显示配置同步
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
@@ -1346,6 +1022,374 @@ public final class ServerNetworkingHandlers {
         return list;
     }
 
+    // ===== 统一动作处理 =====
+    private static void handleStorageAction(ServerPlayerEntity player, StorageActionC2SPayload p) {
+        switch (p.action()) {
+            case CLICK -> handleStorageClick(player, p.index(), p.button());
+            case SHIFT_TAKE -> handleStorageShiftTake(player, p.index(), p.button());
+            case DROP -> handleStorageDrop(player, p.index(), p.amountType());
+            case DEPOSIT_CURSOR -> handleDepositCursor(player, p.button());
+            case DEPOSIT_SLOT -> handleSlotDepositAction(player, p);
+        }
+    }
+
+    private static void handleUpgradeAction(ServerPlayerEntity player, StorageActionC2SPayload p) {
+        int slot = p.index();
+        int button = p.button();
+        // 直接复用原 UpgradeSlotClick 逻辑主体
+        UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
+        if (slot < 0 || slot >= upgrades.getSlotCount()) return;
+        if (UpgradeInventory.isExtendedSlot(slot)) {
+            if (slot != 5 && slot != 6 && slot != 7 && slot != 10) {
+                return;
+            }
+        }
+        if (button == 1) {
+            if (slot == 6 && upgrades.isBedUpgradeActive()) {
+                handleBedUpgradeSleep(player);
+                return;
+            }
+            if (slot == 7 && !upgrades.isSlotDisabled(7) && !upgrades.getStack(7).isEmpty()) {
+                int idx = xpStepIndexByPlayer.getOrDefault(player.getUuid(), 0);
+                idx = (idx + 1) % XP_STEPS.length;
+                xpStepIndexByPlayer.put(player.getUuid(), idx);
+                int step = XP_STEPS[idx];
+                player.sendMessage(net.minecraft.text.Text.translatable("portable_storage.exp_bottle.step", step), true);
+                ServerPlayNetworking.send(player, new com.portable.storage.net.payload.XpStepSyncS2CPayload(idx));
+                return;
+            }
+            if (slot == 10 && upgrades.isTrashSlotActive()) {
+                upgrades.setStack(10, net.minecraft.item.ItemStack.EMPTY);
+                sendIncrementalSync(player);
+                return;
+            }
+            upgrades.toggleSlotDisabled(slot);
+            sendIncrementalSync(player);
+            return;
+        }
+
+        ItemStack cursor = player.currentScreenHandler.getCursorStack();
+        ItemStack slotStack = upgrades.getStack(slot);
+        if (cursor.isEmpty()) {
+            if (!slotStack.isEmpty()) {
+                ItemStack taken = upgrades.takeStack(slot);
+                if (slot == 2 && taken.getItem() == net.minecraft.item.Items.CHEST) {
+                    handleChestUpgradeRemoval(player, upgrades);
+                }
+                player.currentScreenHandler.setCursorStack(taken);
+                player.currentScreenHandler.sendContentUpdates();
+                sendIncrementalSync(player);
+            }
+        } else {
+            if (slotStack.isEmpty()) {
+                if (slot == 10 || cursor.getCount() == 1) {
+                    if (upgrades.tryInsert(slot, cursor)) {
+                        player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
+                        player.currentScreenHandler.sendContentUpdates();
+                        sendIncrementalSync(player);
+                    }
+                }
+            } else {
+                if (slot == 10) {
+                    if (upgrades.tryInsert(slot, cursor)) {
+                        player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
+                        player.currentScreenHandler.sendContentUpdates();
+                        sendIncrementalSync(player);
+                    }
+                } else {
+                    if (cursor.getCount() == 1) {
+                        ItemStack taken = upgrades.takeStack(slot);
+                        if (upgrades.tryInsert(slot, cursor)) {
+                            player.currentScreenHandler.setCursorStack(taken);
+                            player.currentScreenHandler.sendContentUpdates();
+                            sendIncrementalSync(player);
+                        } else {
+                            upgrades.setStack(slot, taken);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static void handleFluidAction(ServerPlayerEntity player, StorageActionC2SPayload p) {
+        // 两类：fluid slot click（target=FLUID, action=CLICK，index忽略） 和 虚拟fluid点击（target=FLUID, action=CLICK with resourceType）
+        String fluidType = p.resourceType();
+        int button = p.button();
+        UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
+
+        if (fluidType != null && !fluidType.isEmpty()) {
+            // 对应虚拟流体条目点击（FluidClick/FluidConversion 合并）
+            if (button == 0) {
+                // 左键：从背包中消耗一个空桶，取出对应的流体桶
+                int units = upgrades.getFluidUnits(fluidType);
+                if (units > 0) {
+                    // 在背包中查找空桶
+                    ItemStack bucketToConsume = null;
+                    int bucketSlot = -1;
+                    var handler = player.currentScreenHandler;
+                    for (int i = 0; i < handler.slots.size(); i++) {
+                        var slot = handler.slots.get(i);
+                        if (slot.hasStack() && slot.getStack().isOf(net.minecraft.item.Items.BUCKET)) {
+                            bucketToConsume = slot.getStack();
+                            bucketSlot = i;
+                            break;
+                        }
+                    }
+                    if (bucketToConsume != null) {
+                        bucketToConsume.decrement(1);
+                        if (bucketToConsume.isEmpty()) {
+                            handler.slots.get(bucketSlot).setStack(ItemStack.EMPTY);
+                        }
+                        upgrades.removeFluidUnits(fluidType, 1);
+                        ItemStack fluidBucket = com.portable.storage.storage.UpgradeInventory.createFluidBucket(fluidType);
+                        insertIntoPlayerInventory(player, fluidBucket);
+                        player.currentScreenHandler.sendContentUpdates();
+                        sendIncrementalSync(player);
+                    }
+                }
+            } else if (button == 1) {
+                ItemStack cursor = player.currentScreenHandler.getCursorStack();
+                if (!cursor.isEmpty() && cursor.isOf(com.portable.storage.storage.UpgradeInventory.createFluidBucket(fluidType).getItem())) {
+                    upgrades.addFluidUnits(fluidType, 1);
+                    player.currentScreenHandler.setCursorStack(new ItemStack(net.minecraft.item.Items.BUCKET));
+                    player.currentScreenHandler.sendContentUpdates();
+                    sendIncrementalSync(player);
+                }
+            }
+            return;
+        }
+
+        // 对应 FluidSlotClickC2SPayload（使用 button）
+        ItemStack cursor = player.currentScreenHandler.getCursorStack();
+        ItemStack fluidStack = upgrades.getFluidStack();
+        if (cursor.isEmpty()) {
+            if (!fluidStack.isEmpty()) {
+                upgrades.setFluidStack(ItemStack.EMPTY);
+                player.currentScreenHandler.setCursorStack(fluidStack);
+                player.currentScreenHandler.sendContentUpdates();
+                sendIncrementalSync(player);
+            }
+        } else if (com.portable.storage.storage.UpgradeInventory.isValidFluidItem(cursor)) {
+            if (cursor.isOf(net.minecraft.item.Items.BUCKET)) {
+                boolean hasFluid = false;
+                for (String ft : new String[]{"lava", "water", "milk"}) {
+                    if (upgrades.getFluidUnits(ft) > 0) {
+                        upgrades.removeFluidUnits(ft, 1);
+                        player.currentScreenHandler.setCursorStack(com.portable.storage.storage.UpgradeInventory.createFluidBucket(ft));
+                        hasFluid = true;
+                        break;
+                    }
+                }
+                if (!hasFluid) {
+                    upgrades.setFluidStack(cursor.copy());
+                    player.currentScreenHandler.setCursorStack(fluidStack);
+                }
+            } else {
+                String ft = com.portable.storage.storage.UpgradeInventory.getFluidType(cursor);
+                if (ft != null) {
+                    upgrades.addFluidUnits(ft, 1);
+                    player.currentScreenHandler.setCursorStack(new ItemStack(net.minecraft.item.Items.BUCKET));
+                } else {
+                    upgrades.setFluidStack(cursor.copy());
+                    player.currentScreenHandler.setCursorStack(fluidStack);
+                }
+            }
+            player.currentScreenHandler.sendContentUpdates();
+            sendIncrementalSync(player);
+        }
+    }
+
+    private static void handleXpBottleAction(ServerPlayerEntity player, StorageActionC2SPayload p) {
+        int button = p.button();
+        UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
+        if (upgrades.isSlotDisabled(7) || upgrades.getStack(7).isEmpty()) return;
+        if (upgrades.isLevelMaintenanceEnabled()) {
+            player.sendMessage(Text.translatable("portable_storage.exp_bottle.maintenance_blocked"), true);
+            return;
+        }
+        // 右键优先处理“玻璃瓶转换为附魔之瓶”的需求
+        if (button == 1) {
+            ItemStack cursorStack = player.currentScreenHandler.getCursorStack();
+            if (!cursorStack.isEmpty() && cursorStack.isOf(net.minecraft.item.Items.GLASS_BOTTLE)) {
+                int bottleCount = cursorStack.getCount();
+                long availableXp = upgrades.getXpPool();
+                int maxConvertible = (int) Math.min(bottleCount, availableXp / 11);
+                if (maxConvertible > 0) {
+                    long xpUsed = maxConvertible * 11L;
+                    upgrades.removeFromXpPool(xpUsed);
+                    ItemStack experienceBottles = new ItemStack(net.minecraft.item.Items.EXPERIENCE_BOTTLE, maxConvertible);
+                    int remainingBottles = bottleCount - maxConvertible;
+                    if (remainingBottles > 0) {
+                        // 将多余玻璃瓶存仓，给玩家转好的瓶子
+                        StorageInventory storage = PlayerStorageService.getInventory(player);
+                        ItemStack remainingBottleStack = new ItemStack(net.minecraft.item.Items.GLASS_BOTTLE, remainingBottles);
+                        storage.insertItemStack(remainingBottleStack, System.currentTimeMillis());
+                        player.currentScreenHandler.setCursorStack(experienceBottles);
+                        player.sendMessage(Text.translatable("portable_storage.exp_bottle.conversion.partial", maxConvertible, remainingBottles), true);
+                    } else {
+                        player.currentScreenHandler.setCursorStack(experienceBottles);
+                        player.sendMessage(Text.translatable("portable_storage.exp_bottle.conversion.complete", maxConvertible), true);
+                    }
+                    sendUpgradeSync(player);
+                    sendSync(player);
+                    return;
+                } else {
+                    player.sendMessage(Text.translatable("portable_storage.exp_bottle.conversion.insufficient_xp"), true);
+                    return;
+                }
+            }
+        }
+        int idx = xpStepIndexByPlayer.getOrDefault(player.getUuid(), 0);
+        int levels = XP_STEPS[idx];
+        if (button == 0) {
+            int xpNeeded = xpForLevels(player.experienceLevel, levels);
+            long availableXp = upgrades.getXpPool();
+            if (availableXp >= xpNeeded) {
+                long taken = upgrades.removeFromXpPool(xpNeeded);
+                if (taken > 0) {
+                    int actualWithdrawn = withdrawPlayerXpByLevels(player, levels);
+                    player.sendMessage(Text.translatable("portable_storage.exp_bottle.delta", "+" + actualWithdrawn), true);
+                }
+            } else if (availableXp > 0) {
+                long taken = upgrades.removeFromXpPool(availableXp);
+                if (taken > 0) {
+                    player.addExperience((int)Math.min(Integer.MAX_VALUE, taken));
+                    player.sendMessage(Text.translatable("portable_storage.exp_bottle.delta", "+" + taken), true);
+                }
+            }
+            sendUpgradeSync(player);
+        } else {
+            int deposited = depositPlayerXpByLevels(player, levels);
+            if (deposited > 0) {
+                upgrades.addToXpPool(deposited);
+                player.sendMessage(Text.translatable("portable_storage.exp_bottle.delta", "-" + deposited), true);
+            }
+            sendUpgradeSync(player);
+        }
+    }
+
+    private static void handleSlotDepositAction(ServerPlayerEntity player, StorageActionC2SPayload p) {
+        int handlerSlotId = p.handlerSlotId();
+        ScreenHandler sh = player.currentScreenHandler;
+        if (handlerSlotId < 0 || handlerSlotId >= sh.slots.size()) return;
+        Slot slot = sh.getSlot(handlerSlotId);
+        ItemStack from = slot.getStack();
+        if (from.isEmpty()) return;
+        StorageInventory inv = PlayerStorageService.getInventory(player);
+        UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
+        if (com.portable.storage.storage.UpgradeInventory.isValidFluidItem(from) && !from.isOf(net.minecraft.item.Items.BUCKET)) {
+            String fluidType = com.portable.storage.storage.UpgradeInventory.getFluidType(from);
+            if (fluidType != null) {
+                int count = from.getCount();
+                upgrades.addFluidUnits(fluidType, count);
+                ItemStack emptyBuckets = new ItemStack(net.minecraft.item.Items.BUCKET, count);
+                ItemStack r = insertIntoStorage(inv, emptyBuckets);
+                slot.setStack(r);
+                slot.markDirty();
+                sh.sendContentUpdates();
+                sendIncrementalSync(player);
+                return;
+            }
+        }
+        ItemStack remainder = insertIntoStorage(inv, from);
+        slot.setStack(remainder);
+        slot.markDirty();
+        sh.sendContentUpdates();
+        sendIncrementalSync(player);
+    }
+
+    private static void handleStorageClick(ServerPlayerEntity player, int slotIndex, int button) {
+        StorageInventory merged = buildMergedSnapshot(player);
+        if (slotIndex < 0 || slotIndex >= merged.getCapacity()) return;
+        ItemStack slotStack = merged.getDisplayStack(slotIndex);
+        ItemStack cursor = player.currentScreenHandler.getCursorStack();
+        if (cursor.isEmpty()) {
+            if (slotStack.isEmpty()) return;
+            if (button == 0) {
+                long want = slotStack.getMaxCount();
+                long got = takeFromMerged(player, slotStack, (int) want);
+                ItemStack taken = slotStack.copy();
+                taken.setCount((int)Math.min(slotStack.getMaxCount(), got));
+                player.currentScreenHandler.setCursorStack(taken);
+            } else {
+                int half = Math.max(1, Math.min(32, (int)Math.ceil(slotStack.getMaxCount() / 2.0)));
+                long got = takeFromMerged(player, slotStack, half);
+                ItemStack taken = slotStack.copy();
+                taken.setCount((int)Math.min(slotStack.getMaxCount(), got));
+                player.currentScreenHandler.setCursorStack(taken);
+            }
+        } else {
+            if (button == 0) {
+                StorageInventory self = PlayerStorageService.getInventory(player);
+                ItemStack remainder = insertIntoStorage(self, cursor);
+                player.currentScreenHandler.setCursorStack(remainder);
+            } else {
+                if (cursor.getCount() > 0) {
+                    StorageInventory self = PlayerStorageService.getInventory(player);
+                    ItemStack singleStack = cursor.copy();
+                    singleStack.setCount(1);
+                    ItemStack remainder = insertIntoStorage(self, singleStack);
+                    if (remainder.isEmpty()) {
+                        cursor.decrement(1);
+                        player.currentScreenHandler.setCursorStack(cursor);
+                    }
+                }
+            }
+        }
+        player.currentScreenHandler.sendContentUpdates();
+        sendIncrementalSync(player);
+    }
+
+    private static void handleStorageShiftTake(ServerPlayerEntity player, int slotIndex, int button) {
+        StorageInventory merged = buildMergedSnapshot(player);
+        if (slotIndex < 0 || slotIndex >= merged.getCapacity()) return;
+        ItemStack disp = merged.getDisplayStack(slotIndex);
+        if (disp.isEmpty()) return;
+        int want = (button == 1) ? 1 : disp.getMaxCount();
+        long got = takeFromMerged(player, disp, want);
+        if (got <= 0) return;
+        ItemStack moved = disp.copy();
+        moved.setCount((int)Math.min(disp.getMaxCount(), got));
+        insertIntoPlayerInventory(player, moved);
+        sendIncrementalSync(player);
+    }
+
+    private static void handleDepositCursor(ServerPlayerEntity serverPlayer, int button) {
+        var cursor = serverPlayer.currentScreenHandler.getCursorStack();
+        if (cursor.isEmpty()) return;
+        StorageInventory inv = PlayerStorageService.getInventory(serverPlayer);
+        if (button == 0) {
+            ItemStack remainder = insertIntoStorage(inv, cursor);
+            serverPlayer.currentScreenHandler.setCursorStack(remainder);
+        } else if (button == 1) {
+            if (cursor.getCount() > 0) {
+                ItemStack singleStack = cursor.copy();
+                singleStack.setCount(1);
+                ItemStack remainder = insertIntoStorage(inv, singleStack);
+                if (remainder.isEmpty()) {
+                    cursor.decrement(1);
+                    serverPlayer.currentScreenHandler.setCursorStack(cursor);
+                }
+            }
+        }
+        serverPlayer.currentScreenHandler.sendContentUpdates();
+        sendIncrementalSync(serverPlayer);
+    }
+
+    private static void handleStorageDrop(ServerPlayerEntity player, int slotIndex, int amountType) {
+        StorageInventory merged = buildMergedSnapshot(player);
+        if (slotIndex < 0 || slotIndex >= merged.getCapacity()) return;
+        ItemStack disp = merged.getDisplayStack(slotIndex);
+        if (disp.isEmpty()) return;
+        int want = amountType == 1 ? disp.getMaxCount() : 1;
+        long got = takeFromMerged(player, disp, want);
+        if (got <= 0) return;
+        ItemStack drop = disp.copy();
+        drop.setCount((int)Math.min(disp.getMaxCount(), got));
+        dropItemTowardsLook(player, drop);
+        sendIncrementalSync(player);
+    }
     public static StorageInventory buildMergedSnapshot(ServerPlayerEntity viewer) {
         StorageInventory agg = new StorageInventory(0);
         for (StorageInventory s : getViewStorages(viewer)) {
@@ -1402,8 +1446,8 @@ public final class ServerNetworkingHandlers {
     /**
      * 处理 EMI 配方填充
      */
-    private static void handleEmiRecipeFill(ServerPlayerEntity player, EmiRecipeFillC2SPayload payload) {
-        org.slf4j.LoggerFactory.getLogger("portable-storage/emi").debug("Server handle EmiRecipeFill: player={}, recipeId={}, slots={}, counts={}", player.getName().getString(), payload.recipeId(), java.util.Arrays.toString(payload.slotIndices()), java.util.Arrays.toString(payload.itemCounts()));
+    private static void handleEmiRecipeFill(ServerPlayerEntity player, String recipeIdStr, int[] slotIndices, int[] itemCounts) {
+        org.slf4j.LoggerFactory.getLogger("portable-storage/emi").debug("Server handle EmiRecipeFill: player={}, recipeId={}, slots={}, counts={}", player.getName().getString(), recipeIdStr, java.util.Arrays.toString(slotIndices), java.util.Arrays.toString(itemCounts));
         ScreenHandler handler = player.currentScreenHandler;
         if (!(handler instanceof net.minecraft.screen.CraftingScreenHandler) 
             && !(handler instanceof com.portable.storage.screen.PortableCraftingScreenHandler)) {
@@ -1411,7 +1455,7 @@ public final class ServerNetworkingHandlers {
             return;
         }
 
-        var id = net.minecraft.util.Identifier.tryParse(payload.recipeId());
+        var id = net.minecraft.util.Identifier.tryParse(recipeIdStr);
         if (id == null) return;
         var entry = player.getServerWorld().getRecipeManager().get(id).orElse(null);
         if (entry == null || !(entry.value() instanceof net.minecraft.recipe.CraftingRecipe crafting)) return;
@@ -1701,6 +1745,89 @@ public final class ServerNetworkingHandlers {
 	 */
 	public static java.util.Set<net.minecraft.util.math.BlockPos> getTempBedPositions() {
 		return tempBeds.keySet();
+	}
+
+	// ===== 覆盖式合成：从仓库补满指定输入槽 =====
+	private static void refillCraftingFromStorage(ServerPlayerEntity player, int slotIndex, ItemStack targetStack) {
+		if (targetStack == null || targetStack.isEmpty()) return;
+		ScreenHandler handler = player.currentScreenHandler;
+		boolean allowed;
+		if (handler instanceof com.portable.storage.screen.PortableCraftingScreenHandler) {
+			allowed = true;
+		} else if (handler instanceof net.minecraft.screen.CraftingScreenHandler) {
+			allowed = portableStorage$hasCraftingTableUpgrade(player);
+		} else if (handler instanceof net.minecraft.screen.PlayerScreenHandler) {
+			allowed = true;
+		} else {
+			allowed = false;
+		}
+		if (!allowed) return;
+		if (slotIndex < 0 || slotIndex >= handler.slots.size()) return;
+		Slot slot = handler.getSlot(slotIndex);
+		ItemStack current = slot.getStack();
+		if (!current.isEmpty() && !ItemStack.areItemsAndComponentsEqual(current, targetStack)) {
+			return;
+		}
+		int maxPerSlot = Math.min(targetStack.getMaxCount(), player.getInventory().getMaxCountPerStack());
+		java.util.ArrayList<Integer> group = new java.util.ArrayList<>();
+		group.add(slotIndex);
+		for (int i = 1; i < Math.min(10, handler.slots.size()); i++) {
+			if (i == slotIndex) continue;
+			Slot s = handler.getSlot(i);
+			ItemStack st = s.getStack();
+			if (!st.isEmpty() && ItemStack.areItemsAndComponentsEqual(st, targetStack)) {
+				group.add(i);
+			}
+		}
+		int[] needBySlot = new int[group.size()];
+		int totalNeed = 0;
+		for (int gi = 0; gi < group.size(); gi++) {
+			Slot gs = handler.getSlot(group.get(gi));
+			ItemStack cs = gs.getStack();
+			int curCnt = cs.isEmpty() ? 0 : cs.getCount();
+			int need = Math.max(0, maxPerSlot - curCnt);
+			needBySlot[gi] = need;
+			totalNeed += need;
+		}
+		if (totalNeed == 0 && current.isEmpty()) {
+			int need = Math.max(0, Math.min(maxPerSlot, targetStack.getMaxCount()));
+			needBySlot[0] = need;
+			totalNeed = need;
+		}
+		if (totalNeed <= 0) return;
+		long got = takeFromMerged(player, targetStack, totalNeed);
+		if (got <= 0) return;
+		int[] alloc = new int[group.size()];
+		int remain = (int) got;
+		while (remain > 0) {
+			boolean progressed = false;
+			for (int gi = 0; gi < group.size() && remain > 0; gi++) {
+				int room = needBySlot[gi] - alloc[gi];
+				if (room > 0) {
+					alloc[gi] += 1;
+					remain -= 1;
+					progressed = true;
+				}
+			}
+			if (!progressed) break;
+		}
+		for (int gi = 0; gi < group.size(); gi++) {
+			int idx = group.get(gi);
+			int add = alloc[gi];
+			if (add <= 0) continue;
+			Slot gs = handler.getSlot(idx);
+			ItemStack cs = gs.getStack();
+			if (cs.isEmpty()) {
+				ItemStack put = targetStack.copy();
+				put.setCount(add);
+				gs.setStack(put);
+			} else {
+				cs.increment(add);
+			}
+			gs.markDirty();
+		}
+		handler.sendContentUpdates();
+		sendIncrementalSync(player);
 	}
 	
 	/**

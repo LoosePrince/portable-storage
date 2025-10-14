@@ -4,7 +4,7 @@ import com.portable.storage.client.ClientConfig;
 import com.portable.storage.client.ClientUpgradeState;
 import com.portable.storage.client.ClientContainerDisplayConfig;
 import com.portable.storage.util.ContainerTypeDetector;
-import com.portable.storage.net.payload.DepositSlotC2SPayload;
+// 移除旧 DepositSlotC2SPayload 引用
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
@@ -59,8 +59,16 @@ public abstract class HandledScreenMixin {
 			}
 		}
 		
-		// 发送传入仓库请求
-		ClientPlayNetworking.send(new DepositSlotC2SPayload(slotId));
+		// 发送传入仓库请求（统一动作包）
+		ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
+			com.portable.storage.net.payload.StorageActionC2SPayload.Action.DEPOSIT_SLOT,
+			com.portable.storage.net.payload.StorageActionC2SPayload.Target.SLOT,
+			0,
+			0,
+			slotId,
+			"",
+			0
+		));
 		ci.cancel();
 	}
 

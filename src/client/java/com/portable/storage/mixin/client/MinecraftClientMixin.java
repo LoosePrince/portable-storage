@@ -18,7 +18,14 @@ public abstract class MinecraftClientMixin {
         if (old instanceof InventoryScreen && !(newScreen instanceof InventoryScreen)) {
             if (com.portable.storage.client.ClientStorageState.isStorageEnabled()) {
                 net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
-                    new com.portable.storage.net.payload.OverlayCraftingClickC2SPayload(-1, 0, false)
+                    new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
+                        com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.CLICK,
+                        -1, 0, false,
+                        net.minecraft.item.ItemStack.EMPTY,
+                        "",
+                        null,
+                        null
+                    )
                 );
             }
         }

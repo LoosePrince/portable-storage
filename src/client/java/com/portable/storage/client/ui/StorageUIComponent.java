@@ -1646,7 +1646,15 @@ public class StorageUIComponent {
         // 流体槽位点击
         if (isIn(mouseX, mouseY, fluidSlotLeft, fluidSlotTop, fluidSlotRight, fluidSlotBottom)) {
             // 发送流体槽位点击到服务器
-            ClientPlayNetworking.send(new FluidSlotClickC2SPayload(button));
+            ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
+                com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
+                com.portable.storage.net.payload.StorageActionC2SPayload.Target.FLUID,
+                0,
+                button,
+                0,
+                "",
+                0
+            ));
             return true;
         }
         
@@ -1670,12 +1678,28 @@ public class StorageUIComponent {
                     // 床升级槽位右键睡觉
                     if (i == 6 && ClientUpgradeState.isBedUpgradeActive()) {
                         // 发送睡觉请求到服务器
-                        ClientPlayNetworking.send(new UpgradeSlotClickC2SPayload(i, button));
+                        ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
+                            com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
+                            com.portable.storage.net.payload.StorageActionC2SPayload.Target.UPGRADE,
+                            i,
+                            button,
+                            0,
+                            "",
+                            0
+                        ));
                         return true;
                     }
                     // 附魔之瓶槽位右键：切换存取等级
                     if (i == 7 && ClientUpgradeState.isXpBottleUpgradeActive()) {
-                        ClientPlayNetworking.send(new UpgradeSlotClickC2SPayload(i, button));
+                        ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
+                            com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
+                            com.portable.storage.net.payload.StorageActionC2SPayload.Target.UPGRADE,
+                            i,
+                            button,
+                            0,
+                            "",
+                            0
+                        ));
                         return true;
                     }
                     // 垃圾桶槽位右键：清空槽位
@@ -1684,7 +1708,15 @@ public class StorageUIComponent {
                         return true;
                     }
                     // 其他槽位右键：发送到服务器（用于切换禁用等）
-                    ClientPlayNetworking.send(new UpgradeSlotClickC2SPayload(i, button));
+                    ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
+                        com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
+                        com.portable.storage.net.payload.StorageActionC2SPayload.Target.UPGRADE,
+                        i,
+                        button,
+                        0,
+                        "",
+                        0
+                    ));
                     return true;
                 } else if (button == 2) { // 中键点击
                     // 工作台升级槽位中键：切换虚拟合成显示状态
@@ -1704,7 +1736,15 @@ public class StorageUIComponent {
                     // 其他槽位切换禁用状态
                     ClientUpgradeState.toggleSlotDisabled(i);
                     // 发送禁用状态变更到服务器
-                    ClientPlayNetworking.send(new UpgradeSlotClickC2SPayload(i, button));
+                    ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
+                        com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
+                        com.portable.storage.net.payload.StorageActionC2SPayload.Target.UPGRADE,
+                        i,
+                        button,
+                        0,
+                        "",
+                        0
+                    ));
                     return true;
                 } else if (button == 0) { // 左键点击 - 发送到服务器
                     ClientPlayNetworking.send(new UpgradeSlotClickC2SPayload(i, button));
@@ -1805,18 +1845,34 @@ public class StorageUIComponent {
                                          ItemStack cursorStack = client.player.currentScreenHandler.getCursorStack();
                                          if (!cursorStack.isEmpty() && cursorStack.isOf(net.minecraft.item.Items.GLASS_BOTTLE)) {
                                              // 发送转换请求
-                                             net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.XpBottleConversionC2SPayload(button));
+                                    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
+                                        com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
+                                        com.portable.storage.net.payload.StorageActionC2SPayload.Target.XP_BOTTLE,
+                                        0,
+                                        button,
+                                        0,
+                                        "",
+                                        0
+                                    ));
                                              return true;
                                          }
                                      }
                                  }
                                  // 左键或其他情况：正常的经验存取
-                                 net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.XpBottleClickC2SPayload(button));
+                                net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
+                                    com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
+                                    com.portable.storage.net.payload.StorageActionC2SPayload.Target.XP_BOTTLE,
+                                    0,
+                                    button,
+                                    0,
+                                    "",
+                                    0
+                                ));
                                  return true;
                              }
                              // 虚拟流体条目点击：发送独立消息给服务端
                              else if (storageIndex < Integer.MIN_VALUE + 1000) {
-                                 String fluidType = getFluidTypeFromVirtualIndex(storageIndex);
+                                String fluidType = getFluidTypeFromVirtualIndex(storageIndex);
                                  if (fluidType != null) {
                                      if (button == 1) {
                                          // 右键：检查是否拿着空桶进行转换
@@ -1850,7 +1906,15 @@ public class StorageUIComponent {
                                                 
                                                 if (hasBucket) {
                                                     // 发送流体转换请求（左键）
-                                                    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.FluidConversionC2SPayload(fluidType, button));
+                                                    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
+                                                        com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
+                                                        com.portable.storage.net.payload.StorageActionC2SPayload.Target.FLUID,
+                                                        0,
+                                                        button,
+                                                        0,
+                                                        fluidType,
+                                                        0
+                                                    ));
                                                     return true;
                                                 }
                                             }
@@ -1872,9 +1936,25 @@ public class StorageUIComponent {
                                 // 常规取物：Shift+左键=一组，Shift+右键=一个；否则遵循统一槽位点击语义
                                 boolean shift = isShiftDown();
                                 if (shift) {
-                                    ClientPlayNetworking.send(new StorageShiftTakeC2SPayload(storageIndex, button));
+                                    ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
+                                        com.portable.storage.net.payload.StorageActionC2SPayload.Action.SHIFT_TAKE,
+                                        com.portable.storage.net.payload.StorageActionC2SPayload.Target.STORAGE,
+                                        storageIndex,
+                                        button,
+                                        0,
+                                        "",
+                                        0
+                                    ));
                                 } else {
-                                    ClientPlayNetworking.send(new StorageSlotClickC2SPayload(storageIndex, button));
+                                    ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
+                                        com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
+                                        com.portable.storage.net.payload.StorageActionC2SPayload.Target.STORAGE,
+                                        storageIndex,
+                                        button,
+                                        0,
+                                        "",
+                                        0
+                                    ));
                                 }
                                 return true;
                             } else {
@@ -1883,7 +1963,15 @@ public class StorageUIComponent {
                                 if (mc != null && mc.player != null) {
                                     ItemStack cursor = mc.player.currentScreenHandler.getCursorStack();
                                     if (!cursor.isEmpty()) {
-                                        ClientPlayNetworking.send(new DepositCursorC2SPayload(button));
+                                ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
+                                    com.portable.storage.net.payload.StorageActionC2SPayload.Action.DEPOSIT_CURSOR,
+                                    com.portable.storage.net.payload.StorageActionC2SPayload.Target.STORAGE,
+                                    0,
+                                    button,
+                                    0,
+                                    "",
+                                    0
+                                ));
                                         return true;
                                     }
                                 }
@@ -2056,7 +2144,15 @@ public class StorageUIComponent {
                         if (hovered >= 0) {
                             boolean ctrl = isCtrlDown();
                             int amountType = ctrl ? 1 : 0; // 1 组 或 1 个
-                            ClientPlayNetworking.send(new StorageDropC2SPayload(hovered, amountType));
+                            ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
+                                com.portable.storage.net.payload.StorageActionC2SPayload.Action.DROP,
+                                com.portable.storage.net.payload.StorageActionC2SPayload.Target.STORAGE,
+                                hovered,
+                                0,
+                                0,
+                                "",
+                                amountType
+                            ));
                             return true;
                         }
                     }

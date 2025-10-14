@@ -99,7 +99,14 @@ public final class ClientNetworkingHandlers {
 	}
 	
 	public static void sendRefundCraftingSlots() {
-		ClientPlayNetworking.send(new com.portable.storage.net.payload.RefundCraftingSlotsC2SPayload());
+		ClientPlayNetworking.send(new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
+			com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.REFUND,
+			0, 0, false,
+			net.minecraft.item.ItemStack.EMPTY,
+			"",
+			null,
+			null
+		));
 	}
 }
 

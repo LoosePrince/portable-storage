@@ -3,7 +3,7 @@ package com.portable.storage.mixin.client;
 import com.portable.storage.PortableStorage;
 import com.portable.storage.client.ClientConfig;
 import com.portable.storage.client.ui.StorageUIComponent;
-import com.portable.storage.net.payload.RefillCraftingC2SPayload;
+// 统一后不再使用 RefillCraftingC2SPayload
 import com.portable.storage.net.payload.RequestSyncC2SPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
@@ -220,7 +220,14 @@ public abstract class InventoryScreenMixin {
                     if (mouseX >= overlayLeft && mouseX < overlayRight && mouseY >= overlayTop && mouseY < overlayBottom) {
                         // 双击合并到光标
                         if (isDoubleClick) {
-                            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.OverlayCraftingDoubleClickC2SPayload());
+                            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
+                                com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.DOUBLE_CLICK,
+                                0, 0, false,
+                                net.minecraft.item.ItemStack.EMPTY,
+                                "",
+                                null,
+                                null
+                            ));
                             cir.setReturnValue(true);
                             return;
                         }
@@ -229,7 +236,14 @@ public abstract class InventoryScreenMixin {
                         int col = Math.min(2, Math.max(0, relX / slotSize));
                         int row = Math.min(2, Math.max(0, relY / slotSize));
                         int slotIndex = 1 + row * 3 + col; // 1..9
-                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.OverlayCraftingClickC2SPayload(slotIndex, button, shift));
+                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
+                            com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.CLICK,
+                            slotIndex, button, shift,
+                            net.minecraft.item.ItemStack.EMPTY,
+                            "",
+                            null,
+                            null
+                        ));
                         cir.setReturnValue(true);
                         return;
                     }
@@ -240,7 +254,14 @@ public abstract class InventoryScreenMixin {
                     if (mouseX >= outX && mouseX < outX + 18 && mouseY >= outY && mouseY < outY + 18) {
                         // 双击合并到光标
                         if (isDoubleClick) {
-                            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.OverlayCraftingDoubleClickC2SPayload());
+                            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
+                                com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.DOUBLE_CLICK,
+                                0, 0, false,
+                                net.minecraft.item.ItemStack.EMPTY,
+                                "",
+                                null,
+                                null
+                            ));
                             cir.setReturnValue(true);
                             return;
                         }
@@ -263,7 +284,14 @@ public abstract class InventoryScreenMixin {
                                 }
                             }
                         }
-                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.OverlayCraftingClickC2SPayload(0, button, shift));
+                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
+                            com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.CLICK,
+                            0, button, shift,
+                            net.minecraft.item.ItemStack.EMPTY,
+                            "",
+                            null,
+                            null
+                        ));
                         cir.setReturnValue(true);
                         return;
                     }
@@ -476,7 +504,14 @@ public abstract class InventoryScreenMixin {
         }
         
         // 发送补充请求到服务器
-        ClientPlayNetworking.send(new RefillCraftingC2SPayload(slotIndex, targetStack));
+        ClientPlayNetworking.send(new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
+            com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.REFILL,
+            slotIndex, 0, false,
+            targetStack,
+            "",
+            null,
+            null
+        ));
     }
 
     @Unique
