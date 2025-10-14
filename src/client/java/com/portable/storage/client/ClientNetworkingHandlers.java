@@ -1,7 +1,6 @@
 package com.portable.storage.client;
 
 import com.portable.storage.net.payload.StorageSyncS2CPayload;
-import com.portable.storage.net.payload.IncrementalStorageSyncS2CPayload;
 import com.portable.storage.net.payload.XpBottleMaintenanceToggleC2SPayload;
 import com.portable.storage.net.payload.ConfigSyncS2CPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -10,14 +9,26 @@ public final class ClientNetworkingHandlers {
 	private ClientNetworkingHandlers() {}
 
 	public static void register() {
-		// 注册增量同步处理器（优先）
-		ClientPlayNetworking.registerGlobalReceiver(IncrementalStorageSyncS2CPayload.ID, (payload, context) -> {
-			context.client().execute(() -> {
+		// 增量同步通道已移除
+		// 注册新的增量同步接收器
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+			com.portable.storage.net.payload.IncrementalStorageSyncS2CPayload.ID,
+			(payload, context) -> context.client().execute(() -> {
 				if (context.client().player == null) return;
-				IncrementalStorageState.handleIncrementalSync(payload, context.client().player.getRegistryManager());
-			});
-		});
-		
+				com.portable.storage.client.ClientStorageState.applyDiff(payload.sessionId(), payload.seq(), payload.diff());
+				// 增量应用后立即ACK当前序号（无需阻塞UI）
+				try {
+					net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
+						new com.portable.storage.net.payload.SyncControlC2SPayload(
+							com.portable.storage.net.payload.SyncControlC2SPayload.Op.ACK,
+							payload.seq(),
+							true
+						)
+					);
+				} catch (Throwable ignored) {}
+			})
+		);
+
 		// 保留原有的全量同步处理器作为后备
 		ClientPlayNetworking.registerGlobalReceiver(StorageSyncS2CPayload.ID, (payload, context) -> {
 			context.client().execute(() -> {

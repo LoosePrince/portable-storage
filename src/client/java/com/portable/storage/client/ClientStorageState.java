@@ -15,32 +15,22 @@ public final class ClientStorageState {
     private static long[] timestamps = new long[54];
     private static int capacity = 54;
     private static boolean storageEnabled = false; // 默认未启用，等待服务端同步
+    // 增量会话与序列
+    private static long clientSessionId = 0L;
+    private static int expectedSeq = 1;
 
     private ClientStorageState() {}
 
     public static DefaultedList<ItemStack> getStacks() { 
-        // 优先使用增量同步状态，如果没有数据则使用传统状态
-        if (IncrementalStorageState.hasData()) {
-            return IncrementalStorageState.getDisplayList();
-        }
         return display; 
     }
     public static int getCapacity() { 
-        if (IncrementalStorageState.hasData()) {
-            return IncrementalStorageState.getCapacity();
-        }
         return capacity; 
     }
     public static long getCount(int index) { 
-        if (IncrementalStorageState.hasData()) {
-            return IncrementalStorageState.getCount(index);
-        }
         return (index>=0 && index<counts.length) ? counts[index] : 0L; 
     }
     public static long getTimestamp(int index) { 
-        if (IncrementalStorageState.hasData()) {
-            return IncrementalStorageState.getTimestamp(index);
-        }
         return (index>=0 && index<timestamps.length) ? timestamps[index] : 0L; 
     }
     public static boolean isStorageEnabled() { return storageEnabled; }
@@ -50,6 +40,11 @@ public final class ClientStorageState {
     }
 
     public static void updateFromNbt(NbtCompound nbt, net.minecraft.registry.RegistryWrapper.WrapperLookup lookup) {
+        // 可兼容读取 sessionId 以重置序列
+        if (nbt.contains("sessionId")) {
+            clientSessionId = nbt.getLong("sessionId");
+            expectedSeq = 1;
+        }
         int cap = nbt.getInt("capacity");
         if (cap <= 0) cap = 54;
         capacity = cap;
@@ -100,6 +95,113 @@ public final class ClientStorageState {
             display.set(idx, stack);
             idx++;
         }
+    }
+
+    public static void applyDiff(long sessionId, int seq, NbtCompound diff) {
+        if (sessionId != clientSessionId || seq != expectedSeq) {
+            // 会话或序号不匹配：请求全量回退
+            try {
+                net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
+                    new com.portable.storage.net.payload.SyncControlC2SPayload(
+                        com.portable.storage.net.payload.SyncControlC2SPayload.Op.REQUEST,
+                        0L,
+                        false
+                    )
+                );
+            } catch (Throwable ignored) {}
+            return;
+        }
+        if (diff == null) {
+            expectedSeq++;
+            return;
+        }
+        // removes
+        if (diff.contains("removes", NbtElement.LIST_TYPE)) {
+            NbtList rm = diff.getList("removes", NbtElement.STRING_TYPE);
+            for (int i = 0; i < rm.size(); i++) {
+                String key = rm.getString(i);
+                removeByKey(key);
+            }
+        }
+        // upserts
+        if (diff.contains("upserts", NbtElement.LIST_TYPE)) {
+            NbtList up = diff.getList("upserts", NbtElement.COMPOUND_TYPE);
+            for (int i = 0; i < up.size(); i++) {
+                NbtCompound e = up.getCompound(i);
+                upsertEntry(e, lookupForClient());
+            }
+        }
+        expectedSeq++;
+    }
+
+    private static void removeByKey(String key) {
+        // 简化实现：线性扫描并清理匹配项；后续可改为 Map
+        for (int i = 0; i < capacity; i++) {
+            ItemStack s = display.get(i);
+            if (s.isEmpty()) continue;
+            if (key.equals(makeKeyForStack(s))) {
+                display.set(i, ItemStack.EMPTY);
+                counts[i] = 0L;
+                timestamps[i] = 0L;
+            }
+        }
+    }
+
+    private static void upsertEntry(NbtCompound e, net.minecraft.registry.RegistryWrapper.WrapperLookup lookup) {
+        if (e == null) return;
+        String key = e.getString("key");
+        long count = Math.max(0, e.getLong("count"));
+        long ts = e.contains("ts") ? e.getLong("ts") : 0L;
+        ItemStack stack = ItemStack.EMPTY;
+        if (e.contains("display")) {
+            final DynamicOps<net.minecraft.nbt.NbtElement> ops = (lookup != null)
+                ? net.minecraft.registry.RegistryOps.of(NbtOps.INSTANCE, lookup)
+                : NbtOps.INSTANCE;
+            var parse = ItemStack.CODEC.parse(ops, e.get("display"));
+            stack = parse.result().orElse(ItemStack.EMPTY);
+        }
+        if (stack.isEmpty() || count <= 0) {
+            removeByKey(key);
+            return;
+        }
+        // 查找已有槽位就地更新，否则放入首个空位（简化版）
+        int idx = findIndexByKey(key);
+        if (idx < 0) idx = findFirstEmpty();
+        if (idx < 0) return; // 已满，后续可扩容或触发全量
+        counts[idx] = count;
+        timestamps[idx] = ts;
+        stack.setCount((int)Math.min(stack.getMaxCount(), count));
+        display.set(idx, stack);
+    }
+
+    private static int findIndexByKey(String key) {
+        for (int i = 0; i < capacity; i++) {
+            ItemStack s = display.get(i);
+            if (s.isEmpty()) continue;
+            if (key.equals(makeKeyForStack(s))) return i;
+        }
+        return -1;
+    }
+
+    private static int findFirstEmpty() {
+        for (int i = 0; i < capacity; i++) if (display.get(i).isEmpty()) return i;
+        return -1;
+    }
+
+    private static String makeKeyForStack(ItemStack s) {
+        // 简化 key：id + 自定义数据哈希；后续可与服务端严格对齐
+        var id = net.minecraft.registry.Registries.ITEM.getId(s.getItem());
+        int h = 1;
+        var custom = s.get(net.minecraft.component.DataComponentTypes.CUSTOM_DATA);
+        if (custom != null) h = 31 * h + custom.copyNbt().hashCode();
+        var be = s.get(net.minecraft.component.DataComponentTypes.BLOCK_ENTITY_DATA);
+        if (be != null) h = 31 * h + be.copyNbt().hashCode();
+        return id + "#" + Integer.toHexString(h);
+    }
+
+    private static net.minecraft.registry.RegistryWrapper.WrapperLookup lookupForClient() {
+        var mc = net.minecraft.client.MinecraftClient.getInstance();
+        return (mc != null && mc.player != null) ? mc.player.getRegistryManager() : null;
     }
 }
 

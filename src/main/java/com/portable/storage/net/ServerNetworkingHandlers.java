@@ -49,13 +49,10 @@ public final class ServerNetworkingHandlers {
                 if (payload.op() == com.portable.storage.net.payload.SyncControlC2SPayload.Op.REQUEST) {
                     // 标记玩家开始查看仓库界面
                     com.portable.storage.sync.PlayerViewState.startViewing(player.getUuid());
-                    // 处理积攒的变化
-                    com.portable.storage.sync.ChangeAccumulator.processPlayerChanges(player);
-                    // 总是发送启用状态同步，让客户端知道当前状态
+                    // 直接发送启用状态与全量同步
                     sendEnablementSync(player);
-                    // 只有启用时才发送其他同步
                     if (!checkAndRejectIfNotEnabled(player)) {
-                        sendIncrementalSync(player);
+                        sendSync(player);
                     }
                 } else if (payload.op() == com.portable.storage.net.payload.SyncControlC2SPayload.Op.ACK) {
                     com.portable.storage.sync.StorageSyncManager.handleSyncAck(player.getUuid(), payload.syncId(), payload.success());
@@ -149,7 +146,7 @@ public final class ServerNetworkingHandlers {
                             }
                         }
                         handler.sendContentUpdates();
-                        sendIncrementalSync(player);
+                        sendSync(player);
                     }
                 }
             });
@@ -370,7 +367,7 @@ public final class ServerNetworkingHandlers {
                     // 垃圾桶槽位：右键清空槽位
                     if (slot == 10 && upgrades.isTrashSlotActive()) {
                         upgrades.setStack(10, net.minecraft.item.ItemStack.EMPTY);
-                        sendIncrementalSync(player);
+                        sendSync(player);
                         return;
                     }
 					// 其他槽位切换禁用状态
@@ -872,51 +869,138 @@ public final class ServerNetworkingHandlers {
     public static void sendSync(ServerPlayerEntity player) {
         StorageInventory merged = buildMergedSnapshot(player);
         NbtCompound nbt = new NbtCompound();
+        // 重置玩家会话并写入新的 sessionId，客户端据此重置 expectedSeq
+        com.portable.storage.sync.StorageSyncManager.startNewSession(player.getUuid());
+        long sid = com.portable.storage.sync.StorageSyncManager.getOrStartSession(player.getUuid());
+        nbt.putLong("sessionId", sid);
         // 使用玩家注册表上下文，确保附魔等基于注册表的数据正确序列化
         merged.writeNbt(nbt, player.getRegistryManager());
         ServerPlayNetworking.send(player, new StorageSyncS2CPayload(nbt));
-		sendUpgradeSync(player);
-		sendEnablementSync(player);
+        // 刷新服务器端“上次快照”，用于后续生成真实 diff
+        com.portable.storage.sync.StorageSyncManager.setLastSnapshot(player.getUuid(), toSnapshotMap(merged));
+        sendUpgradeSync(player);
+        sendEnablementSync(player);
+    }
+
+    private static void sendIncrementalAll(ServerPlayerEntity player) {
+        // 会话不重置，仅生成下一序号
+        long sid = com.portable.storage.sync.StorageSyncManager.getOrStartSession(player.getUuid());
+        int seq = com.portable.storage.sync.StorageSyncManager.nextSeq(player.getUuid());
+        StorageInventory cur = buildMergedSnapshot(player);
+        NbtCompound diff = buildRealDiffFromSnapshots(player, cur);
+        // 分包：按配置上限切分 upserts+removes
+        int maxEntries = 512;
+        try {
+            maxEntries = Math.max(1, com.portable.storage.config.ServerConfig.getInstance().getIncrementalSyncMaxEntries());
+        } catch (Throwable ignored) {}
+        java.util.List<NbtCompound> chunks = splitDiff(diff, maxEntries);
+        for (NbtCompound part : chunks) {
+            ServerPlayNetworking.send(player, new com.portable.storage.net.payload.IncrementalStorageSyncS2CPayload(sid, seq, part));
+            seq = com.portable.storage.sync.StorageSyncManager.nextSeq(player.getUuid());
+        }
+        // 更新快照
+        com.portable.storage.sync.StorageSyncManager.setLastSnapshot(player.getUuid(), toSnapshotMap(cur));
+    }
+
+    private static NbtCompound buildRealDiffFromSnapshots(ServerPlayerEntity player, StorageInventory current) {
+        NbtCompound diff = new NbtCompound();
+        net.minecraft.nbt.NbtList upserts = new net.minecraft.nbt.NbtList();
+        net.minecraft.nbt.NbtList removes = new net.minecraft.nbt.NbtList();
+        java.util.Map<String, com.portable.storage.sync.StorageSyncManager.SnapshotEntry> last = com.portable.storage.sync.StorageSyncManager.getLastSnapshot(player.getUuid());
+        java.util.Set<String> visited = new java.util.HashSet<>();
+        // upsert：当前存在且与上次不同
+        for (int i = 0; i < current.getCapacity(); i++) {
+            ItemStack disp = current.getDisplayStack(i);
+            long cnt = current.getCountByIndex(i);
+            if (disp.isEmpty() || cnt <= 0) continue;
+            String key = makeKeyForStack(disp);
+            long ts = current.getTimestampByIndex(i);
+            com.portable.storage.sync.StorageSyncManager.SnapshotEntry pre = (last != null) ? last.get(key) : null;
+            if (pre == null || pre.count != cnt || pre.timestamp != ts) {
+                NbtCompound e = new NbtCompound();
+                e.putString("key", key);
+                e.putLong("count", cnt);
+                e.putLong("ts", ts);
+                final var lookup = player.getRegistryManager();
+                final var ops = (lookup != null)
+                    ? net.minecraft.registry.RegistryOps.of(net.minecraft.nbt.NbtOps.INSTANCE, lookup)
+                    : net.minecraft.nbt.NbtOps.INSTANCE;
+                var encoded = ItemStack.CODEC.encodeStart(ops, disp.copy());
+                encoded.result().ifPresent(n -> e.put("display", n));
+                upserts.add(e);
+            }
+            visited.add(key);
+        }
+        // removes：上次有但这次没有
+        if (last != null) {
+            for (var entry : last.entrySet()) {
+                if (!visited.contains(entry.getKey())) {
+                    removes.add(net.minecraft.nbt.NbtString.of(entry.getKey()));
+                }
+            }
+        }
+        if (!upserts.isEmpty()) diff.put("upserts", upserts);
+        if (!removes.isEmpty()) diff.put("removes", removes);
+        return diff;
+    }
+
+    private static java.util.List<NbtCompound> splitDiff(NbtCompound diff, int maxEntries) {
+        java.util.ArrayList<NbtCompound> parts = new java.util.ArrayList<>();
+        net.minecraft.nbt.NbtList up = diff.contains("upserts", net.minecraft.nbt.NbtElement.LIST_TYPE) ? diff.getList("upserts", net.minecraft.nbt.NbtElement.COMPOUND_TYPE) : new net.minecraft.nbt.NbtList();
+        net.minecraft.nbt.NbtList rm = diff.contains("removes", net.minecraft.nbt.NbtElement.LIST_TYPE) ? diff.getList("removes", net.minecraft.nbt.NbtElement.STRING_TYPE) : new net.minecraft.nbt.NbtList();
+        int ui = 0, ri = 0;
+        while (ui < up.size() || ri < rm.size()) {
+            NbtCompound part = new NbtCompound();
+            net.minecraft.nbt.NbtList upPart = new net.minecraft.nbt.NbtList();
+            net.minecraft.nbt.NbtList rmPart = new net.minecraft.nbt.NbtList();
+            int count = 0;
+            while (ui < up.size() && count < maxEntries) { upPart.add(up.get(ui++)); count++; }
+            while (ri < rm.size() && count < maxEntries) { rmPart.add(rm.get(ri++)); count++; }
+            if (!upPart.isEmpty()) part.put("upserts", upPart);
+            if (!rmPart.isEmpty()) part.put("removes", rmPart);
+            parts.add(part);
+        }
+        if (parts.isEmpty()) {
+            parts.add(new NbtCompound());
+        }
+        return parts;
+    }
+
+    private static java.util.Map<String, com.portable.storage.sync.StorageSyncManager.SnapshotEntry> toSnapshotMap(StorageInventory inv) {
+        java.util.Map<String, com.portable.storage.sync.StorageSyncManager.SnapshotEntry> map = new java.util.HashMap<>();
+        for (int i = 0; i < inv.getCapacity(); i++) {
+            ItemStack disp = inv.getDisplayStack(i);
+            long cnt = inv.getCountByIndex(i);
+            if (disp.isEmpty() || cnt <= 0) continue;
+            String key = makeKeyForStack(disp);
+            long ts = inv.getTimestampByIndex(i);
+            map.put(key, new com.portable.storage.sync.StorageSyncManager.SnapshotEntry(cnt, ts));
+        }
+        return map;
+    }
+
+	private static String makeKeyForStack(ItemStack s) {
+		var id = net.minecraft.registry.Registries.ITEM.getId(s.getItem());
+		int h = 1;
+		var custom = s.get(net.minecraft.component.DataComponentTypes.CUSTOM_DATA);
+		if (custom != null) h = 31 * h + custom.copyNbt().hashCode();
+		var be = s.get(net.minecraft.component.DataComponentTypes.BLOCK_ENTITY_DATA);
+		if (be != null) h = 31 * h + be.copyNbt().hashCode();
+		return id + "#" + Integer.toHexString(h);
 	}
 	
 	/**
-	 * 发送增量同步（异步）
+	 * 发送增量同步（初版：全量式 upsert，以打通协议与会话/序号）
 	 */
 	public static void sendIncrementalSync(ServerPlayerEntity player) {
-		StorageInventory merged = buildMergedSnapshot(player);
-		
-		// 检查是否启用增量同步
-		if (ServerConfig.getInstance().isEnableIncrementalSync()) {
-			StorageSyncManager.sendIncrementalSync(player, merged);
-		} else {
-			// 回退到传统全量同步
-			sendSync(player);
-			return;
-		}
-		
-		sendUpgradeSync(player);
-		sendEnablementSync(player);
+		sendIncrementalAll(player);
 	}
 	
 	/**
-	 * 发送按需增量同步（只对正在查看的玩家发送）
+	 * 发送按需增量同步（初版：全量式 upsert）
 	 */
 	public static void sendIncrementalSyncOnDemand(ServerPlayerEntity player) {
-		StorageInventory merged = buildMergedSnapshot(player);
-		
-		// 根据配置选择按需或立即增量
-		if (com.portable.storage.config.ServerConfig.getInstance().isEnableOnDemandSync()) {
-			StorageSyncManager.sendIncrementalSyncOnDemand(player, merged);
-		} else {
-			if (com.portable.storage.config.ServerConfig.getInstance().isEnableIncrementalSync()) {
-				StorageSyncManager.sendIncrementalSync(player, merged);
-			} else {
-				sendSync(player);
-			}
-		}
-		
-		sendUpgradeSync(player);
-		sendEnablementSync(player);
+		sendIncrementalAll(player);
 	}
 
 	/**
@@ -1102,7 +1186,7 @@ public final class ServerNetworkingHandlers {
                     if (upgrades.tryInsert(slot, cursor)) {
                         player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
                         player.currentScreenHandler.sendContentUpdates();
-                        sendIncrementalSync(player);
+                        sendSync(player);
                     }
                 }
             } else {
@@ -1110,7 +1194,7 @@ public final class ServerNetworkingHandlers {
                     if (upgrades.tryInsert(slot, cursor)) {
                         player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
                         player.currentScreenHandler.sendContentUpdates();
-                        sendIncrementalSync(player);
+                        sendSync(player);
                     }
                 } else {
                     if (cursor.getCount() == 1) {
@@ -1118,7 +1202,7 @@ public final class ServerNetworkingHandlers {
                         if (upgrades.tryInsert(slot, cursor)) {
                             player.currentScreenHandler.setCursorStack(taken);
                             player.currentScreenHandler.sendContentUpdates();
-                            sendIncrementalSync(player);
+                                sendSync(player);
                         } else {
                             upgrades.setStack(slot, taken);
                         }
@@ -1161,7 +1245,7 @@ public final class ServerNetworkingHandlers {
                         ItemStack fluidBucket = com.portable.storage.storage.UpgradeInventory.createFluidBucket(fluidType);
                         insertIntoPlayerInventory(player, fluidBucket);
                         player.currentScreenHandler.sendContentUpdates();
-                        sendIncrementalSync(player);
+                                sendSync(player);
                     }
                 }
             } else if (button == 1) {
@@ -1170,7 +1254,7 @@ public final class ServerNetworkingHandlers {
                     upgrades.addFluidUnits(fluidType, 1);
                     player.currentScreenHandler.setCursorStack(new ItemStack(net.minecraft.item.Items.BUCKET));
                     player.currentScreenHandler.sendContentUpdates();
-                    sendIncrementalSync(player);
+                                sendSync(player);
                 }
             }
             return;
@@ -1184,7 +1268,7 @@ public final class ServerNetworkingHandlers {
                 upgrades.setFluidStack(ItemStack.EMPTY);
                 player.currentScreenHandler.setCursorStack(fluidStack);
                 player.currentScreenHandler.sendContentUpdates();
-                sendIncrementalSync(player);
+                        sendSync(player);
             }
         } else if (com.portable.storage.storage.UpgradeInventory.isValidFluidItem(cursor)) {
             if (cursor.isOf(net.minecraft.item.Items.BUCKET)) {
@@ -1212,7 +1296,7 @@ public final class ServerNetworkingHandlers {
                 }
             }
             player.currentScreenHandler.sendContentUpdates();
-            sendIncrementalSync(player);
+                    sendSync(player);
         }
     }
 
@@ -1304,7 +1388,7 @@ public final class ServerNetworkingHandlers {
                 slot.setStack(r);
                 slot.markDirty();
                 sh.sendContentUpdates();
-                sendIncrementalSync(player);
+                sendSync(player);
                 return;
             }
         }
@@ -1312,7 +1396,7 @@ public final class ServerNetworkingHandlers {
         slot.setStack(remainder);
         slot.markDirty();
         sh.sendContentUpdates();
-        sendIncrementalSync(player);
+        sendSync(player);
     }
 
     private static void handleStorageClick(ServerPlayerEntity player, int slotIndex, int button) {
@@ -1354,7 +1438,7 @@ public final class ServerNetworkingHandlers {
             }
         }
         player.currentScreenHandler.sendContentUpdates();
-        sendIncrementalSync(player);
+        sendSync(player);
     }
 
     private static void handleStorageShiftTake(ServerPlayerEntity player, int slotIndex, int button) {
@@ -1368,7 +1452,7 @@ public final class ServerNetworkingHandlers {
         ItemStack moved = disp.copy();
         moved.setCount((int)Math.min(disp.getMaxCount(), got));
         insertIntoPlayerInventory(player, moved);
-        sendIncrementalSync(player);
+        sendSync(player);
     }
 
     private static void handleDepositCursor(ServerPlayerEntity serverPlayer, int button) {
@@ -1390,7 +1474,7 @@ public final class ServerNetworkingHandlers {
             }
         }
         serverPlayer.currentScreenHandler.sendContentUpdates();
-        sendIncrementalSync(serverPlayer);
+        sendSync(serverPlayer);
     }
 
     private static void handleStorageDrop(ServerPlayerEntity player, int slotIndex, int amountType) {
@@ -1404,7 +1488,7 @@ public final class ServerNetworkingHandlers {
         ItemStack drop = disp.copy();
         drop.setCount((int)Math.min(disp.getMaxCount(), got));
         dropItemTowardsLook(player, drop);
-        sendIncrementalSync(player);
+        sendSync(player);
     }
     public static StorageInventory buildMergedSnapshot(ServerPlayerEntity viewer) {
         StorageInventory agg = new StorageInventory(0);
@@ -1524,7 +1608,7 @@ public final class ServerNetworkingHandlers {
         }
 
         handler.sendContentUpdates();
-        sendIncrementalSyncOnDemand(player);
+        sendSync(player);
         org.slf4j.LoggerFactory.getLogger("portable-storage/emi").debug("Server EmiRecipeFill finished: synced storage state");
     }
 

@@ -162,8 +162,6 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
                     );
 
                     if (!taken.isEmpty()) {
-                        // PortableStorage.LOGGER.info("Hopper extracted {} x{} from bound barrel",
-                            // taken.getItem(), taken.getCount());
                         return taken;
                     }
                     // 如果仓库为空，不提取任何东西
@@ -302,14 +300,12 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
                 var storage = com.portable.storage.player.PlayerStorageService.getInventory(owner);
                 storage.insertItemStack(stack, System.currentTimeMillis());
                 // 发送同步消息给客户端
-                com.portable.storage.net.ServerNetworkingHandlers.sendIncrementalSyncOnDemand(owner);
-                // PortableStorage.LOGGER.info("Inserted {} x{} into owner's storage", stack.getItem(), stack.getCount());
+                com.portable.storage.net.ServerNetworkingHandlers.sendSync(owner);
             } else {
                 // 离线玩家：加载并保存
                 var storage = com.portable.storage.player.StoragePersistence.loadStorage(server, ownerUuid);
                 storage.insertItemStack(stack, System.currentTimeMillis());
                 com.portable.storage.player.StoragePersistence.saveStorage(server, ownerUuid, storage);
-                // PortableStorage.LOGGER.info("Inserted {} x{} into offline owner's storage", stack.getItem(), stack.getCount());
             }
         } catch (Throwable e) {
             PortableStorage.LOGGER.error("Failed to insert item into owner's storage", e);

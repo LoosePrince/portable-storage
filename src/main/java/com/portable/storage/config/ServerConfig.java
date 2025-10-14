@@ -24,6 +24,8 @@ public class ServerConfig {
     private boolean consumeEnableItem = true;
     private boolean enableIncrementalSync = false;
     private boolean enableOnDemandSync = true;
+    private int incrementalSyncIntervalTicks = 2;
+    private int incrementalSyncMaxEntries = 512;
     private boolean clearStorageOnEnable = true;
     
     // 工作台升级容器界面显示配置
@@ -163,6 +165,16 @@ public class ServerConfig {
             # 默认值: true
             enable_on_demand_sync = true
             
+            # 增量同步发送间隔（tick）
+            # 数值越小，更新越及时，但网络与CPU负载更高
+            # 默认值: 2
+            incremental_sync_interval_ticks = 2
+            
+            # 单包最大增量条目数（upserts+removes 合计上限）
+            # 超过将分多包发送
+            # 默认值: 512
+            incremental_sync_max_entries = 512
+            
             # 启用仓库时是否清空现有数据
             # 启用后使用仓库激活物品时会清空玩家现有的仓库数据
             # 默认值: true
@@ -240,6 +252,8 @@ public class ServerConfig {
             consumeEnableItem = storageConfig.getOrElse("consume_enable_item", true);
             enableIncrementalSync = storageConfig.getOrElse("enable_incremental_sync", false);
             enableOnDemandSync = storageConfig.getOrElse("enable_on_demand_sync", true);
+            incrementalSyncIntervalTicks = storageConfig.getOrElse("incremental_sync_interval_ticks", 2);
+            incrementalSyncMaxEntries = storageConfig.getOrElse("incremental_sync_max_entries", 512);
             clearStorageOnEnable = storageConfig.getOrElse("clear_storage_on_enable", true);
         } else {
             PortableStorage.LOGGER.warn("配置文件中未找到 [storage] 部分，使用默认值");
@@ -291,6 +305,8 @@ public class ServerConfig {
         storageConfig.set("consume_enable_item", consumeEnableItem);
         storageConfig.set("enable_incremental_sync", enableIncrementalSync);
         storageConfig.set("enable_on_demand_sync", enableOnDemandSync);
+        storageConfig.set("incremental_sync_interval_ticks", incrementalSyncIntervalTicks);
+        storageConfig.set("incremental_sync_max_entries", incrementalSyncMaxEntries);
         storageConfig.set("clear_storage_on_enable", clearStorageOnEnable);
         
         Config containerConfig = config.get("container_display");
@@ -354,6 +370,14 @@ public class ServerConfig {
         }
         if (storageConfig == null || !storageConfig.contains("enable_on_demand_sync")) {
             storageConfig.set("enable_on_demand_sync", true);
+            changed = true;
+        }
+        if (storageConfig == null || !storageConfig.contains("incremental_sync_interval_ticks")) {
+            storageConfig.set("incremental_sync_interval_ticks", 2);
+            changed = true;
+        }
+        if (storageConfig == null || !storageConfig.contains("incremental_sync_max_entries")) {
+            storageConfig.set("incremental_sync_max_entries", 512);
             changed = true;
         }
 
@@ -681,6 +705,8 @@ public class ServerConfig {
     public boolean isEnableOnDemandSync() {
         return enableOnDemandSync;
     }
+    public int getIncrementalSyncIntervalTicks() { return incrementalSyncIntervalTicks; }
+    public int getIncrementalSyncMaxEntries() { return incrementalSyncMaxEntries; }
     
     public boolean isClearStorageOnEnable() {
         return clearStorageOnEnable;

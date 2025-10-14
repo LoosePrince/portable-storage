@@ -68,6 +68,9 @@ public class PortableStorage implements ModInitializer {
 		// 注册经验维持事件处理器
 		com.portable.storage.event.XpMaintenanceEventHandler.register();
 		
+		// 注册增量同步调度器（周期性向正在查看的玩家推送diff）
+		com.portable.storage.event.IncrementalSyncTickHandler.register();
+		
 		// 注册仓库钥匙自动使用事件处理器
 		com.portable.storage.event.StorageKeyAutoUseHandler.register();
 		

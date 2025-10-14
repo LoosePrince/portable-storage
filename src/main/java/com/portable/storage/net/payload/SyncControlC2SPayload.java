@@ -9,6 +9,7 @@ import static com.portable.storage.PortableStorage.MOD_ID;
 
 /**
  * 统一的同步控制（C2S）：REQUEST / ACK。
+ * 为简化，ACK 使用 seq 字段承载（当前会话内的序号）。
  */
 public record SyncControlC2SPayload(Op op, long syncId, boolean success) implements CustomPayload {
     public static final CustomPayload.Id<SyncControlC2SPayload> ID = new CustomPayload.Id<>(Identifier.of(MOD_ID, "sync_control"));
