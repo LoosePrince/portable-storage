@@ -4,7 +4,7 @@ import com.portable.storage.PortableStorage;
 import com.portable.storage.client.ClientConfig;
 import com.portable.storage.client.ui.StorageUIComponent;
 // 统一后不再使用 RefillCraftingC2SPayload
-import com.portable.storage.net.payload.RequestSyncC2SPayload;
+// 统一后使用 SyncControlC2SPayload
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -69,7 +69,11 @@ public abstract class InventoryScreenMixin {
         com.portable.storage.sync.PlayerViewState.startViewing(MinecraftClient.getInstance().player.getUuid());
         
         // 打开界面时请求同步
-        ClientPlayNetworking.send(RequestSyncC2SPayload.INSTANCE);
+        ClientPlayNetworking.send(new com.portable.storage.net.payload.SyncControlC2SPayload(
+            com.portable.storage.net.payload.SyncControlC2SPayload.Op.REQUEST,
+            0L,
+            false
+        ));
     }
 
     @Inject(method = "render", at = @At("TAIL"))

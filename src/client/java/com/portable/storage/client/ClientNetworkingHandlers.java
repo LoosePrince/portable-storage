@@ -1,12 +1,9 @@
 package com.portable.storage.client;
 
-import com.portable.storage.net.payload.StorageEnablementSyncS2CPayload;
 import com.portable.storage.net.payload.StorageSyncS2CPayload;
-import com.portable.storage.net.payload.UpgradeSyncS2CPayload;
 import com.portable.storage.net.payload.IncrementalStorageSyncS2CPayload;
 import com.portable.storage.net.payload.XpBottleMaintenanceToggleC2SPayload;
-import com.portable.storage.net.payload.XpStepSyncS2CPayload;
-import com.portable.storage.net.payload.ContainerDisplayConfigSyncS2CPayload;
+import com.portable.storage.net.payload.ConfigSyncS2CPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
 public final class ClientNetworkingHandlers {
@@ -29,19 +26,62 @@ public final class ClientNetworkingHandlers {
 			});
 		});
 		
-		ClientPlayNetworking.registerGlobalReceiver(UpgradeSyncS2CPayload.ID, (payload, context) -> {
-			context.client().execute(() -> {
-				if (context.client().player == null) return;
-				ClientUpgradeState.updateFromNbt(payload.data());
-			});
-		});
-		
-		ClientPlayNetworking.registerGlobalReceiver(StorageEnablementSyncS2CPayload.ID, (payload, context) -> {
-			context.client().execute(() -> {
-				if (context.client().player == null) return;
-				ClientStorageState.setStorageEnabled(payload.enabled());
-			});
-		});
+        // 统一配置/状态同步
+        ClientPlayNetworking.registerGlobalReceiver(ConfigSyncS2CPayload.ID, (payload, context) -> {
+            context.client().execute(() -> {
+                if (context.client().player == null) return;
+                switch (payload.topic()) {
+                    case UPGRADE -> {
+                        var nbt = payload.data();
+                        if (nbt != null) ClientUpgradeState.updateFromNbt(nbt);
+                    }
+                    case STORAGE_ENABLEMENT -> {
+                        var nbt = payload.data();
+                        if (nbt != null && nbt.contains("enabled")) {
+                            ClientStorageState.setStorageEnabled(nbt.getBoolean("enabled"));
+                        }
+                    }
+                    case XP_STEP -> {
+                        var nbt = payload.data();
+                        if (nbt != null && nbt.contains("stepIndex")) {
+                            ClientUpgradeState.setXpTransferStep(nbt.getInt("stepIndex"));
+                        }
+                    }
+                    case DISPLAY_CONFIG -> {
+                        var nbt = payload.data();
+                        if (nbt != null) {
+                            ClientContainerDisplayConfig.getInstance().updateConfig(
+                                nbt.getBoolean("stonecutter"),
+                                nbt.getBoolean("cartographyTable"),
+                                nbt.getBoolean("smithingTable"),
+                                nbt.getBoolean("grindstone"),
+                                nbt.getBoolean("loom"),
+                                nbt.getBoolean("furnace"),
+                                nbt.getBoolean("smoker"),
+                                nbt.getBoolean("blastFurnace"),
+                                nbt.getBoolean("anvil"),
+                                nbt.getBoolean("enchantingTable"),
+                                nbt.getBoolean("brewingStand"),
+                                nbt.getBoolean("beacon"),
+                                nbt.getBoolean("chest"),
+                                nbt.getBoolean("barrel"),
+                                nbt.getBoolean("enderChest"),
+                                nbt.getBoolean("shulkerBox"),
+                                nbt.getBoolean("dispenser"),
+                                nbt.getBoolean("dropper"),
+                                nbt.getBoolean("crafter"),
+                                nbt.getBoolean("hopper"),
+                                nbt.getBoolean("trappedChest"),
+                                nbt.getBoolean("hopperMinecart"),
+                                nbt.getBoolean("chestMinecart"),
+                                nbt.getBoolean("chestBoat"),
+                                nbt.getBoolean("bambooChestRaft")
+                            );
+                        }
+                    }
+                }
+            });
+        });
 
 		// 覆盖层虚拟合成同步
 		ClientPlayNetworking.registerGlobalReceiver(com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload.ID, (payload, context) -> {
@@ -53,45 +93,7 @@ public final class ClientNetworkingHandlers {
 			});
 		});
 		
-		ClientPlayNetworking.registerGlobalReceiver(XpStepSyncS2CPayload.ID, (payload, context) -> {
-			context.client().execute(() -> {
-				if (context.client().player == null) return;
-				ClientUpgradeState.setXpTransferStep(payload.stepIndex());
-			});
-		});
-		
-		// 容器显示配置同步
-		ClientPlayNetworking.registerGlobalReceiver(ContainerDisplayConfigSyncS2CPayload.ID, (payload, context) -> {
-			context.client().execute(() -> {
-				ClientContainerDisplayConfig.getInstance().updateConfig(
-					payload.stonecutter(),
-					payload.cartographyTable(),
-					payload.smithingTable(),
-					payload.grindstone(),
-					payload.loom(),
-					payload.furnace(),
-					payload.smoker(),
-					payload.blastFurnace(),
-					payload.anvil(),
-					payload.enchantingTable(),
-					payload.brewingStand(),
-					payload.beacon(),
-					payload.chest(),
-					payload.barrel(),
-					payload.enderChest(),
-					payload.shulkerBox(),
-					payload.dispenser(),
-					payload.dropper(),
-					payload.crafter(),
-					payload.hopper(),
-					payload.trappedChest(),
-					payload.hopperMinecart(),
-					payload.chestMinecart(),
-					payload.chestBoat(),
-					payload.bambooChestRaft()
-				);
-			});
-		});
+        // 旧 XP_STEP / DISPLAY_CONFIG / UPGRADE / ENABLEMENT 的接收器已由 ConfigSyncS2CPayload 统一替代
 	}
 	
 	public static void sendXpBottleMaintenanceToggle() {

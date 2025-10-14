@@ -1672,7 +1672,11 @@ public class StorageUIComponent {
                 if (button == 1) { // 右键点击
                     // 工作台升级槽位右键：打开自定义工作台界面
                     if (i == 0 && ClientUpgradeState.getStack(0) != null && !ClientUpgradeState.getStack(0).isEmpty() && !ClientUpgradeState.isSlotDisabled(0)) {
-                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.RequestPortableCraftingOpenC2SPayload());
+                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.RequestOpenScreenC2SPayload(
+                            com.portable.storage.net.payload.RequestOpenScreenC2SPayload.Screen.PORTABLE_CRAFTING,
+                            null,
+                            ""
+                        ));
                         return true;
                     }
                     // 床升级槽位右键睡觉

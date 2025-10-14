@@ -43,29 +43,23 @@ public final class ServerNetworkingHandlers {
 	}
 
 	public static void register() {
-		ServerPlayNetworking.registerGlobalReceiver(RequestSyncC2SPayload.ID, (payload, context) -> {
+        ServerPlayNetworking.registerGlobalReceiver(SyncControlC2SPayload.ID, (payload, context) -> {
             context.server().execute(() -> {
 				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
-				// 标记玩家开始查看仓库界面
-				com.portable.storage.sync.PlayerViewState.startViewing(player.getUuid());
-				
-				// 处理积攒的变化
-				com.portable.storage.sync.ChangeAccumulator.processPlayerChanges(player);
-				
-				// 总是发送启用状态同步，让客户端知道当前状态
-				sendEnablementSync(player);
-				// 只有启用时才发送其他同步
-				if (!checkAndRejectIfNotEnabled(player)) {
-					sendIncrementalSync(player);
-				}
-			});
-		});
-		
-		// 注册同步确认处理器
-		ServerPlayNetworking.registerGlobalReceiver(SyncAckC2SPayload.ID, (payload, context) -> {
-			context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
-				StorageSyncManager.handleSyncAck(player.getUuid(), payload.syncId(), payload.success());
+                if (payload.op() == com.portable.storage.net.payload.SyncControlC2SPayload.Op.REQUEST) {
+                    // 标记玩家开始查看仓库界面
+                    com.portable.storage.sync.PlayerViewState.startViewing(player.getUuid());
+                    // 处理积攒的变化
+                    com.portable.storage.sync.ChangeAccumulator.processPlayerChanges(player);
+                    // 总是发送启用状态同步，让客户端知道当前状态
+                    sendEnablementSync(player);
+                    // 只有启用时才发送其他同步
+                    if (!checkAndRejectIfNotEnabled(player)) {
+                        sendIncrementalSync(player);
+                    }
+                } else if (payload.op() == com.portable.storage.net.payload.SyncControlC2SPayload.Op.ACK) {
+                    com.portable.storage.sync.StorageSyncManager.handleSyncAck(player.getUuid(), payload.syncId(), payload.success());
+                }
 			});
 		});
 
@@ -365,8 +359,12 @@ public final class ServerNetworkingHandlers {
                         xpStepIndexByPlayer.put(player.getUuid(), idx);
                         int step = XP_STEPS[idx];
                         player.sendMessage(net.minecraft.text.Text.translatable("portable_storage.exp_bottle.step", step), true);
-                        // 同步XP步长到客户端
-                        ServerPlayNetworking.send(player, new com.portable.storage.net.payload.XpStepSyncS2CPayload(idx));
+                        // 同步XP步长到客户端（统一配置同步）
+                        net.minecraft.nbt.NbtCompound data = new net.minecraft.nbt.NbtCompound();
+                        data.putInt("stepIndex", idx);
+                        ServerPlayNetworking.send(player, new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+                            com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.XP_STEP, data
+                        ));
                         return;
                     }
                     // 垃圾桶槽位：右键清空槽位
@@ -485,37 +483,39 @@ public final class ServerNetworkingHandlers {
 		
         // 旧 EmiRecipeFillC2SPayload 接收器已移除（使用统一 CraftingOverlayActionC2SPayload）
 		
-		// 玩家加入时发送容器显示配置同步
+		// 玩家加入时发送容器显示配置同步（统一配置同步）
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			ServerPlayerEntity player = handler.player;
 			if (player != null) {
 				ServerConfig config = ServerConfig.getInstance();
-				ServerPlayNetworking.send(player, new ContainerDisplayConfigSyncS2CPayload(
-					config.isStonecutter(),
-					config.isCartographyTable(),
-					config.isSmithingTable(),
-					config.isGrindstone(),
-					config.isLoom(),
-					config.isFurnace(),
-					config.isSmoker(),
-					config.isBlastFurnace(),
-					config.isAnvil(),
-					config.isEnchantingTable(),
-					config.isBrewingStand(),
-					config.isBeacon(),
-					config.isChest(),
-					config.isBarrel(),
-					config.isEnderChest(),
-					config.isShulkerBox(),
-					config.isDispenser(),
-					config.isDropper(),
-					config.isCrafter(),
-					config.isHopper(),
-					config.isTrappedChest(),
-					config.isHopperMinecart(),
-					config.isChestMinecart(),
-					config.isChestBoat(),
-					config.isBambooChestRaft()
+				NbtCompound data = new NbtCompound();
+				data.putBoolean("stonecutter", config.isStonecutter());
+				data.putBoolean("cartographyTable", config.isCartographyTable());
+				data.putBoolean("smithingTable", config.isSmithingTable());
+				data.putBoolean("grindstone", config.isGrindstone());
+				data.putBoolean("loom", config.isLoom());
+				data.putBoolean("furnace", config.isFurnace());
+				data.putBoolean("smoker", config.isSmoker());
+				data.putBoolean("blastFurnace", config.isBlastFurnace());
+				data.putBoolean("anvil", config.isAnvil());
+				data.putBoolean("enchantingTable", config.isEnchantingTable());
+				data.putBoolean("brewingStand", config.isBrewingStand());
+				data.putBoolean("beacon", config.isBeacon());
+				data.putBoolean("chest", config.isChest());
+				data.putBoolean("barrel", config.isBarrel());
+				data.putBoolean("enderChest", config.isEnderChest());
+				data.putBoolean("shulkerBox", config.isShulkerBox());
+				data.putBoolean("dispenser", config.isDispenser());
+				data.putBoolean("dropper", config.isDropper());
+				data.putBoolean("crafter", config.isCrafter());
+				data.putBoolean("hopper", config.isHopper());
+				data.putBoolean("trappedChest", config.isTrappedChest());
+				data.putBoolean("hopperMinecart", config.isHopperMinecart());
+				data.putBoolean("chestMinecart", config.isChestMinecart());
+				data.putBoolean("chestBoat", config.isChestBoat());
+				data.putBoolean("bambooChestRaft", config.isBambooChestRaft());
+				ServerPlayNetworking.send(player, new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+					com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.DISPLAY_CONFIG, data
 				));
 			}
 		});
@@ -649,79 +649,68 @@ public final class ServerNetworkingHandlers {
 			});
 		});
 
-        // 切回原版工作台：确保关闭旧容器并清理自定义容器的输入/输出槽位，避免残留状态影响原版合成
-        ServerPlayNetworking.registerGlobalReceiver(com.portable.storage.net.payload.RequestVanillaCraftingOpenC2SPayload.ID, (payload, context) -> {
-			context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
-                // 读取原始方块上下文（如果当前是自定义工作台），优先使用该上下文打开原版
-                final net.minecraft.util.math.BlockPos[] openPosHolder = new net.minecraft.util.math.BlockPos[1];
-                final net.minecraft.world.World[] openWorldHolder = new net.minecraft.world.World[1];
-                if (player.currentScreenHandler instanceof com.portable.storage.screen.PortableCraftingScreenHandler pch) {
-                    // 先清空自定义工作台中的输入物品到玩家背包（仅1..9，保留输出槽0）
-                    for (int i = 1; i <= 9 && i < pch.slots.size(); i++) {
-                        net.minecraft.screen.slot.Slot slot = pch.getSlot(i);
-                        ItemStack st = slot.getStack();
-                        if (!st.isEmpty()) {
-                            ItemStack copy = st.copy();
-                            slot.setStack(ItemStack.EMPTY);
-                            insertIntoPlayerInventory(player, copy);
+        // 统一打开界面：根据 screen 枚举打开对应界面
+        ServerPlayNetworking.registerGlobalReceiver(RequestOpenScreenC2SPayload.ID, (payload, context) -> {
+            context.server().execute(() -> {
+                ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+                if (payload.screen() == RequestOpenScreenC2SPayload.Screen.VANILLA_CRAFTING) {
+                    // 切回原版工作台
+                    final net.minecraft.util.math.BlockPos[] openPosHolder = new net.minecraft.util.math.BlockPos[1];
+                    final net.minecraft.world.World[] openWorldHolder = new net.minecraft.world.World[1];
+                    if (player.currentScreenHandler instanceof com.portable.storage.screen.PortableCraftingScreenHandler pch) {
+                        for (int i = 1; i <= 9 && i < pch.slots.size(); i++) {
+                            net.minecraft.screen.slot.Slot slot = pch.getSlot(i);
+                            ItemStack st = slot.getStack();
+                            if (!st.isEmpty()) {
+                                ItemStack copy = st.copy();
+                                slot.setStack(ItemStack.EMPTY);
+                                insertIntoPlayerInventory(player, copy);
+                            }
+                        }
+                        pch.getContext().run((w, pos) -> {
+                            openWorldHolder[0] = w;
+                            openPosHolder[0] = pos;
+                        });
+                    }
+                    player.closeHandledScreen();
+                    player.openHandledScreen(new net.minecraft.screen.NamedScreenHandlerFactory() {
+                        @Override
+                        public net.minecraft.text.Text getDisplayName() {
+                            return net.minecraft.text.Text.translatable("container.crafting");
+                        }
+                        @Override
+                        public net.minecraft.screen.ScreenHandler createMenu(int syncId, net.minecraft.entity.player.PlayerInventory inv, net.minecraft.entity.player.PlayerEntity playerEntity) {
+                            net.minecraft.world.World w = openWorldHolder[0] != null ? openWorldHolder[0] : player.getWorld();
+                            net.minecraft.util.math.BlockPos p = openPosHolder[0] != null ? openPosHolder[0] : player.getBlockPos();
+                            return new net.minecraft.screen.CraftingScreenHandler(syncId, inv, net.minecraft.screen.ScreenHandlerContext.create(w, p));
+                        }
+                    });
+                } else if (payload.screen() == RequestOpenScreenC2SPayload.Screen.PORTABLE_CRAFTING) {
+                    if (checkAndRejectIfNotEnabled(player)) return;
+                    UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
+                    boolean hasCraftingUpgrade = false;
+                    for (int i = 0; i < upgrades.getSlotCount(); i++) {
+                        ItemStack st = upgrades.getStack(i);
+                        if (!st.isEmpty() && st.getItem() == net.minecraft.item.Items.CRAFTING_TABLE && !upgrades.isSlotDisabled(i)) {
+                            hasCraftingUpgrade = true;
+                            break;
                         }
                     }
-                    // 从自定义 handler 的上下文读取世界与方块位置
-                    pch.getContext().run((w, pos) -> {
-                        openWorldHolder[0] = w;
-                        openPosHolder[0] = pos;
+                    if (!hasCraftingUpgrade) return;
+                    player.closeHandledScreen();
+                    player.openHandledScreen(new net.minecraft.screen.NamedScreenHandlerFactory() {
+                        @Override
+                        public net.minecraft.text.Text getDisplayName() {
+                            return net.minecraft.text.Text.translatable("container.crafting");
+                        }
+                        @Override
+                        public net.minecraft.screen.ScreenHandler createMenu(int syncId, net.minecraft.entity.player.PlayerInventory inv, net.minecraft.entity.player.PlayerEntity p) {
+                            return new com.portable.storage.screen.PortableCraftingScreenHandler(syncId, inv, net.minecraft.screen.ScreenHandlerContext.create(player.getWorld(), player.getBlockPos()));
+                        }
                     });
                 }
-                // 显式关闭当前容器，防止旧 handler 残留状态
-                player.closeHandledScreen();
-                // 直接打开原版工作台容器（优先使用原上下文，否则退化为玩家当前位置）
-                player.openHandledScreen(new net.minecraft.screen.NamedScreenHandlerFactory() {
-					@Override
-					public net.minecraft.text.Text getDisplayName() {
-						return net.minecraft.text.Text.translatable("container.crafting");
-					}
-
-                    @Override
-                    public net.minecraft.screen.ScreenHandler createMenu(int syncId, net.minecraft.entity.player.PlayerInventory inv, net.minecraft.entity.player.PlayerEntity playerEntity) {
-                        net.minecraft.world.World w = openWorldHolder[0] != null ? openWorldHolder[0] : player.getWorld();
-                        net.minecraft.util.math.BlockPos p = openPosHolder[0] != null ? openPosHolder[0] : player.getBlockPos();
-                        return new net.minecraft.screen.CraftingScreenHandler(syncId, inv, net.minecraft.screen.ScreenHandlerContext.create(w, p));
-                    }
-				});
-			});
-		});
-
-		// 打开自定义工作台：在任意界面请求打开 PortableCraftingScreenHandler（需启用仓库且拥有工作台升级）
-		ServerPlayNetworking.registerGlobalReceiver(com.portable.storage.net.payload.RequestPortableCraftingOpenC2SPayload.ID, (payload, context) -> {
-			context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
-				if (checkAndRejectIfNotEnabled(player)) return;
-				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
-				boolean hasCraftingUpgrade = false;
-				for (int i = 0; i < upgrades.getSlotCount(); i++) {
-					ItemStack st = upgrades.getStack(i);
-					if (!st.isEmpty() && st.getItem() == net.minecraft.item.Items.CRAFTING_TABLE && !upgrades.isSlotDisabled(i)) {
-						hasCraftingUpgrade = true;
-						break;
-					}
-				}
-				if (!hasCraftingUpgrade) return;
-				// 关闭当前容器并打开自定义工作台
-				player.closeHandledScreen();
-				player.openHandledScreen(new net.minecraft.screen.NamedScreenHandlerFactory() {
-					@Override
-					public net.minecraft.text.Text getDisplayName() {
-						return net.minecraft.text.Text.translatable("container.crafting");
-					}
-
-					@Override
-					public net.minecraft.screen.ScreenHandler createMenu(int syncId, net.minecraft.entity.player.PlayerInventory inv, net.minecraft.entity.player.PlayerEntity p) {
-						return new com.portable.storage.screen.PortableCraftingScreenHandler(syncId, inv, net.minecraft.screen.ScreenHandlerContext.create(player.getWorld(), player.getBlockPos()));
-					}
-				});
-			});
-		});
+            });
+        });
 
 	}
 
@@ -952,16 +941,31 @@ public final class ServerNetworkingHandlers {
 		UpgradeInventory up = PlayerStorageService.getUpgradeInventory(player);
 		NbtCompound nbt = new NbtCompound();
 		up.writeNbt(nbt);
-		ServerPlayNetworking.send(player, new UpgradeSyncS2CPayload(nbt));
-		// 同时同步XP步长
-		int xpStep = xpStepIndexByPlayer.getOrDefault(player.getUuid(), 0);
-		ServerPlayNetworking.send(player, new com.portable.storage.net.payload.XpStepSyncS2CPayload(xpStep));
+		{
+			NbtCompound data = nbt;
+			ServerPlayNetworking.send(player, new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+				com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.UPGRADE, data
+			));
+		}
+		// 同步XP步长
+		{
+			int xpStep = xpStepIndexByPlayer.getOrDefault(player.getUuid(), 0);
+			NbtCompound data = new NbtCompound();
+			data.putInt("stepIndex", xpStep);
+			ServerPlayNetworking.send(player, new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+				com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.XP_STEP, data
+			));
+		}
 	}
 	
 	public static void sendEnablementSync(ServerPlayerEntity player) {
 		PlayerStorageAccess access = (PlayerStorageAccess) player;
 		boolean enabled = access.portableStorage$isStorageEnabled();
-		ServerPlayNetworking.send(player, new StorageEnablementSyncS2CPayload(enabled));
+		NbtCompound data = new NbtCompound();
+		data.putBoolean("enabled", enabled);
+		ServerPlayNetworking.send(player, new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+			com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.STORAGE_ENABLEMENT, data
+		));
 	}
 
     // ===== 合并仓库（共享木桶） =====
@@ -1055,7 +1059,11 @@ public final class ServerNetworkingHandlers {
                 xpStepIndexByPlayer.put(player.getUuid(), idx);
                 int step = XP_STEPS[idx];
                 player.sendMessage(net.minecraft.text.Text.translatable("portable_storage.exp_bottle.step", step), true);
-                ServerPlayNetworking.send(player, new com.portable.storage.net.payload.XpStepSyncS2CPayload(idx));
+                net.minecraft.nbt.NbtCompound data = new net.minecraft.nbt.NbtCompound();
+                data.putInt("stepIndex", idx);
+                ServerPlayNetworking.send(player, new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+                    com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.XP_STEP, data
+                ));
                 return;
             }
             if (slot == 10 && upgrades.isTrashSlotActive()) {

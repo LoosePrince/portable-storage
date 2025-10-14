@@ -3,8 +3,8 @@ package com.portable.storage.client.screen;
 import com.portable.storage.client.ScreenSwapBypass;
 import com.portable.storage.client.ui.StorageUIComponent;
 // 统一后不再使用 EmiRecipeFillC2SPayload
-import com.portable.storage.net.payload.RequestSyncC2SPayload;
-import com.portable.storage.net.payload.RequestVanillaCraftingOpenC2SPayload;
+// 统一后使用 SyncControlC2SPayload
+// 统一后使用 RequestOpenScreenC2SPayload
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -98,14 +98,22 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
         // 设置切换原版界面的回调：请求服务端打开原版工作台
         storageUi.setSwitchToVanillaCallback(() -> {
             ScreenSwapBypass.requestSkipNextCraftingSwap();
-            ClientPlayNetworking.send(new RequestVanillaCraftingOpenC2SPayload());
+            ClientPlayNetworking.send(new com.portable.storage.net.payload.RequestOpenScreenC2SPayload(
+                com.portable.storage.net.payload.RequestOpenScreenC2SPayload.Screen.VANILLA_CRAFTING,
+                null,
+                ""
+            ));
         });
 
         // 标记开始查看仓库界面
         com.portable.storage.sync.PlayerViewState.startViewing(MinecraftClient.getInstance().player.getUuid());
         
         // 打开自定义工作台界面时请求同步仓库数据
-        ClientPlayNetworking.send(RequestSyncC2SPayload.INSTANCE);
+        ClientPlayNetworking.send(new com.portable.storage.net.payload.SyncControlC2SPayload(
+            com.portable.storage.net.payload.SyncControlC2SPayload.Op.REQUEST,
+            0L,
+            false
+        ));
         
         // 初始化配置监听
         this.portableStorage$lastStoragePos = config.storagePos;

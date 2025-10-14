@@ -2,7 +2,7 @@ package com.portable.storage.client;
 
 import com.portable.storage.PortableStorage;
 import com.portable.storage.net.payload.IncrementalStorageSyncS2CPayload;
-import com.portable.storage.net.payload.SyncAckC2SPayload;
+// 统一后使用 SyncControlC2SPayload
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.item.ItemStack;
@@ -116,7 +116,11 @@ public class IncrementalStorageState {
      * 发送同步确认
      */
     private static void sendAck(long syncId, boolean success) {
-        ClientPlayNetworking.send(new SyncAckC2SPayload(syncId, success));
+        ClientPlayNetworking.send(new com.portable.storage.net.payload.SyncControlC2SPayload(
+            com.portable.storage.net.payload.SyncControlC2SPayload.Op.ACK,
+            syncId,
+            success
+        ));
     }
     
     /**
