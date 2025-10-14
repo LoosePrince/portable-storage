@@ -14,7 +14,6 @@ import java.util.UUID;
 
 /**
  * Mixin to BarrelBlockEntity to add owner tracking for bound barrels.
- * The actual storage behavior is handled by Fabric Transfer API registration.
  */
 @Mixin(BarrelBlockEntity.class)
 public abstract class BarrelBlockEntityMixin implements BarrelOwnerAccess {

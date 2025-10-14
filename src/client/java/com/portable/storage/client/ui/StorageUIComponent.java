@@ -1371,9 +1371,16 @@ public class StorageUIComponent {
     
     private String formatCount(int count) {
         if (count < 1000) return String.valueOf(count);
-        if (count < 1000000) return String.format(Locale.US, "%.1fk", count / 1000.0);
-        if (count < 1000000000) return String.format(Locale.US, "%.1fM", count / 1000000.0);
-        return String.format(Locale.US, "%.1fG", count / 1000000000.0);
+        if (count < 1000000) {
+            double v = count / 1000.0;
+            return v < 10 ? String.format(Locale.US, "%.1fk", v) : String.format(Locale.US, "%.0fk", v);
+        }
+        if (count < 1000000000) {
+            double v = count / 1000000.0;
+            return v < 10 ? String.format(Locale.US, "%.1fM", v) : String.format(Locale.US, "%.0fM", v);
+        }
+        double v = count / 1000000000.0;
+        return v < 10 ? String.format(Locale.US, "%.1fG", v) : String.format(Locale.US, "%.0fG", v);
     }
 
     private String formatTimestamp(long timestamp) {

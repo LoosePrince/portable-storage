@@ -211,8 +211,8 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 			ItemStack itemStack = itemEntity.getStack();
 			if (itemStack.isEmpty()) continue;
 			
-			// 添加到仓库（保留完整组件）
-			storage.insertItemStack(itemStack.copy(), world.getTime());
+            // 添加到仓库（保留完整组件），统一使用系统毫秒时间作为更新时间
+            storage.insertItemStack(itemStack.copy(), System.currentTimeMillis());
 			
 			// 移除掉落物
 			itemEntity.discard();
