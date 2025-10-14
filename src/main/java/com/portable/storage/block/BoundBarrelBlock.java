@@ -55,7 +55,8 @@ public class BoundBarrelBlock extends BlockWithEntity {
         BlockEntity blockEntity = world.getBlockEntity(pos);
         if (blockEntity instanceof BoundBarrelBlockEntity boundBarrel) {
             player.openHandledScreen(boundBarrel);
-            player.incrementStat(Stats.OPEN_BARREL);
+            // 切换为漏斗界面后，统计按漏斗检查计数
+            player.incrementStat(Stats.INSPECT_HOPPER);
         }
         
         return ActionResult.CONSUME;

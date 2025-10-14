@@ -15,7 +15,6 @@ import net.minecraft.inventory.SidedInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.screen.GenericContainerScreenHandler;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.text.Text;
 import net.minecraft.util.collection.DefaultedList;
@@ -36,7 +35,9 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
 
     public BoundBarrelBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.BOUND_BARREL, pos, state);
-        this.inventory = DefaultedList.ofSize(27, ItemStack.EMPTY); // 标准木桶大小
+        // 0-4：标记槽位（显示在界面）
+        // 5：隐藏输入槽位（仅用于漏斗/自动化插入）
+        this.inventory = DefaultedList.ofSize(6, ItemStack.EMPTY);
     }
 
     @Override
@@ -59,56 +60,91 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
 
     @Override
     protected ScreenHandler createScreenHandler(int syncId, PlayerInventory playerInventory) {
-        return GenericContainerScreenHandler.createGeneric9x3(syncId, playerInventory, this);
+        // 使用漏斗界面：仅展示前5个标记槽位（0..4），隐藏第6个输入槽位（5）
+        net.minecraft.inventory.Inventory visibleFiveSlotInventory = new net.minecraft.inventory.Inventory() {
+            @Override
+            public int size() { return 5; }
+
+            @Override
+            public boolean isEmpty() { return BoundBarrelBlockEntity.this.isEmpty() ||
+                (getStack(0).isEmpty() && getStack(1).isEmpty() && getStack(2).isEmpty() && getStack(3).isEmpty() && getStack(4).isEmpty()); }
+
+            @Override
+            public ItemStack getStack(int slot) { return BoundBarrelBlockEntity.this.getStack(slot); }
+
+            @Override
+            public ItemStack removeStack(int slot, int amount) { return BoundBarrelBlockEntity.this.removeStack(slot, amount); }
+
+            @Override
+            public ItemStack removeStack(int slot) { return BoundBarrelBlockEntity.this.removeStack(slot); }
+
+            @Override
+            public void setStack(int slot, ItemStack stack) { BoundBarrelBlockEntity.this.setStack(slot, stack); }
+
+            @Override
+            public void markDirty() { BoundBarrelBlockEntity.this.markDirty(); }
+
+            @Override
+            public boolean canPlayerUse(net.minecraft.entity.player.PlayerEntity player) { return BoundBarrelBlockEntity.this.canPlayerUse(player); }
+
+            @Override
+            public void clear() {
+                for (int i = 0; i < 5; i++) BoundBarrelBlockEntity.this.setStack(i, ItemStack.EMPTY);
+            }
+        };
+        return new net.minecraft.screen.HopperScreenHandler(syncId, playerInventory, visibleFiveSlotInventory);
     }
 
     @Override
     public int size() {
-        return 27;
+        return 6;
     }
 
     // ==== SidedInventory 实现 ====
 
     @Override
     public int[] getAvailableSlots(Direction side) {
-        // 槽位0用于提取（标记物品），其他槽位用于插入
+        // 允许自动化访问所有槽位，但通过 canInsert/canExtract 进行权限控制：
+        // 0-4 仅可被提取（根据标记槽位从仓库输出），5 仅可被插入（存入仓库）
         if (ownerUuid != null) {
-            return new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26};
+            return new int[]{0, 1, 2, 3, 4, 5};
         }
+        // 未绑定时仅允许访问槽位0
         return new int[]{0};
     }
 
     @Override
     public boolean canInsert(int slot, ItemStack stack, @Nullable Direction dir) {
-        // 只允许插入到非0槽位（0号槽位是标记槽位）
-        return ownerUuid != null && slot != 0 && !stack.isEmpty();
+        // 仅允许漏斗/投掷器插入到隐藏输入槽位5；标记槽位0-4不可插入
+        if (ownerUuid == null || stack.isEmpty()) return false;
+        if (slot != 5) return false;
+        // 通过调用栈限定仅自动化（漏斗/投掷器）可插入
+        return isAutomationInsertionOperation();
     }
 
     @Override
     public boolean canExtract(int slot, ItemStack stack, Direction dir) {
-        // 槽位0：标记物品，可以被玩家提取，但漏斗只能在有标记物品时提取仓库物品
-        if (slot == 0 && ownerUuid != null) {
-            ItemStack marker = getStack(0);
+        // 槽位0-4：标记物品位
+        if (slot >= 0 && slot <= 4 && ownerUuid != null) {
+            ItemStack marker = getStack(slot);
             if (marker.isEmpty()) return false;
-
-            // 如果是漏斗操作（有方向），只允许提取仓库物品
-            // 如果是玩家操作（无方向），允许提取标记物品
             if (dir != null) {
-                // 漏斗操作：检查是否有对应物品在仓库中
-                return true; // 总是允许，具体检查在removeStack中
+                // 漏斗操作：允许提取（实际物品由 removeStack 决定，从仓库输出）
+                return true;
             } else {
-                // 玩家操作：允许提取标记物品
+                // 玩家操作：允许取出标记物品本身
                 return ItemStack.areItemsAndComponentsEqual(stack, marker);
             }
         }
+        // 隐藏输入槽位5及其他：不允许被提取
         return false;
     }
 
     @Override
     public ItemStack removeStack(int slot, int amount) {
-        // 槽位0的特殊处理
-        if (ownerUuid != null && slot == 0 && amount > 0) {
-            ItemStack marker = getStack(0);
+        // 槽位0-4的特殊处理（标记槽位）：
+        if (ownerUuid != null && slot >= 0 && slot <= 4 && amount > 0) {
+            ItemStack marker = getStack(slot);
             if (!marker.isEmpty() && world != null && world.getServer() != null) {
                 // 检查是否是漏斗操作（通过调用栈检查）
                 boolean isHopperOperation = isHopperOperation();
@@ -157,23 +193,46 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         return false;
     }
 
+    /**
+     * 检查当前插入操作是否来自自动化（漏斗或投掷器）。
+     */
+    private boolean isAutomationInsertionOperation() {
+        StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+        for (StackTraceElement element : stackTrace) {
+            String className = element.getClassName();
+            // 漏斗
+            if (className.contains("Hopper") || className.contains("hopper")) {
+                return true;
+            }
+            // 投掷器（Dropper）；发射器（Dispenser）不会尝试插入容器
+            if (className.contains("Dropper") || className.contains("dropper")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public void setStack(int slot, ItemStack stack) {
-        // 拦截设置物品的操作，如果不是标记槽位，则存入仓库
-		if (ownerUuid != null && slot != 0 && !stack.isEmpty() && world != null && world.getServer() != null) {
-			ItemStack toInsert = stack.copy();
-			// 来自漏斗时，尝试从相邻、面向本方块的漏斗一次性抽取同类物品，合并为一组
-			if (isHopperOperation()) {
-				tryBatchDrainFromAdjacentHopper(toInsert);
-			}
-			insertIntoOwnerStorage(toInsert);
-			// 置空插入槽位（物品已被存入仓库）
-			super.setStack(slot, ItemStack.EMPTY);
-			markDirty();
-			return;
-		}
+        // 槽位5为隐藏输入槽位：仅允许漏斗/投掷器来源插入；其他来源一律拒绝
+        if (ownerUuid != null && slot == 5 && !stack.isEmpty() && world != null && world.getServer() != null) {
+            if (!isAutomationInsertionOperation()) {
+                // 非自动化来源：忽略本次设置，避免被强行写入隐藏输入槽
+                return;
+            }
+            ItemStack toInsert = stack.copy();
+            // 来自漏斗时，尝试从相邻、面向本方块的漏斗一次性抽取同类物品，合并为一组
+            if (isHopperOperation()) {
+                tryBatchDrainFromAdjacentHopper(toInsert);
+            }
+            insertIntoOwnerStorage(toInsert);
+            // 置空插入槽位（物品已被存入仓库）
+            super.setStack(slot, ItemStack.EMPTY);
+            markDirty();
+            return;
+        }
 
-        // 标记槽位正常设置
+        // 槽位0-4为标记槽位：允许玩家直接设置/替换标记
         super.setStack(slot, stack);
     }
 
