@@ -1,16 +1,15 @@
 package com.portable.storage.blockentity;
 
 import com.portable.storage.PortableStorage;
-import net.minecraft.block.HopperBlock;
 import com.portable.storage.player.StorageGroupService;
+import com.portable.storage.storage.StorageInventory;
+import java.util.List;
 import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.LootableContainerBlockEntity;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.Inventories;
-import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.SidedInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
@@ -32,6 +31,14 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
     private DefaultedList<ItemStack> inventory;
     private UUID ownerUuid;
     private String ownerName;
+    // 标记当前线程是否处于自动化（如漏斗）提取流程，用于 removeStack 决策
+    private static final ThreadLocal<Boolean> THREAD_AUTOMATION_EXTRACT = ThreadLocal.withInitial(() -> false);
+    // 记录当前线程本次自动化插入的来源方块位置（通常为漏斗位置），由 canInsert 写入、setStack 读取
+    private static final ThreadLocal<BlockPos> THREAD_INSERT_SOURCE = new ThreadLocal<>();
+    // 槽位5防重复处理：记录上一次在同一游戏刻处理的物品堆
+    private long lastSlot5ProcessTick = -1L;
+    private ItemStack lastSlot5Processed = ItemStack.EMPTY;
+    private BlockPos lastSlot5SourcePos = null;
 
     public BoundBarrelBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.BOUND_BARREL, pos, state);
@@ -115,11 +122,16 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
 
     @Override
     public boolean canInsert(int slot, ItemStack stack, @Nullable Direction dir) {
-        // 仅允许漏斗/投掷器插入到隐藏输入槽位5；标记槽位0-4不可插入
+        // 仅允许自动化（存在方向）向隐藏输入槽位5插入；标记槽位0-4不可插入
         if (ownerUuid == null || stack.isEmpty()) return false;
         if (slot != 5) return false;
-        // 通过调用栈限定仅自动化（漏斗/投掷器）可插入
-        return isAutomationInsertionOperation();
+        // dir != null 表示来自自动化方块（如漏斗/投掷器）
+        if (dir != null) {
+            // 记录来源位置：从本方块位置沿交互方向的相邻方块
+            THREAD_INSERT_SOURCE.set(pos.offset(dir));
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -129,8 +141,24 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
             ItemStack marker = getStack(slot);
             if (marker.isEmpty()) return false;
             if (dir != null) {
-                // 漏斗操作：允许提取（实际物品由 removeStack 决定，从仓库输出）
-                return true;
+                // 漏斗操作：检查仓库中是否有对应物品
+                if (world != null && world.getServer() != null) {
+                    // 标记后续同线程 removeStack 为自动化提取
+                    THREAD_AUTOMATION_EXTRACT.set(true);
+                    // 检查仓库中是否有标记物品对应的物品
+                    List<StorageInventory> storages = StorageGroupService.getStoragesByOwner(world.getServer(), ownerUuid);
+                    for (StorageInventory storage : storages) {
+                        for (int i = 0; i < storage.getCapacity(); i++) {
+                            ItemStack disp = storage.getDisplayStack(i);
+                            if (!disp.isEmpty() && ItemStack.areItemsAndComponentsEqual(disp, marker)) {
+                                return true; // 仓库中有对应物品，允许提取
+                            }
+                        }
+                    }
+                }
+                // 未查到物品时，撤销自动化标记
+                THREAD_AUTOMATION_EXTRACT.set(false);
+                return false; // 仓库中没有对应物品，不允许提取
             } else {
                 // 玩家操作：允许取出标记物品本身
                 return ItemStack.areItemsAndComponentsEqual(stack, marker);
@@ -146,10 +174,8 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         if (ownerUuid != null && slot >= 0 && slot <= 4 && amount > 0) {
             ItemStack marker = getStack(slot);
             if (!marker.isEmpty() && world != null && world.getServer() != null) {
-                // 检查是否是漏斗操作（通过调用栈检查）
-                boolean isHopperOperation = isHopperOperation();
-
-                if (isHopperOperation) {
+                boolean isAutomation = THREAD_AUTOMATION_EXTRACT.get();
+                if (isAutomation) {
                     // 漏斗操作：从仓库提取物品
                     ItemStack want = marker.copy();
                     want.setCount(Math.min(amount, marker.getMaxCount()));
@@ -162,9 +188,12 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
                     );
 
                     if (!taken.isEmpty()) {
+                        // 本次提取完成，清理自动化标记
+                        THREAD_AUTOMATION_EXTRACT.set(false);
                         return taken;
                     }
                     // 如果仓库为空，不提取任何东西
+                    THREAD_AUTOMATION_EXTRACT.set(false);
                     return ItemStack.EMPTY;
                 } else {
                     // 玩家操作：取出标记物品本身
@@ -177,56 +206,32 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         return super.removeStack(slot, amount);
     }
 
-    /**
-     * 检查当前操作是否来自漏斗
-     */
-    private boolean isHopperOperation() {
-        StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-        for (StackTraceElement element : stackTrace) {
-            String className = element.getClassName();
-            if (className.contains("Hopper") || className.contains("hopper")) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * 检查当前插入操作是否来自自动化（漏斗或投掷器）。
-     */
-    private boolean isAutomationInsertionOperation() {
-        StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-        for (StackTraceElement element : stackTrace) {
-            String className = element.getClassName();
-            // 漏斗
-            if (className.contains("Hopper") || className.contains("hopper")) {
-                return true;
-            }
-            // 投掷器（Dropper）；发射器（Dispenser）不会尝试插入容器
-            if (className.contains("Dropper") || className.contains("dropper")) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     @Override
     public void setStack(int slot, ItemStack stack) {
-        // 槽位5为隐藏输入槽位：仅允许漏斗/投掷器来源插入；其他来源一律拒绝
+        // 槽位5为隐藏输入槽位：仅用于自动化插入（UI 不暴露该槽位）
         if (ownerUuid != null && slot == 5 && !stack.isEmpty() && world != null && world.getServer() != null) {
-            if (!isAutomationInsertionOperation()) {
-                // 非自动化来源：忽略本次设置，避免被强行写入隐藏输入槽
+            // 防止某些模组在同一游戏刻内以相同物品堆重复调用 setStack 导致重复入仓
+            long nowTick = world.getTime();
+            BlockPos sourcePos = THREAD_INSERT_SOURCE.get();
+            if (nowTick == lastSlot5ProcessTick && !lastSlot5Processed.isEmpty()
+                && ItemStack.areItemsAndComponentsEqual(stack, lastSlot5Processed)
+                && stack.getCount() == lastSlot5Processed.getCount()
+                && ((sourcePos == null && lastSlot5SourcePos == null) || (sourcePos != null && sourcePos.equals(lastSlot5SourcePos)))) {
+                // 忽略重复调用，保持槽位不被写入，避免翻倍
+                THREAD_INSERT_SOURCE.remove();
                 return;
             }
+
             ItemStack toInsert = stack.copy();
-            // 来自漏斗时，尝试从相邻、面向本方块的漏斗一次性抽取同类物品，合并为一组
-            if (isHopperOperation()) {
-                tryBatchDrainFromAdjacentHopper(toInsert);
-            }
             insertIntoOwnerStorage(toInsert);
             // 置空插入槽位（物品已被存入仓库）
             super.setStack(slot, ItemStack.EMPTY);
             markDirty();
+            // 记录本次处理指纹
+            lastSlot5ProcessTick = nowTick;
+            lastSlot5Processed = stack.copy();
+            lastSlot5SourcePos = sourcePos;
+            THREAD_INSERT_SOURCE.remove();
             return;
         }
 
@@ -234,55 +239,7 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         super.setStack(slot, stack);
     }
 
-	/**
-	 * 若此次插入来自漏斗，则尝试从面向本方块的相邻漏斗中一次性额外抽取同类物品，
-	 * 将传入物品补足到最大堆叠（或直到漏斗耗尽）。
-	 */
-	private void tryBatchDrainFromAdjacentHopper(ItemStack accumulating) {
-		if (world == null || accumulating.isEmpty()) return;
-		// 需要补足的数量
-		int targetMax = Math.min(accumulating.getMaxCount(), accumulating.getItem().getMaxCount());
-		int need = targetMax - accumulating.getCount();
-		if (need <= 0) return;
 
-		// 扫描六个相邻方块，寻找输出口朝向本方块的漏斗
-		for (Direction dir : Direction.values()) {
-			BlockPos neighborPos = pos.offset(dir);
-			BlockState neighborState = world.getBlockState(neighborPos);
-			BlockEntity be = world.getBlockEntity(neighborPos);
-			if (!(be instanceof net.minecraft.block.entity.HopperBlockEntity hopper)) continue;
-
-			// 判断该漏斗是否将物品输出到本方块
-			Direction facing;
-			try {
-				facing = neighborState.get(HopperBlock.FACING);
-			} catch (Exception e) {
-				// 属性不存在时保守跳过
-				continue;
-			}
-			BlockPos outputPos = neighborPos.offset(facing);
-			if (!outputPos.equals(this.pos)) continue;
-
-			// 匹配并从漏斗的物品栏中提取同类物品
-			Inventory hopperInv = hopper;
-			for (int slot = 0; slot < hopperInv.size() && need > 0; slot++) {
-				ItemStack inHopper = hopperInv.getStack(slot);
-				if (inHopper.isEmpty()) continue;
-				if (!ItemStack.areItemsAndComponentsEqual(inHopper, accumulating)) continue;
-
-				int move = Math.min(need, inHopper.getCount());
-				if (move <= 0) continue;
-				inHopper.decrement(move);
-				hopperInv.setStack(slot, inHopper.isEmpty() ? ItemStack.EMPTY : inHopper);
-				accumulating.increment(move);
-				need -= move;
-			}
-
-			// 已满足或已尽力，刷新漏斗状态
-			hopper.markDirty();
-			if (need <= 0) break;
-		}
-	}
 
     /**
      * 将物品存入所有者的仓库
