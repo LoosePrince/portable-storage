@@ -7,7 +7,6 @@ import com.portable.storage.player.PlayerStorageService;
 import com.portable.storage.player.StoragePersistence;
 import com.portable.storage.storage.StorageInventory;
 import com.portable.storage.storage.UpgradeInventory;
-import com.portable.storage.sync.StorageSyncManager;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -171,9 +170,9 @@ public final class ServerNetworkingHandlers {
 					// 手持空，取出流体槽位物品
 					if (!fluidStack.isEmpty()) {
 						upgrades.setFluidStack(ItemStack.EMPTY);
-						player.currentScreenHandler.setCursorStack(fluidStack);
-						player.currentScreenHandler.sendContentUpdates();
-						sendIncrementalSync(player);
+                        player.currentScreenHandler.setCursorStack(fluidStack);
+                        player.currentScreenHandler.sendContentUpdates();
+                        sendSync(player);
 					}
 				} else {
 					// 手持物品，检查是否有效
@@ -208,7 +207,7 @@ public final class ServerNetworkingHandlers {
 							}
 						}
 						player.currentScreenHandler.sendContentUpdates();
-						sendIncrementalSync(player);
+						sendSync(player);
 					}
 				}
 			});
@@ -232,10 +231,10 @@ public final class ServerNetworkingHandlers {
 				else if (button == 1) {
 					ItemStack cursor = player.currentScreenHandler.getCursorStack();
 					if (!cursor.isEmpty() && cursor.isOf(com.portable.storage.storage.UpgradeInventory.createFluidBucket(fluidType).getItem())) {
-						upgrades.addFluidUnits(fluidType, 1);
-						player.currentScreenHandler.setCursorStack(new ItemStack(net.minecraft.item.Items.BUCKET));
-						player.currentScreenHandler.sendContentUpdates();
-						sendIncrementalSync(player);
+                        upgrades.addFluidUnits(fluidType, 1);
+                        player.currentScreenHandler.setCursorStack(new ItemStack(net.minecraft.item.Items.BUCKET));
+                        player.currentScreenHandler.sendContentUpdates();
+                        sendSync(player);
 					}
 				}
 			});
@@ -266,8 +265,8 @@ public final class ServerNetworkingHandlers {
 								remainingBuckets.decrement(1); // 减少一个空桶用于转换
 								
 								// 将剩余的空桶放入仓库
-								StorageInventory storage = PlayerStorageService.getInventory(player);
-								ItemStack remainder = insertIntoStorage(storage, remainingBuckets);
+                                StorageInventory storage = PlayerStorageService.getInventory(player);
+                                insertIntoStorage(storage, remainingBuckets);
 								
 								// 给玩家一个流体桶
 								player.currentScreenHandler.setCursorStack(fluidBucket);
@@ -276,8 +275,8 @@ public final class ServerNetworkingHandlers {
 								player.currentScreenHandler.setCursorStack(fluidBucket);
 							}
 							
-							player.currentScreenHandler.sendContentUpdates();
-							sendIncrementalSync(player);
+                            player.currentScreenHandler.sendContentUpdates();
+                            sendSync(player);
 						}
 					}
 				}
@@ -313,8 +312,8 @@ public final class ServerNetworkingHandlers {
 							// 将流体桶放入背包
 							insertIntoPlayerInventory(player, fluidBucket);
 							
-							player.currentScreenHandler.sendContentUpdates();
-							sendIncrementalSync(player);
+                            player.currentScreenHandler.sendContentUpdates();
+                            sendSync(player);
 						}
 					}
 				}
@@ -370,9 +369,9 @@ public final class ServerNetworkingHandlers {
                         sendSync(player);
                         return;
                     }
-					// 其他槽位切换禁用状态
-					upgrades.toggleSlotDisabled(slot);
-					sendIncrementalSync(player);
+                    // 其他槽位切换禁用状态
+                    upgrades.toggleSlotDisabled(slot);
+                    sendUpgradeSync(player);
 					return;
 				}
 				
@@ -434,9 +433,9 @@ public final class ServerNetworkingHandlers {
 							handleChestUpgradeRemoval(player, upgrades);
 						}
 						
-						player.currentScreenHandler.setCursorStack(taken);
-						player.currentScreenHandler.sendContentUpdates();
-						sendIncrementalSync(player);
+                        player.currentScreenHandler.setCursorStack(taken);
+                        player.currentScreenHandler.sendContentUpdates();
+                        sendUpgradeSync(player);
 					}
 				} else {
 					// 手持物品
@@ -445,9 +444,9 @@ public final class ServerNetworkingHandlers {
 						// 垃圾桶槽位允许放入任意数量，其他槽位只允许1个
 						if (slot == 10 || cursor.getCount() == 1) {
 							if (upgrades.tryInsert(slot, cursor)) {
-								player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
-								player.currentScreenHandler.sendContentUpdates();
-								sendIncrementalSync(player);
+                                player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
+                                player.currentScreenHandler.sendContentUpdates();
+                                sendUpgradeSync(player);
 							}
 						}
 					} else {
@@ -455,18 +454,18 @@ public final class ServerNetworkingHandlers {
 						if (slot == 10) {
 							// 垃圾桶槽位：直接覆盖，不交换
 							if (upgrades.tryInsert(slot, cursor)) {
-								player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
-								player.currentScreenHandler.sendContentUpdates();
-								sendIncrementalSync(player);
+                                player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
+                                player.currentScreenHandler.sendContentUpdates();
+                                sendUpgradeSync(player);
 							}
 						} else {
 							// 其他槽位：交换（只允许1个）
 							if (cursor.getCount() == 1) {
 								ItemStack taken = upgrades.takeStack(slot);
 								if (upgrades.tryInsert(slot, cursor)) {
-									player.currentScreenHandler.setCursorStack(taken);
-									player.currentScreenHandler.sendContentUpdates();
-									sendIncrementalSync(player);
+                                    player.currentScreenHandler.setCursorStack(taken);
+                                    player.currentScreenHandler.sendContentUpdates();
+                                    sendUpgradeSync(player);
 								} else {
 									// 放入失败，恢复
 									upgrades.setStack(slot, taken);
@@ -1160,11 +1159,11 @@ public final class ServerNetworkingHandlers {
             }
             if (slot == 10 && upgrades.isTrashSlotActive()) {
                 upgrades.setStack(10, net.minecraft.item.ItemStack.EMPTY);
-                sendIncrementalSync(player);
+                sendUpgradeSync(player);
                 return;
             }
             upgrades.toggleSlotDisabled(slot);
-            sendIncrementalSync(player);
+            sendUpgradeSync(player);
             return;
         }
 
@@ -1178,7 +1177,7 @@ public final class ServerNetworkingHandlers {
                 }
                 player.currentScreenHandler.setCursorStack(taken);
                 player.currentScreenHandler.sendContentUpdates();
-                sendIncrementalSync(player);
+                sendUpgradeSync(player);
             }
         } else {
             if (slotStack.isEmpty()) {
@@ -1926,8 +1925,8 @@ public final class ServerNetworkingHandlers {
 			}
 			gs.markDirty();
 		}
-		handler.sendContentUpdates();
-		sendIncrementalSync(player);
+        handler.sendContentUpdates();
+        sendSync(player);
 	}
 	
 	/**
