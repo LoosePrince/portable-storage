@@ -1445,13 +1445,83 @@ public final class ServerNetworkingHandlers {
         if (slotIndex < 0 || slotIndex >= merged.getCapacity()) return;
         ItemStack disp = merged.getDisplayStack(slotIndex);
         if (disp.isEmpty()) return;
-        int want = (button == 1) ? 1 : disp.getMaxCount();
-        long got = takeFromMerged(player, disp, want);
+        // 计算仅主物品栏+快捷栏(0..35)可接纳的最大数量，背包满则不从仓库扣减
+        int desired = (button == 1) ? 1 : disp.getMaxCount();
+        int canInsert = computeInsertableIntoMainHotbar(player, disp, desired);
+        if (canInsert <= 0) return;
+        long got = takeFromMerged(player, disp, canInsert);
         if (got <= 0) return;
-        ItemStack moved = disp.copy();
-        moved.setCount((int)Math.min(disp.getMaxCount(), got));
-        insertIntoPlayerInventory(player, moved);
+        insertVariantIntoMainHotbar(player, disp, (int)Math.min(Integer.MAX_VALUE, got));
         sendSync(player);
+    }
+
+    /**
+     * 计算仅在主物品栏+快捷栏（槽位0..35）内，最多还能插入多少个与 variant 相同的物品。
+     */
+    private static int computeInsertableIntoMainHotbar(ServerPlayerEntity player, ItemStack variant, int desired) {
+        if (desired <= 0) return 0;
+        Inventory inv = player.getInventory();
+        int remaining = desired;
+        // 合并到已有堆叠
+        for (int i = 0; i <= 35 && remaining > 0; i++) {
+            ItemStack cur = inv.getStack(i);
+            if (!cur.isEmpty() && ItemStack.areItemsAndComponentsEqual(cur, variant)) {
+                int max = Math.min(cur.getMaxCount(), inv.getMaxCountPerStack());
+                int room = Math.max(0, max - cur.getCount());
+                if (room > 0) remaining -= Math.min(room, remaining);
+            }
+        }
+        // 空槽容量
+        for (int i = 0; i <= 35 && remaining > 0; i++) {
+            if (inv.getStack(i).isEmpty()) {
+                int max = Math.min(variant.getMaxCount(), inv.getMaxCountPerStack());
+                remaining -= Math.min(max, remaining);
+            }
+        }
+        return desired - Math.max(0, remaining);
+    }
+
+    /**
+     * 仅向主物品栏+快捷栏（槽位0..35）插入给定物品变体的总数量，按先合并后占空位的策略。
+     */
+    private static void insertVariantIntoMainHotbar(ServerPlayerEntity player, ItemStack variant, int totalCount) {
+        if (totalCount <= 0) return;
+        Inventory inv = player.getInventory();
+        int remaining = totalCount;
+        // 合并阶段
+        for (int i = 0; i <= 35 && remaining > 0; i++) {
+            ItemStack cur = inv.getStack(i);
+            if (!cur.isEmpty() && ItemStack.areItemsAndComponentsEqual(cur, variant)) {
+                int max = Math.min(cur.getMaxCount(), inv.getMaxCountPerStack());
+                int room = Math.max(0, max - cur.getCount());
+                if (room > 0) {
+                    int add = Math.min(room, remaining);
+                    cur.increment(add);
+                    remaining -= add;
+                    inv.markDirty();
+                }
+            }
+        }
+        // 占据空位阶段
+        for (int i = 0; i <= 35 && remaining > 0; i++) {
+            if (inv.getStack(i).isEmpty()) {
+                int max = Math.min(variant.getMaxCount(), inv.getMaxCountPerStack());
+                int put = Math.min(max, remaining);
+                if (put > 0) {
+                    ItemStack copy = variant.copy();
+                    copy.setCount(put);
+                    inv.setStack(i, copy);
+                    remaining -= put;
+                    inv.markDirty();
+                }
+            }
+        }
+        if (remaining > 0) {
+            // 理论上不会发生，因为已经按容量扣减；兜底丢弃
+            ItemStack drop = variant.copy();
+            drop.setCount(remaining);
+            player.dropItem(drop, false);
+        }
     }
 
     private static void handleDepositCursor(ServerPlayerEntity serverPlayer, int button) {

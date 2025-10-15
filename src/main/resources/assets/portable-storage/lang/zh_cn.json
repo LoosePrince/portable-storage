@@ -67,6 +67,8 @@
   "portable_storage.storage_pos.top": "顶部",
   "portable_storage.storage_pos.bottom": "底部",
   "portable_storage.ui.switch_vanilla": "切换原版",
+  "portable_storage.ui.clear_search": "清除搜索",
+  "portable_storage.ui.clear_search.hint": "左键：清空搜索",
   "portable_storage.upgrade.unknown": "未知",
   "portable_storage.upgrade.extended_slot": "扩展槽位",
   "portable_storage.bed_placed": "临时床已放置在你脚下，低头点击它来睡觉！",

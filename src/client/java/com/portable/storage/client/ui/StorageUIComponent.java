@@ -291,6 +291,10 @@ public class StorageUIComponent {
      */
     private void renderStorageGrid(DrawContext context, MinecraftClient client, int mouseX, int mouseY) {
         List<Integer> filtered = buildFilteredIndices();
+        // 当存在查询时，将“清除搜索”虚拟项插入最前
+        if (query != null && !query.isEmpty()) {
+            filtered.add(0, Integer.MIN_VALUE + 10);
+        }
         
         // 添加虚拟流体条目（在最前面显示）
         for (String fluidType : new String[]{"lava", "water", "milk"}) {
@@ -404,6 +408,20 @@ public class StorageUIComponent {
                             hoveredIndex = Integer.MIN_VALUE;
                         }
                         visibleIndexMap[row * cols + col] = -2; // -2 表示虚拟XP条目
+                    } else if (storageIndex == Integer.MIN_VALUE + 10) {
+                        // 渲染“清除搜索”虚拟项（屏障图标）
+                        ItemStack display = new ItemStack(net.minecraft.item.Items.BARRIER);
+                        context.getMatrices().push();
+                        context.getMatrices().translate(0.0f, 0.0f, 100.0f);
+                        context.drawItem(display, sx + 1, sy + 1);
+                        context.getMatrices().pop();
+
+                        if (hoveredStack.isEmpty() && mouseX >= sx && mouseX < sx + slotSize && mouseY >= sy && mouseY < sy + slotSize) {
+                            hoveredStack = display;
+                            hoveredIndex = Integer.MIN_VALUE + 10;
+                        }
+                        // -3 表示“清除搜索”虚拟条目
+                        visibleIndexMap[row * cols + col] = -3;
                     } else if (storageIndex < Integer.MIN_VALUE + 1000) {
                         // 渲染虚拟流体
                         String fluidType = getFluidTypeFromVirtualIndex(storageIndex);
@@ -701,6 +719,11 @@ public class StorageUIComponent {
                 lines.add(Text.translatable("portable_storage.exp_bottle.interact.left_click"));
                 lines.add(Text.translatable("portable_storage.exp_bottle.interact.right_click"));
                 lines.add(Text.translatable("portable_storage.exp_bottle.interact.glass_bottle"));
+            } else if (hoveredIndex == Integer.MIN_VALUE + 10) {
+                // 清除搜索提示
+                lines = new java.util.ArrayList<>();
+                lines.add(Text.translatable("portable_storage.ui.clear_search"));
+                lines.add(Text.translatable("portable_storage.ui.clear_search.hint"));
             } else if (hoveredIndex < Integer.MIN_VALUE + 1000) {
                 // 虚拟流体自定义悬停提示
                 String fluidType = getFluidTypeFromVirtualIndex(hoveredIndex);
@@ -1873,6 +1896,14 @@ public class StorageUIComponent {
                                     0
                                 ));
                                  return true;
+                             }
+                             // “清除搜索”虚拟条目点击
+                             if (storageIndex == -3) {
+                                 if (button == 0) {
+                                     this.query = "";
+                                     if (this.searchField != null) this.searchField.setText("");
+                                     return true;
+                                 }
                              }
                              // 虚拟流体条目点击：发送独立消息给服务端
                              else if (storageIndex < Integer.MIN_VALUE + 1000) {

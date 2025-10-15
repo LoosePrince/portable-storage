@@ -64,6 +64,8 @@
   "portable_storage.search_pos.middle": "Middle",
   "portable_storage.search_pos.bottom": "Bottom",
   "portable_storage.ui.switch_vanilla": "Switch to Vanilla",
+  "portable_storage.ui.clear_search": "Clear Search",
+  "portable_storage.ui.clear_search.hint": "Left Click: Clear",
   "portable_storage.upgrade.unknown": "Unknown",
   "portable_storage.upgrade.extended_slot": "Extended Slot",
   "portable_storage.bed_placed": "The temporary bed has been placed at your feet, lower your head and click on it to sleep!",

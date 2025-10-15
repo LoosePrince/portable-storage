@@ -48,11 +48,30 @@ public class StorageInventory {
                 if (c != 0) return c;
                 c = Long.compare(b.updatedAt, a.updatedAt);
                 if (c != 0) return c;
-                return Registries.ITEM.getId(a.template.getItem()).compareTo(Registries.ITEM.getId(b.template.getItem()));
+                // 先按物品ID
+                c = Registries.ITEM.getId(a.template.getItem()).compareTo(Registries.ITEM.getId(b.template.getItem()));
+                if (c != 0) return c;
+                // 对相同物品ID的不同变体，使用组件签名保证稳定顺序（避免闪烁）
+                String sa = buildVariantSignature(a.template);
+                String sb = buildVariantSignature(b.template);
+                c = sa.compareTo(sb);
+                if (c != 0) return c;
+                // 兜底：比较显示名称，确保完全稳定
+                return a.template.getName().getString().compareToIgnoreCase(b.template.getName().getString());
             });
             sortedIndices = idx;
         }
         return sortedIndices;
+    }
+
+    private static String buildVariantSignature(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return "";
+        try {
+            var encoded = ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, stack.copy());
+            return encoded.result().map(Object::toString).orElse("");
+        } catch (Throwable ignored) {
+            return "";
+        }
     }
 
     private Entry getEntryByViewIndex(int index) {
