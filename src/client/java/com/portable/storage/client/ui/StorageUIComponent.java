@@ -1660,10 +1660,15 @@ public class StorageUIComponent {
             return false;
         }
         
-        // 搜索框点击
-        if (searchField != null && searchField.mouseClicked(mouseX, mouseY, button)) {
-            this.searchField.setFocused(true);
-            return true;
+        // 搜索框点击（命中则聚焦并拦截；未命中则失焦）
+        if (searchField != null) {
+            if (searchField.mouseClicked(mouseX, mouseY, button)) {
+                this.searchField.setFocused(true);
+                return true;
+            } else {
+                // 点击到输入框以外位置 → 主动失去焦点
+                this.searchField.setFocused(false);
+            }
         }
         
         // 流体槽位点击
@@ -2163,6 +2168,18 @@ public class StorageUIComponent {
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (searchField != null && searchField.keyPressed(keyCode, scanCode, modifiers)) {
             return true;
+        }
+
+        // 当搜索框聚焦时，拦截“打开/关闭背包”的快捷键（通常为 E），防止输入字母时关闭界面
+        if (this.searchField != null && this.searchField.isFocused()) {
+            net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
+            if (mc != null && mc.options != null && mc.options.inventoryKey != null) {
+                try {
+                    if (mc.options.inventoryKey.matchesKey(keyCode, scanCode)) {
+                        return true; // 吃掉按键，不向下传递
+                    }
+                } catch (Throwable ignored) {}
+            }
         }
 
         // 自动传入启用时支持 Q / Ctrl+Q 从仓库丢出悬停物品
