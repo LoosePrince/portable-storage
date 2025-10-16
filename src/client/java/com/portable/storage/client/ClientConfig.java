@@ -49,6 +49,12 @@ public class ClientConfig {
     // 收藏（星标）物品：以物品ID（namespace:id）标识，客户端本地配置
     public java.util.Set<String> favorites = new java.util.LinkedHashSet<>();
     
+    // 拼音搜索支持
+    public boolean pinyinSearch = true; // 默认启用拼音搜索
+    
+    // 多音字映射表：字符 -> 所有可能的拼音数组
+    public java.util.Map<String, String[]> polyphoneMap = new java.util.HashMap<>();
+    
     public enum SortMode {
         COUNT("count"),           // 数量
         NAME("name"),            // 物品名称
@@ -95,6 +101,21 @@ public class ClientConfig {
         return INSTANCE;
     }
     
+    /**
+     * 初始化默认多音字映射表
+     */
+    private void initializeDefaultPolyphoneMap() {
+        polyphoneMap.clear();
+        
+        // 镐：gao, hao
+        polyphoneMap.put("镐", new String[]{"gao", "hao"});
+        
+        // 可以根据需要继续添加其他多音字
+        // polyphoneMap.put("行", new String[]{"hang", "xing"});
+        // polyphoneMap.put("重", new String[]{"zhong", "chong"});
+        // polyphoneMap.put("长", new String[]{"chang", "zhang"});
+    }
+    
     public static void load() {
         if (Files.exists(CONFIG_PATH)) {
             try {
@@ -118,6 +139,8 @@ public class ClientConfig {
                 merged.virtualCraftingVisible = defaults.virtualCraftingVisible;
                 merged.maxVisibleRows = defaults.maxVisibleRows;
                 merged.favorites = new java.util.LinkedHashSet<>(defaults.favorites);
+                merged.pinyinSearch = defaults.pinyinSearch;
+                merged.polyphoneMap = new java.util.HashMap<>(defaults.polyphoneMap);
 
                 // 再按文件中存在的键覆盖
                 if (obj.has("collapsed")) {
@@ -190,6 +213,36 @@ public class ClientConfig {
                 } else {
                     changed = true;
                 }
+                if (obj.has("pinyinSearch")) {
+                    merged.pinyinSearch = obj.get("pinyinSearch").getAsBoolean();
+                } else {
+                    changed = true;
+                }
+                
+                // 读取多音字映射表（如果存在）
+                if (obj.has("polyphoneMap")) {
+                    try {
+                        JsonObject polyphoneObj = obj.getAsJsonObject("polyphoneMap");
+                        java.util.Map<String, String[]> polyphoneMap = new java.util.HashMap<>();
+                        
+                        for (String key : polyphoneObj.keySet()) {
+                            JsonArray pinyinArray = polyphoneObj.getAsJsonArray(key);
+                            String[] pinyins = new String[pinyinArray.size()];
+                            for (int i = 0; i < pinyinArray.size(); i++) {
+                                pinyins[i] = pinyinArray.get(i).getAsString();
+                            }
+                            polyphoneMap.put(key, pinyins);
+                        }
+                        merged.polyphoneMap = polyphoneMap;
+                    } catch (Exception ignored) { 
+                        // 解析失败，使用默认值
+                        merged.initializeDefaultPolyphoneMap();
+                        changed = true;
+                    }
+                } else {
+                    merged.initializeDefaultPolyphoneMap();
+                    changed = true;
+                }
 
                 INSTANCE = merged;
                 if (changed) {
@@ -202,6 +255,7 @@ public class ClientConfig {
             }
         } else {
             INSTANCE = new ClientConfig();
+            INSTANCE.initializeDefaultPolyphoneMap();
             save();
         }
     }
@@ -214,6 +268,52 @@ public class ClientConfig {
         } catch (IOException e) {
             PortableStorage.LOGGER.error("Failed to save client config", e);
         }
+    }
+    
+    /**
+     * 热重载配置文件
+     * 用于在运行时重新加载配置，支持多音字映射表的动态更新
+     */
+    public static void reload() {
+        PortableStorage.LOGGER.info("Reloading client config...");
+        load();
+        PortableStorage.LOGGER.info("Client config reloaded successfully");
+    }
+    
+    /**
+     * 添加多音字到映射表
+     * 
+     * @param character 字符
+     * @param pinyins 所有可能的拼音
+     */
+    public void addPolyphone(String character, String... pinyins) {
+        if (character != null && pinyins != null && pinyins.length > 0) {
+            polyphoneMap.put(character, pinyins);
+            save(); // 自动保存配置
+            PortableStorage.LOGGER.info("Added polyphone: {} -> {}", character, java.util.Arrays.toString(pinyins));
+        }
+    }
+    
+    /**
+     * 移除多音字
+     * 
+     * @param character 字符
+     */
+    public void removePolyphone(String character) {
+        if (character != null && polyphoneMap.containsKey(character)) {
+            polyphoneMap.remove(character);
+            save(); // 自动保存配置
+            PortableStorage.LOGGER.info("Removed polyphone: {}", character);
+        }
+    }
+    
+    /**
+     * 获取所有多音字
+     * 
+     * @return 多音字集合
+     */
+    public java.util.Set<String> getAllPolyphones() {
+        return new java.util.HashSet<>(polyphoneMap.keySet());
     }
 }
 

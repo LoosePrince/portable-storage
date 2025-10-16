@@ -1296,9 +1296,12 @@ public class StorageUIComponent {
             }
             return false;
         } else {
-            String name = stack.getName().getString().toLowerCase(Locale.ROOT);
+            String name = stack.getName().getString();
             String fullId = Registries.ITEM.getId(stack.getItem()).toString();
-            return name.contains(lower) || fullId.contains(lower);
+            
+            // 使用拼音搜索辅助工具进行匹配
+            return com.portable.storage.client.util.PinyinSearchHelper.matches(name, lower) || 
+                   fullId.toLowerCase(Locale.ROOT).contains(lower);
         }
     }
     
@@ -1309,16 +1312,16 @@ public class StorageUIComponent {
         String lower = q.toLowerCase(Locale.ROOT);
         
         // 获取流体的翻译文本
-        String fluidName = Text.translatable("portable_storage.fluid." + fluidType + ".title").getString().toLowerCase(Locale.ROOT);
+        String fluidName = Text.translatable("portable_storage.fluid." + fluidType + ".title").getString();
         
-        // 检查流体名称是否匹配
-        if (fluidName.contains(lower)) {
+        // 使用拼音搜索辅助工具检查流体名称是否匹配
+        if (com.portable.storage.client.util.PinyinSearchHelper.matches(fluidName, lower)) {
             return true;
         }
         
         // 检查通用流体相关关键词
-        String fluidDesc = Text.translatable("portable_storage.fluid.desc").getString().toLowerCase(Locale.ROOT);
-        if (fluidDesc.contains(lower)) {
+        String fluidDesc = Text.translatable("portable_storage.fluid.desc").getString();
+        if (com.portable.storage.client.util.PinyinSearchHelper.matches(fluidDesc, lower)) {
             return true;
         }
         
@@ -1340,19 +1343,19 @@ public class StorageUIComponent {
         String lower = q.toLowerCase(Locale.ROOT);
         
         // 获取瓶装经验的翻译文本
-        String xpBottleTitle = Text.translatable("portable_storage.exp_bottle.title").getString().toLowerCase(Locale.ROOT);
-        String xpBottleCurrent = Text.translatable("portable_storage.exp_bottle.current", "").getString().toLowerCase(Locale.ROOT);
-        String xpBottleEquivalent = Text.translatable("portable_storage.exp_bottle.equivalent", "").getString().toLowerCase(Locale.ROOT);
+        String xpBottleTitle = Text.translatable("portable_storage.exp_bottle.title").getString();
+        String xpBottleCurrent = Text.translatable("portable_storage.exp_bottle.current", "").getString();
+        String xpBottleEquivalent = Text.translatable("portable_storage.exp_bottle.equivalent", "").getString();
         
-        // 检查翻译文本是否匹配
-        if (xpBottleTitle.contains(lower) || 
-            xpBottleCurrent.contains(lower) || 
-            xpBottleEquivalent.contains(lower)) {
+        // 使用拼音搜索辅助工具检查翻译文本是否匹配
+        if (com.portable.storage.client.util.PinyinSearchHelper.matches(xpBottleTitle, lower) || 
+            com.portable.storage.client.util.PinyinSearchHelper.matches(xpBottleCurrent, lower) || 
+            com.portable.storage.client.util.PinyinSearchHelper.matches(xpBottleEquivalent, lower)) {
             return true;
         }
         
         // 检查通用经验相关关键词（作为备用）
-        return "经验".toLowerCase(Locale.ROOT).contains(lower) ||
+        return com.portable.storage.client.util.PinyinSearchHelper.matches("经验", lower) ||
                "experience".toLowerCase(Locale.ROOT).contains(lower) ||
                "xp".toLowerCase(Locale.ROOT).contains(lower);
     }

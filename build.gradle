@@ -11,6 +11,8 @@ base {
 }
 
 repositories {
+	maven { url 'https://maven.aliyun.com/repository/public'}
+    mavenCentral()
 	maven { url 'https://jitpack.io' }
 	maven { url "https://maven.shedaniel.me/" }
 	maven { url "https://maven.terraformersmc.com/releases/"}
@@ -77,6 +79,9 @@ dependencies {
 	// NightConfig for TOML (server config)
 	implementation 'com.electronwill.night-config:toml:3.6.7'
 	implementation 'com.electronwill.night-config:core:3.6.7'
+
+	// Pinyin support for search (client-side)
+	implementation 'com.github.promeg:tinypinyin:2.0.3'
 	
 }
 
