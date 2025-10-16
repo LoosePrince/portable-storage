@@ -189,14 +189,12 @@ public final class ClientStorageState {
     }
 
     private static String makeKeyForStack(ItemStack s) {
-        // 简化 key：id + 自定义数据哈希；后续可与服务端严格对齐
+        // 使用完整的 ItemStack 编码生成唯一键，确保所有组件都被考虑
         var id = net.minecraft.registry.Registries.ITEM.getId(s.getItem());
-        int h = 1;
-        var custom = s.get(net.minecraft.component.DataComponentTypes.CUSTOM_DATA);
-        if (custom != null) h = 31 * h + custom.copyNbt().hashCode();
-        var be = s.get(net.minecraft.component.DataComponentTypes.BLOCK_ENTITY_DATA);
-        if (be != null) h = 31 * h + be.copyNbt().hashCode();
-        return id + "#" + Integer.toHexString(h);
+        var ops = net.minecraft.nbt.NbtOps.INSTANCE;
+        var encoded = ItemStack.CODEC.encodeStart(ops, s);
+        String signature = encoded.result().map(net.minecraft.nbt.NbtElement::toString).orElse("");
+        return id + "#" + Integer.toHexString(signature.hashCode());
     }
 
     private static net.minecraft.registry.RegistryWrapper.WrapperLookup lookupForClient() {
