@@ -988,6 +988,11 @@ public final class ServerNetworkingHandlers {
             }
         }
         if (button == 1) {
+            if (slot == 4 && !upgrades.isSlotDisabled(4) && !upgrades.getStack(4).isEmpty()) {
+                // 龙蛋升级槽：右键在维度间来回切换
+                handleDragonEggTeleport(player);
+                return;
+            }
             if (slot == 6 && upgrades.isBedUpgradeActive()) {
                 handleBedUpgradeSleep(player);
                 return;
@@ -1052,6 +1057,60 @@ public final class ServerNetworkingHandlers {
                     }
                 }
             }
+        }
+    }
+
+    private static void handleDragonEggTeleport(ServerPlayerEntity player) {
+        try {
+            net.minecraft.server.MinecraftServer server = player.getServer();
+            if (server == null) return;
+            net.minecraft.server.world.ServerWorld rift = com.portable.storage.world.SpaceRiftManager.getWorld(server);
+            if (rift == null) {
+                // 维度未加载（数据驱动注册失败？）
+                player.sendMessage(net.minecraft.text.Text.literal("Space Rift dimension not found"), true);
+                return;
+            }
+
+            if (player.getWorld() == rift) {
+                // 在裂隙内：返回
+                java.util.UUID id = player.getUuid();
+                net.minecraft.util.math.GlobalPos back = com.portable.storage.world.SpaceRiftManager.getReturnPoint(id);
+                if (back != null) {
+                    net.minecraft.server.world.ServerWorld targetWorld = server.getWorld(back.dimension());
+                    if (targetWorld != null) {
+                        com.portable.storage.world.SpaceRiftManager.clearReturnPoint(id);
+                        com.portable.storage.world.SpaceRiftManager.resetToWorldBorder(player);
+                        // 离开裂隙时创建复制体
+                        com.portable.storage.world.SpaceRiftManager.ensureAvatarOnExit(player);
+                        net.minecraft.util.math.BlockPos p = back.pos();
+                        player.teleport(targetWorld, p.getX() + 0.5, p.getY(), p.getZ() + 0.5, player.getYaw(), player.getPitch());
+                        return;
+                    }
+                }
+                // 兜底：主世界出生点
+                com.portable.storage.world.SpaceRiftManager.ensureAvatarOnExit(player);
+                net.minecraft.server.world.ServerWorld overworld = server.getOverworld();
+                net.minecraft.util.math.BlockPos spawn = overworld.getSpawnPos();
+                player.teleport(overworld, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, player.getYaw(), player.getPitch());
+                return;
+            }
+
+            // 从其他维度进入裂隙
+            com.portable.storage.world.SpaceRiftManager.rememberReturnPoint(player);
+            java.util.UUID id = player.getUuid();
+            net.minecraft.util.math.ChunkPos origin = com.portable.storage.world.SpaceRiftManager.ensureAllocatedPlot(server, id);
+            // 初始化平台与屏障
+            com.portable.storage.world.SpaceRiftManager.ensurePlotInitialized(rift, origin);
+            
+            // 优先传送到复制体位置，否则传送到地块中心
+            net.minecraft.util.math.BlockPos teleportPos = com.portable.storage.world.SpaceRiftManager.getAvatarPositionOrCenter(player, origin);
+            
+            // 进入裂隙时清除复制体
+            com.portable.storage.world.SpaceRiftManager.removeAvatar(player);
+            player.teleport(rift, teleportPos.getX() + 0.5, teleportPos.getY(), teleportPos.getZ() + 0.5, player.getYaw(), player.getPitch());
+            com.portable.storage.world.SpaceRiftManager.applyPersonalBorder(player);
+        } catch (Exception e) {
+            player.sendMessage(net.minecraft.text.Text.literal("Teleport failed: " + e.getMessage()), true);
         }
     }
 

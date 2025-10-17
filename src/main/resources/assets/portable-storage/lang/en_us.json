@@ -101,6 +101,7 @@
   "portable_storage.message.key_indestructible": "Storage keys cannot be destroyed!",
   "portable_storage.message.confirm_activation": "Are you sure you want to continue activating storage? This will cause your storage data to be lost!",
   "portable_storage.message.confirm_activation_hint": "Right-click again within 5 seconds to confirm activation",
-  "portable_storage.message.activation_timeout": "Activation confirmation has timed out, please try again"
+  "portable_storage.message.activation_timeout": "Activation confirmation has timed out, please try again",
+  "portable_storage.rift_avatar": "%s's Avatar"
 }
 

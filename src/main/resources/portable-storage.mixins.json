@@ -15,7 +15,8 @@
 		"BedBlockMixin",
 		"PlayerEntitySpawnMixin",
 		"ItemEntityMixin",
-		"ItemEntityStorageKeyMixin"
+		"ItemEntityStorageKeyMixin",
+		"BeaconBlockEntityMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

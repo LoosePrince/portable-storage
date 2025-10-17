@@ -1,12 +1,16 @@
 package com.portable.storage;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import com.portable.storage.client.ClientConfig;
 import com.portable.storage.client.ClientNetworkingHandlers;
 import com.portable.storage.client.ModernUiCompat;
 import com.portable.storage.client.PortableStorageResourcePackProvider;
 import com.portable.storage.client.screen.PortableCraftingScreen;
 import com.portable.storage.client.event.ScreenEventHandler;
+import net.minecraft.client.render.entity.EntityRenderer;
+import net.minecraft.client.render.entity.EntityRendererFactory;
+import net.minecraft.util.Identifier;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
 import net.minecraft.client.gui.screen.ingame.HandledScreens;
@@ -31,6 +35,16 @@ public class PortableStorageClient implements ClientModInitializer {
 		ScreenEventHandler.register();
 		// 将自定义 ScreenHandlerType 绑定到自定义屏幕（使用原版 HandledScreens）
 		HandledScreens.register(PortableStorage.PORTABLE_CRAFTING_HANDLER, PortableCraftingScreen::new);
+
+		// 注册复制体渲染器（沿用盔甲架渲染）
+		try {
+			EntityRendererRegistry.register(com.portable.storage.entity.ModEntities.RIFT_AVATAR, (EntityRendererFactory.Context ctx) -> new EntityRenderer<com.portable.storage.entity.RiftAvatarEntity>(ctx) {
+				@Override
+				public Identifier getTexture(com.portable.storage.entity.RiftAvatarEntity entity) {
+					return Identifier.of("minecraft", "textures/entity/steve.png");
+				}
+			});
+		} catch (Throwable ignored) {}
 		if (ModernUiCompat.isLoaded()) {
 			ClientTickEvents.END_CLIENT_TICK.register(client -> ModernUiCompat.forceTooltipShadowRadiusZero());
 		}
