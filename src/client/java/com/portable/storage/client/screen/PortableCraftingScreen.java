@@ -256,38 +256,15 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
      */
     public void getExclusionAreas(Consumer<Bounds> consumer) {
         com.portable.storage.client.ClientConfig config = com.portable.storage.client.ClientConfig.getInstance();
-        
-        // 排除仓库UI区域
-        int storageLeft = this.x + 8;
-        int storageTop;
-        int storageWidth = 9 * 18; // 9列
-        int storageHeight = 6 * 18; // 6行
-        
-        if (config.storagePos == com.portable.storage.client.ClientConfig.StoragePos.TOP) {
-            // 仓库在顶部时
-            storageTop = this.y - storageHeight - 6;
-        } else {
-            // 仓库在底部时
-            storageTop = this.y + this.backgroundHeight + 6;
-        }
-        
-        consumer.accept(new Bounds(storageLeft, storageTop, storageWidth, storageHeight));
-        
-        // 排除升级槽位区域
-        int upgradeLeft = this.x - 24;
-        int upgradeTop = storageTop;
-        int upgradeWidth = 18;
-        int upgradeHeight = 5 * 18; // 5个槽位
-        
-        consumer.accept(new Bounds(upgradeLeft, upgradeTop, upgradeWidth, upgradeHeight));
-        
-        // 排除设置面板区域
-        int settingsLeft = this.x + this.backgroundWidth + 6;
-        int settingsTop = storageTop;
-        int settingsWidth = 100; // 估算宽度
-        int settingsHeight = storageHeight;
-        
-        consumer.accept(new Bounds(settingsLeft, settingsTop, settingsWidth, settingsHeight));
+        boolean storageOnTop = (config.storagePos == com.portable.storage.client.ClientConfig.StoragePos.TOP);
+        // 自定义工作台：不显示折叠按钮、不显示搜索位置设置、显示切换原版按钮
+        com.portable.storage.client.emi.PortableStorageExclusionHelper.addAreasForScreen(
+            consumer, this.x, this.y, this.backgroundWidth, this.backgroundHeight,
+            storageOnTop,
+            false, // collapse button
+            false, // search pos setting
+            true   // switch button
+        );
     }
     
     // ===== 合成补充逻辑 =====

@@ -1,14 +1,16 @@
 package com.portable.storage.mixin.client;
 
-import com.portable.storage.client.ClientStorageState;
 import com.portable.storage.client.ClientContainerDisplayConfig;
+import com.portable.storage.client.ClientStorageState;
+import com.portable.storage.client.emi.HasPortableStorageExclusionAreas;
 import com.portable.storage.client.ui.StorageUIComponent;
 import com.portable.storage.util.ContainerTypeDetector;
+import dev.emi.emi.api.widget.Bounds;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.ingame.CraftingScreen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
-import net.minecraft.client.gui.screen.ingame.CraftingScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -17,12 +19,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.Unique;
 
+import java.util.function.Consumer;
+
 /**
  * 通用容器界面Mixin
  * 用于在配置的容器界面显示仓库
  */
 @Mixin(HandledScreen.class)
-public abstract class GenericContainerScreenMixin {
+public abstract class GenericContainerScreenMixin implements HasPortableStorageExclusionAreas {
     @Shadow protected int x;
     @Shadow protected int y;
     @Shadow protected int backgroundWidth;
@@ -115,7 +119,6 @@ public abstract class GenericContainerScreenMixin {
         }
     }
     
-    
     @Unique
     private boolean portableStorage$shouldShowStorageInContainer() {
         // 检查仓库是否已启用
@@ -155,10 +158,6 @@ public abstract class GenericContainerScreenMixin {
     
     @Unique
     private boolean portableStorage$hasCraftingTableUpgrade() {
-        // 检查升级槽位中是否有工作台且未禁用
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client == null || client.player == null) return false;
-
         // 检查所有升级槽位是否有工作台且未禁用
         for (int i = 0; i < 5; i++) {
             var stack = com.portable.storage.client.ClientUpgradeState.getStack(i);
@@ -167,5 +166,18 @@ public abstract class GenericContainerScreenMixin {
             }
         }
         return false;
+    }
+
+    @Override
+    public void getPortableStorageExclusionAreas(Consumer<Bounds> consumer) {
+        if (!portableStorage$shouldShowStorageInContainer()) return;
+        // 通用容器：仓库位于底部，不显示折叠按钮/搜索位置/切换按钮
+        com.portable.storage.client.emi.PortableStorageExclusionHelper.addAreasForScreen(
+            consumer, this.x, this.y, this.backgroundWidth, this.backgroundHeight,
+            false,
+            false,
+            false,
+            false
+        );
     }
 }
