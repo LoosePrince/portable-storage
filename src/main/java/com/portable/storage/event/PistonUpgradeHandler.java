@@ -49,13 +49,14 @@ public class PistonUpgradeHandler {
      */
     private static void checkAndRefillHands(ServerPlayerEntity player) {
         UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
+        UUID playerId = player.getUuid();
         
         // 检查活塞升级是否激活
         if (!upgrades.isPistonUpgradeActive()) {
+            // 如果升级被禁用，清除该玩家的补充记录
+            cleanupPlayer(playerId);
             return;
         }
-        
-        UUID playerId = player.getUuid();
         
         // 检查主手物品
         ItemStack currentMainHand = player.getMainHandStack();

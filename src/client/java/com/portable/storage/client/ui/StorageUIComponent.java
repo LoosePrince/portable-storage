@@ -659,7 +659,11 @@ public class StorageUIComponent {
                         case 5 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.spectral_arrow"));
                         case 6 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.bed"));
                         case 7 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.experience_bottle"));
-                        case 8 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.piston"));
+                        case 8 -> {
+                            tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.piston"));
+                            tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_piston.auto_refill"));
+                            tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_piston.block_rotation"));
+                        }
                     }
                 }
 
