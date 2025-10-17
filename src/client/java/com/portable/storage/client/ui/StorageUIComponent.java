@@ -46,7 +46,7 @@ public class StorageUIComponent {
     private final int upgradeSlotSize = 18;
     private final int upgradeSpacing = 0;
     private final int baseUpgradeCount = 5;
-    private final int extendedUpgradeCount = 6;
+    private final int extendedUpgradeCount = 5;
     private final int totalUpgradeCount = baseUpgradeCount + extendedUpgradeCount;
     
     // 注意：升级物品类型现在由UpgradeInventory.getExpectedUpgradeForSlot()决定
@@ -83,10 +83,10 @@ public class StorageUIComponent {
     private int scrollbarLeft, scrollbarTop, scrollbarHeight, scrollbarWidth;
     
     // 升级槽位点击区域
-    private final int[] upgradeSlotLefts = new int[11];
-    private final int[] upgradeSlotTops = new int[11];
-    private final int[] upgradeSlotRights = new int[11];
-    private final int[] upgradeSlotBottoms = new int[11];
+    private final int[] upgradeSlotLefts = new int[10];
+    private final int[] upgradeSlotTops = new int[10];
+    private final int[] upgradeSlotRights = new int[10];
+    private final int[] upgradeSlotBottoms = new int[10];
     
     // 升级槽位滚动相关
     private float upgradeScroll = 0.0f;
@@ -96,6 +96,9 @@ public class StorageUIComponent {
     
     // 流体槽位点击区域
     private int fluidSlotLeft, fluidSlotTop, fluidSlotRight, fluidSlotBottom;
+    
+    // 垃圾桶槽位点击区域
+    private int trashSlotLeft, trashSlotTop, trashSlotRight, trashSlotBottom;
     
     // 设置面板点击区域
     private int sortModeLeft, sortModeTop, sortModeRight, sortModeBottom;
@@ -291,7 +294,7 @@ public class StorageUIComponent {
      */
     private void renderStorageGrid(DrawContext context, MinecraftClient client, int mouseX, int mouseY) {
         List<Integer> filtered = buildFilteredIndices();
-        // 当存在查询时，将“清除搜索”虚拟项插入最前
+        // 当存在查询时，将"清除搜索"虚拟项插入最前
         if (query != null && !query.isEmpty()) {
             filtered.add(0, Integer.MIN_VALUE + 10);
         }
@@ -381,12 +384,12 @@ public class StorageUIComponent {
                     int storageIndex = filtered.get(filteredIndex);
                     var stacks = ClientStorageState.getStacks();
                     if (storageIndex == Integer.MIN_VALUE) {
-                        // 渲染虚拟“瓶装经验”
+                        // 渲染虚拟"瓶装经验"
                         ItemStack display = new ItemStack(net.minecraft.item.Items.EXPERIENCE_BOTTLE);
                         context.getMatrices().push();
                         context.getMatrices().translate(0.0f, 0.0f, 100.0f);
                         context.drawItem(display, sx + 1, sy + 1);
-                        // 渲染数量为“仓库XP池”的数值
+                        // 渲染数量为"仓库XP池"的数值
                         long totalXp = com.portable.storage.client.ClientUpgradeState.getCachedXpPool();
                         if (totalXp > 0) {
                             String countText = formatCount((int)Math.min(Integer.MAX_VALUE, totalXp));
@@ -409,7 +412,7 @@ public class StorageUIComponent {
                         }
                         visibleIndexMap[row * cols + col] = -2; // -2 表示虚拟XP条目
                     } else if (storageIndex == Integer.MIN_VALUE + 10) {
-                        // 渲染“清除搜索”虚拟项（屏障图标）
+                        // 渲染"清除搜索"虚拟项（屏障图标）
                         ItemStack display = new ItemStack(net.minecraft.item.Items.BARRIER);
                         context.getMatrices().push();
                         context.getMatrices().translate(0.0f, 0.0f, 100.0f);
@@ -420,7 +423,7 @@ public class StorageUIComponent {
                             hoveredStack = display;
                             hoveredIndex = Integer.MIN_VALUE + 10;
                         }
-                        // -3 表示“清除搜索”虚拟条目
+                        // -3 表示"清除搜索"虚拟条目
                         visibleIndexMap[row * cols + col] = -3;
                     } else if (storageIndex < Integer.MIN_VALUE + 1000) {
                         // 渲染虚拟流体
@@ -625,6 +628,20 @@ public class StorageUIComponent {
             
             context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
         }
+        // 检查是否悬停在垃圾桶槽位上
+        else if (isIn(mouseX, mouseY, trashSlotLeft, trashSlotTop, trashSlotRight, trashSlotBottom)) {
+            ItemStack trashStack = ClientUpgradeState.getTrashStack();
+            List<Text> tooltipLines = new java.util.ArrayList<>();
+            
+            // 使用已存在的翻译键：描述 + 使用提示
+            tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.trash_slot"));
+            if (!trashStack.isEmpty()) {
+                tooltipLines.add(Text.literal(trashStack.getName().getString()));
+            }
+            tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_trash"));
+            
+            context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
+        }
         // 检查是否悬停在升级槽位上
         else if (portableStorage$isOverUpgradeSlot(mouseX, mouseY)) {
             int slotIndex = portableStorage$getHoveredUpgradeSlot(mouseX, mouseY);
@@ -636,72 +653,55 @@ public class StorageUIComponent {
                 List<Text> tooltipLines = new java.util.ArrayList<>();
                 boolean hasItem = !stack.isEmpty();
                 
-                if (slotIndex == 10) {
-                    // 垃圾桶槽位：只显示功能描述，不显示槽位号和升级名称
-                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.trash_slot"));
-                } else {
-                    // 第一行：槽位 + 勾选/叉号
-                    boolean ok = hasItem && !isDisabled;
-                    String symbol = ok ? "[✓]" : "[✗]"; // ✓ / ✗
-                    Text slotLine = Text.translatable("portable_storage.ui.upgrade_slot", slotIndex + 1).copy().append(symbol);
-                    tooltipLines.add(slotLine);
-                    // 第二行：升级名称
-                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_name", upgradeName));
-                }
+                // 第一行：槽位 + 勾选/叉号
+                boolean ok = hasItem && !isDisabled;
+                String symbol = ok ? "[✓]" : "[✗]"; // ✓ / ✗
+                Text slotLine = Text.translatable("portable_storage.ui.upgrade_slot", slotIndex + 1).copy().append(symbol);
+                tooltipLines.add(slotLine);
+                // 第二行：升级名称
+                tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_name", upgradeName));
 
                 // 附加升级说明（末尾追加）
-                if (slotIndex != 10) { // 垃圾桶槽位已经在上面处理了
-                    switch (slotIndex) {
-                        case 0 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.crafting_table"));
-                        case 1 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.hopper"));
-                        case 2 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.chest"));
-                        case 3 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.barrel"));
-                        case 5 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.spectral_arrow"));
-                        case 6 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.bed"));
-                        case 7 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.experience_bottle"));
-                        case 8 -> {
-                            tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.piston"));
-                            tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_piston.auto_refill"));
-                            tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_piston.block_rotation"));
-                        }
+                switch (slotIndex) {
+                    case 0 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.crafting_table"));
+                    case 1 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.hopper"));
+                    case 2 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.chest"));
+                    case 3 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.barrel"));
+                    case 5 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.spectral_arrow"));
+                    case 6 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.bed"));
+                    case 7 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.experience_bottle"));
+                    case 8 -> {
+                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.piston"));
+                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_piston.auto_refill"));
+                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_piston.block_rotation"));
                     }
                 }
 
-                if (slotIndex != 10) { // 垃圾桶槽位不显示禁用状态
-                    if (hasItem && isDisabled) {
-                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_disabled"));
-                    }
+                if (hasItem && isDisabled) {
+                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_disabled"));
                 }
                 
-                // 添加右键提示：槽位6为床升级，右键睡觉；其他槽位右键切换禁用
+                // 添加右键提示：槽位6为床升级，右键睡觉；槽位7为XP模块；槽位0为工作台自定义
                 if (slotIndex == 6) {
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_bed"));
                 } else if (slotIndex == 7) {
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_xp"));
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_middle_click_maintenance"));
-                    // 添加当前存取等级信息
                     int currentStep = com.portable.storage.client.ClientUpgradeState.getXpTransferStep();
                     int[] steps = {1, 5, 10, 100};
                     int level = steps[currentStep];
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_current_step", level));
-                } else if (slotIndex == 10) {
-                    // 垃圾桶槽位：添加右键清空提示
-                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_trash"));
+                } else if (slotIndex == 0) {
+                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_custom_crafting"));
+                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_middle_click_virtual_crafting"));
+                    boolean virtualCraftingVisible = com.portable.storage.client.ClientConfig.getInstance().virtualCraftingVisible;
+                    Text virtualCraftingStatus = virtualCraftingVisible ? 
+                        Text.translatable("portable_storage.toggle.enabled") : 
+                        Text.translatable("portable_storage.toggle.disabled");
+                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_virtual_crafting_status", virtualCraftingStatus));
+                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_virtual_crafting_warning"));
                 } else {
-                    if (slotIndex == 0) {
-                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_custom_crafting"));
-                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_middle_click_virtual_crafting"));
-                        // 添加虚拟合成状态信息
-                        boolean virtualCraftingVisible = com.portable.storage.client.ClientConfig.getInstance().virtualCraftingVisible;
-                        Text virtualCraftingStatus = virtualCraftingVisible ? 
-                            Text.translatable("portable_storage.toggle.enabled") : 
-                            Text.translatable("portable_storage.toggle.disabled");
-                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_virtual_crafting_status", virtualCraftingStatus));
-                        // 添加警告信息
-                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_virtual_crafting_warning"));
-                    } else {
-                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_hint"));
-                    }
+                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_hint"));
                 }
 
                 context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
@@ -800,7 +800,7 @@ public class StorageUIComponent {
                 
                 // 计算每列的最大行数
                 int leftColumnMaxRows = ClientUpgradeState.isChestUpgradeActive() ? extendedUpgradeCount : 0;
-                int rightColumnMaxRows = baseUpgradeCount + 1;
+                int rightColumnMaxRows = baseUpgradeCount + 2;
                 int maxRowsInAnyColumn = Math.max(leftColumnMaxRows, rightColumnMaxRows);
                 
                 int visible = upgradeVisibleRows;
@@ -847,13 +847,13 @@ public class StorageUIComponent {
         int upgradeTop = gridTop;
         
         // 升级槽位是两列布局，每列最多6行
-        // 左列：扩展升级槽位（5-10，6个槽位）
+        // 左列：扩展升级槽位（5-9，5个槽位）+ 垃圾桶槽位（1个槽位）
         // 右列：基础升级槽位（0-4，5个槽位）+ 流体槽位（1个槽位）
         
         int upgradeVisibleRows = calculateUpgradeVisibleRows();
         
         // 计算每列的最大行数
-        int leftColumnMaxRows = ClientUpgradeState.isChestUpgradeActive() ? extendedUpgradeCount : 0; // 扩展槽位行数
+        int leftColumnMaxRows = ClientUpgradeState.isChestUpgradeActive() ? (extendedUpgradeCount + 1) : 0; // 扩展槽位 + 垃圾桶槽位行数
         int rightColumnMaxRows = baseUpgradeCount + 1; // 基础槽位 + 流体槽位行数
         
         // 计算滚动范围 - 基于最大列的行数
@@ -871,13 +871,13 @@ public class StorageUIComponent {
         // 为了兼容性，保留 maxVisibleUpgradeSlots 变量
         int maxVisibleUpgradeSlots = upgradeVisibleRows;
         
-        // 渲染扩展升级槽位（5-10），仅在箱子升级激活时显示，显示在左侧
+        // 渲染扩展升级槽位（5-9），仅在箱子升级激活时显示，显示在左侧
         if (ClientUpgradeState.isChestUpgradeActive()) {
             int extendedLeft = upgradeLeft - (upgradeSlotSize + upgradeSpacing + 2); // 左侧留一些间距
             
             for (int i = 0; i < extendedUpgradeCount; i++) {
-                int slotIndex = baseUpgradeCount + i; // 槽位5-10
-                int displayRow = i - upgradeRowOffset;
+                int slotIndex = baseUpgradeCount + i; // 槽位5-9
+                int displayRow = (i + 1) - upgradeRowOffset; // 向下偏移一行，顶部留给垃圾槽位
                 if (displayRow < 0 || displayRow >= maxVisibleUpgradeSlots) continue; // 跳过不可见的槽位
                 
                 int sx = extendedLeft;
@@ -905,15 +905,7 @@ public class StorageUIComponent {
                     }
                 } else {
                     // 空槽位，显示预期物品图标并叠加白色半透明遮罩
-                    if (slotIndex == 10) {
-                        // 垃圾桶槽位：使用自定义删除图标
-                        context.getMatrices().push();
-                        context.getMatrices().translate(0, 0, 100);
-                        context.drawTexture(TEX_DELETE, sx + 1, sy + 1, 0, 0, upgradeSlotSize - 2, upgradeSlotSize - 2, upgradeSlotSize - 2, upgradeSlotSize - 2);
-                        context.getMatrices().pop();
-                    } else {
-                        context.drawItem(expectedStack, sx + 1, sy + 1);
-                    }
+                    context.drawItem(expectedStack, sx + 1, sy + 1);
                     
                     // 叠加白色半透明遮罩（在物品图标上方）
                     context.getMatrices().push();
@@ -926,7 +918,7 @@ public class StorageUIComponent {
         
         // 渲染基础升级槽位（0-4）
         for (int i = 0; i < baseUpgradeCount; i++) {
-            int displayRow = i - upgradeRowOffset;
+            int displayRow = (i + 1) - upgradeRowOffset; // 向下偏移一行，顶部留给流体槽位
             if (displayRow < 0 || displayRow >= maxVisibleUpgradeSlots) continue; // 跳过不可见的槽位
             
             int sx = upgradeLeft;
@@ -964,8 +956,43 @@ public class StorageUIComponent {
             }
         }
         
-        // 渲染流体槽位（在升级槽位5下面）
-        int fluidDisplayRow = 5 - upgradeRowOffset;
+        // 渲染垃圾桶槽位（在扩展升级槽后面，左侧，仅在箱子升级激活时显示）
+        if (ClientUpgradeState.isChestUpgradeActive()) {
+            int extendedLeft = upgradeLeft - (upgradeSlotSize + upgradeSpacing + 2); // 左侧留一些间距
+            int trashDisplayRow = 0 - upgradeRowOffset; // 顶部第一行
+            
+            if (trashDisplayRow >= 0 && trashDisplayRow < maxVisibleUpgradeSlots) {
+                int trashSlotY = upgradeTop + trashDisplayRow * (upgradeSlotSize + upgradeSpacing);
+                drawSlotInset(context, extendedLeft, trashSlotY, upgradeSlotSize, upgradeSlotSize);
+                
+                trashSlotLeft = extendedLeft;
+                trashSlotTop = trashSlotY;
+                trashSlotRight = extendedLeft + upgradeSlotSize;
+                trashSlotBottom = trashSlotY + upgradeSlotSize;
+                
+                ItemStack trashStack = ClientUpgradeState.getTrashStack();
+                
+                if (!trashStack.isEmpty()) {
+                    // 有物品，正常渲染
+                    context.drawItem(trashStack, extendedLeft + 1, trashSlotY + 1);
+                } else {
+                    // 空槽位，使用自定义删除图标
+                    context.getMatrices().push();
+                    context.getMatrices().translate(0, 0, 100);
+                    context.drawTexture(TEX_DELETE, extendedLeft + 1, trashSlotY + 1, 0, 0, upgradeSlotSize - 2, upgradeSlotSize - 2, upgradeSlotSize - 2, upgradeSlotSize - 2);
+                    context.getMatrices().pop();
+                    
+                    // 叠加白色半透明遮罩（在图标上方）
+                    context.getMatrices().push();
+                    context.getMatrices().translate(0, 0, 200); // 提高层级
+                    context.fill(extendedLeft + 1, trashSlotY + 1, extendedLeft + upgradeSlotSize - 1, trashSlotY + upgradeSlotSize - 1, 0x80FFFFFF);
+                    context.getMatrices().pop();
+                }
+            }
+        }
+        
+        // 渲染流体槽位（在基础升级槽位下面，右侧）
+        int fluidDisplayRow = 0 - upgradeRowOffset; // 顶部第一行
         if (fluidDisplayRow >= 0 && fluidDisplayRow < maxVisibleUpgradeSlots) {
             int fluidSlotY = upgradeTop + fluidDisplayRow * (upgradeSlotSize + upgradeSpacing);
             drawSlotInset(context, upgradeLeft, fluidSlotY, upgradeSlotSize, upgradeSlotSize);
@@ -1694,13 +1721,28 @@ public class StorageUIComponent {
             return true;
         }
         
+        // 垃圾桶槽位点击
+        if (isIn(mouseX, mouseY, trashSlotLeft, trashSlotTop, trashSlotRight, trashSlotBottom)) {
+            // 发送垃圾桶槽位点击到服务器
+            ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
+                com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
+                com.portable.storage.net.payload.StorageActionC2SPayload.Target.TRASH,
+                0,
+                button,
+                0,
+                "",
+                0
+            ));
+            return true;
+        }
+        
         // 升级槽位点击
         for (int i = 0; i < totalUpgradeCount; i++) {
             if (isIn(mouseX, mouseY, upgradeSlotLefts[i], upgradeSlotTops[i], upgradeSlotRights[i], upgradeSlotBottoms[i])) {
                 // 扩展槽位检查特定操作
                 if (ClientUpgradeState.isExtendedSlot(i)) {
-                    // 槽位5（光灵箭）、槽位6（床）、槽位7（附魔之瓶）、槽位8（活塞）、槽位10（垃圾桶）可以接受点击
-                    if (i != 5 && i != 6 && i != 7 && i != 8 && i != 10) {
+                    // 槽位5（光灵箭）、槽位6（床）、槽位7（附魔之瓶）、槽位8（活塞）可以接受点击
+                    if (i != 5 && i != 6 && i != 7 && i != 8) {
                         return true; // 阻止进一步处理
                     }
                 }
@@ -1740,11 +1782,6 @@ public class StorageUIComponent {
                             "",
                             0
                         ));
-                        return true;
-                    }
-                    // 垃圾桶槽位右键：清空槽位
-                    if (i == 10 && ClientUpgradeState.isTrashSlotActive()) {
-                        ClientPlayNetworking.send(new UpgradeSlotClickC2SPayload(i, button));
                         return true;
                     }
                     // 其他槽位右键：发送到服务器（用于切换禁用等）
@@ -1787,7 +1824,15 @@ public class StorageUIComponent {
                     ));
                     return true;
                 } else if (button == 0) { // 左键点击 - 发送到服务器
-                    ClientPlayNetworking.send(new UpgradeSlotClickC2SPayload(i, button));
+                    ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
+                        com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
+                        com.portable.storage.net.payload.StorageActionC2SPayload.Target.UPGRADE,
+                        i,
+                        button,
+                        0,
+                        "",
+                        0
+                    ));
                     return true;
                 }
             }
@@ -1800,7 +1845,7 @@ public class StorageUIComponent {
             
             // 计算每列的最大行数
             int leftColumnMaxRows = ClientUpgradeState.isChestUpgradeActive() ? extendedUpgradeCount : 0;
-            int rightColumnMaxRows = baseUpgradeCount + 1;
+            int rightColumnMaxRows = baseUpgradeCount + 2;
             int maxRowsInAnyColumn = Math.max(leftColumnMaxRows, rightColumnMaxRows);
             
             int visible = upgradeVisibleRows;
@@ -1910,7 +1955,7 @@ public class StorageUIComponent {
                                 ));
                                  return true;
                              }
-                             // “清除搜索”虚拟条目点击
+                             // "清除搜索"虚拟条目点击
                              if (storageIndex == -3) {
                                  if (button == 0) {
                                      this.query = "";
@@ -1972,7 +2017,7 @@ public class StorageUIComponent {
                                  }
                              }
                             if (storageIndex >= 0) {
-                                // 优先处理：智能折叠代表项的右键 → 展开（填充搜索框），避免与“右键取1个”冲突
+                                // 优先处理：智能折叠代表项的右键 → 展开（填充搜索框），避免与"右键取1个"冲突
                                 if (button == 1 && ClientConfig.getInstance().smartCollapse && collapsedInfoByRep.containsKey(storageIndex)) {
                                     if (this.searchField == null || this.searchField.getText().isEmpty()) {
                                         String id = collapsedInfoByRep.get(storageIndex).itemId;
@@ -2145,7 +2190,7 @@ public class StorageUIComponent {
             
             // 计算每列的最大行数
             int leftColumnMaxRows = ClientUpgradeState.isChestUpgradeActive() ? extendedUpgradeCount : 0;
-            int rightColumnMaxRows = baseUpgradeCount + 1;
+            int rightColumnMaxRows = baseUpgradeCount + 2;
             int maxRowsInAnyColumn = Math.max(leftColumnMaxRows, rightColumnMaxRows);
             int maxUpgradeScrollRows = Math.max(0, maxRowsInAnyColumn - upgradeVisibleRows);
             
@@ -2178,7 +2223,7 @@ public class StorageUIComponent {
             return true;
         }
 
-        // 当搜索框聚焦时，拦截“打开/关闭背包”的快捷键（通常为 E），防止输入字母时关闭界面
+        // 当搜索框聚焦时，拦截"打开/关闭背包"的快捷键（通常为 E），防止输入字母时关闭界面
         if (this.searchField != null && this.searchField.isFocused()) {
             net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
             if (mc != null && mc.options != null && mc.options.inventoryKey != null) {

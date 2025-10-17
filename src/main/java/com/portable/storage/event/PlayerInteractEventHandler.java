@@ -100,6 +100,27 @@ public class PlayerInteractEventHandler {
             access.portableStorage$getInventory().clear();
             PortableStorage.LOGGER.info("Cleared storage data for player {} when enabling storage", 
                 player.getName().getString());
+
+            // 同步清空升级槽位与流体/垃圾槽位
+            try {
+                com.portable.storage.storage.UpgradeInventory upgrades = com.portable.storage.player.PlayerStorageService.getUpgradeInventory(player);
+                // 清空基础槽位 0..4
+                for (int i = 0; i < upgrades.getBaseSlotCount(); i++) {
+                    upgrades.setStack(i, net.minecraft.item.ItemStack.EMPTY);
+                }
+                // 清空扩展槽位
+                upgrades.clearExtendedSlots();
+                // 清空垃圾槽位
+                upgrades.setTrashSlot(net.minecraft.item.ItemStack.EMPTY);
+                // 清空流体槽位与单位
+                upgrades.setFluidStack(net.minecraft.item.ItemStack.EMPTY);
+                upgrades.setFluidUnits("lava", 0);
+                upgrades.setFluidUnits("water", 0);
+                upgrades.setFluidUnits("milk", 0);
+                // 同步到客户端
+                com.portable.storage.net.ServerNetworkingHandlers.sendUpgradeSync(player);
+                com.portable.storage.net.ServerNetworkingHandlers.sendSync(player);
+            } catch (Throwable ignored) {}
         }
         
         // 检查是否需要消耗道具

@@ -6,11 +6,13 @@ import net.minecraft.nbt.NbtCompound;
 
 /**
  * 客户端缓存的升级槽位状态
+ * 使用统一升级管理器
  */
 public final class ClientUpgradeState {
     private static final UpgradeInventory upgradeInventory = new UpgradeInventory();
-    private static final boolean[] disabledSlots = new boolean[11]; // 11个槽位的禁用状态（5个基础+6个扩展）
+    private static final boolean[] disabledSlots = new boolean[10]; // 10个槽位的禁用状态（5个基础+5个扩展）
     private static ItemStack fluidStack = ItemStack.EMPTY; // 流体槽位物品
+    private static ItemStack trashStack = ItemStack.EMPTY; // 垃圾桶槽位物品
     
     // 流体单位缓存
     private static int cachedLavaUnits = 0;
@@ -30,16 +32,27 @@ public final class ClientUpgradeState {
             cachedLevelMaintenanceEnabled = nbt.getBoolean("LevelMaintenanceEnabled");
         }
         
-        // 读取禁用状态
-        if (nbt.contains("DisabledSlots")) {
-            NbtCompound disabledNbt = nbt.getCompound("DisabledSlots");
-            for (int i = 0; i < 11; i++) {
-                disabledSlots[i] = disabledNbt.getBoolean("slot" + i);
+        // 读取基础槽位禁用状态
+        if (nbt.contains("BaseDisabledSlots")) {
+            NbtCompound baseDisabledNbt = nbt.getCompound("BaseDisabledSlots");
+            for (int i = 0; i < 5; i++) {
+                disabledSlots[i] = baseDisabledNbt.getBoolean("slot" + i);
+            }
+        }
+        
+        // 读取扩展槽位禁用状态
+        if (nbt.contains("ExtendedDisabledSlots")) {
+            NbtCompound extendedDisabledNbt = nbt.getCompound("ExtendedDisabledSlots");
+            for (int i = 0; i < 5; i++) {
+                disabledSlots[i + 5] = extendedDisabledNbt.getBoolean("slot" + i);
             }
         }
         
         // 读取流体槽位
         fluidStack = upgradeInventory.getFluidStack();
+        
+        // 读取垃圾桶槽位
+        trashStack = upgradeInventory.getTrashSlot();
         
         // 读取流体单位
         cachedLavaUnits = upgradeInventory.getFluidUnits("lava");
@@ -53,6 +66,10 @@ public final class ClientUpgradeState {
     
     public static ItemStack getFluidStack() {
         return fluidStack;
+    }
+    
+    public static ItemStack getTrashStack() {
+        return trashStack;
     }
     
     public static int getFluidUnits(String fluidType) {
@@ -72,7 +89,7 @@ public final class ClientUpgradeState {
      * 检查指定槽位是否被禁用
      */
     public static boolean isSlotDisabled(int slot) {
-        if (slot < 0 || slot >= 11) return false;
+        if (slot < 0 || slot >= 10) return false;
         return disabledSlots[slot];
     }
     
@@ -80,7 +97,7 @@ public final class ClientUpgradeState {
      * 切换指定槽位的禁用状态
      */
     public static void toggleSlotDisabled(int slot) {
-        if (slot < 0 || slot >= 11) return;
+        if (slot < 0 || slot >= 10) return;
         disabledSlots[slot] = !disabledSlots[slot];
     }
     
@@ -88,7 +105,7 @@ public final class ClientUpgradeState {
      * 设置指定槽位的禁用状态
      */
     public static void setSlotDisabled(int slot, boolean disabled) {
-        if (slot < 0 || slot >= 11) return;
+        if (slot < 0 || slot >= 10) return;
         disabledSlots[slot] = disabled;
     }
     
@@ -136,11 +153,10 @@ public final class ClientUpgradeState {
     }
     
     /**
-     * 检查垃圾桶槽位是否激活（槽位10）
+     * 检查垃圾桶槽位是否激活
      */
     public static boolean isTrashSlotActive() {
-        net.minecraft.item.ItemStack stack = upgradeInventory.getStack(10);
-        return stack != null && !stack.isEmpty() && !upgradeInventory.isSlotDisabled(10);
+        return !trashStack.isEmpty() && !upgradeInventory.isTrashSlotDisabled();
     }
     
     /**

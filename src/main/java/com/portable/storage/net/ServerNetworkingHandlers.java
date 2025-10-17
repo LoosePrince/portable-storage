@@ -71,6 +71,7 @@ public final class ServerNetworkingHandlers {
 					case FLUID -> handleFluidAction(player, p);
 					case XP_BOTTLE -> handleXpBottleAction(player, p);
 					case SLOT -> handleSlotDepositAction(player, p);
+					case TRASH -> handleTrashAction(player, p);
 				}
 			});
 		});
@@ -322,160 +323,7 @@ public final class ServerNetworkingHandlers {
 		
         // 旧 RefundCraftingSlotsC2SPayload 接收器已移除（使用统一 CraftingOverlayActionC2SPayload）
 		
-		// 升级槽位点击
-		ServerPlayNetworking.registerGlobalReceiver(UpgradeSlotClickC2SPayload.ID, (payload, context) -> {
-			int slot = payload.slot();
-			int button = payload.button();
-			context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
-				if (checkAndRejectIfNotEnabled(player)) return;
-				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
-
-				if (slot < 0 || slot >= upgrades.getSlotCount()) return;
-
-                // 扩展槽位检查特定操作
-                if (com.portable.storage.storage.UpgradeInventory.isExtendedSlot(slot)) {
-                    // 槽位5（光灵箭）、槽位6（床）、槽位7（附魔之瓶）、槽位8（活塞）、槽位10（垃圾桶）可以接受操作
-                    if (slot != 5 && slot != 6 && slot != 7 && slot != 8 && slot != 10) {
-						return;
-					}
-				}
-
-				// 右键点击处理
-                if (button == 1) {
-					// 床升级槽位右键睡觉
-                    if (slot == 6 && upgrades.isBedUpgradeActive()) {
-						handleBedUpgradeSleep(player);
-						return;
-					}
-                    // 附魔之瓶升级：右键循环存取等级
-                    if (slot == 7 && !upgrades.isSlotDisabled(7) && !upgrades.getStack(7).isEmpty()) {
-                        int idx = xpStepIndexByPlayer.getOrDefault(player.getUuid(), 0);
-                        idx = (idx + 1) % XP_STEPS.length;
-                        xpStepIndexByPlayer.put(player.getUuid(), idx);
-                        int step = XP_STEPS[idx];
-                        player.sendMessage(net.minecraft.text.Text.translatable("portable_storage.exp_bottle.step", step), true);
-                        // 同步XP步长到客户端（统一配置同步）
-                        net.minecraft.nbt.NbtCompound data = new net.minecraft.nbt.NbtCompound();
-                        data.putInt("stepIndex", idx);
-                        ServerPlayNetworking.send(player, new com.portable.storage.net.payload.ConfigSyncS2CPayload(
-                            com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.XP_STEP, data
-                        ));
-                        return;
-                    }
-                    // 垃圾桶槽位：右键清空槽位
-                    if (slot == 10 && upgrades.isTrashSlotActive()) {
-                        upgrades.setStack(10, net.minecraft.item.ItemStack.EMPTY);
-                        sendSync(player);
-                        return;
-                    }
-                    // 其他槽位切换禁用状态
-                    upgrades.toggleSlotDisabled(slot);
-                    sendUpgradeSync(player);
-					return;
-				}
-				
-				ItemStack cursor = player.currentScreenHandler.getCursorStack();
-				ItemStack slotStack = upgrades.getStack(slot);
-
-				// Barrel 绑定与规则校验
-				if (!cursor.isEmpty() && cursor.getItem() == net.minecraft.item.Items.BARREL && cursor.getCount() == 1) {
-					// 如果目标槽位为空且是木桶槽位
-					if (slotStack.isEmpty() && slot == 3) { // 槽位3是木桶
-						// 链式/循环共享约束：
-						java.util.UUID ownerUuidFromItem = getOwnerUuidFromItem(cursor);
-						java.util.UUID self = player.getUuid();
-						if (ownerUuidFromItem != null && !ownerUuidFromItem.equals(self)) {
-							// 当前玩家若已作为“从属”（已使用他人绑定木桶），禁止再插入任何绑定木桶（阻止循环/多重从属）
-							if (isPlayerDependent(player)) {
-								return; // 拒绝插入
-							}
-							// 绑定拥有者如果本身已作为从属，禁止其他人再使用其绑定木桶（阻止链式共享）
-							ServerPlayerEntity ownerOnline = player.server.getPlayerManager().getPlayer(ownerUuidFromItem);
-							if (ownerOnline != null && isPlayerDependent(ownerOnline)) {
-								return; // 拒绝插入
-							}
-						}
-
-						// 若未有绑定信息则写入玩家 UUID（使用 DataComponents CUSTOM_DATA 储存）
-						net.minecraft.nbt.NbtCompound custom = getOrCreateCustom(cursor);
-						if (!custom.contains("ps_owner_uuid_most")) {
-							java.util.UUID uuid = player.getUuid();
-							custom.putLong("ps_owner_uuid_most", uuid.getMostSignificantBits());
-							custom.putLong("ps_owner_uuid_least", uuid.getLeastSignificantBits());
-							String name = player.getGameProfile() != null ? player.getGameProfile().getName() : player.getName().getString();
-							custom.putString("ps_owner_name", name);
-							cursor.set(net.minecraft.component.DataComponentTypes.CUSTOM_DATA, net.minecraft.component.type.NbtComponent.of(custom));
-							// 附魔光效（物品）
-							cursor.set(net.minecraft.component.DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
-
-							// 同步写入方块实体数据，确保放置后不会丢失
-							net.minecraft.nbt.NbtCompound be = getOrCreateBlockEntityData(cursor);
-							// 1.21 的 BLOCK_ENTITY_DATA 在编码时需要包含方块实体 id
-							if (!be.contains("id")) {
-								be.putString("id", "minecraft:barrel");
-							}
-							be.putLong("ps_owner_uuid_most", custom.getLong("ps_owner_uuid_most"));
-							be.putLong("ps_owner_uuid_least", custom.getLong("ps_owner_uuid_least"));
-							be.putString("ps_owner_name", custom.getString("ps_owner_name"));
-							cursor.set(net.minecraft.component.DataComponentTypes.BLOCK_ENTITY_DATA, net.minecraft.component.type.NbtComponent.of(be));
-						}
-					}
-				}
-				
-				if (cursor.isEmpty()) {
-					// 手持空，取出槽位物品
-					if (!slotStack.isEmpty()) {
-						ItemStack taken = upgrades.takeStack(slot);
-						
-						// 如果是箱子升级被取出，需要处理扩展槽物品的掉落
-						if (slot == 2 && taken.getItem() == net.minecraft.item.Items.CHEST) {
-							handleChestUpgradeRemoval(player, upgrades);
-						}
-						
-                        player.currentScreenHandler.setCursorStack(taken);
-                        player.currentScreenHandler.sendContentUpdates();
-                        sendUpgradeSync(player);
-					}
-				} else {
-					// 手持物品
-					if (slotStack.isEmpty()) {
-						// 槽位为空，尝试放入
-						// 垃圾桶槽位允许放入任意数量，其他槽位只允许1个
-						if (slot == 10 || cursor.getCount() == 1) {
-							if (upgrades.tryInsert(slot, cursor)) {
-                                player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
-                                player.currentScreenHandler.sendContentUpdates();
-                                sendUpgradeSync(player);
-							}
-						}
-					} else {
-						// 槽位有物品
-						if (slot == 10) {
-							// 垃圾桶槽位：直接覆盖，不交换
-							if (upgrades.tryInsert(slot, cursor)) {
-                                player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
-                                player.currentScreenHandler.sendContentUpdates();
-                                sendUpgradeSync(player);
-							}
-						} else {
-							// 其他槽位：交换（只允许1个）
-							if (cursor.getCount() == 1) {
-								ItemStack taken = upgrades.takeStack(slot);
-								if (upgrades.tryInsert(slot, cursor)) {
-                                    player.currentScreenHandler.setCursorStack(taken);
-                                    player.currentScreenHandler.sendContentUpdates();
-                                    sendUpgradeSync(player);
-								} else {
-									// 放入失败，恢复
-									upgrades.setStack(slot, taken);
-								}
-							}
-						}
-					}
-				}
-			});
-		});
+		// 旧的升级槽位点击处理已移除，现在使用统一的StorageActionC2SPayload
 		
         // 旧 EmiRecipeFillC2SPayload 接收器已移除（使用统一 CraftingOverlayActionC2SPayload）
 		
@@ -516,7 +364,7 @@ public final class ServerNetworkingHandlers {
 			}
 		});
 
-		// 虚拟“瓶装经验”点击：button=0 左键取出，1 右键存入
+		// 虚拟"瓶装经验"点击：button=0 左键取出，1 右键存入
 		ServerPlayNetworking.registerGlobalReceiver(com.portable.storage.net.payload.XpBottleClickC2SPayload.ID, (payload, context) -> {
 			int button = payload.button();
 			context.server().execute(() -> {
@@ -875,7 +723,7 @@ public final class ServerNetworkingHandlers {
         // 使用玩家注册表上下文，确保附魔等基于注册表的数据正确序列化
         merged.writeNbt(nbt, player.getRegistryManager());
         ServerPlayNetworking.send(player, new StorageSyncS2CPayload(nbt));
-        // 刷新服务器端“上次快照”，用于后续生成真实 diff
+        // 刷新服务器端"上次快照"，用于后续生成真实 diff
         com.portable.storage.sync.StorageSyncManager.setLastSnapshot(player.getUuid(), toSnapshotMap(merged));
         sendUpgradeSync(player);
         sendEnablementSync(player);
@@ -1066,7 +914,7 @@ public final class ServerNetworkingHandlers {
         list.add(PlayerStorageService.getInventory(viewer));
         added.add(viewer.getUuid());
 
-        // 统计“我所依附的根拥有者集合”
+        // 统计"我所依附的根拥有者集合"
         java.util.LinkedHashSet<java.util.UUID> rootOwners = new java.util.LinkedHashSet<>();
         UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(viewer);
         for (int i = 0; i < upgrades.getSlotCount(); i++) {
@@ -1079,7 +927,7 @@ public final class ServerNetworkingHandlers {
             }
         }
 
-        // 如果未依附任何人，则自己就是根拥有者之一（用于处理“我是源头”，让使用我木桶的人加入）
+        // 如果未依附任何人，则自己就是根拥有者之一（用于处理"我是源头"，让使用我木桶的人加入）
         if (rootOwners.isEmpty()) {
             rootOwners.add(viewer.getUuid());
         }
@@ -1096,7 +944,7 @@ public final class ServerNetworkingHandlers {
                 if (added.add(root)) list.add(StoragePersistence.loadStorage(viewer.server, root));
             }
 
-            // 加入所有“同依附该根拥有者”的玩家（包括 viewer 自己，已去重）
+            // 加入所有"同依附该根拥有者"的玩家（包括 viewer 自己，已去重）
             for (ServerPlayerEntity p : players) {
                 UpgradeInventory up = PlayerStorageService.getUpgradeInventory(p);
                 boolean usesRoot = false;
@@ -1134,7 +982,8 @@ public final class ServerNetworkingHandlers {
         UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
         if (slot < 0 || slot >= upgrades.getSlotCount()) return;
         if (UpgradeInventory.isExtendedSlot(slot)) {
-            if (slot != 5 && slot != 6 && slot != 7 && slot != 8 && slot != 10) {
+            // 扩展槽位5-9（映射到统一管理器的0-4）可以接受操作
+            if (slot != 5 && slot != 6 && slot != 7 && slot != 8) {
                 return;
             }
         }
@@ -1156,11 +1005,7 @@ public final class ServerNetworkingHandlers {
                 ));
                 return;
             }
-            if (slot == 10 && upgrades.isTrashSlotActive()) {
-                upgrades.setStack(10, net.minecraft.item.ItemStack.EMPTY);
-                sendUpgradeSync(player);
-                return;
-            }
+            // 垃圾桶槽位已改为独立 Target.TRASH 处理，移除旧 slot==10 分支
             upgrades.toggleSlotDisabled(slot);
             sendUpgradeSync(player);
             return;
@@ -1180,32 +1025,55 @@ public final class ServerNetworkingHandlers {
             }
         } else {
             if (slotStack.isEmpty()) {
-                if (slot == 10 || cursor.getCount() == 1) {
-                    if (upgrades.tryInsert(slot, cursor)) {
-                        player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
+                if (!cursor.isEmpty()) {
+                    ItemStack one = cursor.copy();
+                    one.setCount(1);
+                    if (upgrades.tryInsert(slot, one, player.getUuid(), player.getName().getString())) {
+                        // 成功放入一个，减少手中物品1个
+                        cursor.decrement(1);
+                        if (cursor.isEmpty()) {
+                            player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
+                        } else {
+                            player.currentScreenHandler.setCursorStack(cursor);
+                        }
                         player.currentScreenHandler.sendContentUpdates();
                         sendSync(player);
                     }
                 }
             } else {
-                if (slot == 10) {
-                    if (upgrades.tryInsert(slot, cursor)) {
-                        player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
+                if (cursor.getCount() == 1) {
+                    ItemStack taken = upgrades.takeStack(slot);
+                    if (upgrades.tryInsert(slot, cursor, player.getUuid(), player.getName().getString())) {
+                        player.currentScreenHandler.setCursorStack(taken);
                         player.currentScreenHandler.sendContentUpdates();
-                        sendSync(player);
-                    }
-                } else {
-                    if (cursor.getCount() == 1) {
-                        ItemStack taken = upgrades.takeStack(slot);
-                        if (upgrades.tryInsert(slot, cursor)) {
-                            player.currentScreenHandler.setCursorStack(taken);
-                            player.currentScreenHandler.sendContentUpdates();
-                                sendSync(player);
-                        } else {
-                            upgrades.setStack(slot, taken);
-                        }
+                            sendSync(player);
+                    } else {
+                        upgrades.setStack(slot, taken);
                     }
                 }
+            }
+        }
+    }
+
+    private static void handleTrashAction(ServerPlayerEntity player, StorageActionC2SPayload p) {
+        int button = p.button();
+        UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
+        
+        if (button == 0) {
+            // 左键：放入物品到垃圾桶槽位
+            ItemStack cursor = player.currentScreenHandler.getCursorStack();
+            if (!cursor.isEmpty()) {
+                if (upgrades.tryInsertTrashSlot(cursor)) {
+                    player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
+                    player.currentScreenHandler.sendContentUpdates();
+                    sendUpgradeSync(player);
+                }
+            }
+        } else if (button == 1) {
+            // 右键：清空垃圾桶槽位
+            if (upgrades.isTrashSlotActive()) {
+                upgrades.setTrashSlot(ItemStack.EMPTY);
+                sendUpgradeSync(player);
             }
         }
     }
@@ -1306,7 +1174,7 @@ public final class ServerNetworkingHandlers {
             player.sendMessage(Text.translatable("portable_storage.exp_bottle.maintenance_blocked"), true);
             return;
         }
-        // 右键优先处理“玻璃瓶转换为附魔之瓶”的需求
+        // 右键优先处理"玻璃瓶转换为附魔之瓶"的需求
         if (button == 1) {
             ItemStack cursorStack = player.currentScreenHandler.getCursorStack();
             if (!cursorStack.isEmpty() && cursorStack.isOf(net.minecraft.item.Items.GLASS_BOTTLE)) {
