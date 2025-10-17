@@ -333,10 +333,10 @@ public final class ServerNetworkingHandlers {
 
 				if (slot < 0 || slot >= upgrades.getSlotCount()) return;
 
-				// 扩展槽位检查特定操作
+                // 扩展槽位检查特定操作
                 if (com.portable.storage.storage.UpgradeInventory.isExtendedSlot(slot)) {
-                    // 槽位5（光灵箭）、槽位6（床）、槽位7（附魔之瓶）、槽位10（垃圾桶）可以接受操作
-                    if (slot != 5 && slot != 6 && slot != 7 && slot != 10) {
+                    // 槽位5（光灵箭）、槽位6（床）、槽位7（附魔之瓶）、槽位8（活塞）、槽位10（垃圾桶）可以接受操作
+                    if (slot != 5 && slot != 6 && slot != 7 && slot != 8 && slot != 10) {
 						return;
 					}
 				}
@@ -1134,7 +1134,7 @@ public final class ServerNetworkingHandlers {
         UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
         if (slot < 0 || slot >= upgrades.getSlotCount()) return;
         if (UpgradeInventory.isExtendedSlot(slot)) {
-            if (slot != 5 && slot != 6 && slot != 7 && slot != 10) {
+            if (slot != 5 && slot != 6 && slot != 7 && slot != 8 && slot != 10) {
                 return;
             }
         }
@@ -1609,6 +1609,33 @@ public final class ServerNetworkingHandlers {
         for (ServerPlayerEntity p : players) {
             sendIncrementalSyncOnDemand(p);
         }
+    }
+
+    /**
+     * 获取仓库中指定物品的可用数量
+     */
+    public static long getAvailableCount(ServerPlayerEntity player, ItemStack variant) {
+        if (variant.isEmpty()) {
+            return 0;
+        }
+        
+        long totalCount = 0;
+        for (StorageInventory s : getViewStorages(player)) {
+            for (int i = 0; i < s.getCapacity(); i++) {
+                ItemStack disp = s.getDisplayStack(i);
+                if (!disp.isEmpty() && ItemStack.areItemsAndComponentsEqual(disp, variant)) {
+                    totalCount += s.getCountByIndex(i);
+                }
+            }
+        }
+        return totalCount;
+    }
+
+    /**
+     * 从仓库取出指定数量的物品
+     */
+    public static long takeFromStorage(ServerPlayerEntity player, ItemStack variant, int want) {
+        return takeFromMerged(player, variant, want);
     }
 
     /**

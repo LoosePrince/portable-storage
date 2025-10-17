@@ -24,6 +24,8 @@ public class PlayerJoinEventHandler {
             // 清理按需同步状态
             com.portable.storage.sync.PlayerViewState.cleanupPlayer(player.getUuid());
             com.portable.storage.sync.ChangeAccumulator.cleanupPlayer(player.getUuid());
+            // 清理活塞升级处理器数据
+            com.portable.storage.event.PistonUpgradeHandler.cleanupPlayer(player.getUuid());
             // 清空垃圾桶槽位（客户端缓存）
             com.portable.storage.storage.UpgradeInventory upgrades = com.portable.storage.player.PlayerStorageService.getUpgradeInventory(player);
             if (upgrades.isTrashSlotActive()) {

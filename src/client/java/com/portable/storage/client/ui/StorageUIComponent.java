@@ -659,6 +659,7 @@ public class StorageUIComponent {
                         case 5 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.spectral_arrow"));
                         case 6 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.bed"));
                         case 7 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.experience_bottle"));
+                        case 8 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.piston"));
                     }
                 }
 
@@ -1694,8 +1695,8 @@ public class StorageUIComponent {
             if (isIn(mouseX, mouseY, upgradeSlotLefts[i], upgradeSlotTops[i], upgradeSlotRights[i], upgradeSlotBottoms[i])) {
                 // 扩展槽位检查特定操作
                 if (ClientUpgradeState.isExtendedSlot(i)) {
-                    // 槽位5（光灵箭）、槽位6（床）、槽位7（附魔之瓶）、槽位10（垃圾桶）可以接受点击
-                    if (i != 5 && i != 6 && i != 7 && i != 10) {
+                    // 槽位5（光灵箭）、槽位6（床）、槽位7（附魔之瓶）、槽位8（活塞）、槽位10（垃圾桶）可以接受点击
+                    if (i != 5 && i != 6 && i != 7 && i != 8 && i != 10) {
                         return true; // 阻止进一步处理
                     }
                 }
@@ -2436,7 +2437,8 @@ public class StorageUIComponent {
             case 5: key = "item.minecraft.spectral_arrow"; break; // 光灵箭升级
             case 6: key = "block.minecraft.red_bed"; break; // 床升级
             case 7: key = "item.minecraft.experience_bottle"; break; // 附魔之瓶升级
-            case 8: case 9: case 10: 
+            case 8: key = "block.minecraft.piston"; break; // 活塞升级
+            case 9: case 10: 
                 key = "portable_storage.upgrade.extended_slot"; break;
             default: key = "portable_storage.upgrade.unknown";
         }
