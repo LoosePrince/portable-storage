@@ -2482,7 +2482,7 @@ public class StorageUIComponent {
             case 1: key = "block.minecraft.hopper"; break;
             case 2: key = "block.minecraft.chest"; break;
             case 3: key = "block.minecraft.barrel"; break;
-            case 4: key = "block.minecraft.shulker_box"; break;
+            case 4: key = "block.minecraft.dragon_egg"; break;
             case 5: key = "item.minecraft.spectral_arrow"; break; // 光灵箭升级
             case 6: key = "block.minecraft.red_bed"; break; // 床升级
             case 7: key = "item.minecraft.experience_bottle"; break; // 附魔之瓶升级

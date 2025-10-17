@@ -13,7 +13,7 @@ public enum UpgradeSlotType {
     HOPPER(1, Items.HOPPER, "hopper"),
     CHEST(2, Items.CHEST, "chest"),
     BARREL(3, Items.BARREL, "barrel"),
-    SHULKER_BOX(4, Items.SHULKER_BOX, "shulker_box"),
+    DRAGON_EGG(4, Items.DRAGON_EGG, "dragon_egg"),
     
     // 扩展升级槽位（独立序号0-4）
     SPECTRAL_ARROW(0, Items.SPECTRAL_ARROW, "spectral_arrow", true),
