@@ -667,6 +667,7 @@ public class StorageUIComponent {
                     case 1 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.hopper"));
                     case 2 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.chest"));
                     case 3 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.barrel"));
+                    case 4 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.dragon_egg"));
                     case 5 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.spectral_arrow"));
                     case 6 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.bed"));
                     case 7 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.experience_bottle"));
@@ -681,8 +682,10 @@ public class StorageUIComponent {
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_disabled"));
                 }
                 
-                // 添加右键提示：槽位6为床升级，右键睡觉；槽位7为XP模块；槽位0为工作台自定义
-                if (slotIndex == 6) {
+                // 添加右键提示：槽位4为龙蛋升级，槽位6为床升级，槽位7为XP模块，槽位0为工作台自定义
+                if (slotIndex == 4) {
+                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_dragon_egg"));
+                } else if (slotIndex == 6) {
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_bed"));
                 } else if (slotIndex == 7) {
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_xp"));

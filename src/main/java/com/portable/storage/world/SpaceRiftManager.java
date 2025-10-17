@@ -178,6 +178,42 @@ public final class SpaceRiftManager {
         net.minecraft.entity.Entity e = avatars.remove(player.getUuid());
         if (e != null) e.discard();
     }
+    
+    public static void safelyKickPlayerFromRift(ServerPlayerEntity player) {
+        try {
+            java.util.UUID id = player.getUuid();
+            net.minecraft.util.math.GlobalPos returnPoint = getReturnPoint(id);
+            
+            // 先清理区块加载状态
+            setPlayerPlotForced(player.getServer(), id, false);
+            
+            if (returnPoint != null) {
+                net.minecraft.server.world.ServerWorld targetWorld = player.getServer().getWorld(returnPoint.dimension());
+                if (targetWorld != null) {
+                    net.minecraft.util.math.BlockPos pos = returnPoint.pos();
+                    player.teleport(targetWorld, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, player.getYaw(), player.getPitch());
+                    player.sendMessage(net.minecraft.text.Text.translatable("portable_storage.rift_feature_disabled_returned"), true);
+                    clearReturnPoint(id);
+                    removeAvatar(player);
+                } else {
+                    // 兜底：传送到主世界出生点
+                    net.minecraft.server.world.ServerWorld overworld = player.getServer().getOverworld();
+                    net.minecraft.util.math.BlockPos spawn = overworld.getSpawnPos();
+                    player.teleport(overworld, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, player.getYaw(), player.getPitch());
+                    player.sendMessage(net.minecraft.text.Text.translatable("portable_storage.rift_feature_disabled_returned"), true);
+                    clearReturnPoint(id);
+                    removeAvatar(player);
+                }
+            } else {
+                // 没有返回点：传送到主世界出生点
+                net.minecraft.server.world.ServerWorld overworld = player.getServer().getOverworld();
+                net.minecraft.util.math.BlockPos spawn = overworld.getSpawnPos();
+                player.teleport(overworld, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, player.getYaw(), player.getPitch());
+                player.sendMessage(net.minecraft.text.Text.translatable("portable_storage.rift_feature_disabled_returned"), true);
+                removeAvatar(player);
+            }
+        } catch (Throwable ignored) {}
+    }
 
     public static BlockPos getAvatarPositionOrCenter(ServerPlayerEntity player, ChunkPos origin) {
         // 优先获取复制体位置

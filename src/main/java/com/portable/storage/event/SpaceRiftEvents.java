@@ -2,6 +2,7 @@ package com.portable.storage.event;
 
 import com.portable.storage.world.SpaceRiftManager;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.MinecraftServer;
@@ -18,12 +19,25 @@ public final class SpaceRiftEvents {
         });
 
         ServerTickEvents.END_SERVER_TICK.register(SpaceRiftEvents::onEndServerTick);
+        
+        // 服务器启动后检查所有在线玩家
+        ServerLifecycleEvents.SERVER_STARTED.register(SpaceRiftEvents::onServerStarted);
 
-        // 玩家加入：强制加载其所属裂隙区块
+        // 玩家加入：强制加载其所属裂隙区块，并检查是否需要送回原位置
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             try {
                 java.util.UUID id = handler.player.getUuid();
                 com.portable.storage.world.SpaceRiftManager.setPlayerPlotForced(server, id, true);
+                
+                // 检查裂隙功能是否启用，如果禁用且玩家在裂隙中则送回原位置
+                if (!com.portable.storage.config.ServerConfig.getInstance().isEnableRiftFeature()) {
+                    if (handler.player.getWorld().getRegistryKey() == com.portable.storage.world.SpaceRiftManager.DIMENSION_KEY) {
+                        // 延迟执行，确保玩家完全加入后再处理
+                        server.execute(() -> {
+                            com.portable.storage.world.SpaceRiftManager.safelyKickPlayerFromRift(handler.player);
+                        });
+                    }
+                }
             } catch (Throwable ignored) {}
         });
 
@@ -52,6 +66,22 @@ public final class SpaceRiftEvents {
                 player.teleport(rift, center.getX() + 0.5, center.getY(), center.getZ() + 0.5, player.getYaw(), player.getPitch());
             }
         }
+    }
+    
+    private static void onServerStarted(MinecraftServer server) {
+        // 延迟执行，确保服务器完全启动后再检查
+        server.execute(() -> {
+            try {
+                // 服务器启动后检查所有在线玩家，如果裂隙功能被禁用则踢出在裂隙中的玩家
+                if (!com.portable.storage.config.ServerConfig.getInstance().isEnableRiftFeature()) {
+                    for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+                        if (player.getWorld().getRegistryKey() == SpaceRiftManager.DIMENSION_KEY) {
+                            SpaceRiftManager.safelyKickPlayerFromRift(player);
+                        }
+                    }
+                }
+            } catch (Throwable ignored) {}
+        });
     }
 }
 

@@ -28,6 +28,9 @@ public class ServerConfig {
     private int incrementalSyncMaxEntries = 512;
     private boolean clearStorageOnEnable = true;
     
+    // 裂隙功能配置
+    private boolean enableRiftFeature = true;
+    
     // 工作台升级容器界面显示配置
     private boolean stonecutter = false;
     private boolean cartographyTable = false;
@@ -180,6 +183,12 @@ public class ServerConfig {
             # 默认值: true
             clear_storage_on_enable = true
             
+            # 是否启用裂隙功能
+            # 启用后玩家可以通过龙蛋升级槽进入私人裂隙空间
+            # 禁用后无法进入裂隙，处于裂隙的玩家会在上线时被送回原位置
+            # 默认值: true
+            enable_rift_feature = true
+            
             [container_display]
             # 工作台升级在容器界面显示仓库的配置
             # 启用工作台升级后，以下容器界面将显示仓库界面
@@ -255,6 +264,7 @@ public class ServerConfig {
             incrementalSyncIntervalTicks = storageConfig.getOrElse("incremental_sync_interval_ticks", 2);
             incrementalSyncMaxEntries = storageConfig.getOrElse("incremental_sync_max_entries", 512);
             clearStorageOnEnable = storageConfig.getOrElse("clear_storage_on_enable", true);
+            enableRiftFeature = storageConfig.getOrElse("enable_rift_feature", true);
         } else {
             PortableStorage.LOGGER.warn("配置文件中未找到 [storage] 部分，使用默认值");
         }
@@ -308,6 +318,7 @@ public class ServerConfig {
         storageConfig.set("incremental_sync_interval_ticks", incrementalSyncIntervalTicks);
         storageConfig.set("incremental_sync_max_entries", incrementalSyncMaxEntries);
         storageConfig.set("clear_storage_on_enable", clearStorageOnEnable);
+        storageConfig.set("enable_rift_feature", enableRiftFeature);
         
         Config containerConfig = config.get("container_display");
         if (containerConfig == null) {
@@ -710,6 +721,10 @@ public class ServerConfig {
     
     public boolean isClearStorageOnEnable() {
         return clearStorageOnEnable;
+    }
+    
+    public boolean isEnableRiftFeature() {
+        return enableRiftFeature;
     }
     
     // Setter 方法（用于运行时修改配置）

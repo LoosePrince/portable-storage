@@ -1096,6 +1096,12 @@ public final class ServerNetworkingHandlers {
             }
 
             // 从其他维度进入裂隙
+            // 检查裂隙功能是否启用
+            if (!com.portable.storage.config.ServerConfig.getInstance().isEnableRiftFeature()) {
+                player.sendMessage(net.minecraft.text.Text.translatable("portable_storage.rift_feature_disabled"), true);
+                return;
+            }
+            
             com.portable.storage.world.SpaceRiftManager.rememberReturnPoint(player);
             java.util.UUID id = player.getUuid();
             net.minecraft.util.math.ChunkPos origin = com.portable.storage.world.SpaceRiftManager.ensureAllocatedPlot(server, id);
