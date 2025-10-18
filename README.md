@@ -164,11 +164,14 @@
 
 - 本项目由 LoosePrince 开发，遵循 MIT 协议。
 - 拼音搜索使用 [TinyPinyin](https://github.com/promeG/TinyPinyin)
-- 感谢 [雪开](https://github.com/XueK66) 提出的光灵箭升级想法
-- 感谢群友 [小泽](https://github.com/Dreamwxz) 提出的裂隙升级和装填想法
-- 感谢群友 PMCK 提出的经验瓶升级想法
-- 感谢群友 酸甜＆牛奶 提出的流体储存想法
 - 感谢 Fabric 社区及所有开源贡献者。
+
+### 创意提供者
+
+- 感谢 [雪开](https://github.com/XueK66) 提出的光灵箭升级和床升级想法
+- 感谢群友 [小泽](https://github.com/Dreamwxz) 提出的裂隙升级和装填想法
+- 感谢群友 PMCK 提出的经验瓶升级想法和床升级实现思路
+- 感谢群友 酸甜＆牛奶 提出的流体储存想法
 
 ---
 
