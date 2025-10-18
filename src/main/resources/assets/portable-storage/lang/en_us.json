@@ -106,6 +106,8 @@
   "portable_storage.message.confirm_activation_hint": "Right-click again within 5 seconds to confirm activation",
   "portable_storage.message.activation_timeout": "Activation confirmation has timed out, please try again",
   "portable_storage.rift_avatar": "%s's Avatar",
+  "portable_storage.rift_feature_disabled": "Rift feature has been disabled by administrator",
+  "portable_storage.rift_feature_disabled_returned": "Rift feature disabled, you have been returned to your original location",
   "portable_storage.message.virtual_crafting_disabled_by_server": "Virtual crafting feature has been disabled by server administrator"
 }
 

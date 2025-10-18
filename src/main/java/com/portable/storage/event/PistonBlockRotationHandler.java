@@ -9,13 +9,10 @@ import net.minecraft.block.enums.SlabType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.state.property.DirectionProperty;
-import net.minecraft.state.property.EnumProperty;
 import net.minecraft.state.property.Properties;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
@@ -90,7 +87,6 @@ public class PistonBlockRotationHandler {
      * 尝试旋转方块状态
      */
     private static BlockState rotateBlockState(BlockState state, Direction clickedFace) {
-        Block block = state.getBlock();
         
         // 处理漏斗的特殊属性
         if (state.contains(Properties.HOPPER_FACING)) {

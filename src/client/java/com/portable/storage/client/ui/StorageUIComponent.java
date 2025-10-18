@@ -56,7 +56,6 @@ public class StorageUIComponent {
     private boolean dragScrollbar = false;
     private int dragGrabOffset = 0;
     private int totalRows = 12;
-    private List<Integer> filteredIndices = new ArrayList<>();
     private int[] visibleIndexMap = new int[0];
     private String query = "";
     private boolean collapsed = false;
@@ -79,7 +78,7 @@ public class StorageUIComponent {
     
     // UI位置（由外部设置）
     private int gridLeft, gridTop;
-    private int baseX, baseY, baseBgW, baseBgH;
+    private int baseY, baseBgH;
     private int scrollbarLeft, scrollbarTop, scrollbarHeight, scrollbarWidth;
     
     // 升级槽位点击区域
@@ -112,21 +111,8 @@ public class StorageUIComponent {
     // 切换原版界面点击区域
     private int switchVanillaLeft, switchVanillaTop, switchVanillaRight, switchVanillaBottom;
     
-    // 缓存上次的排序配置
-    private ClientConfig.SortMode lastSortMode = ClientConfig.SortMode.COUNT;
-    private boolean lastSortAscending = false;
     
     public StorageUIComponent() {
-        resetSortCache();
-    }
-
-    /**
-     * 重置排序缓存
-     */
-    public void resetSortCache() {
-        ClientConfig config = ClientConfig.getInstance();
-        lastSortMode = config.sortMode;
-        lastSortAscending = config.sortAscending;
     }
     
     /**
@@ -169,8 +155,7 @@ public class StorageUIComponent {
     public void render(DrawContext context, int mouseX, int mouseY, float delta, int screenX, int screenY, int backgroundWidth, int backgroundHeight, boolean enableCollapse) {
         // 记录当前实例，便于全局滚轮注入转发
         currentInstance = this;
-        // 每次渲染前重置缓存，确保排序配置改变时能正确响应
-        resetSortCache();
+        // 排序配置直接从 ClientConfig 读取，无需缓存
 
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null || client.textRenderer == null) return;
@@ -188,9 +173,7 @@ public class StorageUIComponent {
         this.visibleRows = calculateAdaptiveHeight(screenHeight, inventoryTop, inventoryBottom, config);
         
         // 计算位置
-        this.baseX = screenX;
         this.baseY = screenY;
-        this.baseBgW = backgroundWidth;
         this.baseBgH = backgroundHeight;
         this.gridLeft = screenX + 8;
         int gapBelow = 6;
@@ -356,7 +339,7 @@ public class StorageUIComponent {
             }
         }
 
-        this.filteredIndices = filtered;
+        // filteredIndices 字段已移除
         int filteredSize = filtered.size();
         this.totalRows = Math.max(visibleRows, (int)Math.ceil(filteredSize / (double)cols));
         int maxScrollRows = Math.max(0, totalRows - visibleRows);

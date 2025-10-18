@@ -11,10 +11,6 @@ import net.minecraft.util.math.GlobalPos;
 import net.minecraft.world.World;
 import net.minecraft.world.border.WorldBorder;
 import net.minecraft.network.packet.s2c.play.WorldBorderInitializeS2CPacket;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.BeaconBlock;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
 
 import java.util.HashMap;
 import java.util.Map;

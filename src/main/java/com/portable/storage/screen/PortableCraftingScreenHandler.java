@@ -19,7 +19,6 @@ public class PortableCraftingScreenHandler extends ScreenHandler {
     private final CraftingInventory input;
     private final CraftingResultInventory result;
     private final ScreenHandlerContext context;
-    private final PlayerEntity player;
 
     public PortableCraftingScreenHandler(int syncId, PlayerInventory playerInventory) {
         this(syncId, playerInventory, ScreenHandlerContext.EMPTY);
@@ -28,7 +27,6 @@ public class PortableCraftingScreenHandler extends ScreenHandler {
     public PortableCraftingScreenHandler(int syncId, PlayerInventory playerInventory, ScreenHandlerContext context) {
         super(com.portable.storage.PortableStorage.PORTABLE_CRAFTING_HANDLER, syncId);
         this.context = context;
-        this.player = playerInventory.player;
         this.input = new CraftingInventory(this, 3, 3);
         this.result = new CraftingResultInventory();
 

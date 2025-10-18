@@ -573,10 +573,6 @@ public final class ServerNetworkingHandlers {
 
 	}
 
-	private static net.minecraft.nbt.NbtCompound getOrCreateCustom(net.minecraft.item.ItemStack stack) {
-		net.minecraft.component.type.NbtComponent comp = stack.get(net.minecraft.component.DataComponentTypes.CUSTOM_DATA);
-		return comp != null ? comp.copyNbt() : new net.minecraft.nbt.NbtCompound();
-	}
 
 	// ===== XP 计算与增减（基于等级与进度的精确转换） =====
 	private static int totalXpForLevel(int level) {
@@ -658,10 +654,6 @@ public final class ServerNetworkingHandlers {
 		return Math.max(0, to - from);
 	}
 
-	private static net.minecraft.nbt.NbtCompound getOrCreateBlockEntityData(net.minecraft.item.ItemStack stack) {
-		net.minecraft.component.type.NbtComponent comp = stack.get(net.minecraft.component.DataComponentTypes.BLOCK_ENTITY_DATA);
-		return comp != null ? comp.copyNbt() : new net.minecraft.nbt.NbtCompound();
-	}
 
 	private static java.util.UUID getOwnerUuidFromItem(net.minecraft.item.ItemStack stack) {
 		try {
@@ -678,20 +670,6 @@ public final class ServerNetworkingHandlers {
 		return null;
 	}
 
-	private static boolean isPlayerDependent(ServerPlayerEntity player) {
-		UpgradeInventory inv = PlayerStorageService.getUpgradeInventory(player);
-		java.util.UUID self = player.getUuid();
-		for (int i = 0; i < inv.getSlotCount(); i++) {
-			net.minecraft.item.ItemStack st = inv.getStack(i);
-			if (!st.isEmpty() && st.getItem() == net.minecraft.item.Items.BARREL) {
-				java.util.UUID owner = getOwnerUuidFromItem(st);
-				if (owner != null && !owner.equals(self)) {
-					return true;
-				}
-			}
-		}
-		return false;
-	}
 
     private static void insertIntoPlayerInventory(ServerPlayerEntity player, ItemStack stack) {
 		Inventory inv = player.getInventory();

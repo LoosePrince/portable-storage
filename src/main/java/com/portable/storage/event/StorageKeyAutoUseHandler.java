@@ -3,7 +3,6 @@ package com.portable.storage.event;
 import com.portable.storage.item.StorageKeyItem;
 import com.portable.storage.player.PlayerStorageAccess;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;

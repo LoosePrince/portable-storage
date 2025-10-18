@@ -1,14 +1,12 @@
 package com.portable.storage.entity;
 
 import com.portable.storage.PortableStorage;
-import net.minecraft.entity.EntityDimensions;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnGroup;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.util.Identifier;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
-import net.minecraft.entity.mob.MobEntity;
 
 public final class ModEntities {
     private ModEntities() {}

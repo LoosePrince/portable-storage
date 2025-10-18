@@ -55,15 +55,26 @@ public final class SpaceRiftEvents {
         if (rift == null) return;
         for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
             if (player.getWorld() != rift) continue;
-            // 每tick确保个人边界已应用
-            SpaceRiftManager.applyPersonalBorder(player);
+            
+            // 检查玩家是否为观察者模式或创造模式
+            boolean isSpectatorOrCreative = player.isSpectator() || player.isCreative();
+            
+            // 每tick确保个人边界已应用（观察者和创造者除外）
+            if (!isSpectatorOrCreative) {
+                SpaceRiftManager.applyPersonalBorder(player);
+            }
+            
             // 记录玩家在裂隙内的最后位置
             SpaceRiftManager.updateLastRiftPos(player);
-            BlockPos pos = player.getBlockPos();
-            if (!SpaceRiftManager.isInsideOwnPlot(player, pos)) {
-                var origin = SpaceRiftManager.ensureAllocatedPlot(server, player.getUuid());
-                BlockPos center = SpaceRiftManager.getPlotCenterBlock(origin);
-                player.teleport(rift, center.getX() + 0.5, center.getY(), center.getZ() + 0.5, player.getYaw(), player.getPitch());
+            
+            // 只有非观察者和非创造者才会被传送回自己的地块
+            if (!isSpectatorOrCreative) {
+                BlockPos pos = player.getBlockPos();
+                if (!SpaceRiftManager.isInsideOwnPlot(player, pos)) {
+                    var origin = SpaceRiftManager.ensureAllocatedPlot(server, player.getUuid());
+                    BlockPos center = SpaceRiftManager.getPlotCenterBlock(origin);
+                    player.teleport(rift, center.getX() + 0.5, center.getY(), center.getZ() + 0.5, player.getYaw(), player.getPitch());
+                }
             }
         }
     }
