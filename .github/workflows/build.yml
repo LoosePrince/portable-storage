@@ -77,7 +77,8 @@ jobs:
           path: build/libs/
           retention-days: 1  # 只在需要时保留，节省存储空间
 
-  release:
+
+  publish:
     needs: build
     runs-on: ubuntu-24.04
     if: needs.build.outputs.version_changed == 'true' && github.event_name == 'push'
@@ -93,13 +94,38 @@ jobs:
           name: build-artifacts
           path: build/libs/
       
-      - name: create release
-        uses: softprops/action-gh-release@v2
+      - name: publish to platforms
+        uses: Kira-NT/mc-publish@v3.3.0
         with:
-          tag_name: v${{ needs.build.outputs.new_version }}
-          name: Release v${{ needs.build.outputs.new_version }}
-          body: |
-            ## Portable Storage v${{ needs.build.outputs.new_version }}
+          # 文件路径
+          files: build/libs/portable-storage-${{ needs.build.outputs.new_version }}.jar
+          
+          # 版本信息
+          version: ${{ needs.build.outputs.new_version }}
+          changelog: ${{ needs.build.outputs.changelog }}
+          
+          # CurseForge 配置
+          curseforge-token: ${{ secrets.CURSEFORGE_API_TOKEN }}
+          curseforge-project-id: 1365553
+          curseforge-version-type: release
+          curseforge-game-versions: 1.21
+          curseforge-loaders: fabric
+          curseforge-version-name: Portable Storage ${{ needs.build.outputs.new_version }} [Fabric 1.21]
+          
+          # Modrinth 配置
+          modrinth-token: ${{ secrets.MODRINTH_API_TOKEN }}
+          modrinth-project-id: fgNKEUno
+          modrinth-version-type: release
+          modrinth-game-versions: 1.21
+          modrinth-loaders: fabric
+          modrinth-version-name: Portable Storage ${{ needs.build.outputs.new_version }} [Fabric 1.21]
+          
+          # GitHub 发布配置
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-tag: v${{ needs.build.outputs.new_version }}
+          github-release-name: Portable Storage ${{ needs.build.outputs.new_version }} [Fabric 1.21]
+          github-release-body: |
+            ## Portable Storage ${{ needs.build.outputs.new_version }}
 
             **Portable Storage** 是一个基于 Fabric 的 Minecraft 模组，为玩家添加随身仓库功能。
 
@@ -115,62 +141,3 @@ jobs:
 
             ### 更新内容
             ${{ needs.build.outputs.changelog }}
-          files: |
-            build/libs/*.jar
-            !build/libs/*-sources.jar
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  publish-curseforge:
-    needs: [build, release]
-    runs-on: ubuntu-24.04
-    if: needs.build.outputs.version_changed == 'true' && github.event_name == 'push'
-    steps:
-      - name: checkout repository
-        uses: actions/checkout@v4
-      
-      - name: download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: build-artifacts
-          path: build/libs/
-      
-      - name: publish to curseforge
-        uses: CurseForge/curseforge-upload-action@v1
-        with:
-          api-token: ${{ secrets.CURSEFORGE_API_TOKEN }}
-          project-id: 1365553
-          file: build/libs/portable-storage-${{ needs.build.outputs.new_version }}.jar
-          changelog: ${{ needs.build.outputs.changelog }}
-          release-type: release
-          game-versions: 1.21
-          loaders: fabric
-
-  publish-modrinth:
-    needs: [build, release]
-    runs-on: ubuntu-24.04
-    if: needs.build.outputs.version_changed == 'true' && github.event_name == 'push'
-    steps:
-      - name: checkout repository
-        uses: actions/checkout@v4
-      
-      - name: download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: build-artifacts
-          path: build/libs/
-      
-      - name: publish to modrinth
-        uses: modrinth/gh-action@v1
-        with:
-          token: ${{ secrets.MODRINTH_API_TOKEN }}
-          projectId: fgNKEUno
-          file: build/libs/portable-storage-${{ needs.build.outputs.new_version }}.jar
-          changelog: ${{ needs.build.outputs.changelog }}
-          versionNumber: ${{ needs.build.outputs.new_version }}
-          versionName: v${{ needs.build.outputs.new_version }}
-          versionType: release
-          gameVersions: 1.21
-          loaders: fabric
