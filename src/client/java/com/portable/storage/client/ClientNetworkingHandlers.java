@@ -90,6 +90,32 @@ public final class ClientNetworkingHandlers {
                             );
                         }
                     }
+                    case RIFT_CONFIG -> {
+                        var nbt = payload.data();
+                        if (nbt != null) {
+                            String upgradeItem = nbt.getString("riftUpgradeItem");
+                            int size = nbt.getInt("riftSize");
+                            com.portable.storage.client.ClientRiftConfig.updateConfig(upgradeItem, size);
+                        }
+                    }
+                    case VIRTUAL_CRAFTING_CONFIG -> {
+                        var nbt = payload.data();
+                        if (nbt != null) {
+                            boolean enabled = nbt.getBoolean("enableVirtualCrafting");
+                            com.portable.storage.client.ClientVirtualCraftingConfig.updateConfig(enabled);
+                            
+                            // 如果服务端禁用虚拟合成，强制关闭客户端的虚拟合成显示
+                            if (!enabled) {
+                                com.portable.storage.client.ClientConfig config = com.portable.storage.client.ClientConfig.getInstance();
+                                if (config.virtualCraftingVisible) {
+                                    config.virtualCraftingVisible = false;
+                                    com.portable.storage.client.ClientConfig.save();
+                                    // 返还所有合成槽位的物品
+                                    com.portable.storage.client.ClientNetworkingHandlers.sendRefundCraftingSlots();
+                                }
+                            }
+                        }
+                    }
                 }
             });
         });

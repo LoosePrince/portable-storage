@@ -92,7 +92,7 @@
   "portable_storage.piston.refill_message": "已补充 %d %s，仓库剩余 %d",
   "portable_storage.piston.block_rotated": "已旋转 %s",
   "portable_storage.ui.upgrade_desc.trash_slot": "垃圾桶：临时存储物品，退出时清空",
-  "portable_storage.ui.upgrade_desc.dragon_egg": "龙蛋：右键进入私人裂隙空间",
+  "portable_storage.ui.upgrade_desc.dragon_egg": "裂隙升级：右键进入私人裂隙空间",
   "portable_storage.ui.upgrade_right_click_dragon_egg": "右键进入/离开裂隙空间",
   "item.portable_storage.storage_key": "仓库钥匙",
   "portable_storage.tooltip.storage_key_usage": "右键点击重新激活你的仓库",
@@ -109,6 +109,7 @@
   "portable_storage.message.activation_timeout": "激活确认已超时，请重新尝试",
   "portable_storage.rift_avatar": "%s的复制体",
   "portable_storage.rift_feature_disabled": "裂隙功能已被管理员禁用",
-  "portable_storage.rift_feature_disabled_returned": "裂隙功能已禁用，已将你送回原位置"
+  "portable_storage.rift_feature_disabled_returned": "裂隙功能已禁用，已将你送回原位置",
+  "portable_storage.message.virtual_crafting_disabled_by_server": "虚拟合成功能已被服务器管理员禁用"
 }
 

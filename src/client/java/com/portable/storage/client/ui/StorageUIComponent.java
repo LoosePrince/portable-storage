@@ -682,7 +682,7 @@ public class StorageUIComponent {
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_disabled"));
                 }
                 
-                // 添加右键提示：槽位4为龙蛋升级，槽位6为床升级，槽位7为XP模块，槽位0为工作台自定义
+                // 添加右键提示：槽位4为裂隙升级，槽位6为床升级，槽位7为XP模块，槽位0为工作台自定义
                 if (slotIndex == 4) {
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_dragon_egg"));
                 } else if (slotIndex == 6) {
@@ -696,13 +696,16 @@ public class StorageUIComponent {
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_current_step", level));
                 } else if (slotIndex == 0) {
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_custom_crafting"));
-                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_middle_click_virtual_crafting"));
-                    boolean virtualCraftingVisible = com.portable.storage.client.ClientConfig.getInstance().virtualCraftingVisible;
-                    Text virtualCraftingStatus = virtualCraftingVisible ? 
-                        Text.translatable("portable_storage.toggle.enabled") : 
-                        Text.translatable("portable_storage.toggle.disabled");
-                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_virtual_crafting_status", virtualCraftingStatus));
-                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_virtual_crafting_warning"));
+                    // 只有服务端启用虚拟合成功能时才显示相关描述
+                    if (com.portable.storage.client.ClientVirtualCraftingConfig.isEnableVirtualCrafting()) {
+                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_middle_click_virtual_crafting"));
+                        boolean virtualCraftingVisible = com.portable.storage.client.ClientConfig.getInstance().virtualCraftingVisible;
+                        Text virtualCraftingStatus = virtualCraftingVisible ? 
+                            Text.translatable("portable_storage.toggle.enabled") : 
+                            Text.translatable("portable_storage.toggle.disabled");
+                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_virtual_crafting_status", virtualCraftingStatus));
+                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_virtual_crafting_warning"));
+                    }
                 } else {
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_hint"));
                 }
@@ -1799,14 +1802,24 @@ public class StorageUIComponent {
                     ));
                     return true;
                 } else if (button == 2) { // 中键点击
-                    // 工作台升级槽位中键：切换虚拟合成显示状态
+                    // 工作台升级槽位中键：切换虚拟合成显示状态（仅当服务端启用虚拟合成功能时）
                     if (i == 0 && ClientUpgradeState.getStack(0) != null && !ClientUpgradeState.getStack(0).isEmpty() && !ClientUpgradeState.isSlotDisabled(0)) {
-                        com.portable.storage.client.ClientConfig config = com.portable.storage.client.ClientConfig.getInstance();
-                        config.virtualCraftingVisible = !config.virtualCraftingVisible;
-                        com.portable.storage.client.ClientConfig.save();
-                        // 切换状态时返还所有合成槽位的物品
-                        com.portable.storage.client.ClientNetworkingHandlers.sendRefundCraftingSlots();
-                        return true;
+                        // 检查服务端是否启用虚拟合成功能
+                        if (com.portable.storage.client.ClientVirtualCraftingConfig.isEnableVirtualCrafting()) {
+                            com.portable.storage.client.ClientConfig config = com.portable.storage.client.ClientConfig.getInstance();
+                            config.virtualCraftingVisible = !config.virtualCraftingVisible;
+                            com.portable.storage.client.ClientConfig.save();
+                            // 切换状态时返还所有合成槽位的物品
+                            com.portable.storage.client.ClientNetworkingHandlers.sendRefundCraftingSlots();
+                            return true;
+                        } else {
+                            // 服务端禁用虚拟合成时，显示提示消息
+                            net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
+                            if (client.player != null) {
+                                client.player.sendMessage(net.minecraft.text.Text.translatable("portable_storage.message.virtual_crafting_disabled_by_server"), false);
+                            }
+                            return true;
+                        }
                     }
                     // 附魔之瓶槽位中键：切换等级维持状态
                     if (i == 7 && ClientUpgradeState.isXpBottleUpgradeActive()) {
@@ -2485,7 +2498,7 @@ public class StorageUIComponent {
             case 1: key = "block.minecraft.hopper"; break;
             case 2: key = "block.minecraft.chest"; break;
             case 3: key = "block.minecraft.barrel"; break;
-            case 4: key = "block.minecraft.dragon_egg"; break;
+            case 4: key = com.portable.storage.client.ClientRiftConfig.getRiftUpgradeItemTranslationKey(); break;
             case 5: key = "item.minecraft.spectral_arrow"; break; // 光灵箭升级
             case 6: key = "block.minecraft.red_bed"; break; // 床升级
             case 7: key = "item.minecraft.experience_bottle"; break; // 附魔之瓶升级

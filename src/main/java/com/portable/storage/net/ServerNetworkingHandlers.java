@@ -361,6 +361,21 @@ public final class ServerNetworkingHandlers {
 				ServerPlayNetworking.send(player, new com.portable.storage.net.payload.ConfigSyncS2CPayload(
 					com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.DISPLAY_CONFIG, data
 				));
+				
+				// 发送裂隙配置同步
+				NbtCompound riftData = new NbtCompound();
+				riftData.putString("riftUpgradeItem", config.getRiftUpgradeItem());
+				riftData.putInt("riftSize", config.getRiftSize());
+				ServerPlayNetworking.send(player, new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+					com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.RIFT_CONFIG, riftData
+				));
+				
+				// 发送虚拟合成配置同步
+				NbtCompound virtualCraftingData = new NbtCompound();
+				virtualCraftingData.putBoolean("enableVirtualCrafting", config.isEnableVirtualCrafting());
+				ServerPlayNetworking.send(player, new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+					com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.VIRTUAL_CRAFTING_CONFIG, virtualCraftingData
+				));
 			}
 		});
 
@@ -989,8 +1004,8 @@ public final class ServerNetworkingHandlers {
         }
         if (button == 1) {
             if (slot == 4 && !upgrades.isSlotDisabled(4) && !upgrades.getStack(4).isEmpty()) {
-                // 龙蛋升级槽：右键在维度间来回切换
-                handleDragonEggTeleport(player);
+                // 裂隙升级槽：右键在维度间来回切换
+                handleRiftTeleport(player);
                 return;
             }
             if (slot == 6 && upgrades.isBedUpgradeActive()) {
@@ -1060,7 +1075,7 @@ public final class ServerNetworkingHandlers {
         }
     }
 
-    private static void handleDragonEggTeleport(ServerPlayerEntity player) {
+    private static void handleRiftTeleport(ServerPlayerEntity player) {
         try {
             net.minecraft.server.MinecraftServer server = player.getServer();
             if (server == null) return;

@@ -94,7 +94,9 @@ public abstract class InventoryScreenMixin {
                 portableStorage$uiComponent.render(context, mouseX, mouseY, delta, x, y, backgroundWidth, backgroundHeight, true);
             }
             // 若启用工作台升级且配置允许，则在2x2合成区域上覆盖3x3槽位提示（严格根据实际槽位坐标对齐）
-            if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient() && com.portable.storage.client.ClientConfig.getInstance().virtualCraftingVisible) {
+            if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient() && 
+                com.portable.storage.client.ClientConfig.getInstance().virtualCraftingVisible && 
+                com.portable.storage.client.ClientVirtualCraftingConfig.isEnableVirtualCrafting()) {
                 MinecraftClient mc2 = MinecraftClient.getInstance();
                 if (mc2 != null && mc2.player != null && mc2.player.currentScreenHandler instanceof net.minecraft.screen.PlayerScreenHandler handler) {
                     // PlayerScreenHandler: 0=输出, 1..4=2x2输入

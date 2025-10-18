@@ -262,6 +262,11 @@ public class ClientConfig {
     
     public static void save() {
         try {
+            // 如果服务端禁用虚拟合成，强制关闭客户端的虚拟合成设置
+            if (!com.portable.storage.client.ClientVirtualCraftingConfig.isEnableVirtualCrafting()) {
+                INSTANCE.virtualCraftingVisible = false;
+            }
+            
             String json = GSON.toJson(INSTANCE);
             Files.writeString(CONFIG_PATH, json);
             PortableStorage.LOGGER.debug("Saved client config to {}", CONFIG_PATH);

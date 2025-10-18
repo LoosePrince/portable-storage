@@ -70,6 +70,10 @@ public enum UpgradeSlotType {
      * 获取预期物品堆栈
      */
     public ItemStack getExpectedStack() {
+        // 裂隙升级槽位使用配置的物品
+        if (this == DRAGON_EGG) {
+            return new ItemStack(getRiftUpgradeItem());
+        }
         return new ItemStack(expectedItem);
     }
     
@@ -98,6 +102,31 @@ public enum UpgradeSlotType {
     }
     
     /**
+     * 获取裂隙升级物品
+     */
+    private static net.minecraft.item.Item getRiftUpgradeItem() {
+        String configValue = com.portable.storage.config.ServerConfig.getInstance().getRiftUpgradeItem();
+        try {
+            // 解析格式: "类型:命名空间:物品ID"
+            String[] parts = configValue.split(":", 3);
+            if (parts.length == 3) {
+                String namespace = parts[1];
+                String path = parts[2];
+                
+                net.minecraft.util.Identifier id = net.minecraft.util.Identifier.of(namespace, path);
+                return net.minecraft.registry.Registries.ITEM.get(id);
+            } else {
+                // 兼容旧格式: "命名空间:物品ID"
+                net.minecraft.util.Identifier id = net.minecraft.util.Identifier.tryParse(configValue);
+                return net.minecraft.registry.Registries.ITEM.get(id);
+            }
+        } catch (Exception e) {
+            com.portable.storage.PortableStorage.LOGGER.warn("Failed to parse rift upgrade item: {}", configValue, e);
+            return net.minecraft.item.Items.DRAGON_EGG; // 默认回退
+        }
+    }
+    
+    /**
      * 检查物品是否匹配此槽位类型
      */
     public boolean isValidItem(ItemStack stack) {
@@ -115,6 +144,11 @@ public enum UpgradeSlotType {
                    stack.isOf(Items.MAGENTA_BED) || stack.isOf(Items.ORANGE_BED) || 
                    stack.isOf(Items.PINK_BED) || stack.isOf(Items.PURPLE_BED) || 
                    stack.isOf(Items.WHITE_BED) || stack.isOf(Items.YELLOW_BED);
+        }
+        
+        // 裂隙升级物品使用配置的物品
+        if (this == DRAGON_EGG) {
+            return stack.isOf(getRiftUpgradeItem());
         }
         
         return stack.isOf(expectedItem);

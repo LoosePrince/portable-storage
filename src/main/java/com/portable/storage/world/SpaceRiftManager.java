@@ -34,7 +34,10 @@ public final class SpaceRiftManager {
     private static final Map<UUID, net.minecraft.entity.Entity> avatars = new HashMap<>();
     private static final Map<UUID, BlockPos> lastRiftPos = new HashMap<>();
 
-    private static final int PLOT_CHUNK_SIZE = 1; // 16x16 一块
+    // 裂隙大小从配置中获取，默认为1区块
+    private static int getPlotChunkSize() {
+        return com.portable.storage.config.ServerConfig.getInstance().getRiftSize();
+    }
     private static final int PLOT_SPACING_CHUNKS = 64; // 相邻玩家相隔64区块
     private static final int PLOT_HEIGHT = 100; // 逻辑高度，仅用于边界判断
     private static final int FLOOR_Y = 64;
@@ -82,8 +85,8 @@ public final class SpaceRiftManager {
         if (origin == null) return false;
         int minX = origin.getStartX();
         int minZ = origin.getStartZ();
-        int maxX = minX + 16 * PLOT_CHUNK_SIZE - 1;
-        int maxZ = minZ + 16 * PLOT_CHUNK_SIZE - 1;
+        int maxX = minX + 16 * getPlotChunkSize() - 1;
+        int maxZ = minZ + 16 * getPlotChunkSize() - 1;
         return pos.getX() >= minX && pos.getX() <= maxX && pos.getZ() >= minZ && pos.getZ() <= maxZ && pos.getY() >= 0 && pos.getY() < 164;
     }
 
@@ -96,8 +99,8 @@ public final class SpaceRiftManager {
         net.minecraft.block.BlockState barrier = net.minecraft.block.Blocks.BARRIER.getDefaultState();
         int minX = origin.getStartX();
         int minZ = origin.getStartZ();
-        int maxX = minX + 16 * PLOT_CHUNK_SIZE - 1;
-        int maxZ = minZ + 16 * PLOT_CHUNK_SIZE - 1;
+        int maxX = minX + 16 * getPlotChunkSize() - 1;
+        int maxZ = minZ + 16 * getPlotChunkSize() - 1;
         int worldBottom = world.getBottomY();
         int worldTop = world.getTopY() - 1;
         int bottomStart = Math.max(BOTTOM_Y, worldBottom);
@@ -166,8 +169,8 @@ public final class SpaceRiftManager {
     private static BlockPos clampToPlot(ChunkPos origin, BlockPos pos) {
         int minX = origin.getStartX();
         int minZ = origin.getStartZ();
-        int maxX = minX + 16 * PLOT_CHUNK_SIZE - 1;
-        int maxZ = minZ + 16 * PLOT_CHUNK_SIZE - 1;
+        int maxX = minX + 16 * getPlotChunkSize() - 1;
+        int maxZ = minZ + 16 * getPlotChunkSize() - 1;
         int x = Math.min(Math.max(pos.getX(), minX), maxX);
         int z = Math.min(Math.max(pos.getZ(), minZ), maxZ);
         int y = Math.max(pos.getY(), BOTTOM_Y);

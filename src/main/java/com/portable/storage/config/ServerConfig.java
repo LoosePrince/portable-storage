@@ -30,6 +30,11 @@ public class ServerConfig {
     
     // 裂隙功能配置
     private boolean enableRiftFeature = true;
+    private String riftUpgradeItem = "block:minecraft:dragon_egg";
+    private int riftSize = 1;
+    
+    // 工作台虚拟合成功能配置
+    private boolean enableVirtualCrafting = true;
     
     // 工作台升级容器界面显示配置
     private boolean stonecutter = false;
@@ -184,10 +189,27 @@ public class ServerConfig {
             clear_storage_on_enable = true
             
             # 是否启用裂隙功能
-            # 启用后玩家可以通过龙蛋升级槽进入私人裂隙空间
+            # 启用后玩家可以通过裂隙升级槽进入私人裂隙空间
             # 禁用后无法进入裂隙，处于裂隙的玩家会在上线时被送回原位置
             # 默认值: true
             enable_rift_feature = true
+            
+            # 裂隙升级物品
+            # 用于进入裂隙的升级槽物品，默认龙蛋
+            # 格式: "类型:命名空间:物品ID" (类型为 block 或 item)
+            # 默认值: "block:minecraft:dragon_egg"
+            rift_upgrade_item = "block:minecraft:dragon_egg"
+            
+            # 裂隙大小
+            # 裂隙空间的大小，单位为区块（16x16方块）
+            # 默认值: 1
+            rift_size = 1
+            
+            # 启用工作台虚拟合成功能
+            # 启用后工作台升级槽位提供3x3虚拟合成覆盖层
+            # 关闭后工作台升级槽位的虚拟合成描述也不会显示
+            # 默认值: true
+            enable_virtual_crafting = true
             
             [container_display]
             # 工作台升级在容器界面显示仓库的配置
@@ -265,6 +287,9 @@ public class ServerConfig {
             incrementalSyncMaxEntries = storageConfig.getOrElse("incremental_sync_max_entries", 512);
             clearStorageOnEnable = storageConfig.getOrElse("clear_storage_on_enable", true);
             enableRiftFeature = storageConfig.getOrElse("enable_rift_feature", true);
+            riftUpgradeItem = storageConfig.getOrElse("rift_upgrade_item", "block:minecraft:dragon_egg");
+            riftSize = storageConfig.getOrElse("rift_size", 1);
+            enableVirtualCrafting = storageConfig.getOrElse("enable_virtual_crafting", true);
         } else {
             PortableStorage.LOGGER.warn("配置文件中未找到 [storage] 部分，使用默认值");
         }
@@ -319,6 +344,9 @@ public class ServerConfig {
         storageConfig.set("incremental_sync_max_entries", incrementalSyncMaxEntries);
         storageConfig.set("clear_storage_on_enable", clearStorageOnEnable);
         storageConfig.set("enable_rift_feature", enableRiftFeature);
+        storageConfig.set("rift_upgrade_item", riftUpgradeItem);
+        storageConfig.set("rift_size", riftSize);
+        storageConfig.set("enable_virtual_crafting", enableVirtualCrafting);
         
         Config containerConfig = config.get("container_display");
         if (containerConfig == null) {
@@ -727,6 +755,18 @@ public class ServerConfig {
         return enableRiftFeature;
     }
     
+    public String getRiftUpgradeItem() {
+        return riftUpgradeItem;
+    }
+    
+    public int getRiftSize() {
+        return riftSize;
+    }
+    
+    public boolean isEnableVirtualCrafting() {
+        return enableVirtualCrafting;
+    }
+    
     // Setter 方法（用于运行时修改配置）
     public void setRequireConditionToEnable(boolean requireConditionToEnable) {
         this.requireConditionToEnable = requireConditionToEnable;
@@ -746,6 +786,18 @@ public class ServerConfig {
     
     public void setEnableOnDemandSync(boolean enableOnDemandSync) {
         this.enableOnDemandSync = enableOnDemandSync;
+    }
+    
+    public void setRiftUpgradeItem(String riftUpgradeItem) {
+        this.riftUpgradeItem = riftUpgradeItem;
+    }
+    
+    public void setRiftSize(int riftSize) {
+        this.riftSize = riftSize;
+    }
+    
+    public void setEnableVirtualCrafting(boolean enableVirtualCrafting) {
+        this.enableVirtualCrafting = enableVirtualCrafting;
     }
     
     // 容器配置 Getter 方法

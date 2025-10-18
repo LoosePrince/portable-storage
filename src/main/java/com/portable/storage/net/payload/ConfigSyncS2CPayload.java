@@ -30,7 +30,9 @@ public record ConfigSyncS2CPayload(Topic topic, NbtCompound data) implements Cus
         DISPLAY_CONFIG,
         STORAGE_ENABLEMENT,
         UPGRADE,
-        XP_STEP
+        XP_STEP,
+        RIFT_CONFIG,
+        VIRTUAL_CRAFTING_CONFIG
     }
 }
 
