@@ -77,6 +77,7 @@
   "portable_storage.search": "搜索",
   "container.portable_storage.bound_barrel": "%s的绑定木桶",
   "container.portable_storage.bound_barrel.unknown": "绑定木桶",
+  "block.portable-storage.bound_barrel": "绑定木桶",
   "portable_storage.tooltip.last_modified": "最后修改：%s",
   "portable_storage.message.storage_enabled": "已使用 %s 启用随身仓库功能！",
   "portable_storage.ui.upgrade_desc.crafting_table": "工作台：在容器界面显示仓库",
