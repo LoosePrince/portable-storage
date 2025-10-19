@@ -5,7 +5,6 @@ import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import com.portable.storage.client.ClientConfig;
 import com.portable.storage.client.ClientNetworkingHandlers;
 import com.portable.storage.client.ModernUiCompat;
-import com.portable.storage.client.PortableStorageResourcePackProvider;
 import com.portable.storage.client.screen.PortableCraftingScreen;
 import com.portable.storage.client.event.ScreenEventHandler;
 import net.minecraft.client.render.entity.EntityRenderer;
@@ -27,8 +26,6 @@ public class PortableStorageClient implements ClientModInitializer {
 		// 加载客户端配置
 		ClientConfig.load();
 		
-		// 注册资源包提供者
-		PortableStorageResourcePackProvider.register();
 		
 		ClientNetworkingHandlers.register();
 		// 注册界面事件处理器

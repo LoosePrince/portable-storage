@@ -8,10 +8,12 @@
 		"HandledScreenMixin",
 		"GenericContainerScreenMixin",
 		"MinecraftClientMixin",
-		"RecipeBookWidgetMixin",
-		"MouseMixin"
+		"MouseMixin",
+		"RemoveRecipeBookButtonMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
 	}
 }
+
+
