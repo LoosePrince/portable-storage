@@ -101,31 +101,28 @@ jobs:
           files: build/libs/portable-storage-${{ needs.build.outputs.new_version }}.jar
           
           # 版本信息
+          name: Portable Storage ${{ needs.build.outputs.new_version }} [Fabric 1.21]
           version: ${{ needs.build.outputs.new_version }}
+          version-type: release
           changelog: ${{ needs.build.outputs.changelog }}
-          release_name: Portable Storage ${{ needs.build.outputs.new_version }} [Fabric 1.21]
+          
+          # 通用配置
+          loaders: fabric
+          game-versions: 1.21
+          java: 21
           
           # CurseForge 配置
-          curseforge_token: ${{ secrets.CURSEFORGE_API_TOKEN }}
-          curseforge_project_id: 1365553
-          curseforge_release_type: release
-          curseforge_game_versions: 1.21
-          curseforge_loaders: fabric
-          curseforge_java_versions: Java 21
-          curseforge_supported_clients: client,server
+          curseforge-id: 1365553
+          curseforge-token: ${{ secrets.CURSEFORGE_API_TOKEN }}
           
           # Modrinth 配置
-          modrinth_token: ${{ secrets.MODRINTH_API_TOKEN }}
-          modrinth_project_id: fgNKEUno
-          modrinth_version_type: release
-          modrinth_game_versions: 1.21
-          modrinth_loaders: fabric
+          modrinth-id: fgNKEUno
+          modrinth-token: ${{ secrets.MODRINTH_API_TOKEN }}
           
           # GitHub 发布配置
-          github_token:  ${{ secrets.GITHUB_TOKEN }}
-          github_tag: v${{ needs.build.outputs.new_version }}
-          github_release_name: Portable Storage ${{ needs.build.outputs.new_version }} [Fabric 1.21]
-          github_release_body: |
+          github-tag: v${{ needs.build.outputs.new_version }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-changelog: |
             ## Portable Storage ${{ needs.build.outputs.new_version }}
 
             **Portable Storage** 是一个基于 Fabric 的 Minecraft 模组，为玩家添加随身仓库功能。
