@@ -266,8 +266,8 @@ public final class ServerNetworkingHandlers {
 								remainingBuckets.decrement(1); // 减少一个空桶用于转换
 								
 								// 将剩余的空桶放入仓库
-                                StorageInventory storage = PlayerStorageService.getInventory(player);
-                                insertIntoStorage(storage, remainingBuckets);
+                                // 新版：将多余空桶存入分离存储
+                                insertIntoNewStorage(player, remainingBuckets);
 								
 								// 给玩家一个流体桶
 								player.currentScreenHandler.setCursorStack(fluidBucket);
@@ -491,9 +491,9 @@ public final class ServerNetworkingHandlers {
 				int remainingBottles = bottleCount - maxConvertible;
 				if (remainingBottles > 0) {
 					// 将剩余玻璃瓶存入仓库
-					StorageInventory storage = PlayerStorageService.getInventory(player);
+					// 新版：存入分离存储
 					ItemStack remainingBottleStack = new ItemStack(net.minecraft.item.Items.GLASS_BOTTLE, remainingBottles);
-					storage.insertItemStack(remainingBottleStack, System.currentTimeMillis());
+					insertIntoNewStorage(player, remainingBottleStack);
 					player.currentScreenHandler.setCursorStack(experienceBottles);
 					player.sendMessage(Text.translatable("portable_storage.exp_bottle.conversion.partial", maxConvertible, remainingBottles), true);
 				} else {
@@ -699,10 +699,15 @@ public final class ServerNetworkingHandlers {
 		}
 	}
 
-    private static ItemStack insertIntoStorage(StorageInventory storage, ItemStack stack) {
+
+    // 新版：存入到分离式玩家存储（只增 PlayerStore，不写入旧 StorageInventory）
+    private static ItemStack insertIntoNewStorage(ServerPlayerEntity player, ItemStack stack) {
         if (stack.isEmpty()) return ItemStack.EMPTY;
-        //通过插入整个 ItemStack 变体来保留完整组件
-        storage.insertItemStack(stack.copy(), System.currentTimeMillis());
+        var server = player.getServer();
+        if (server == null) return stack;
+        
+        // 直接调用 NewStoreService 确保使用统一逻辑
+        com.portable.storage.newstore.NewStoreService.insertForOnlinePlayer(player, stack);
         return ItemStack.EMPTY;
     }
 
@@ -1246,9 +1251,9 @@ public final class ServerNetworkingHandlers {
                     int remainingBottles = bottleCount - maxConvertible;
                     if (remainingBottles > 0) {
                         // 将多余玻璃瓶存仓，给玩家转好的瓶子
-                        StorageInventory storage = PlayerStorageService.getInventory(player);
+                        // 新版：存入分离存储
                         ItemStack remainingBottleStack = new ItemStack(net.minecraft.item.Items.GLASS_BOTTLE, remainingBottles);
-                        storage.insertItemStack(remainingBottleStack, System.currentTimeMillis());
+                        insertIntoNewStorage(player, remainingBottleStack);
                         player.currentScreenHandler.setCursorStack(experienceBottles);
                         player.sendMessage(Text.translatable("portable_storage.exp_bottle.conversion.partial", maxConvertible, remainingBottles), true);
                     } else {
@@ -1300,7 +1305,6 @@ public final class ServerNetworkingHandlers {
         Slot slot = sh.getSlot(handlerSlotId);
         ItemStack from = slot.getStack();
         if (from.isEmpty()) return;
-        StorageInventory inv = PlayerStorageService.getInventory(player);
         UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
         if (com.portable.storage.storage.UpgradeInventory.isValidFluidItem(from) && !from.isOf(net.minecraft.item.Items.BUCKET)) {
             String fluidType = com.portable.storage.storage.UpgradeInventory.getFluidType(from);
@@ -1308,7 +1312,8 @@ public final class ServerNetworkingHandlers {
                 int count = from.getCount();
                 upgrades.addFluidUnits(fluidType, count);
                 ItemStack emptyBuckets = new ItemStack(net.minecraft.item.Items.BUCKET, count);
-                ItemStack r = insertIntoStorage(inv, emptyBuckets);
+                // 新版：存入分离存储
+                ItemStack r = insertIntoNewStorage(player, emptyBuckets);
                 slot.setStack(r);
                 slot.markDirty();
                 sh.sendContentUpdates();
@@ -1316,7 +1321,8 @@ public final class ServerNetworkingHandlers {
                 return;
             }
         }
-        ItemStack remainder = insertIntoStorage(inv, from);
+        // 新版：存入分离存储
+        ItemStack remainder = insertIntoNewStorage(player, from);
         slot.setStack(remainder);
         slot.markDirty();
         sh.sendContentUpdates();
@@ -1345,15 +1351,13 @@ public final class ServerNetworkingHandlers {
             }
         } else {
             if (button == 0) {
-                StorageInventory self = PlayerStorageService.getInventory(player);
-                ItemStack remainder = insertIntoStorage(self, cursor);
+                ItemStack remainder = insertIntoNewStorage(player, cursor);
                 player.currentScreenHandler.setCursorStack(remainder);
             } else {
                 if (cursor.getCount() > 0) {
-                    StorageInventory self = PlayerStorageService.getInventory(player);
                     ItemStack singleStack = cursor.copy();
                     singleStack.setCount(1);
-                    ItemStack remainder = insertIntoStorage(self, singleStack);
+                    ItemStack remainder = insertIntoNewStorage(player, singleStack);
                     if (remainder.isEmpty()) {
                         cursor.decrement(1);
                         player.currentScreenHandler.setCursorStack(cursor);
@@ -1452,15 +1456,15 @@ public final class ServerNetworkingHandlers {
     private static void handleDepositCursor(ServerPlayerEntity serverPlayer, int button) {
         var cursor = serverPlayer.currentScreenHandler.getCursorStack();
         if (cursor.isEmpty()) return;
-        StorageInventory inv = PlayerStorageService.getInventory(serverPlayer);
         if (button == 0) {
-            ItemStack remainder = insertIntoStorage(inv, cursor);
+            // 新版：存入分离存储
+            ItemStack remainder = insertIntoNewStorage(serverPlayer, cursor);
             serverPlayer.currentScreenHandler.setCursorStack(remainder);
         } else if (button == 1) {
             if (cursor.getCount() > 0) {
                 ItemStack singleStack = cursor.copy();
                 singleStack.setCount(1);
-                ItemStack remainder = insertIntoStorage(inv, singleStack);
+                ItemStack remainder = insertIntoNewStorage(serverPlayer, singleStack);
                 if (remainder.isEmpty()) {
                     cursor.decrement(1);
                     serverPlayer.currentScreenHandler.setCursorStack(cursor);
@@ -1485,45 +1489,77 @@ public final class ServerNetworkingHandlers {
         sendSync(player);
     }
     public static StorageInventory buildMergedSnapshot(ServerPlayerEntity viewer) {
-        StorageInventory agg = new StorageInventory(0);
-        for (StorageInventory s : getViewStorages(viewer)) {
-            for (int i = 0; i < s.getCapacity(); i++) {
-                ItemStack disp = s.getDisplayStack(i);
-                if (disp.isEmpty()) continue;
-                long cnt = s.getCountByIndex(i);
-                if (cnt <= 0) continue;
-                long left = cnt;
-                while (left > 0) {
-                    int chunk = (int)Math.min(Integer.MAX_VALUE, left);
-                    ItemStack copy = disp.copy();
-                    copy.setCount(chunk);
-                    // 保留原来的时间戳，不使用当前时间
-                    agg.insertItemStackWithOriginalTimestamp(copy, s.getTimestampByIndex(i));
-                    left -= chunk;
+        var server = viewer.getServer();
+        if (server == null) return new StorageInventory(0);
+        
+        // 获取共享的玩家UUID集合
+        java.util.Set<java.util.UUID> sharedUuids = getSharedUuids(viewer);
+        
+        // 使用新版存储服务构建共享视图
+        return com.portable.storage.newstore.NewStoreService.buildSharedView(server, viewer.getUuid(), sharedUuids);
+    }
+    
+    /**
+     * 获取共享仓库的玩家UUID集合
+     */
+    private static java.util.Set<java.util.UUID> getSharedUuids(ServerPlayerEntity viewer) {
+        java.util.Set<java.util.UUID> sharedUuids = new java.util.LinkedHashSet<>();
+        sharedUuids.add(viewer.getUuid());
+        
+        // 统计"我所依附的根拥有者集合"
+        java.util.LinkedHashSet<java.util.UUID> rootOwners = new java.util.LinkedHashSet<>();
+        com.portable.storage.storage.UpgradeInventory upgrades = com.portable.storage.player.PlayerStorageService.getUpgradeInventory(viewer);
+        for (int i = 0; i < upgrades.getSlotCount(); i++) {
+            ItemStack st = upgrades.getStack(i);
+            if (!st.isEmpty() && st.getItem() == net.minecraft.item.Items.BARREL) {
+                java.util.UUID owner = getOwnerUuidFromItem(st);
+                if (owner != null && !owner.equals(viewer.getUuid())) {
+                    rootOwners.add(owner);
                 }
             }
         }
-        return agg;
-    }
-
-    private static long takeFromMerged(ServerPlayerEntity viewer, ItemStack variant, int want) {
-        long remaining = want;
-        long got = 0;
-        for (StorageInventory s : getViewStorages(viewer)) {
-            if (remaining <= 0) break;
-            for (int i = 0; i < s.getCapacity() && remaining > 0; i++) {
-                ItemStack disp = s.getDisplayStack(i);
-                if (disp.isEmpty()) continue;
-                if (ItemStack.areItemsAndComponentsEqual(disp, variant)) {
-                    long can = Math.min(remaining, s.getCountByIndex(i));
-                    if (can > 0) {
-                        long t = s.takeByIndex(i, can, System.currentTimeMillis());
-                        got += t;
-                        remaining -= t;
+        
+        // 如果未依附任何人，则自己就是根拥有者之一
+        if (rootOwners.isEmpty()) {
+            rootOwners.add(viewer.getUuid());
+        }
+        
+        // 添加所有根拥有者
+        sharedUuids.addAll(rootOwners);
+        
+        // 添加所有"同依附该根拥有者"的玩家
+        var players = viewer.server.getPlayerManager().getPlayerList();
+        for (ServerPlayerEntity p : players) {
+            com.portable.storage.storage.UpgradeInventory up = com.portable.storage.player.PlayerStorageService.getUpgradeInventory(p);
+            boolean usesRoot = false;
+            for (int i = 0; i < up.getSlotCount(); i++) {
+                ItemStack st = up.getStack(i);
+                if (!st.isEmpty() && st.getItem() == net.minecraft.item.Items.BARREL) {
+                    java.util.UUID owner = getOwnerUuidFromItem(st);
+                    if (owner != null && rootOwners.contains(owner)) { 
+                        usesRoot = true; 
+                        break; 
                     }
                 }
             }
+            if (usesRoot) {
+                sharedUuids.add(p.getUuid());
+            }
         }
+        
+        return sharedUuids;
+    }
+
+    private static long takeFromMerged(ServerPlayerEntity viewer, ItemStack variant, int want) {
+        var server = viewer.getServer();
+        if (server == null) return 0;
+        
+        // 获取共享的玩家UUID集合
+        java.util.Set<java.util.UUID> sharedUuids = getSharedUuids(viewer);
+        
+        // 使用新版存储服务从共享视图中提取
+        long got = com.portable.storage.newstore.NewStoreService.takeFromSharedView(server, viewer.getUuid(), sharedUuids, variant, want);
+        
         // 取物后，向所有相关玩家广播更新（在线部分）
         broadcastToRelated(viewer);
         return got;

@@ -78,6 +78,8 @@ public class PortableStorage implements ModInitializer {
 
 		// 注册空间裂隙管理指令
 		com.portable.storage.command.SpaceRiftCommands.register();
+		// 注册新存储调试/维护指令
+		com.portable.storage.command.NewStoreCommands.register();
 		
 		// 注册增量同步调度器（周期性向正在查看的玩家推送diff）
 		com.portable.storage.event.IncrementalSyncTickHandler.register();

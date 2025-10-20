@@ -180,7 +180,7 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
                     ItemStack want = marker.copy();
                     want.setCount(Math.min(amount, marker.getMaxCount()));
 
-                    ItemStack taken = StorageGroupService.takeFromOwnerGroup(
+                    ItemStack taken = com.portable.storage.newstore.NewStoreService.takeFromNewStore(
                         world.getServer(),
                         ownerUuid,
                         want,
@@ -239,30 +239,18 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         super.setStack(slot, stack);
     }
 
-
-
     /**
-     * 将物品存入所有者的仓库
+     * 将物品存入所有者的仓库（新版存储）
      */
     private void insertIntoOwnerStorage(ItemStack stack) {
         if (world == null || world.getServer() == null || ownerUuid == null) return;
-
         try {
             var server = world.getServer();
-            var playerManager = server.getPlayerManager();
-            var owner = playerManager.getPlayer(ownerUuid);
-
+            var owner = server.getPlayerManager().getPlayer(ownerUuid);
             if (owner != null) {
-                // 在线玩家：直接存入
-                var storage = com.portable.storage.player.PlayerStorageService.getInventory(owner);
-                storage.insertItemStack(stack, System.currentTimeMillis());
-                // 发送同步消息给客户端
-                com.portable.storage.net.ServerNetworkingHandlers.sendSync(owner);
+                com.portable.storage.newstore.NewStoreService.insertForOnlinePlayer(owner, stack);
             } else {
-                // 离线玩家：加载并保存
-                var storage = com.portable.storage.player.StoragePersistence.loadStorage(server, ownerUuid);
-                storage.insertItemStack(stack, System.currentTimeMillis());
-                com.portable.storage.player.StoragePersistence.saveStorage(server, ownerUuid, storage);
+                com.portable.storage.newstore.NewStoreService.insertForOfflineUuid(server, ownerUuid, stack, null);
             }
         } catch (Throwable e) {
             PortableStorage.LOGGER.error("Failed to insert item into owner's storage", e);

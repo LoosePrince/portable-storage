@@ -205,14 +205,11 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 			item.isAlive() && !item.getStack().isEmpty()
 		);
 		
-		StorageInventory storage = portableStorage$getInventory();
-		
-		for (ItemEntity itemEntity : itemEntities) {
+        for (ItemEntity itemEntity : itemEntities) {
 			ItemStack itemStack = itemEntity.getStack();
 			if (itemStack.isEmpty()) continue;
-			
-            // 添加到仓库（保留完整组件），统一使用系统毫秒时间作为更新时间
-            storage.insertItemStack(itemStack.copy(), System.currentTimeMillis());
+            // 新版：直接存入新版存储
+            com.portable.storage.newstore.NewStoreService.insertForOnlinePlayer(player instanceof net.minecraft.server.network.ServerPlayerEntity sp ? sp : null, itemStack);
 			
 			// 移除掉落物
 			itemEntity.discard();

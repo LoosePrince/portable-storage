@@ -3,6 +3,7 @@ package com.portable.storage.mixin;
 import com.portable.storage.player.PlayerStorageService;
 import com.portable.storage.storage.StorageInventory;
 import com.portable.storage.storage.UpgradeInventory;
+import com.portable.storage.newstore.NewStoreService;
 import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.enchantment.Enchantments;
 import net.minecraft.entity.LivingEntity;
@@ -83,14 +84,14 @@ public abstract class BowItemMixin {
             if (hasSpectralArrowUpgrade && matchedArrow.isOf(Items.ARROW)) {
                 // 按普通箭处理，有无限附魔时普通箭不会被消耗
                 if (!hasInfinity) {
-                    // 没有无限附魔，扣除1支普通箭
-                    inv.takeByIndex(matchIndex, 1, world.getTime());
+                    // 没有无限附魔，从新版存储扣除1支普通箭
+                    NewStoreService.takeForOnlinePlayer((ServerPlayerEntity) player, matchedArrow, 1);
                 }
             } else {
                 // 没有光灵箭升级或使用的不是普通箭，按原逻辑处理
                 // 光灵箭按原版逻辑处理（有无限附魔时仍会被消耗）
                 if (!hasInfinity || isSpecialArrow) {
-                    inv.takeByIndex(matchIndex, 1, world.getTime());
+                    NewStoreService.takeForOnlinePlayer((ServerPlayerEntity) player, matchedArrow, 1);
                 }
             }
         }

@@ -111,6 +111,13 @@
   "portable_storage.rift_avatar": "%s的复制体",
   "portable_storage.rift_feature_disabled": "裂隙功能已被管理员禁用",
   "portable_storage.rift_feature_disabled_returned": "裂隙功能已禁用，已将你送回原位置",
-  "portable_storage.message.virtual_crafting_disabled_by_server": "虚拟合成功能已被服务器管理员禁用"
+  "portable_storage.message.virtual_crafting_disabled_by_server": "虚拟合成功能已被服务器管理员禁用",
+  "message.portable-storage.newstore.migrated": "您的仓库数据已迁移至新版储存格式！",
+  "command.portable-storage.newstore.rebuild": "已重建新版存储索引引用计数",
+  "command.portable-storage.newstore.rebuild_cleanup": "已重建新版存储索引引用计数并清理无引用模板",
+  "command.portable-storage.newstore.dump": "新版存储条目：%s 项，总数量：%s",
+  "command.portable-storage.newstore.migrate": "已迁移玩家数：%s",
+  "command.portable-storage.newstore.migrateAll.progress": "批量迁移中：%s/%s，成功：%s",
+  "command.portable-storage.newstore.migrateAll.done": "批量迁移完成：成功 %s/%s"
 }
 
