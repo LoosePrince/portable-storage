@@ -6,6 +6,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
+import com.portable.storage.PortableStorage;
 import com.portable.storage.net.ServerNetworkingHandlers;
 import com.portable.storage.newstore.ItemKeyHasher;
 import com.portable.storage.newstore.PlayerStore;
@@ -58,8 +59,8 @@ public final class NewStoreCommands {
         MinecraftServer server = ctx.getSource().getServer();
         RefCountRebuilder.rebuild(server, cleanup);
         ctx.getSource().sendFeedback(() -> (cleanup
-            ? Text.translatable("command.portable-storage.newstore.rebuild_cleanup")
-            : Text.translatable("command.portable-storage.newstore.rebuild")
+            ? Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.rebuild_cleanup")
+            : Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.rebuild")
         ), true);
         return 1;
     }
@@ -76,7 +77,7 @@ public final class NewStoreCommands {
         long totalLocal = m.values().stream().mapToLong(e -> Math.max(0L, e.count)).sum();
         final int size = m.size();
         final long total = totalLocal;
-        ctx.getSource().sendFeedback(() -> Text.translatable("command.portable-storage.newstore.dump", size, total), false);
+        ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.dump", size, total), false);
         return 1;
     }
 
@@ -91,7 +92,7 @@ public final class NewStoreCommands {
             if (ok) migrated++;
         }
         final int finalMigrated = migrated;
-        ctx.getSource().sendFeedback(() -> Text.translatable("command.portable-storage.newstore.migrate", finalMigrated), true);
+        ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.migrate", finalMigrated), true);
         return migrated > 0 ? 1 : 0;
     }
 

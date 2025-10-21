@@ -66,7 +66,7 @@ public class PlayerInteractEventHandler {
             } else {
                 // 确认超时，取消激活
                 StorageActivationConfirmation.cancelPendingConfirmation(serverPlayer);
-                player.sendMessage(Text.translatable("portable_storage.message.activation_timeout")
+                player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.activation_timeout")
                         .formatted(net.minecraft.util.Formatting.RED), false);
                 return TypedActionResult.fail(stack);
             }
@@ -78,9 +78,9 @@ public class PlayerInteractEventHandler {
             StorageActivationConfirmation.setPendingConfirmation(serverPlayer);
             
             // 发送确认消息
-            player.sendMessage(Text.translatable("portable_storage.message.confirm_activation")
+            player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.confirm_activation")
                     .formatted(net.minecraft.util.Formatting.YELLOW), false);
-            player.sendMessage(Text.translatable("portable_storage.message.confirm_activation_hint")
+            player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.confirm_activation_hint")
                     .formatted(net.minecraft.util.Formatting.GRAY), false);
             
             return TypedActionResult.fail(stack);
@@ -138,7 +138,7 @@ public class PlayerInteractEventHandler {
         
         // 发送成功消息
         String itemName = stack.getItem().getName().getString();
-        player.sendMessage(Text.translatable("portable_storage.message.storage_enabled", itemName)
+        player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.storage_enabled", itemName)
                 .formatted(net.minecraft.util.Formatting.GREEN), false);
         
         PortableStorage.LOGGER.info("Player {} enabled portable storage with item {}", 

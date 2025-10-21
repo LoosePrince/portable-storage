@@ -1,5 +1,6 @@
 package com.portable.storage.net;
 
+import com.portable.storage.PortableStorage;
 import com.portable.storage.block.ModBlocks;
 import com.portable.storage.config.ServerConfig;
 import com.portable.storage.crafting.OverlayCraftingManager;
@@ -412,7 +413,7 @@ public final class ServerNetworkingHandlers {
 				
 				// 检查是否启用了等级维持，如果启用则拒绝手动存取
 				if (upgrades.isLevelMaintenanceEnabled()) {
-					player.sendMessage(Text.translatable("portable_storage.exp_bottle.maintenance_blocked"), true);
+					player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.maintenance_blocked"), true);
 					return;
 				}
 				
@@ -429,7 +430,7 @@ public final class ServerNetworkingHandlers {
 						long taken = upgrades.removeFromXpPool(xpNeeded);
 						if (taken > 0) {
 							int actualWithdrawn = withdrawPlayerXpByLevels(player, levels);
-							player.sendMessage(Text.translatable("portable_storage.exp_bottle.delta", "+" + actualWithdrawn), true);
+							player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.delta", "+" + actualWithdrawn), true);
 						}
 					} else if (availableXp > 0) {
 						// 经验不足，取出全部剩余经验
@@ -437,7 +438,7 @@ public final class ServerNetworkingHandlers {
 						if (taken > 0) {
 							// 直接增加经验值，不按等级提升
 							player.addExperience((int)Math.min(Integer.MAX_VALUE, taken));
-							player.sendMessage(Text.translatable("portable_storage.exp_bottle.delta", "+" + taken), true);
+							player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.delta", "+" + taken), true);
 						}
 					}
 					sendUpgradeSync(player);
@@ -447,7 +448,7 @@ public final class ServerNetworkingHandlers {
 					int deposited = depositPlayerXpByLevels(player, levels);
 					if (deposited > 0) {
 						upgrades.addToXpPool(deposited);
-						player.sendMessage(Text.translatable("portable_storage.exp_bottle.delta", "-" + deposited), true);
+						player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.delta", "-" + deposited), true);
 					}
 					sendUpgradeSync(player);
 				}
@@ -467,9 +468,9 @@ public final class ServerNetworkingHandlers {
 				upgrades.toggleLevelMaintenance();
 				boolean enabled = upgrades.isLevelMaintenanceEnabled();
 				Text status = enabled ? 
-					Text.translatable("portable_storage.toggle.enabled") : 
-					Text.translatable("portable_storage.toggle.disabled");
-				player.sendMessage(Text.translatable("portable_storage.exp_bottle.maintenance_toggle", status), true);
+					Text.translatable(PortableStorage.MOD_ID + ".toggle.enabled") : 
+					Text.translatable(PortableStorage.MOD_ID + ".toggle.disabled");
+				player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.maintenance_toggle", status), true);
 				sendUpgradeSync(player);
 			});
 		});
@@ -486,7 +487,7 @@ public final class ServerNetworkingHandlers {
 				// 检查玩家是否拿着玻璃瓶
 				ItemStack cursorStack = player.currentScreenHandler.getCursorStack();
 				if (cursorStack.isEmpty() || !cursorStack.isOf(net.minecraft.item.Items.GLASS_BOTTLE)) {
-					player.sendMessage(Text.translatable("portable_storage.exp_bottle.conversion.no_bottle"), true);
+					player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.conversion.no_bottle"), true);
 					return;
 				}
 				
@@ -497,7 +498,7 @@ public final class ServerNetworkingHandlers {
 				int maxConvertible = (int) Math.min(bottleCount, availableXp / 11);
 				
 				if (maxConvertible <= 0) {
-					player.sendMessage(Text.translatable("portable_storage.exp_bottle.conversion.insufficient_xp"), true);
+					player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.conversion.insufficient_xp"), true);
 					return;
 				}
 				
@@ -516,11 +517,11 @@ public final class ServerNetworkingHandlers {
 					ItemStack remainingBottleStack = new ItemStack(net.minecraft.item.Items.GLASS_BOTTLE, remainingBottles);
 					insertIntoNewStorage(player, remainingBottleStack);
 					player.currentScreenHandler.setCursorStack(experienceBottles);
-					player.sendMessage(Text.translatable("portable_storage.exp_bottle.conversion.partial", maxConvertible, remainingBottles), true);
+					player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.conversion.partial", maxConvertible, remainingBottles), true);
 				} else {
 					// 全部转换
 					player.currentScreenHandler.setCursorStack(experienceBottles);
-					player.sendMessage(Text.translatable("portable_storage.exp_bottle.conversion.complete", maxConvertible), true);
+					player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.conversion.complete", maxConvertible), true);
 				}
 				
 				// 同步数据
@@ -1021,7 +1022,7 @@ public final class ServerNetworkingHandlers {
                 idx = (idx + 1) % XP_STEPS.length;
                 xpStepIndexByPlayer.put(player.getUuid(), idx);
                 int step = XP_STEPS[idx];
-                player.sendMessage(net.minecraft.text.Text.translatable("portable_storage.exp_bottle.step", step), true);
+                player.sendMessage(net.minecraft.text.Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.step", step), true);
                 net.minecraft.nbt.NbtCompound data = new net.minecraft.nbt.NbtCompound();
                 data.putInt("stepIndex", idx);
                 ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
@@ -1117,7 +1118,7 @@ public final class ServerNetworkingHandlers {
             // 从其他维度进入裂隙
             // 检查裂隙功能是否启用
             if (!ServerConfig.getInstance().isEnableRiftFeature()) {
-                player.sendMessage(net.minecraft.text.Text.translatable("portable_storage.rift_feature_disabled"), true);
+                player.sendMessage(net.minecraft.text.Text.translatable(PortableStorage.MOD_ID + ".rift_feature_disabled"), true);
                 return;
             }
             
@@ -1255,7 +1256,7 @@ public final class ServerNetworkingHandlers {
         UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
         if (upgrades.isSlotDisabled(7) || upgrades.getStack(7).isEmpty()) return;
         if (upgrades.isLevelMaintenanceEnabled()) {
-            player.sendMessage(Text.translatable("portable_storage.exp_bottle.maintenance_blocked"), true);
+            player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.maintenance_blocked"), true);
             return;
         }
         // 右键优先处理"玻璃瓶转换为附魔之瓶"的需求
@@ -1276,16 +1277,16 @@ public final class ServerNetworkingHandlers {
                         ItemStack remainingBottleStack = new ItemStack(net.minecraft.item.Items.GLASS_BOTTLE, remainingBottles);
                         insertIntoNewStorage(player, remainingBottleStack);
                         player.currentScreenHandler.setCursorStack(experienceBottles);
-                        player.sendMessage(Text.translatable("portable_storage.exp_bottle.conversion.partial", maxConvertible, remainingBottles), true);
+                        player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.conversion.partial", maxConvertible, remainingBottles), true);
                     } else {
                         player.currentScreenHandler.setCursorStack(experienceBottles);
-                        player.sendMessage(Text.translatable("portable_storage.exp_bottle.conversion.complete", maxConvertible), true);
+                        player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.conversion.complete", maxConvertible), true);
                     }
                     sendUpgradeSync(player);
                     sendSync(player);
                     return;
                 } else {
-                    player.sendMessage(Text.translatable("portable_storage.exp_bottle.conversion.insufficient_xp"), true);
+                    player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.conversion.insufficient_xp"), true);
                     return;
                 }
             }
@@ -1299,13 +1300,13 @@ public final class ServerNetworkingHandlers {
                 long taken = upgrades.removeFromXpPool(xpNeeded);
                 if (taken > 0) {
                     int actualWithdrawn = withdrawPlayerXpByLevels(player, levels);
-                    player.sendMessage(Text.translatable("portable_storage.exp_bottle.delta", "+" + actualWithdrawn), true);
+                    player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.delta", "+" + actualWithdrawn), true);
                 }
             } else if (availableXp > 0) {
                 long taken = upgrades.removeFromXpPool(availableXp);
                 if (taken > 0) {
                     player.addExperience((int)Math.min(Integer.MAX_VALUE, taken));
-                    player.sendMessage(Text.translatable("portable_storage.exp_bottle.delta", "+" + taken), true);
+                    player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.delta", "+" + taken), true);
                 }
             }
             sendUpgradeSync(player);
@@ -1313,7 +1314,7 @@ public final class ServerNetworkingHandlers {
             int deposited = depositPlayerXpByLevels(player, levels);
             if (deposited > 0) {
                 upgrades.addToXpPool(deposited);
-                player.sendMessage(Text.translatable("portable_storage.exp_bottle.delta", "-" + deposited), true);
+                player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.delta", "-" + deposited), true);
             }
             sendUpgradeSync(player);
         }
@@ -1785,14 +1786,14 @@ public final class ServerNetworkingHandlers {
 		// 检查是否在白天
 		if (player.getWorld().isDay()) {
 			// 白天不能睡觉，发送消息
-			player.sendMessage(Text.translatable("portable_storage.bed.no_sleep"), true);
+			player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".bed.no_sleep"), true);
 			return;
 		}
 		
 		// 检查玩家脚下是否有方块
 		if (player.getWorld().getBlockState(player.getBlockPos().down()).isAir()) {
 			// 不在安全位置，发送消息
-			player.sendMessage(Text.translatable("portable_storage.bed.no_safe_place"), true);
+			player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".bed.no_safe_place"), true);
 			return;
 		}
 		
@@ -1804,19 +1805,19 @@ public final class ServerNetworkingHandlers {
 		net.minecraft.block.BlockState curState = player.getWorld().getBlockState(bedPos);
 		net.minecraft.block.BlockState footCurState = player.getWorld().getBlockState(footPos);
 		if (curState.getBlock() instanceof net.minecraft.block.BedBlock || footCurState.getBlock() instanceof net.minecraft.block.BedBlock) {
-			player.sendMessage(Text.translatable("portable_storage.bed.no_safe_place"), true);
+			player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".bed.no_safe_place"), true);
 			return;
 		}
 		
 		// 检查该位置是否已经有临时床
 		if (tempBeds.containsKey(bedPos) || tempBeds.containsKey(footPos)) {
-			player.sendMessage(Text.translatable("portable_storage.bed.no_safe_place"), true);
+			player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".bed.no_safe_place"), true);
 			return;
 		}
 		
 		// 检查脚部位置是否可用
 		if (!player.getWorld().getBlockState(footPos).isAir()) {
-			player.sendMessage(Text.translatable("portable_storage.bed.no_safe_place"), true);
+			player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".bed.no_safe_place"), true);
 			return;
 		}
 		
@@ -1857,16 +1858,16 @@ public final class ServerNetworkingHandlers {
 				);
 				bedState.onUse(player.getWorld(), player, hitResult);
 				// 如果睡觉成功，发送消息
-				player.sendMessage(Text.translatable("portable_storage.bed_placed"), true);
+				player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".bed_placed"), true);
 			} else {
 				// 如果床方块状态不正确，清理临时床
 				cleanupCompleteTempBed(bedPos, player.getWorld());
-				player.sendMessage(Text.translatable("portable_storage.bed.no_safe_place"), true);
+				player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".bed.no_safe_place"), true);
 			}
 		} catch (Exception e) {
 			// 如果睡觉失败，清理临时床并发送错误消息
 			cleanupCompleteTempBed(bedPos, player.getWorld());
-			player.sendMessage(Text.translatable("portable_storage.bed.no_safe_place"), true);
+			player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".bed.no_safe_place"), true);
 		}
 	}
 	

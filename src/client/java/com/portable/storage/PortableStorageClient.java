@@ -61,7 +61,7 @@ public class PortableStorageClient implements ClientModInitializer {
                         if (nbt.contains("ps_owner_uuid_most") && nbt.contains("ps_owner_uuid_least")) {
                             String name = nbt.contains("ps_owner_name") ? nbt.getString("ps_owner_name") : "?";
                             java.util.UUID uuid = new java.util.UUID(nbt.getLong("ps_owner_uuid_most"), nbt.getLong("ps_owner_uuid_least"));
-                            lines.add(Text.translatable("portable_storage.tooltip.bound_to", name, uuid.toString()).formatted(Formatting.GRAY));
+                            lines.add(Text.translatable(PortableStorage.MOD_ID + ".tooltip.bound_to", name, uuid.toString()).formatted(Formatting.GRAY));
                         }
                     }
                 }
@@ -79,7 +79,7 @@ public class PortableStorageClient implements ClientModInitializer {
                     }
                     
                     // 显示使用说明
-                    lines.add(Text.translatable("portable_storage.tooltip.storage_key_usage")
+                    lines.add(Text.translatable(PortableStorage.MOD_ID + ".tooltip.storage_key_usage")
                             .formatted(Formatting.GRAY));
                 }
             } catch (Throwable ignored) {}
@@ -101,7 +101,7 @@ public class PortableStorageClient implements ClientModInitializer {
                             // 检查当前物品是否匹配配置的启用物品
                             if (stack.getItem().toString().equals(namespace + ":" + itemId)) {
                                 // 添加提示消息
-                                lines.add(Text.translatable("portable_storage.tooltip.enable_item_usage")
+                                lines.add(Text.translatable(PortableStorage.MOD_ID + ".tooltip.enable_item_usage")
                                         .formatted(Formatting.GOLD));
                             }
                         }

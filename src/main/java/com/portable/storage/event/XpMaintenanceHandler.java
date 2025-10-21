@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import com.portable.storage.PortableStorage;
 import com.portable.storage.player.PlayerStorageService;
 import com.portable.storage.storage.UpgradeInventory;
 
@@ -59,7 +60,7 @@ public class XpMaintenanceHandler {
                 player.experienceLevel = lastLevel;
                 player.experienceProgress = 0.0f;
                 player.addExperience(0); // 刷新客户端显示
-                player.sendMessage(Text.translatable("portable_storage.exp_bottle.maintenance_deposit", xpToDeposit), true);
+                player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.maintenance_deposit", xpToDeposit), true);
             }
         } else if (levelDiff < 0) {
             // 等级下降，从仓库取出经验补充
@@ -72,12 +73,12 @@ public class XpMaintenanceHandler {
                 player.experienceLevel = lastLevel;
                 player.experienceProgress = 0.0f;
                 player.addExperience(0); // 刷新客户端显示
-                player.sendMessage(Text.translatable("portable_storage.exp_bottle.maintenance_withdraw", xpNeeded), true);
+                player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.maintenance_withdraw", xpNeeded), true);
             } else if (availableXp > 0) {
                 // 经验不足，取出全部剩余经验
                 upgrades.removeFromXpPool(availableXp);
                 player.addExperience((int)Math.min(Integer.MAX_VALUE, availableXp));
-                player.sendMessage(Text.translatable("portable_storage.exp_bottle.maintenance_partial", availableXp), true);
+                player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.maintenance_partial", availableXp), true);
             }
         }
         

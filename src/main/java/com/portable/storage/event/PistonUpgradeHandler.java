@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import com.portable.storage.PortableStorage;
 import com.portable.storage.net.ServerNetworkingHandlers;
 import com.portable.storage.player.PlayerStorageService;
 import com.portable.storage.storage.UpgradeInventory;
@@ -198,7 +199,7 @@ public class PistonUpgradeHandler {
         
         // 构建消息
         net.minecraft.text.Text message = net.minecraft.text.Text.translatable(
-            "portable_storage.piston.refill_message", 
+            PortableStorage.MOD_ID + ".piston.refill_message", 
             refilledCount, 
             itemName, 
             remainingCount

@@ -44,7 +44,7 @@ public class StorageKeyItem extends Item {
         
         // 检查是否为钥匙的拥有者
         if (!isOwner(serverPlayer, stack)) {
-            user.sendMessage(Text.translatable("portable_storage.message.key_not_owner")
+            user.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.key_not_owner")
                     .formatted(Formatting.RED), false);
             return TypedActionResult.fail(stack);
         }
@@ -52,7 +52,7 @@ public class StorageKeyItem extends Item {
         // 检查玩家是否已经激活仓库
         PlayerStorageAccess access = (PlayerStorageAccess) serverPlayer;
         if (access.portableStorage$isStorageEnabled()) {
-            user.sendMessage(Text.translatable("portable_storage.message.storage_already_enabled")
+            user.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.storage_already_enabled")
                     .formatted(Formatting.YELLOW), false);
             return TypedActionResult.fail(stack);
         }
@@ -68,7 +68,7 @@ public class StorageKeyItem extends Item {
         }
         
         // 发送成功消息
-        user.sendMessage(Text.translatable("portable_storage.message.storage_reactivated")
+        user.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.storage_reactivated")
                 .formatted(Formatting.GREEN), false);
         
         PortableStorage.LOGGER.info("Player {} reactivated storage using storage key", serverPlayer.getName().getString());
@@ -100,7 +100,7 @@ public class StorageKeyItem extends Item {
         setCustomData(key, nbt);
         
         // 设置显示名称
-        key.set(DataComponentTypes.CUSTOM_NAME, Text.translatable("item.portable_storage.storage_key")
+        key.set(DataComponentTypes.CUSTOM_NAME, Text.translatable("item." + PortableStorage.MOD_ID + ".storage_key")
                 .formatted(Formatting.GOLD));
         
         // 添加附魔效果（视觉上看起来像附魔的物品）
@@ -152,7 +152,7 @@ public class StorageKeyItem extends Item {
         UUID uuid = nbt.getUuid(NBT_OWNER_UUID);
         String uuidPart = uuid.toString();
         
-        return Text.translatable("portable_storage.tooltip.bound_to", name, uuidPart)
+        return Text.translatable(PortableStorage.MOD_ID + ".tooltip.bound_to", name, uuidPart)
                 .formatted(Formatting.GRAY);
     }
     

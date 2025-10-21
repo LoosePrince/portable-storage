@@ -1,5 +1,6 @@
 package com.portable.storage.event;
 
+import com.portable.storage.PortableStorage;
 import com.portable.storage.command.NewStoreCommands;
 import com.portable.storage.net.ServerNetworkingHandlers;
 import com.portable.storage.player.PlayerStorageService;
@@ -67,7 +68,7 @@ public class PlayerJoinEventHandler {
                 if (!hasOld) continue; // 无旧物品，跳过且不提示
                 boolean ok = NewStoreCommands.migrateOne(server, id);
                 if (ok) {
-                    p.sendMessage(net.minecraft.text.Text.translatable("message.portable-storage.newstore.migrated"));
+                    p.sendMessage(net.minecraft.text.Text.translatable("message." + PortableStorage.MOD_ID + ".newstore.migrated"));
                 }
             }
         });

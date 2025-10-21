@@ -63,9 +63,9 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
     @Override
     protected Text getContainerName() {
         if (ownerName != null) {
-            return Text.translatable("container.portable_storage.bound_barrel", ownerName);
+            return Text.translatable("container." + PortableStorage.MOD_ID + ".bound_barrel", ownerName);
         }
-        return Text.translatable("container.portable_storage.bound_barrel.unknown");
+        return Text.translatable("container." + PortableStorage.MOD_ID + ".bound_barrel.unknown");
     }
 
     @Override

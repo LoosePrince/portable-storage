@@ -1,5 +1,6 @@
 package com.portable.storage.event;
 
+import com.portable.storage.PortableStorage;
 import com.portable.storage.player.PlayerStorageService;
 import com.portable.storage.storage.UpgradeInventory;
 
@@ -77,7 +78,7 @@ public class PistonBlockRotationHandler {
             world.setBlockState(pos, newState);
             
             // 发送消息给玩家
-            serverPlayer.sendMessage(Text.translatable("portable_storage.piston.block_rotated", blockName), true);
+            serverPlayer.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".piston.block_rotated", blockName), true);
             
             return ActionResult.SUCCESS;
         }

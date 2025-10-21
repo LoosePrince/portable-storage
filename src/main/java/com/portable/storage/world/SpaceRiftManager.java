@@ -153,7 +153,7 @@ public final class SpaceRiftManager {
         try {
             net.minecraft.entity.Entity avatar = RiftAvatarEntity.spawn(rift, pos, player.getUuid());
             if (avatar != null) {
-                avatar.setCustomName(net.minecraft.text.Text.translatable("portable_storage.rift_avatar", player.getName().getString()));
+                avatar.setCustomName(net.minecraft.text.Text.translatable(PortableStorage.MOD_ID + ".rift_avatar", player.getName().getString()));
             }
             avatars.put(player.getUuid(), avatar);
             PortableStorage.LOGGER.debug("Rift avatar created for {} at {}", player.getName().getString(), pos);
@@ -195,7 +195,7 @@ public final class SpaceRiftManager {
                 if (targetWorld != null) {
                     net.minecraft.util.math.BlockPos pos = returnPoint.pos();
                     player.teleport(targetWorld, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, player.getYaw(), player.getPitch());
-                    player.sendMessage(net.minecraft.text.Text.translatable("portable_storage.rift_feature_disabled_returned"), true);
+                    player.sendMessage(net.minecraft.text.Text.translatable(PortableStorage.MOD_ID + ".rift_feature_disabled_returned"), true);
                     clearReturnPoint(id);
                     removeAvatar(player);
                 } else {
@@ -203,7 +203,7 @@ public final class SpaceRiftManager {
                     net.minecraft.server.world.ServerWorld overworld = player.getServer().getOverworld();
                     net.minecraft.util.math.BlockPos spawn = overworld.getSpawnPos();
                     player.teleport(overworld, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, player.getYaw(), player.getPitch());
-                    player.sendMessage(net.minecraft.text.Text.translatable("portable_storage.rift_feature_disabled_returned"), true);
+                    player.sendMessage(net.minecraft.text.Text.translatable(PortableStorage.MOD_ID + ".rift_feature_disabled_returned"), true);
                     clearReturnPoint(id);
                     removeAvatar(player);
                 }
@@ -212,7 +212,7 @@ public final class SpaceRiftManager {
                 net.minecraft.server.world.ServerWorld overworld = player.getServer().getOverworld();
                 net.minecraft.util.math.BlockPos spawn = overworld.getSpawnPos();
                 player.teleport(overworld, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, player.getYaw(), player.getPitch());
-                player.sendMessage(net.minecraft.text.Text.translatable("portable_storage.rift_feature_disabled_returned"), true);
+                player.sendMessage(net.minecraft.text.Text.translatable(PortableStorage.MOD_ID + ".rift_feature_disabled_returned"), true);
                 removeAvatar(player);
             }
         } catch (Throwable ignored) {}

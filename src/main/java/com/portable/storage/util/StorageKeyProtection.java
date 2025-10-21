@@ -84,10 +84,10 @@ public class StorageKeyProtection {
         
         String ownerName = getOwnerName(stack);
         if (ownerName != null) {
-            player.sendMessage(Text.translatable("portable_storage.message.key_belongs_to", ownerName)
+            player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.key_belongs_to", ownerName)
                     .formatted(Formatting.RED), false);
         } else {
-            player.sendMessage(Text.translatable("portable_storage.message.key_unauthorized")
+            player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.key_unauthorized")
                     .formatted(Formatting.RED), false);
         }
     }
@@ -100,7 +100,7 @@ public class StorageKeyProtection {
             return;
         }
         
-        player.sendMessage(Text.translatable("portable_storage.message.key_indestructible")
+        player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.key_indestructible")
                 .formatted(Formatting.RED), false);
     }
     

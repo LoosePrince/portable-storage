@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import com.portable.storage.PortableStorage;
 import com.portable.storage.client.ClientConfig;
 import com.portable.storage.client.ClientNetworkingHandlers;
 import com.portable.storage.client.ClientRiftConfig;
@@ -139,10 +140,10 @@ public class StorageUIComponent {
         this.searchField = new TextFieldWidget(
             client.textRenderer,
             x, y, width, height,
-            Text.translatable("portable_storage.search")
+            Text.translatable(PortableStorage.MOD_ID + ".search")
         );
-        this.searchField.setPlaceholder(Text.translatable("portable_storage.search.placeholder"));
-        this.searchField.setSuggestion(Text.translatable("portable_storage.search.placeholder").getString());
+        this.searchField.setPlaceholder(Text.translatable(PortableStorage.MOD_ID + ".search.placeholder"));
+        this.searchField.setSuggestion(Text.translatable(PortableStorage.MOD_ID + ".search.placeholder").getString());
         this.searchField.setMaxLength(64);
         this.searchField.setEditable(true);
         this.searchField.setVisible(true);
@@ -152,7 +153,7 @@ public class StorageUIComponent {
             this.query = text == null ? "" : text;
             this.scroll = 0.0f;
             if (text == null || text.isEmpty()) {
-                this.searchField.setSuggestion(Text.translatable("portable_storage.search.placeholder").getString());
+                this.searchField.setSuggestion(Text.translatable(PortableStorage.MOD_ID + ".search.placeholder").getString());
             } else {
                 this.searchField.setSuggestion("");
             }
@@ -223,7 +224,7 @@ public class StorageUIComponent {
             this.expandTabRight = tabLeft + tabW;
             this.expandTabBottom = tabTop + tabH;
             drawPanel(context, tabLeft, tabTop, tabW, tabH);
-            Text label = Text.translatable("portable_storage.ui.expand");
+            Text label = Text.translatable(PortableStorage.MOD_ID + ".ui.expand");
             int textW = client.textRenderer.getWidth(label);
             int tx = tabLeft + (tabW - textW) / 2;
             int ty = tabTop + (tabH - 8) / 2;
@@ -527,77 +528,77 @@ public class StorageUIComponent {
         if (isIn(mouseX, mouseY, collapseLeft, collapseTop, collapseRight, collapseBottom)) {
             // 折叠仓库悬停提示
             List<Text> tooltipLines = new java.util.ArrayList<>();
-            tooltipLines.add(Text.translatable("portable_storage.ui.collapse"));
+            tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.collapse"));
             context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
         } else if (isIn(mouseX, mouseY, sortModeLeft, sortModeTop, sortModeRight, sortModeBottom)) {
             // 排序模式悬停提示
             ClientConfig config = ClientConfig.getInstance();
             String sortModeKey = switch (config.sortMode) {
-                case COUNT -> "portable_storage.sort.count";
-                case NAME -> "portable_storage.sort.name";
-                case MOD_ID -> "portable_storage.sort.mod_id";
-                case UPDATE_TIME -> "portable_storage.sort.update_time";
+                case COUNT -> PortableStorage.MOD_ID + ".sort.count";
+                case NAME -> PortableStorage.MOD_ID + ".sort.name";
+                case MOD_ID -> PortableStorage.MOD_ID + ".sort.mod_id";
+                case UPDATE_TIME -> PortableStorage.MOD_ID + ".sort.update_time";
             };
             List<Text> tooltipLines = new java.util.ArrayList<>();
-            tooltipLines.add(Text.translatable("portable_storage.ui.sort_mode", Text.translatable(sortModeKey).getString()));
+            tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.sort_mode", Text.translatable(sortModeKey).getString()));
             context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
         } else if (isIn(mouseX, mouseY, sortOrderLeft, sortOrderTop, sortOrderRight, sortOrderBottom)) {
             // 排序顺序悬停提示
             ClientConfig config = ClientConfig.getInstance();
-            String sortOrderKey = config.sortAscending ? "portable_storage.sort.ascending" : "portable_storage.sort.descending";
+            String sortOrderKey = config.sortAscending ? PortableStorage.MOD_ID + ".sort.ascending" : PortableStorage.MOD_ID + ".sort.descending";
             List<Text> tooltipLines = new java.util.ArrayList<>();
-            tooltipLines.add(Text.translatable("portable_storage.ui.sort_order", Text.translatable(sortOrderKey).getString()));
+            tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.sort_order", Text.translatable(sortOrderKey).getString()));
             context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
         } else if (isIn(mouseX, mouseY, craftRefillLeft, craftRefillTop, craftRefillRight, craftRefillBottom)) {
             // 合成补充悬停提示
             ClientConfig config = ClientConfig.getInstance();
-            String craftRefillKey = config.craftRefill ? "portable_storage.toggle.enabled" : "portable_storage.toggle.disabled";
+            String craftRefillKey = config.craftRefill ? PortableStorage.MOD_ID + ".toggle.enabled" : PortableStorage.MOD_ID + ".toggle.disabled";
             List<Text> tooltipLines = new java.util.ArrayList<>();
-            tooltipLines.add(Text.translatable("portable_storage.ui.craft_refill", Text.translatable(craftRefillKey).getString()));
+            tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.craft_refill", Text.translatable(craftRefillKey).getString()));
             context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
         } else if (isIn(mouseX, mouseY, autoDepositLeft, autoDepositTop, autoDepositRight, autoDepositBottom)) {
             // 自动传入悬停提示
             ClientConfig config = ClientConfig.getInstance();
-            String autoDepositKey = config.autoDeposit ? "portable_storage.toggle.enabled" : "portable_storage.toggle.disabled";
+            String autoDepositKey = config.autoDeposit ? PortableStorage.MOD_ID + ".toggle.enabled" : PortableStorage.MOD_ID + ".toggle.disabled";
             List<Text> tooltipLines = new java.util.ArrayList<>();
-            tooltipLines.add(Text.translatable("portable_storage.ui.auto_deposit", Text.translatable(autoDepositKey).getString()));
+            tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.auto_deposit", Text.translatable(autoDepositKey).getString()));
             context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
         } else if (isIn(mouseX, mouseY, smartCollapseLeft, smartCollapseTop, smartCollapseRight, smartCollapseBottom)) {
             // 智能折叠悬停提示
             ClientConfig config = ClientConfig.getInstance();
-            String smartCollapseKey = config.smartCollapse ? "portable_storage.toggle.enabled" : "portable_storage.toggle.disabled";
+            String smartCollapseKey = config.smartCollapse ? PortableStorage.MOD_ID + ".toggle.enabled" : PortableStorage.MOD_ID + ".toggle.disabled";
             List<Text> tooltipLines = new java.util.ArrayList<>();
-            tooltipLines.add(Text.translatable("portable_storage.ui.smart_collapse", Text.translatable(smartCollapseKey).getString()));
+            tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.smart_collapse", Text.translatable(smartCollapseKey).getString()));
             context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
         } else if (isIn(mouseX, mouseY, searchPosLeft, searchPosTop, searchPosRight, searchPosBottom)) {
             // 搜索位置悬停提示
             ClientConfig config = ClientConfig.getInstance();
             String posKey;
             if (config.storagePos == ClientConfig.StoragePos.TOP && config.searchPos == ClientConfig.SearchPos.TOP2) {
-                posKey = "portable_storage.search_pos.top";
+                posKey = PortableStorage.MOD_ID + ".search_pos.top";
             } else {
                 switch (config.searchPos) {
-                    case TOP: posKey = "portable_storage.search_pos.top"; break;
-                    case TOP2: posKey = "portable_storage.search_pos.top2"; break;
-                    case MIDDLE: posKey = "portable_storage.search_pos.middle"; break;
-                    default: posKey = "portable_storage.search_pos.bottom";
+                    case TOP: posKey = PortableStorage.MOD_ID + ".search_pos.top"; break;
+                    case TOP2: posKey = PortableStorage.MOD_ID + ".search_pos.top2"; break;
+                    case MIDDLE: posKey = PortableStorage.MOD_ID + ".search_pos.middle"; break;
+                    default: posKey = PortableStorage.MOD_ID + ".search_pos.bottom";
                 }
             }
             List<Text> tooltipLines = new java.util.ArrayList<>();
-            tooltipLines.add(Text.translatable("portable_storage.ui.search_pos", Text.translatable(posKey).getString()));
+            tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.search_pos", Text.translatable(posKey).getString()));
             context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
         } else if (isIn(mouseX, mouseY, storagePosLeft, storagePosTop, storagePosRight, storagePosBottom)) {
             // 仓库位置悬停提示
             ClientConfig config = ClientConfig.getInstance();
             String storagePosKey = config.storagePos == ClientConfig.StoragePos.TOP ? 
-                "portable_storage.storage_pos.top" : "portable_storage.storage_pos.bottom";
+                PortableStorage.MOD_ID + ".storage_pos.top" : PortableStorage.MOD_ID + ".storage_pos.bottom";
             List<Text> tooltipLines = new java.util.ArrayList<>();
-            tooltipLines.add(Text.translatable("portable_storage.ui.storage_pos", Text.translatable(storagePosKey).getString()));
+            tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.storage_pos", Text.translatable(storagePosKey).getString()));
             context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
         } else if (isIn(mouseX, mouseY, switchVanillaLeft, switchVanillaTop, switchVanillaRight, switchVanillaBottom)) {
             // 切换原版悬停提示
             List<Text> tooltipLines = new java.util.ArrayList<>();
-            tooltipLines.add(Text.translatable("portable_storage.ui.switch_vanilla"));
+            tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.switch_vanilla"));
             context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
         }
         // 检查是否悬停在流体槽位上
@@ -606,18 +607,18 @@ public class StorageUIComponent {
             List<Text> tooltipLines = new java.util.ArrayList<>();
             
             // 第一行：流体槽位
-            Text fluidSlotLine = Text.translatable("portable_storage.ui.fluid_slot");
+            Text fluidSlotLine = Text.translatable(PortableStorage.MOD_ID + ".ui.fluid_slot");
             tooltipLines.add(fluidSlotLine);
             
             // 第二行：流体名称
             if (!fluidStack.isEmpty()) {
-                tooltipLines.add(Text.translatable("portable_storage.ui.fluid_name", fluidStack.getName().getString()));
+                tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.fluid_name", fluidStack.getName().getString()));
             } else {
-                tooltipLines.add(Text.translatable("portable_storage.ui.fluid_name", Text.translatable("portable_storage.ui.fluid_empty").getString()));
+                tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.fluid_name", Text.translatable(PortableStorage.MOD_ID + ".ui.fluid_empty").getString()));
             }
             
             // 第三行：说明
-            tooltipLines.add(Text.translatable("portable_storage.ui.fluid_desc"));
+            tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.fluid_desc"));
             
             context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
         }
@@ -627,11 +628,11 @@ public class StorageUIComponent {
             List<Text> tooltipLines = new java.util.ArrayList<>();
             
             // 使用已存在的翻译键：描述 + 使用提示
-            tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.trash_slot"));
+            tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_desc.trash_slot"));
             if (!trashStack.isEmpty()) {
                 tooltipLines.add(Text.literal(trashStack.getName().getString()));
             }
-            tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_trash"));
+            tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_right_click_trash"));
             
             context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
         }
@@ -649,58 +650,58 @@ public class StorageUIComponent {
                 // 第一行：槽位 + 勾选/叉号
                 boolean ok = hasItem && !isDisabled;
                 String symbol = ok ? "[✓]" : "[✗]"; // ✓ / ✗
-                Text slotLine = Text.translatable("portable_storage.ui.upgrade_slot", slotIndex + 1).copy().append(symbol);
+                Text slotLine = Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_slot", slotIndex + 1).copy().append(symbol);
                 tooltipLines.add(slotLine);
                 // 第二行：升级名称
-                tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_name", upgradeName));
+                tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_name", upgradeName));
 
                 // 附加升级说明（末尾追加）
                 switch (slotIndex) {
-                    case 0 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.crafting_table"));
-                    case 1 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.hopper"));
-                    case 2 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.chest"));
-                    case 3 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.barrel"));
-                    case 4 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.dragon_egg"));
-                    case 5 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.spectral_arrow"));
-                    case 6 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.bed"));
-                    case 7 -> tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.experience_bottle"));
+                    case 0 -> tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_desc.crafting_table"));
+                    case 1 -> tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_desc.hopper"));
+                    case 2 -> tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_desc.chest"));
+                    case 3 -> tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_desc.barrel"));
+                    case 4 -> tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_desc.dragon_egg"));
+                    case 5 -> tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_desc.spectral_arrow"));
+                    case 6 -> tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_desc.bed"));
+                    case 7 -> tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_desc.experience_bottle"));
                     case 8 -> {
-                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_desc.piston"));
-                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_piston.auto_refill"));
-                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_piston.block_rotation"));
+                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_desc.piston"));
+                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_piston.auto_refill"));
+                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_piston.block_rotation"));
                     }
                 }
 
                 if (hasItem && isDisabled) {
-                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_disabled"));
+                    tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_disabled"));
                 }
                 
                 // 添加右键提示：槽位4为裂隙升级，槽位6为床升级，槽位7为XP模块，槽位0为工作台自定义
                 if (slotIndex == 4) {
-                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_dragon_egg"));
+                    tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_right_click_dragon_egg"));
                 } else if (slotIndex == 6) {
-                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_bed"));
+                    tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_right_click_bed"));
                 } else if (slotIndex == 7) {
-                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_xp"));
-                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_middle_click_maintenance"));
+                    tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_right_click_xp"));
+                    tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_middle_click_maintenance"));
                     int currentStep = ClientUpgradeState.getXpTransferStep();
                     int[] steps = {1, 5, 10, 100};
                     int level = steps[currentStep];
-                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_current_step", level));
+                    tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_current_step", level));
                 } else if (slotIndex == 0) {
-                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_custom_crafting"));
+                    tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_right_click_custom_crafting"));
                     // 只有服务端启用虚拟合成功能时才显示相关描述
                     if (ClientVirtualCraftingConfig.isEnableVirtualCrafting()) {
-                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_middle_click_virtual_crafting"));
+                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_middle_click_virtual_crafting"));
                         boolean virtualCraftingVisible = ClientConfig.getInstance().virtualCraftingVisible;
                         Text virtualCraftingStatus = virtualCraftingVisible ? 
-                            Text.translatable("portable_storage.toggle.enabled") : 
-                            Text.translatable("portable_storage.toggle.disabled");
-                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_virtual_crafting_status", virtualCraftingStatus));
-                        tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_virtual_crafting_warning"));
+                            Text.translatable(PortableStorage.MOD_ID + ".toggle.enabled") : 
+                            Text.translatable(PortableStorage.MOD_ID + ".toggle.disabled");
+                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_virtual_crafting_status", virtualCraftingStatus));
+                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_virtual_crafting_warning"));
                     }
                 } else {
-                    tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_hint"));
+                    tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_right_click_hint"));
                 }
 
                 context.drawTooltip(client.textRenderer, tooltipLines, mouseX, mouseY);
@@ -714,29 +715,29 @@ public class StorageUIComponent {
                 long totalXp = ClientUpgradeState.getCachedXpPool();
                 int level = portableStorage$levelFromTotalXp((int)Math.min(Integer.MAX_VALUE, totalXp));
                 lines = new java.util.ArrayList<>();
-                lines.add(Text.translatable("portable_storage.exp_bottle.title"));
-                lines.add(Text.translatable("portable_storage.exp_bottle.current", String.valueOf(totalXp)));
-                lines.add(Text.translatable("portable_storage.exp_bottle.equivalent", String.valueOf(level)));
+                lines.add(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.title"));
+                lines.add(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.current", String.valueOf(totalXp)));
+                lines.add(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.equivalent", String.valueOf(level)));
                 
                 // 添加交互声明
                 lines.add(Text.empty()); // 空行分隔
-                lines.add(Text.translatable("portable_storage.exp_bottle.interact.left_click"));
-                lines.add(Text.translatable("portable_storage.exp_bottle.interact.right_click"));
-                lines.add(Text.translatable("portable_storage.exp_bottle.interact.glass_bottle"));
+                lines.add(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.interact.left_click"));
+                lines.add(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.interact.right_click"));
+                lines.add(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.interact.glass_bottle"));
             } else if (hoveredIndex == Integer.MIN_VALUE + 10) {
                 // 清除搜索提示
                 lines = new java.util.ArrayList<>();
-                lines.add(Text.translatable("portable_storage.ui.clear_search"));
-                lines.add(Text.translatable("portable_storage.ui.clear_search.hint"));
+                lines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.clear_search"));
+                lines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.clear_search.hint"));
             } else if (hoveredIndex < Integer.MIN_VALUE + 1000) {
                 // 虚拟流体自定义悬停提示
                 String fluidType = getFluidTypeFromVirtualIndex(hoveredIndex);
                 if (fluidType != null) {
                     int units = ClientUpgradeState.getFluidUnits(fluidType);
                     lines = new java.util.ArrayList<>();
-                    lines.add(Text.translatable("portable_storage.fluid." + fluidType + ".title"));
-                    lines.add(Text.translatable("portable_storage.fluid.units", String.valueOf(units)));
-                    lines.add(Text.translatable("portable_storage.fluid.desc"));
+                    lines.add(Text.translatable(PortableStorage.MOD_ID + ".fluid." + fluidType + ".title"));
+                    lines.add(Text.translatable(PortableStorage.MOD_ID + ".fluid.units", String.valueOf(units)));
+                    lines.add(Text.translatable(PortableStorage.MOD_ID + ".fluid.desc"));
                 } else {
                     lines = net.minecraft.client.gui.screen.Screen.getTooltipFromItem(client, hoveredStack);
                 }
@@ -754,7 +755,7 @@ public class StorageUIComponent {
                 long timestamp = ClientStorageState.getTimestamp(hoveredIndex);
                 if (timestamp > 0) {
                     String timeStr = formatTimestamp(timestamp);
-                    lines.add(1, Text.translatable("portable_storage.tooltip.last_modified", timeStr));
+                    lines.add(1, Text.translatable(PortableStorage.MOD_ID + ".tooltip.last_modified", timeStr));
                 }
             }
             context.drawTooltip(client.textRenderer, lines, mouseX, mouseY);
@@ -1343,7 +1344,7 @@ public class StorageUIComponent {
         String lower = q.toLowerCase(Locale.ROOT);
         
         // 获取流体的翻译文本
-        String fluidName = Text.translatable("portable_storage.fluid." + fluidType + ".title").getString();
+        String fluidName = Text.translatable(PortableStorage.MOD_ID + ".fluid." + fluidType + ".title").getString();
         
         // 使用拼音搜索辅助工具检查流体名称是否匹配
         if (PinyinSearchHelper.matches(fluidName, lower)) {
@@ -1351,7 +1352,7 @@ public class StorageUIComponent {
         }
         
         // 检查通用流体相关关键词
-        String fluidDesc = Text.translatable("portable_storage.fluid.desc").getString();
+        String fluidDesc = Text.translatable(PortableStorage.MOD_ID + ".fluid.desc").getString();
         if (PinyinSearchHelper.matches(fluidDesc, lower)) {
             return true;
         }
@@ -1374,9 +1375,9 @@ public class StorageUIComponent {
         String lower = q.toLowerCase(Locale.ROOT);
         
         // 获取瓶装经验的翻译文本
-        String xpBottleTitle = Text.translatable("portable_storage.exp_bottle.title").getString();
-        String xpBottleCurrent = Text.translatable("portable_storage.exp_bottle.current", "").getString();
-        String xpBottleEquivalent = Text.translatable("portable_storage.exp_bottle.equivalent", "").getString();
+        String xpBottleTitle = Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.title").getString();
+        String xpBottleCurrent = Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.current", "").getString();
+        String xpBottleEquivalent = Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.equivalent", "").getString();
         
         // 使用拼音搜索辅助工具检查翻译文本是否匹配
         if (PinyinSearchHelper.matches(xpBottleTitle, lower) || 
@@ -1809,7 +1810,7 @@ public class StorageUIComponent {
                             // 服务端禁用虚拟合成时，显示提示消息
                             net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
                             if (client.player != null) {
-                                client.player.sendMessage(net.minecraft.text.Text.translatable("portable_storage.message.virtual_crafting_disabled_by_server"), false);
+                                client.player.sendMessage(net.minecraft.text.Text.translatable(PortableStorage.MOD_ID + ".message.virtual_crafting_disabled_by_server"), false);
                             }
                             return true;
                         }

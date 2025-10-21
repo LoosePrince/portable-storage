@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import com.portable.storage.PortableStorage;
 import com.portable.storage.item.StorageKeyItem;
 import com.portable.storage.player.PlayerStorageAccess;
 
@@ -70,7 +71,7 @@ public class StorageKeyAutoUseHandler {
             consumeStorageKey(player, stack, slotIndex);
             
             // 发送消息通知钥匙被消耗
-            player.sendMessage(Text.translatable("portable_storage.message.storage_key_consumed_already_enabled")
+            player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.storage_key_consumed_already_enabled")
                     .formatted(Formatting.YELLOW), false);
         } else {
             // 仓库未激活，激活仓库并消耗钥匙
@@ -78,7 +79,7 @@ public class StorageKeyAutoUseHandler {
             consumeStorageKey(player, stack, slotIndex);
             
             // 发送成功消息
-            player.sendMessage(Text.translatable("portable_storage.message.storage_reactivated")
+            player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.storage_reactivated")
                     .formatted(Formatting.GREEN), false);
         }
     }
