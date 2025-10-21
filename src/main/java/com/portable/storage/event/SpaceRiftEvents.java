@@ -1,5 +1,6 @@
 package com.portable.storage.event;
 
+import com.portable.storage.PortableStorage;
 import com.portable.storage.config.ServerConfig;
 import com.portable.storage.world.SpaceRiftManager;
 
@@ -72,12 +73,74 @@ public final class SpaceRiftEvents {
             // 只有非观察者和非创造者才会被传送回自己的地块
             if (!isSpectatorOrCreative) {
                 BlockPos pos = player.getBlockPos();
+                
+                // 检查是否掉入虚空
+                if (pos.getY() < rift.getBottomY()) {
+                    // 玩家掉入虚空，退出裂隙
+                    exitRiftFromVoid(player);
+                    continue;
+                }
+                
                 if (!SpaceRiftManager.isInsideOwnPlot(player, pos)) {
                     var origin = SpaceRiftManager.ensureAllocatedPlot(server, player.getUuid());
                     BlockPos center = SpaceRiftManager.getPlotCenterBlock(origin);
                     player.teleport(rift, center.getX() + 0.5, center.getY(), center.getZ() + 0.5, player.getYaw(), player.getPitch());
                 }
             }
+        }
+    }
+    
+    /**
+     * 玩家掉入虚空时退出裂隙
+     */
+    private static void exitRiftFromVoid(ServerPlayerEntity player) {
+        try {
+            java.util.UUID id = player.getUuid();
+            net.minecraft.util.math.GlobalPos returnPoint = SpaceRiftManager.getReturnPoint(id);
+            
+            if (returnPoint != null) {
+                // 有返回点：传送到返回点
+                net.minecraft.server.world.ServerWorld targetWorld = player.getServer().getWorld(returnPoint.dimension());
+                if (targetWorld != null) {
+                    net.minecraft.util.math.BlockPos pos = returnPoint.pos();
+                    SpaceRiftManager.clearReturnPoint(id);
+                    SpaceRiftManager.resetToWorldBorder(player);
+                    // 离开裂隙时创建复制体
+                    SpaceRiftManager.ensureAvatarOnExit(player);
+                    player.teleport(targetWorld, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, player.getYaw(), player.getPitch());
+                    player.sendMessage(net.minecraft.text.Text.translatable(PortableStorage.MOD_ID + ".rift_void_exit"), true);
+                    PortableStorage.LOGGER.info("Player {} exited rift from void to return point", player.getName().getString());
+                } else {
+                    // 返回点世界不存在，传送到主世界出生点
+                    exitToOverworldSpawn(player);
+                }
+            } else {
+                // 没有返回点：传送到主世界出生点
+                exitToOverworldSpawn(player);
+            }
+        } catch (Exception e) {
+            PortableStorage.LOGGER.error("Failed to exit player {} from rift void", player.getName().getString(), e);
+            // 兜底：传送到主世界出生点
+            exitToOverworldSpawn(player);
+        }
+    }
+    
+    /**
+     * 传送到主世界出生点
+     */
+    private static void exitToOverworldSpawn(ServerPlayerEntity player) {
+        try {
+            net.minecraft.server.world.ServerWorld overworld = player.getServer().getOverworld();
+            net.minecraft.util.math.BlockPos spawn = overworld.getSpawnPos();
+            SpaceRiftManager.clearReturnPoint(player.getUuid());
+            SpaceRiftManager.resetToWorldBorder(player);
+            // 离开裂隙时创建复制体
+            SpaceRiftManager.ensureAvatarOnExit(player);
+            player.teleport(overworld, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, player.getYaw(), player.getPitch());
+            player.sendMessage(net.minecraft.text.Text.translatable(PortableStorage.MOD_ID + ".rift_void_exit_spawn"), true);
+            PortableStorage.LOGGER.info("Player {} exited rift from void to overworld spawn", player.getName().getString());
+        } catch (Exception e) {
+            PortableStorage.LOGGER.error("Failed to exit player {} to overworld spawn", player.getName().getString(), e);
         }
     }
     

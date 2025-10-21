@@ -1,5 +1,6 @@
 package com.portable.storage.event;
 
+import com.portable.storage.config.ServerConfig;
 import com.portable.storage.world.SpaceRiftManager;
 
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
@@ -38,11 +39,19 @@ public final class SpaceRiftProtectionEvents {
             return true;
         }
         
-        // 普通玩家：XZ 必须在自己地块；Y 介于世界 bottom/top 层极限之间
+        // 普通玩家：XZ 必须在自己地块
         boolean insideXZ = SpaceRiftManager.isInsideOwnPlot(player, pos);
-        int bottom = player.getWorld().getBottomY();
-        int top = player.getWorld().getTopY() - 1;
-        boolean insideY = pos.getY() >= bottom && pos.getY() <= top;
+        
+        // 检查高度限制配置
+        boolean insideY = true;
+        if (ServerConfig.getInstance().isLimitRiftHeight()) {
+            // 启用高度限制时，使用原有的高度限制逻辑
+            int bottom = player.getWorld().getBottomY();
+            int top = player.getWorld().getTopY() - 1;
+            insideY = pos.getY() >= bottom && pos.getY() <= top;
+        }
+        // 如果未启用高度限制，则不检查Y坐标限制
+        
         return insideXZ && insideY;
     }
 }

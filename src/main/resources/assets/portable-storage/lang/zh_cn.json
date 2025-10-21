@@ -113,6 +113,8 @@
   "portable-storage.rift_avatar": "%s的复制体",
   "portable-storage.rift_feature_disabled": "裂隙功能已被管理员禁用",
   "portable-storage.rift_feature_disabled_returned": "裂隙功能已禁用，已将你送回原位置",
+  "portable-storage.rift_void_exit": "你掉入了裂隙虚空，已被送回原位置",
+  "portable-storage.rift_void_exit_spawn": "你掉入了裂隙虚空，已被送回主世界出生点",
   "portable-storage.message.virtual_crafting_disabled_by_server": "虚拟合成功能已被服务器管理员禁用",
   "message.portable-storage.newstore.migrated": "您的仓库数据已迁移至新版储存格式！",
   "command.portable-storage.newstore.rebuild": "已重建新版存储索引引用计数",

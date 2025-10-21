@@ -33,6 +33,7 @@ public class ServerConfig {
     private boolean enableRiftFeature = true;
     private String riftUpgradeItem = "block:minecraft:dragon_egg";
     private int riftSize = 1;
+    private boolean limitRiftHeight = false;
     
     // 工作台虚拟合成功能配置
     private boolean enableVirtualCrafting = true;
@@ -212,6 +213,23 @@ public class ServerConfig {
             # 默认值: 1
             rift_size = 1
             
+            # 限制高度范围
+            # 启用后限制裂隙内的高度范围，启用上下回传和屏障封底顶
+            # 关闭后玩家可以在整个维度高度范围内建造
+            # 
+            # 限制模式（true）：
+            # - 可建造高度：Y=0 到 Y=163（共164层）
+            # - 底部Y=0-8层和顶部Y=155-163层会生成屏障方块作为边界保护
+            # - 玩家无法在限制范围外放置或破坏方块
+            # 
+            # 非限制模式（false）：
+            # - 可建造高度：Y=-64 到 Y=319（共384层，整个维度高度）
+            # - 不生成屏障方块，无高度限制
+            # - 玩家可以在整个维度高度范围内自由建造
+            # 
+            # 默认值: false
+            limit_rift_height = false
+            
             # 启用工作台虚拟合成功能
             # 启用后工作台升级槽位提供3x3虚拟合成覆盖层
             # 关闭后工作台升级槽位的虚拟合成描述也不会显示
@@ -318,6 +336,7 @@ public class ServerConfig {
             enableRiftFeature = storageConfig.getOrElse("enable_rift_feature", true);
             riftUpgradeItem = storageConfig.getOrElse("rift_upgrade_item", "block:minecraft:dragon_egg");
             riftSize = storageConfig.getOrElse("rift_size", 1);
+            limitRiftHeight = storageConfig.getOrElse("limit_rift_height", false);
             enableVirtualCrafting = storageConfig.getOrElse("enable_virtual_crafting", true);
             enableInfiniteLava = storageConfig.getOrElse("enable_infinite_lava", true);
             enableInfiniteWater = storageConfig.getOrElse("enable_infinite_water", true);
@@ -379,6 +398,7 @@ public class ServerConfig {
         storageConfig.set("enable_rift_feature", enableRiftFeature);
         storageConfig.set("rift_upgrade_item", riftUpgradeItem);
         storageConfig.set("rift_size", riftSize);
+        storageConfig.set("limit_rift_height", limitRiftHeight);
         storageConfig.set("enable_virtual_crafting", enableVirtualCrafting);
         storageConfig.set("enable_infinite_lava", enableInfiniteLava);
         storageConfig.set("enable_infinite_water", enableInfiniteWater);
@@ -802,6 +822,10 @@ public class ServerConfig {
     
     public int getRiftSize() {
         return riftSize;
+    }
+    
+    public boolean isLimitRiftHeight() {
+        return limitRiftHeight;
     }
     
     public boolean isEnableVirtualCrafting() {

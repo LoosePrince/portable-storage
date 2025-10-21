@@ -1,9 +1,11 @@
 package com.portable.storage.event;
 
 import com.portable.storage.PortableStorage;
+import com.portable.storage.config.ServerConfig;
 import com.portable.storage.item.StorageKeyItem;
 import com.portable.storage.net.ServerNetworkingHandlers;
 import com.portable.storage.player.PlayerStorageAccess;
+import com.portable.storage.world.SpaceRiftManager;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.minecraft.entity.ItemEntity;
@@ -68,8 +70,14 @@ public class PlayerDeathEventHandler {
                         // 死亡掉落规则开启时，将仓库状态设为未激活（但保留数据）
                         newAccess.portableStorage$setStorageEnabled(false);
                         
-                        // 在旧玩家的死亡位置掉落仓库钥匙
-                        dropStorageKeyAtPosition(oldPlayer, oldPlayer.getPos());
+                        // 检查是否在裂隙中死亡
+                        if (oldPlayer.getWorld().getRegistryKey() == SpaceRiftManager.DIMENSION_KEY) {
+                            // 在裂隙中死亡：钥匙掉落在进入裂隙前的位置
+                            dropStorageKeyAtReturnPoint(oldPlayer);
+                        } else {
+                            // 在其他维度死亡：在死亡位置掉落钥匙
+                            dropStorageKeyAtPosition(oldPlayer, oldPlayer.getPos());
+                        }
                         
                         PortableStorage.LOGGER.info("Player {} died with storage enabled, dropped storage key", oldPlayer.getName().getString());
                     } else {
@@ -98,15 +106,61 @@ public class PlayerDeathEventHandler {
     }
     
     /**
+     * 在玩家进入裂隙前的位置掉落仓库钥匙
+     */
+    private static void dropStorageKeyAtReturnPoint(ServerPlayerEntity player) {
+        try {
+            // 获取返回点位置
+            net.minecraft.util.math.GlobalPos returnPoint = SpaceRiftManager.getReturnPoint(player.getUuid());
+            
+            if (returnPoint != null) {
+                // 获取返回点所在的世界
+                net.minecraft.server.world.ServerWorld returnWorld = player.getServer().getWorld(returnPoint.dimension());
+                if (returnWorld != null) {
+                    // 在返回点位置掉落钥匙
+                    net.minecraft.util.math.Vec3d returnPos = net.minecraft.util.math.Vec3d.ofCenter(returnPoint.pos());
+                    dropStorageKeyAtPosition(player, returnWorld, returnPos);
+                    
+                    PortableStorage.LOGGER.info("Dropped storage key for player {} at return point {}", 
+                            player.getName().getString(), returnPoint);
+                } else {
+                    // 返回点世界不存在，在主世界出生点掉落
+                    net.minecraft.server.world.ServerWorld overworld = player.getServer().getOverworld();
+                    net.minecraft.util.math.BlockPos spawn = overworld.getSpawnPos();
+                    dropStorageKeyAtPosition(player, overworld, net.minecraft.util.math.Vec3d.ofCenter(spawn));
+                    
+                    PortableStorage.LOGGER.info("Return world not found, dropped storage key for player {} at overworld spawn", 
+                            player.getName().getString());
+                }
+            } else {
+                // 没有返回点，在主世界出生点掉落
+                net.minecraft.server.world.ServerWorld overworld = player.getServer().getOverworld();
+                net.minecraft.util.math.BlockPos spawn = overworld.getSpawnPos();
+                dropStorageKeyAtPosition(player, overworld, net.minecraft.util.math.Vec3d.ofCenter(spawn));
+                
+                PortableStorage.LOGGER.info("No return point found, dropped storage key for player {} at overworld spawn", 
+                        player.getName().getString());
+            }
+        } catch (Exception e) {
+            PortableStorage.LOGGER.error("Failed to drop storage key at return point for player {}", 
+                    player.getName().getString(), e);
+        }
+    }
+
+    /**
      * 在指定位置掉落仓库钥匙
      */
     private static void dropStorageKeyAtPosition(ServerPlayerEntity player, Vec3d position) {
+        dropStorageKeyAtPosition(player, player.getServerWorld(), position);
+    }
+
+    /**
+     * 在指定世界和位置掉落仓库钥匙
+     */
+    private static void dropStorageKeyAtPosition(ServerPlayerEntity player, ServerWorld world, Vec3d position) {
         try {
             // 创建仓库钥匙
             ItemStack storageKey = StorageKeyItem.createStorageKey(player);
-            
-            // 获取世界
-            ServerWorld world = player.getServerWorld();
             
             // 创建掉落物实体
             ItemEntity itemEntity = new ItemEntity(world, position.x, position.y, position.z, storageKey);

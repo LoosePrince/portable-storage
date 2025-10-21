@@ -87,7 +87,15 @@ public final class SpaceRiftManager {
         int minZ = origin.getStartZ();
         int maxX = minX + 16 * getPlotChunkSize() - 1;
         int maxZ = minZ + 16 * getPlotChunkSize() - 1;
-        return pos.getX() >= minX && pos.getX() <= maxX && pos.getZ() >= minZ && pos.getZ() <= maxZ && pos.getY() >= 0 && pos.getY() < 164;
+        
+        boolean insideXZ = pos.getX() >= minX && pos.getX() <= maxX && pos.getZ() >= minZ && pos.getZ() <= maxZ;
+        
+        // 只有在启用高度限制时才检查Y坐标
+        if (ServerConfig.getInstance().isLimitRiftHeight()) {
+            return insideXZ && pos.getY() >= 0 && pos.getY() < 164;
+        } else {
+            return insideXZ;
+        }
     }
 
     public static void ensurePlotInitialized(ServerWorld world, ChunkPos origin) {
@@ -111,17 +119,27 @@ public final class SpaceRiftManager {
         for (int x = minX; x <= maxX; x++) {
             for (int z = minZ; z <= maxZ; z++) {
                 world.setBlockState(new BlockPos(x, FLOOR_Y, z), stone);
-                for (int y = bottomStart; y <= bottomEnd; y++) {
-                    world.setBlockState(new BlockPos(x, y, z), barrier);
-                }
-                for (int y = topStart; y <= topEnd; y++) {
-                    world.setBlockState(new BlockPos(x, y, z), barrier);
+                
+                // 只有在启用高度限制时才生成屏障
+                if (ServerConfig.getInstance().isLimitRiftHeight()) {
+                    for (int y = bottomStart; y <= bottomEnd; y++) {
+                        world.setBlockState(new BlockPos(x, y, z), barrier);
+                    }
+                    for (int y = topStart; y <= topEnd; y++) {
+                        world.setBlockState(new BlockPos(x, y, z), barrier);
+                    }
                 }
             }
         }
     }
 
     public static void applyPersonalBorder(ServerPlayerEntity player) {
+        // 创造和观察者模式玩家移除边界限制
+        if (player.isCreative() || player.isSpectator()) {
+            resetToWorldBorder(player);
+            return;
+        }
+        
         ChunkPos origin = playerPlotOrigin.get(player.getUuid());
         if (origin == null) return;
         BlockPos center = getPlotCenterBlock(origin);
@@ -144,6 +162,16 @@ public final class SpaceRiftManager {
         // 在裂隙维度创建/更新复制体
         ServerWorld rift = getWorld(player.getServer());
         if (rift == null) return;
+        
+        // 检查玩家最后位置是否在裂隙虚空中
+        BlockPos lastPos = lastRiftPos.get(player.getUuid());
+        if (lastPos != null && isInRiftVoid(rift, lastPos)) {
+            // 如果最后位置在虚空中，不生成复制体
+            removeAvatar(player);
+            PortableStorage.LOGGER.debug("Player {} last position was in rift void, no avatar created", player.getName().getString());
+            return;
+        }
+        
         removeAvatar(player);
         // 选择放置位置：优先使用玩家在裂隙内的最后记录位置，否则使用自己地块中心
         ChunkPos origin = ensureAllocatedPlot(player.getServer(), player.getUuid());
@@ -164,6 +192,13 @@ public final class SpaceRiftManager {
 
     public static void updateLastRiftPos(ServerPlayerEntity player) {
         lastRiftPos.put(player.getUuid(), player.getBlockPos());
+    }
+
+    /**
+     * 检查位置是否在裂隙虚空中
+     */
+    public static boolean isInRiftVoid(ServerWorld world, BlockPos pos) {
+        return world.getRegistryKey() == DIMENSION_KEY && pos.getY() < world.getBottomY();
     }
 
     private static BlockPos clampToPlot(ChunkPos origin, BlockPos pos) {

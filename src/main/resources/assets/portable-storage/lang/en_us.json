@@ -110,6 +110,8 @@
   "portable-storage.rift_avatar": "%s's Avatar",
   "portable-storage.rift_feature_disabled": "Rift feature has been disabled by administrator",
   "portable-storage.rift_feature_disabled_returned": "Rift feature disabled, you have been returned to your original location",
+  "portable-storage.rift_void_exit": "You fell into the rift void and have been returned to your original location",
+  "portable-storage.rift_void_exit_spawn": "You fell into the rift void and have been returned to the overworld spawn",
   "portable-storage.message.virtual_crafting_disabled_by_server": "Virtual crafting feature has been disabled by server administrator",
   "message.portable-storage.newstore.migrated": "Your storage data has been migrated to the new format!",
   "command.portable-storage.newstore.rebuild": "Rebuilt new store index reference counts",
