@@ -1,6 +1,7 @@
 package com.portable.storage.sync;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.UUID;
 
 /**
  * 增量同步已移除：积攒器降级为空实现以保持兼容。

@@ -1,9 +1,16 @@
 package com.portable.storage.mixin;
 
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.portable.storage.net.ServerNetworkingHandlers;
+import com.portable.storage.newstore.NewStoreService;
 import com.portable.storage.player.PlayerStorageService;
 import com.portable.storage.storage.StorageInventory;
 import com.portable.storage.storage.UpgradeInventory;
-import com.portable.storage.newstore.NewStoreService;
+
 import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.enchantment.Enchantments;
 import net.minecraft.entity.LivingEntity;
@@ -12,13 +19,9 @@ import net.minecraft.item.BowItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.world.World;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.network.ServerPlayerEntity;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import net.minecraft.world.World;
 
 /**
  * 在弓松手时，如果玩家背包中没有箭，则尝试从随身仓库取用箭；
@@ -54,7 +57,7 @@ public abstract class BowItemMixin {
             boolean hasSpectralArrowUpgrade = upgrades.isSpectralArrowUpgradeActive();
 
             // 构建合并视图（旧版+新版）
-            StorageInventory merged = com.portable.storage.net.ServerNetworkingHandlers.buildMergedSnapshot(serverPlayer);
+            StorageInventory merged = ServerNetworkingHandlers.buildMergedSnapshot(serverPlayer);
 
             // 优先查找普通箭，与PlayerEntityProjectileMixin保持一致
             int spectralIdx = -1;

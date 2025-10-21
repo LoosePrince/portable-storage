@@ -1,15 +1,17 @@
 package com.portable.storage.storage;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import com.mojang.serialization.DynamicOps;
+
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.registry.RegistryWrapper;
-import com.mojang.serialization.DynamicOps;
 import net.minecraft.registry.Registries;
-
-import java.util.*;
+import net.minecraft.registry.RegistryWrapper;
 
 /**
  * 随身仓库存储（无限堆叠 + 无固定槽位）：

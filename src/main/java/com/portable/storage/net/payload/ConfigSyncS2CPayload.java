@@ -1,12 +1,12 @@
 package com.portable.storage.net.payload;
 
+import static com.portable.storage.PortableStorage.MOD_ID;
+
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Identifier;
-
-import static com.portable.storage.PortableStorage.MOD_ID;
 
 /**
  * 统一的配置/状态同步（S2C）：

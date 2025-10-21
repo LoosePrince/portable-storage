@@ -1,14 +1,15 @@
 package com.portable.storage.event;
 
-import com.portable.storage.storage.UpgradeInventory;
-import com.portable.storage.player.PlayerStorageService;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+
+import com.portable.storage.player.PlayerStorageService;
+import com.portable.storage.storage.UpgradeInventory;
+
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
 
 public class XpMaintenanceHandler {
     private static final Map<UUID, Integer> lastPlayerLevels = new HashMap<>();

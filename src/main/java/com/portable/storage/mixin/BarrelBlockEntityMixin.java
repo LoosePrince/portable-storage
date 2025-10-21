@@ -1,16 +1,18 @@
 package com.portable.storage.mixin;
 
-import com.portable.storage.blockentity.BarrelOwnerAccess;
-import net.minecraft.block.entity.BarrelBlockEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.RegistryWrapper;
+import java.util.UUID;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.UUID;
+import com.portable.storage.blockentity.BarrelOwnerAccess;
+
+import net.minecraft.block.entity.BarrelBlockEntity;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.registry.RegistryWrapper;
 
 /**
  * Mixin to BarrelBlockEntity to add owner tracking for bound barrels.

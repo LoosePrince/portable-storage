@@ -2,6 +2,7 @@ package com.portable.storage.blockentity;
 
 import com.portable.storage.PortableStorage;
 import com.portable.storage.block.ModBlocks;
+
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;

@@ -1,9 +1,16 @@
 package com.portable.storage.event;
 
+import com.portable.storage.command.NewStoreCommands;
 import com.portable.storage.net.ServerNetworkingHandlers;
+import com.portable.storage.player.PlayerStorageService;
+import com.portable.storage.storage.StorageInventory;
+import com.portable.storage.storage.UpgradeInventory;
+import com.portable.storage.sync.ChangeAccumulator;
+import com.portable.storage.sync.PlayerViewState;
 import com.portable.storage.sync.StorageSyncManager;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.network.ServerPlayerEntity;
 
 /**
@@ -26,12 +33,12 @@ public class PlayerJoinEventHandler {
             // 玩家离开时清理同步状态
             StorageSyncManager.cleanupPlayer(player.getUuid());
             // 清理按需同步状态
-            com.portable.storage.sync.PlayerViewState.cleanupPlayer(player.getUuid());
-            com.portable.storage.sync.ChangeAccumulator.cleanupPlayer(player.getUuid());
+            PlayerViewState.cleanupPlayer(player.getUuid());
+            ChangeAccumulator.cleanupPlayer(player.getUuid());
             // 清理活塞升级处理器数据
-            com.portable.storage.event.PistonUpgradeHandler.cleanupPlayer(player.getUuid());
+            PistonUpgradeHandler.cleanupPlayer(player.getUuid());
             // 清空垃圾桶槽位（客户端缓存）
-            com.portable.storage.storage.UpgradeInventory upgrades = com.portable.storage.player.PlayerStorageService.getUpgradeInventory(player);
+            UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
             if (upgrades.isTrashSlotActive()) {
                 upgrades.setStack(10, net.minecraft.item.ItemStack.EMPTY);
             }
@@ -52,13 +59,13 @@ public class PlayerJoinEventHandler {
                 ServerPlayerEntity p = server.getPlayerManager().getPlayer(id);
                 if (p == null) continue;
                 // 检查旧版是否有物品
-                com.portable.storage.storage.StorageInventory legacy = com.portable.storage.player.PlayerStorageService.getInventory(p);
+                StorageInventory legacy = PlayerStorageService.getInventory(p);
                 boolean hasOld = false;
                 for (int i = 0; i < legacy.getCapacity() && !hasOld; i++) {
                     if (legacy.getCountByIndex(i) > 0) hasOld = true;
                 }
                 if (!hasOld) continue; // 无旧物品，跳过且不提示
-                boolean ok = com.portable.storage.command.NewStoreCommands.migrateOne(server, id);
+                boolean ok = NewStoreCommands.migrateOne(server, id);
                 if (ok) {
                     p.sendMessage(net.minecraft.text.Text.translatable("message.portable-storage.newstore.migrated"));
                 }

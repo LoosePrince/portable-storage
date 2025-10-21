@@ -1,11 +1,14 @@
 package com.portable.storage.client;
+
+import com.mojang.serialization.DynamicOps;
+import com.portable.storage.net.payload.SyncControlC2SPayload;
+
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtOps;
-import com.mojang.serialization.DynamicOps;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.collection.DefaultedList;
 
@@ -102,8 +105,8 @@ public final class ClientStorageState {
             // 会话或序号不匹配：请求全量回退
             try {
                 net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
-                    new com.portable.storage.net.payload.SyncControlC2SPayload(
-                        com.portable.storage.net.payload.SyncControlC2SPayload.Op.REQUEST,
+                    new SyncControlC2SPayload(
+                        SyncControlC2SPayload.Op.REQUEST,
                         0L,
                         false
                     )

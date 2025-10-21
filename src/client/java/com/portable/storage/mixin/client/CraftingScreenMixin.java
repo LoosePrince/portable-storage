@@ -1,22 +1,26 @@
 package com.portable.storage.mixin.client;
 
-import com.portable.storage.PortableStorage;
-import com.portable.storage.client.ClientConfig;
-import com.portable.storage.client.ClientUpgradeState;
-import com.portable.storage.client.ui.StorageUIComponent;
-// 统一后不再使用 RefillCraftingC2SPayload
-// 统一后使用 SyncControlC2SPayload
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.CraftingScreen;
-import net.minecraft.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import com.portable.storage.PortableStorage;
+import com.portable.storage.client.ClientConfig;
+import com.portable.storage.client.ClientStorageState;
+import com.portable.storage.client.ClientUpgradeState;
+import com.portable.storage.client.ui.StorageUIComponent;
+import com.portable.storage.net.payload.CraftingOverlayActionC2SPayload;
+import com.portable.storage.net.payload.SyncControlC2SPayload;
+import com.portable.storage.sync.PlayerViewState;
+
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.ingame.CraftingScreen;
+import net.minecraft.item.ItemStack;
 
 @Mixin(CraftingScreen.class)
 public abstract class CraftingScreenMixin {
@@ -58,11 +62,11 @@ public abstract class CraftingScreenMixin {
         PortableStorage.LOGGER.debug("Portable Storage: Crafting screen UI component initialized");
 
         // 标记开始查看仓库界面
-        com.portable.storage.sync.PlayerViewState.startViewing(MinecraftClient.getInstance().player.getUuid());
+        PlayerViewState.startViewing(MinecraftClient.getInstance().player.getUuid());
         
         // 打开界面时请求同步
-        ClientPlayNetworking.send(new com.portable.storage.net.payload.SyncControlC2SPayload(
-            com.portable.storage.net.payload.SyncControlC2SPayload.Op.REQUEST,
+        ClientPlayNetworking.send(new SyncControlC2SPayload(
+            SyncControlC2SPayload.Op.REQUEST,
             0L,
             false
         ));
@@ -81,7 +85,7 @@ public abstract class CraftingScreenMixin {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client != null && client.textRenderer != null) {
             // 检查仓库是否已启用且有工作台升级
-            if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingTableUpgrade()) {
+            if (ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingTableUpgrade()) {
                 // 渲染仓库UI（不支持折叠功能）
                 portableStorage$uiComponent.render(context, mouseX, mouseY, delta, x, y, backgroundWidth, backgroundHeight);
             }
@@ -123,7 +127,7 @@ public abstract class CraftingScreenMixin {
         }
 
         // 检查仓库是否已启用
-        if (com.portable.storage.client.ClientStorageState.isStorageEnabled()) {
+        if (ClientStorageState.isStorageEnabled()) {
             // 委托给UI组件处理（不支持折叠功能）
             if (portableStorage$uiComponent.mouseClicked(mouseX, mouseY, button)) {
                 cir.setReturnValue(true);
@@ -137,14 +141,14 @@ public abstract class CraftingScreenMixin {
 
     @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
     private void portableStorage$keyPressed(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
-        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$uiComponent.keyPressed(keyCode, scanCode, modifiers)) {
+        if (ClientStorageState.isStorageEnabled() && portableStorage$uiComponent.keyPressed(keyCode, scanCode, modifiers)) {
             cir.setReturnValue(true);
         }
     }
 
     @Inject(method = "charTyped", at = @At("HEAD"), cancellable = true)
     private void portableStorage$charTyped(char chr, int modifiers, CallbackInfoReturnable<Boolean> cir) {
-        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$uiComponent.charTyped(chr, modifiers)) {
+        if (ClientStorageState.isStorageEnabled() && portableStorage$uiComponent.charTyped(chr, modifiers)) {
             cir.setReturnValue(true);
         }
     }
@@ -252,8 +256,8 @@ public abstract class CraftingScreenMixin {
         }
         
         // 发送补充请求到服务器
-        ClientPlayNetworking.send(new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
-            com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.REFILL,
+        ClientPlayNetworking.send(new CraftingOverlayActionC2SPayload(
+            CraftingOverlayActionC2SPayload.Action.REFILL,
             slotIndex, 0, false,
             targetStack,
             "",

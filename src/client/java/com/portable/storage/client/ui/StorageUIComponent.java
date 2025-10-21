@@ -1,9 +1,23 @@
 package com.portable.storage.client.ui;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
 import com.portable.storage.client.ClientConfig;
+import com.portable.storage.client.ClientNetworkingHandlers;
+import com.portable.storage.client.ClientRiftConfig;
 import com.portable.storage.client.ClientStorageState;
 import com.portable.storage.client.ClientUpgradeState;
-import com.portable.storage.net.payload.*;
+import com.portable.storage.client.ClientVirtualCraftingConfig;
+import com.portable.storage.client.screen.PortableCraftingScreen;
+import com.portable.storage.client.util.PinyinSearchHelper;
+import com.portable.storage.net.payload.FluidConversionC2SPayload;
+import com.portable.storage.net.payload.RequestOpenScreenC2SPayload;
+import com.portable.storage.net.payload.ScrollC2SPayload;
+import com.portable.storage.net.payload.StorageActionC2SPayload;
+import com.portable.storage.storage.UpgradeInventory;
+
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -12,10 +26,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
 
 /**
  * 仓库UI组件，可在不同界面复用
@@ -284,7 +294,7 @@ public class StorageUIComponent {
         
         // 添加虚拟流体条目（在最前面显示）
         for (String fluidType : new String[]{"lava", "water", "milk"}) {
-            int units = com.portable.storage.client.ClientUpgradeState.getFluidUnits(fluidType);
+            int units = ClientUpgradeState.getFluidUnits(fluidType);
             if (units > 0) {
                 // 为每种流体分配唯一的虚拟索引，使用固定的偏移量
                 int fluidIndex = switch (fluidType) {
@@ -301,7 +311,7 @@ public class StorageUIComponent {
         }
         
         // 如果启用附魔之瓶升级，则在虚拟流体后面插入一个虚拟条目用于显示"瓶装经验"
-        boolean showXpBottle = com.portable.storage.client.ClientUpgradeState.isXpBottleUpgradeActive();
+        boolean showXpBottle = ClientUpgradeState.isXpBottleUpgradeActive();
         if (showXpBottle) {
             // 检查是否匹配搜索条件
             if (query == null || query.isEmpty() || matchesXpBottleQuery(query)) {
@@ -311,9 +321,9 @@ public class StorageUIComponent {
         // 将收藏（星标）物品移动到最前（但在虚拟条目之后）
         // 虚拟条目使用 Integer.MIN_VALUE 及其附近的负值作为索引，真实物品索引为 >=0
         {
-            java.util.Set<String> fav = com.portable.storage.client.ClientConfig.getInstance().favorites;
+            java.util.Set<String> fav = ClientConfig.getInstance().favorites;
             if (fav != null && !fav.isEmpty()) {
-                var stacks = com.portable.storage.client.ClientStorageState.getStacks();
+                var stacks = ClientStorageState.getStacks();
                 java.util.List<Integer> favs = new java.util.ArrayList<>();
                 java.util.List<Integer> normals = new java.util.ArrayList<>();
                 for (int idx : filtered) {
@@ -373,7 +383,7 @@ public class StorageUIComponent {
                         context.getMatrices().translate(0.0f, 0.0f, 100.0f);
                         context.drawItem(display, sx + 1, sy + 1);
                         // 渲染数量为"仓库XP池"的数值
-                        long totalXp = com.portable.storage.client.ClientUpgradeState.getCachedXpPool();
+                        long totalXp = ClientUpgradeState.getCachedXpPool();
                         if (totalXp > 0) {
                             String countText = formatCount((int)Math.min(Integer.MAX_VALUE, totalXp));
                             float scale = 0.75f;
@@ -412,7 +422,7 @@ public class StorageUIComponent {
                         // 渲染虚拟流体
                         String fluidType = getFluidTypeFromVirtualIndex(storageIndex);
                         if (fluidType != null) {
-                            int units = com.portable.storage.client.ClientUpgradeState.getFluidUnits(fluidType);
+                            int units = ClientUpgradeState.getFluidUnits(fluidType);
                             if (units > 0) {
                                 // 直接绘制自定义流体贴图
                                 context.getMatrices().push();
@@ -449,7 +459,7 @@ public class StorageUIComponent {
                             ItemStack toRender = (cinfo != null && cinfo.displayStack != null) ? cinfo.displayStack : stack;
                             // 收藏（星标）金色覆盖层：应在物品下方、槽位贴图上方 → 先绘制覆盖层，再绘制物品
                             {
-                                java.util.Set<String> fav = com.portable.storage.client.ClientConfig.getInstance().favorites;
+                                java.util.Set<String> fav = ClientConfig.getInstance().favorites;
                                 if (fav != null && !fav.isEmpty()) {
                                     String id = net.minecraft.registry.Registries.ITEM.getId(stack.getItem()).toString();
                                     if (fav.contains(id)) {
@@ -673,16 +683,16 @@ public class StorageUIComponent {
                 } else if (slotIndex == 7) {
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_xp"));
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_middle_click_maintenance"));
-                    int currentStep = com.portable.storage.client.ClientUpgradeState.getXpTransferStep();
+                    int currentStep = ClientUpgradeState.getXpTransferStep();
                     int[] steps = {1, 5, 10, 100};
                     int level = steps[currentStep];
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_current_step", level));
                 } else if (slotIndex == 0) {
                     tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_right_click_custom_crafting"));
                     // 只有服务端启用虚拟合成功能时才显示相关描述
-                    if (com.portable.storage.client.ClientVirtualCraftingConfig.isEnableVirtualCrafting()) {
+                    if (ClientVirtualCraftingConfig.isEnableVirtualCrafting()) {
                         tooltipLines.add(Text.translatable("portable_storage.ui.upgrade_middle_click_virtual_crafting"));
-                        boolean virtualCraftingVisible = com.portable.storage.client.ClientConfig.getInstance().virtualCraftingVisible;
+                        boolean virtualCraftingVisible = ClientConfig.getInstance().virtualCraftingVisible;
                         Text virtualCraftingStatus = virtualCraftingVisible ? 
                             Text.translatable("portable_storage.toggle.enabled") : 
                             Text.translatable("portable_storage.toggle.disabled");
@@ -701,7 +711,7 @@ public class StorageUIComponent {
             List<Text> lines;
             if (hoveredIndex == Integer.MIN_VALUE) {
                 // 瓶装经验自定义悬停提示
-                long totalXp = com.portable.storage.client.ClientUpgradeState.getCachedXpPool();
+                long totalXp = ClientUpgradeState.getCachedXpPool();
                 int level = portableStorage$levelFromTotalXp((int)Math.min(Integer.MAX_VALUE, totalXp));
                 lines = new java.util.ArrayList<>();
                 lines.add(Text.translatable("portable_storage.exp_bottle.title"));
@@ -722,7 +732,7 @@ public class StorageUIComponent {
                 // 虚拟流体自定义悬停提示
                 String fluidType = getFluidTypeFromVirtualIndex(hoveredIndex);
                 if (fluidType != null) {
-                    int units = com.portable.storage.client.ClientUpgradeState.getFluidUnits(fluidType);
+                    int units = ClientUpgradeState.getFluidUnits(fluidType);
                     lines = new java.util.ArrayList<>();
                     lines.add(Text.translatable("portable_storage.fluid." + fluidType + ".title"));
                     lines.add(Text.translatable("portable_storage.fluid.units", String.valueOf(units)));
@@ -879,7 +889,7 @@ public class StorageUIComponent {
                 upgradeSlotBottoms[slotIndex] = sy + upgradeSlotSize;
                 
                 ItemStack upgradeStack = ClientUpgradeState.getStack(slotIndex);
-                ItemStack expectedStack = com.portable.storage.storage.UpgradeInventory.getExpectedUpgradeForSlot(slotIndex);
+                ItemStack expectedStack = UpgradeInventory.getExpectedUpgradeForSlot(slotIndex);
                 
                 if (!upgradeStack.isEmpty()) {
                     // 有物品，正常渲染
@@ -920,7 +930,7 @@ public class StorageUIComponent {
             upgradeSlotBottoms[i] = sy + upgradeSlotSize;
             
             ItemStack upgradeStack = ClientUpgradeState.getStack(i);
-            ItemStack expectedStack = com.portable.storage.storage.UpgradeInventory.getExpectedUpgradeForSlot(i);
+            ItemStack expectedStack = UpgradeInventory.getExpectedUpgradeForSlot(i);
             
             if (!upgradeStack.isEmpty()) {
                 // 有物品，正常渲染
@@ -992,7 +1002,7 @@ public class StorageUIComponent {
             fluidSlotBottom = fluidSlotY + upgradeSlotSize;
             
             ItemStack fluidStack = ClientUpgradeState.getFluidStack();
-            ItemStack expectedFluidStack = com.portable.storage.storage.UpgradeInventory.getExpectedFluidForSlot();
+            ItemStack expectedFluidStack = UpgradeInventory.getExpectedFluidForSlot();
             
             if (!fluidStack.isEmpty()) {
                 // 有物品，正常渲染
@@ -1321,7 +1331,7 @@ public class StorageUIComponent {
             String fullId = Registries.ITEM.getId(stack.getItem()).toString();
             
             // 使用拼音搜索辅助工具进行匹配
-            return com.portable.storage.client.util.PinyinSearchHelper.matches(name, lower) || 
+            return PinyinSearchHelper.matches(name, lower) || 
                    fullId.toLowerCase(Locale.ROOT).contains(lower);
         }
     }
@@ -1336,13 +1346,13 @@ public class StorageUIComponent {
         String fluidName = Text.translatable("portable_storage.fluid." + fluidType + ".title").getString();
         
         // 使用拼音搜索辅助工具检查流体名称是否匹配
-        if (com.portable.storage.client.util.PinyinSearchHelper.matches(fluidName, lower)) {
+        if (PinyinSearchHelper.matches(fluidName, lower)) {
             return true;
         }
         
         // 检查通用流体相关关键词
         String fluidDesc = Text.translatable("portable_storage.fluid.desc").getString();
-        if (com.portable.storage.client.util.PinyinSearchHelper.matches(fluidDesc, lower)) {
+        if (PinyinSearchHelper.matches(fluidDesc, lower)) {
             return true;
         }
         
@@ -1369,14 +1379,14 @@ public class StorageUIComponent {
         String xpBottleEquivalent = Text.translatable("portable_storage.exp_bottle.equivalent", "").getString();
         
         // 使用拼音搜索辅助工具检查翻译文本是否匹配
-        if (com.portable.storage.client.util.PinyinSearchHelper.matches(xpBottleTitle, lower) || 
-            com.portable.storage.client.util.PinyinSearchHelper.matches(xpBottleCurrent, lower) || 
-            com.portable.storage.client.util.PinyinSearchHelper.matches(xpBottleEquivalent, lower)) {
+        if (PinyinSearchHelper.matches(xpBottleTitle, lower) || 
+            PinyinSearchHelper.matches(xpBottleCurrent, lower) || 
+            PinyinSearchHelper.matches(xpBottleEquivalent, lower)) {
             return true;
         }
         
         // 检查通用经验相关关键词（作为备用）
-        return com.portable.storage.client.util.PinyinSearchHelper.matches("经验", lower) ||
+        return PinyinSearchHelper.matches("经验", lower) ||
                "experience".toLowerCase(Locale.ROOT).contains(lower) ||
                "xp".toLowerCase(Locale.ROOT).contains(lower);
     }
@@ -1698,9 +1708,9 @@ public class StorageUIComponent {
         // 流体槽位点击
         if (isIn(mouseX, mouseY, fluidSlotLeft, fluidSlotTop, fluidSlotRight, fluidSlotBottom)) {
             // 发送流体槽位点击到服务器
-            ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
-                com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
-                com.portable.storage.net.payload.StorageActionC2SPayload.Target.FLUID,
+            ClientPlayNetworking.send(new StorageActionC2SPayload(
+                StorageActionC2SPayload.Action.CLICK,
+                StorageActionC2SPayload.Target.FLUID,
                 0,
                 button,
                 0,
@@ -1713,9 +1723,9 @@ public class StorageUIComponent {
         // 垃圾桶槽位点击
         if (isIn(mouseX, mouseY, trashSlotLeft, trashSlotTop, trashSlotRight, trashSlotBottom)) {
             // 发送垃圾桶槽位点击到服务器
-            ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
-                com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
-                com.portable.storage.net.payload.StorageActionC2SPayload.Target.TRASH,
+            ClientPlayNetworking.send(new StorageActionC2SPayload(
+                StorageActionC2SPayload.Action.CLICK,
+                StorageActionC2SPayload.Target.TRASH,
                 0,
                 button,
                 0,
@@ -1739,8 +1749,8 @@ public class StorageUIComponent {
                 if (button == 1) { // 右键点击
                     // 工作台升级槽位右键：打开自定义工作台界面
                     if (i == 0 && ClientUpgradeState.getStack(0) != null && !ClientUpgradeState.getStack(0).isEmpty() && !ClientUpgradeState.isSlotDisabled(0)) {
-                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.RequestOpenScreenC2SPayload(
-                            com.portable.storage.net.payload.RequestOpenScreenC2SPayload.Screen.PORTABLE_CRAFTING,
+                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new RequestOpenScreenC2SPayload(
+                            RequestOpenScreenC2SPayload.Screen.PORTABLE_CRAFTING,
                             null,
                             ""
                         ));
@@ -1749,9 +1759,9 @@ public class StorageUIComponent {
                     // 床升级槽位右键睡觉
                     if (i == 6 && ClientUpgradeState.isBedUpgradeActive()) {
                         // 发送睡觉请求到服务器
-                        ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
-                            com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
-                            com.portable.storage.net.payload.StorageActionC2SPayload.Target.UPGRADE,
+                        ClientPlayNetworking.send(new StorageActionC2SPayload(
+                            StorageActionC2SPayload.Action.CLICK,
+                            StorageActionC2SPayload.Target.UPGRADE,
                             i,
                             button,
                             0,
@@ -1762,9 +1772,9 @@ public class StorageUIComponent {
                     }
                     // 附魔之瓶槽位右键：切换存取等级
                     if (i == 7 && ClientUpgradeState.isXpBottleUpgradeActive()) {
-                        ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
-                            com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
-                            com.portable.storage.net.payload.StorageActionC2SPayload.Target.UPGRADE,
+                        ClientPlayNetworking.send(new StorageActionC2SPayload(
+                            StorageActionC2SPayload.Action.CLICK,
+                            StorageActionC2SPayload.Target.UPGRADE,
                             i,
                             button,
                             0,
@@ -1774,9 +1784,9 @@ public class StorageUIComponent {
                         return true;
                     }
                     // 其他槽位右键：发送到服务器（用于切换禁用等）
-                    ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
-                        com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
-                        com.portable.storage.net.payload.StorageActionC2SPayload.Target.UPGRADE,
+                    ClientPlayNetworking.send(new StorageActionC2SPayload(
+                        StorageActionC2SPayload.Action.CLICK,
+                        StorageActionC2SPayload.Target.UPGRADE,
                         i,
                         button,
                         0,
@@ -1788,12 +1798,12 @@ public class StorageUIComponent {
                     // 工作台升级槽位中键：切换虚拟合成显示状态（仅当服务端启用虚拟合成功能时）
                     if (i == 0 && ClientUpgradeState.getStack(0) != null && !ClientUpgradeState.getStack(0).isEmpty() && !ClientUpgradeState.isSlotDisabled(0)) {
                         // 检查服务端是否启用虚拟合成功能
-                        if (com.portable.storage.client.ClientVirtualCraftingConfig.isEnableVirtualCrafting()) {
-                            com.portable.storage.client.ClientConfig config = com.portable.storage.client.ClientConfig.getInstance();
+                        if (ClientVirtualCraftingConfig.isEnableVirtualCrafting()) {
+                            ClientConfig config = ClientConfig.getInstance();
                             config.virtualCraftingVisible = !config.virtualCraftingVisible;
-                            com.portable.storage.client.ClientConfig.save();
+                            ClientConfig.save();
                             // 切换状态时返还所有合成槽位的物品
-                            com.portable.storage.client.ClientNetworkingHandlers.sendRefundCraftingSlots();
+                            ClientNetworkingHandlers.sendRefundCraftingSlots();
                             return true;
                         } else {
                             // 服务端禁用虚拟合成时，显示提示消息
@@ -1806,15 +1816,15 @@ public class StorageUIComponent {
                     }
                     // 附魔之瓶槽位中键：切换等级维持状态
                     if (i == 7 && ClientUpgradeState.isXpBottleUpgradeActive()) {
-                        com.portable.storage.client.ClientNetworkingHandlers.sendXpBottleMaintenanceToggle();
+                        ClientNetworkingHandlers.sendXpBottleMaintenanceToggle();
                         return true;
                     }
                     // 其他槽位切换禁用状态
                     ClientUpgradeState.toggleSlotDisabled(i);
                     // 发送禁用状态变更到服务器
-                    ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
-                        com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
-                        com.portable.storage.net.payload.StorageActionC2SPayload.Target.UPGRADE,
+                    ClientPlayNetworking.send(new StorageActionC2SPayload(
+                        StorageActionC2SPayload.Action.CLICK,
+                        StorageActionC2SPayload.Target.UPGRADE,
                         i,
                         button,
                         0,
@@ -1823,9 +1833,9 @@ public class StorageUIComponent {
                     ));
                     return true;
                 } else if (button == 0) { // 左键点击 - 发送到服务器
-                    ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
-                        com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
-                        com.portable.storage.net.payload.StorageActionC2SPayload.Target.UPGRADE,
+                    ClientPlayNetworking.send(new StorageActionC2SPayload(
+                        StorageActionC2SPayload.Action.CLICK,
+                        StorageActionC2SPayload.Target.UPGRADE,
                         i,
                         button,
                         0,
@@ -1908,20 +1918,20 @@ public class StorageUIComponent {
                             int storageIndex = visibleIndexMap[visIdx];
                             // 中键：切换收藏（仅真实物品）
                             if (button == 2 && storageIndex >= 0) {
-                                var stacks = com.portable.storage.client.ClientStorageState.getStacks();
+                                var stacks = ClientStorageState.getStacks();
                                 if (storageIndex < stacks.size()) {
                                     var st = stacks.get(storageIndex);
                                     if (st != null && !st.isEmpty()) {
                                         String id = net.minecraft.registry.Registries.ITEM.getId(st.getItem()).toString();
-                                        var cfg = com.portable.storage.client.ClientConfig.getInstance();
+                                        var cfg = ClientConfig.getInstance();
                                         if (cfg.favorites.contains(id)) cfg.favorites.remove(id); else cfg.favorites.add(id);
-                                        com.portable.storage.client.ClientConfig.save();
+                                        ClientConfig.save();
                                         return true;
                                     }
                                 }
                             }
                              // 虚拟"瓶装经验"条目点击：发送独立消息给服务端
-                             if (storageIndex == -2 && com.portable.storage.client.ClientUpgradeState.isXpBottleUpgradeActive()) {
+                             if (storageIndex == -2 && ClientUpgradeState.isXpBottleUpgradeActive()) {
                                  if (button == 1) {
                                      // 右键：检查是否拿着玻璃瓶进行转换
                                      MinecraftClient client = MinecraftClient.getInstance();
@@ -1929,9 +1939,9 @@ public class StorageUIComponent {
                                          ItemStack cursorStack = client.player.currentScreenHandler.getCursorStack();
                                          if (!cursorStack.isEmpty() && cursorStack.isOf(net.minecraft.item.Items.GLASS_BOTTLE)) {
                                              // 发送转换请求
-                                    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
-                                        com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
-                                        com.portable.storage.net.payload.StorageActionC2SPayload.Target.XP_BOTTLE,
+                                    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new StorageActionC2SPayload(
+                                        StorageActionC2SPayload.Action.CLICK,
+                                        StorageActionC2SPayload.Target.XP_BOTTLE,
                                         0,
                                         button,
                                         0,
@@ -1943,9 +1953,9 @@ public class StorageUIComponent {
                                      }
                                  }
                                  // 左键或其他情况：正常的经验存取
-                                net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
-                                    com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
-                                    com.portable.storage.net.payload.StorageActionC2SPayload.Target.XP_BOTTLE,
+                                net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new StorageActionC2SPayload(
+                                    StorageActionC2SPayload.Action.CLICK,
+                                    StorageActionC2SPayload.Target.XP_BOTTLE,
                                     0,
                                     button,
                                     0,
@@ -1973,7 +1983,7 @@ public class StorageUIComponent {
                                              ItemStack cursorStack = client.player.currentScreenHandler.getCursorStack();
                                              if (!cursorStack.isEmpty() && cursorStack.isOf(net.minecraft.item.Items.BUCKET)) {
                                                  // 发送流体转换请求
-                                                 net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.FluidConversionC2SPayload(fluidType, button));
+                                                 net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new FluidConversionC2SPayload(fluidType, button));
                                                  return true;
                                              }
                                          }
@@ -1998,9 +2008,9 @@ public class StorageUIComponent {
                                                 
                                                 if (hasBucket) {
                                                     // 发送流体转换请求（左键）
-                                                    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
-                                                        com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
-                                                        com.portable.storage.net.payload.StorageActionC2SPayload.Target.FLUID,
+                                                    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new StorageActionC2SPayload(
+                                                        StorageActionC2SPayload.Action.CLICK,
+                                                        StorageActionC2SPayload.Target.FLUID,
                                                         0,
                                                         button,
                                                         0,
@@ -2028,9 +2038,9 @@ public class StorageUIComponent {
                                 // 常规取物：Shift+左键=一组，Shift+右键=一个；否则遵循统一槽位点击语义
                                 boolean shift = isShiftDown();
                                 if (shift) {
-                                    ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
-                                        com.portable.storage.net.payload.StorageActionC2SPayload.Action.SHIFT_TAKE,
-                                        com.portable.storage.net.payload.StorageActionC2SPayload.Target.STORAGE,
+                                    ClientPlayNetworking.send(new StorageActionC2SPayload(
+                                        StorageActionC2SPayload.Action.SHIFT_TAKE,
+                                        StorageActionC2SPayload.Target.STORAGE,
                                         storageIndex,
                                         button,
                                         0,
@@ -2038,9 +2048,9 @@ public class StorageUIComponent {
                                         0
                                     ));
                                 } else {
-                                    ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
-                                        com.portable.storage.net.payload.StorageActionC2SPayload.Action.CLICK,
-                                        com.portable.storage.net.payload.StorageActionC2SPayload.Target.STORAGE,
+                                    ClientPlayNetworking.send(new StorageActionC2SPayload(
+                                        StorageActionC2SPayload.Action.CLICK,
+                                        StorageActionC2SPayload.Target.STORAGE,
                                         storageIndex,
                                         button,
                                         0,
@@ -2055,9 +2065,9 @@ public class StorageUIComponent {
                                 if (mc != null && mc.player != null) {
                                     ItemStack cursor = mc.player.currentScreenHandler.getCursorStack();
                                     if (!cursor.isEmpty()) {
-                                ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
-                                    com.portable.storage.net.payload.StorageActionC2SPayload.Action.DEPOSIT_CURSOR,
-                                    com.portable.storage.net.payload.StorageActionC2SPayload.Target.STORAGE,
+                                ClientPlayNetworking.send(new StorageActionC2SPayload(
+                                    StorageActionC2SPayload.Action.DEPOSIT_CURSOR,
+                                    StorageActionC2SPayload.Target.STORAGE,
                                     0,
                                     button,
                                     0,
@@ -2248,9 +2258,9 @@ public class StorageUIComponent {
                         if (hovered >= 0) {
                             boolean ctrl = isCtrlDown();
                             int amountType = ctrl ? 1 : 0; // 1 组 或 1 个
-                            ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
-                                com.portable.storage.net.payload.StorageActionC2SPayload.Action.DROP,
-                                com.portable.storage.net.payload.StorageActionC2SPayload.Target.STORAGE,
+                            ClientPlayNetworking.send(new StorageActionC2SPayload(
+                                StorageActionC2SPayload.Action.DROP,
+                                StorageActionC2SPayload.Target.STORAGE,
                                 hovered,
                                 0,
                                 0,
@@ -2468,7 +2478,7 @@ public class StorageUIComponent {
         
         return client.currentScreen instanceof net.minecraft.client.gui.screen.ingame.InventoryScreen ||
                client.currentScreen instanceof net.minecraft.client.gui.screen.ingame.CraftingScreen ||
-               client.currentScreen instanceof com.portable.storage.client.screen.PortableCraftingScreen;
+               client.currentScreen instanceof PortableCraftingScreen;
     }
     
     /**
@@ -2481,7 +2491,7 @@ public class StorageUIComponent {
             case 1: key = "block.minecraft.hopper"; break;
             case 2: key = "block.minecraft.chest"; break;
             case 3: key = "block.minecraft.barrel"; break;
-            case 4: key = com.portable.storage.client.ClientRiftConfig.getRiftUpgradeItemTranslationKey(); break;
+            case 4: key = ClientRiftConfig.getRiftUpgradeItemTranslationKey(); break;
             case 5: key = "item.minecraft.spectral_arrow"; break; // 光灵箭升级
             case 6: key = "block.minecraft.red_bed"; break; // 床升级
             case 7: key = "item.minecraft.experience_bottle"; break; // 附魔之瓶升级

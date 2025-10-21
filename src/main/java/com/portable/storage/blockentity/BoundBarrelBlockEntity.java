@@ -1,9 +1,15 @@
 package com.portable.storage.blockentity;
 
+import java.util.List;
+import java.util.UUID;
+
+import org.jetbrains.annotations.Nullable;
+
 import com.portable.storage.PortableStorage;
+import com.portable.storage.newstore.NewStoreService;
 import com.portable.storage.player.StorageGroupService;
 import com.portable.storage.storage.StorageInventory;
-import java.util.List;
+
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.LootableContainerBlockEntity;
 import net.minecraft.component.DataComponentTypes;
@@ -19,9 +25,6 @@ import net.minecraft.text.Text;
 import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
-import org.jetbrains.annotations.Nullable;
-
-import java.util.UUID;
 
 /**
  * 绑定木桶的方块实体
@@ -180,7 +183,7 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
                     ItemStack want = marker.copy();
                     want.setCount(Math.min(amount, marker.getMaxCount()));
 
-                    ItemStack taken = com.portable.storage.newstore.NewStoreService.takeFromNewStore(
+                    ItemStack taken = NewStoreService.takeFromNewStore(
                         world.getServer(),
                         ownerUuid,
                         want,
@@ -248,9 +251,9 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
             var server = world.getServer();
             var owner = server.getPlayerManager().getPlayer(ownerUuid);
             if (owner != null) {
-                com.portable.storage.newstore.NewStoreService.insertForOnlinePlayer(owner, stack);
+                NewStoreService.insertForOnlinePlayer(owner, stack);
             } else {
-                com.portable.storage.newstore.NewStoreService.insertForOfflineUuid(server, ownerUuid, stack, null);
+                NewStoreService.insertForOfflineUuid(server, ownerUuid, stack, null);
             }
         } catch (Throwable e) {
             PortableStorage.LOGGER.error("Failed to insert item into owner's storage", e);

@@ -1,23 +1,28 @@
 package com.portable.storage.client.screen;
 
+import java.util.function.Consumer;
+
+import com.portable.storage.client.ClientConfig;
+import com.portable.storage.client.ClientStorageState;
 import com.portable.storage.client.ScreenSwapBypass;
+import com.portable.storage.client.emi.PortableStorageExclusionHelper;
 import com.portable.storage.client.ui.StorageUIComponent;
-// 统一后不再使用 EmiRecipeFillC2SPayload
-// 统一后使用 SyncControlC2SPayload
-// 统一后使用 RequestOpenScreenC2SPayload
+import com.portable.storage.net.payload.CraftingOverlayActionC2SPayload;
+import com.portable.storage.net.payload.RequestOpenScreenC2SPayload;
+import com.portable.storage.net.payload.SyncControlC2SPayload;
+import com.portable.storage.screen.PortableCraftingScreenHandler;
+import com.portable.storage.sync.PlayerViewState;
+
+import dev.emi.emi.api.recipe.EmiRecipe;
+import dev.emi.emi.api.widget.Bounds;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
-import com.portable.storage.screen.PortableCraftingScreenHandler;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-import dev.emi.emi.api.recipe.EmiRecipe;
-import dev.emi.emi.api.widget.Bounds;
-
-import java.util.function.Consumer;
 
 /**
  * 自定义工作台界面：
@@ -43,7 +48,7 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
     private long portableStorage$lastCraftingSlotClickTime = 0;
     
     // 配置变化监听
-    private com.portable.storage.client.ClientConfig.StoragePos portableStorage$lastStoragePos = null;
+    private ClientConfig.StoragePos portableStorage$lastStoragePos = null;
 
     public PortableCraftingScreen(PortableCraftingScreenHandler handler, PlayerInventory playerInventory, Text title) {
         super(handler, playerInventory, title);
@@ -56,10 +61,10 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
         super.init();
         
         // 根据仓库位置设置计算整体内容高度和位置
-        com.portable.storage.client.ClientConfig config = com.portable.storage.client.ClientConfig.getInstance();
+        ClientConfig config = ClientConfig.getInstance();
         int totalContentHeight;
         
-        if (config.storagePos == com.portable.storage.client.ClientConfig.StoragePos.TOP) {
+        if (config.storagePos == ClientConfig.StoragePos.TOP) {
             // 仓库在顶部时：仓库UI + 间距 + 工作台
             totalContentHeight = STORAGE_UI_HEIGHT + GAP_BETWEEN + BG_HEIGHT;
             // 计算居中位置：让整体内容在屏幕中垂直居中
@@ -83,7 +88,7 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
             int fieldX = this.x + this.backgroundWidth - fieldWidth - 8;
             int fieldY;
             
-            if (config.storagePos == com.portable.storage.client.ClientConfig.StoragePos.TOP) {
+            if (config.storagePos == ClientConfig.StoragePos.TOP) {
                 // 仓库在顶部时，搜索框在仓库上方
                 fieldY = this.y - fieldHeight - 6;
             } else {
@@ -98,19 +103,19 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
         // 设置切换原版界面的回调：请求服务端打开原版工作台
         storageUi.setSwitchToVanillaCallback(() -> {
             ScreenSwapBypass.requestSkipNextCraftingSwap();
-            ClientPlayNetworking.send(new com.portable.storage.net.payload.RequestOpenScreenC2SPayload(
-                com.portable.storage.net.payload.RequestOpenScreenC2SPayload.Screen.VANILLA_CRAFTING,
+            ClientPlayNetworking.send(new RequestOpenScreenC2SPayload(
+                RequestOpenScreenC2SPayload.Screen.VANILLA_CRAFTING,
                 null,
                 ""
             ));
         });
 
         // 标记开始查看仓库界面
-        com.portable.storage.sync.PlayerViewState.startViewing(MinecraftClient.getInstance().player.getUuid());
+        PlayerViewState.startViewing(MinecraftClient.getInstance().player.getUuid());
         
         // 打开自定义工作台界面时请求同步仓库数据
-        ClientPlayNetworking.send(new com.portable.storage.net.payload.SyncControlC2SPayload(
-            com.portable.storage.net.payload.SyncControlC2SPayload.Op.REQUEST,
+        ClientPlayNetworking.send(new SyncControlC2SPayload(
+            SyncControlC2SPayload.Op.REQUEST,
             0L,
             false
         ));
@@ -123,10 +128,10 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
      * 重新计算界面位置
      */
     private void portableStorage$recalculatePosition() {
-        com.portable.storage.client.ClientConfig config = com.portable.storage.client.ClientConfig.getInstance();
+        ClientConfig config = ClientConfig.getInstance();
         int totalContentHeight;
         
-        if (config.storagePos == com.portable.storage.client.ClientConfig.StoragePos.TOP) {
+        if (config.storagePos == ClientConfig.StoragePos.TOP) {
             // 仓库在顶部时：仓库UI + 间距 + 工作台
             totalContentHeight = STORAGE_UI_HEIGHT + GAP_BETWEEN + BG_HEIGHT;
             // 计算居中位置：让整体内容在屏幕中垂直居中
@@ -150,7 +155,7 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
             int fieldX = this.x + this.backgroundWidth - fieldWidth - 8;
             int fieldY;
             
-            if (config.storagePos == com.portable.storage.client.ClientConfig.StoragePos.TOP) {
+            if (config.storagePos == ClientConfig.StoragePos.TOP) {
                 // 仓库在顶部时，搜索框在仓库上方
                 fieldY = this.y - fieldHeight - 6;
             } else {
@@ -173,7 +178,7 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
     public void close() {
         // 标记停止查看仓库界面
         if (MinecraftClient.getInstance().player != null) {
-            com.portable.storage.sync.PlayerViewState.stopViewing(MinecraftClient.getInstance().player.getUuid());
+            PlayerViewState.stopViewing(MinecraftClient.getInstance().player.getUuid());
         }
         super.close();
     }
@@ -181,7 +186,7 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         // 检查配置是否发生变化
-        com.portable.storage.client.ClientConfig config = com.portable.storage.client.ClientConfig.getInstance();
+        ClientConfig config = ClientConfig.getInstance();
         if (this.portableStorage$lastStoragePos != config.storagePos) {
             // 配置发生变化，重新计算位置
             portableStorage$recalculatePosition();
@@ -191,7 +196,7 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
         super.render(context, mouseX, mouseY, delta);
 
         // 检查仓库是否已启用
-        if (com.portable.storage.client.ClientStorageState.isStorageEnabled()) {
+        if (ClientStorageState.isStorageEnabled()) {
             // 渲染仓库 UI 叠加
             storageUi.render(context, mouseX, mouseY, delta, this.x, this.y, this.backgroundWidth, this.backgroundHeight);
         }
@@ -221,19 +226,19 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
             }
         }
 
-        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && storageUi.mouseClicked(mouseX, mouseY, button)) return true;
+        if (ClientStorageState.isStorageEnabled() && storageUi.mouseClicked(mouseX, mouseY, button)) return true;
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && storageUi.keyPressed(keyCode, scanCode, modifiers)) return true;
+        if (ClientStorageState.isStorageEnabled() && storageUi.keyPressed(keyCode, scanCode, modifiers)) return true;
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
     public boolean charTyped(char chr, int modifiers) {
-        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && storageUi.charTyped(chr, modifiers)) return true;
+        if (ClientStorageState.isStorageEnabled() && storageUi.charTyped(chr, modifiers)) return true;
         return super.charTyped(chr, modifiers);
     }
     
@@ -255,10 +260,10 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
      * 获取 EMI 排除区域
      */
     public void getExclusionAreas(Consumer<Bounds> consumer) {
-        com.portable.storage.client.ClientConfig config = com.portable.storage.client.ClientConfig.getInstance();
-        boolean storageOnTop = (config.storagePos == com.portable.storage.client.ClientConfig.StoragePos.TOP);
+        ClientConfig config = ClientConfig.getInstance();
+        boolean storageOnTop = (config.storagePos == ClientConfig.StoragePos.TOP);
         // 自定义工作台：不显示折叠按钮、不显示搜索位置设置、显示切换原版按钮
-        com.portable.storage.client.emi.PortableStorageExclusionHelper.addAreasForScreen(
+        PortableStorageExclusionHelper.addAreasForScreen(
             consumer, this.x, this.y, this.backgroundWidth, this.backgroundHeight,
             storageOnTop,
             false, // collapse button
@@ -270,7 +275,7 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
     // ===== 合成补充逻辑 =====
     private void portableStorage$checkCraftRefill() {
         // 检查合成补充开关
-        if (!com.portable.storage.client.ClientConfig.getInstance().craftRefill) return;
+        if (!ClientConfig.getInstance().craftRefill) return;
 
         long now = System.currentTimeMillis();
         if (now - portableStorage$lastCraftRefillCheck < 100) return; // 100ms 限流
@@ -328,8 +333,8 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
 
     private void portableStorage$refillFromStorage(int slotIndex, ItemStack targetStack) {
         if (targetStack.isEmpty()) return;
-        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
-            com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.REFILL,
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new CraftingOverlayActionC2SPayload(
+            CraftingOverlayActionC2SPayload.Action.REFILL,
             slotIndex, 0, false,
             targetStack,
             "",
@@ -373,8 +378,8 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
             int[] slotArray = slotIndices.stream().mapToInt(Integer::intValue).toArray();
             int[] countArray = itemCounts.stream().mapToInt(Integer::intValue).toArray();
             
-            ClientPlayNetworking.send(new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
-                com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.EMI_FILL,
+            ClientPlayNetworking.send(new CraftingOverlayActionC2SPayload(
+                CraftingOverlayActionC2SPayload.Action.EMI_FILL,
                 0, 0, false,
                 net.minecraft.item.ItemStack.EMPTY,
                 recipeId.toString(),

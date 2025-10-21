@@ -1,25 +1,29 @@
 package com.portable.storage.mixin.client;
 
-import com.portable.storage.client.ClientConfig;
-import com.portable.storage.client.ClientUpgradeState;
-import com.portable.storage.client.ClientContainerDisplayConfig;
-import com.portable.storage.util.ContainerTypeDetector;
-// 移除旧 DepositSlotC2SPayload 引用
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
-import net.minecraft.client.gui.screen.ingame.CraftingScreen;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import org.spongepowered.asm.mixin.Unique;
+
+import com.portable.storage.client.ClientConfig;
+import com.portable.storage.client.ClientContainerDisplayConfig;
 import com.portable.storage.client.ClientStorageState;
+import com.portable.storage.client.ClientUpgradeState;
+import com.portable.storage.client.screen.PortableCraftingScreen;
+import com.portable.storage.net.payload.StorageActionC2SPayload;
+import com.portable.storage.screen.PortableCraftingScreenHandler;
+import com.portable.storage.util.ContainerTypeDetector;
+
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.ingame.CraftingScreen;
+import net.minecraft.client.gui.screen.ingame.HandledScreen;
+import net.minecraft.client.gui.screen.ingame.InventoryScreen;
+import net.minecraft.screen.slot.Slot;
+import net.minecraft.screen.slot.SlotActionType;
 
 @Mixin(HandledScreen.class)
 public abstract class HandledScreenMixin {
@@ -60,9 +64,9 @@ public abstract class HandledScreenMixin {
 		}
 		
 		// 发送传入仓库请求（统一动作包）
-		ClientPlayNetworking.send(new com.portable.storage.net.payload.StorageActionC2SPayload(
-			com.portable.storage.net.payload.StorageActionC2SPayload.Action.DEPOSIT_SLOT,
-			com.portable.storage.net.payload.StorageActionC2SPayload.Target.SLOT,
+		ClientPlayNetworking.send(new StorageActionC2SPayload(
+			StorageActionC2SPayload.Action.DEPOSIT_SLOT,
+			StorageActionC2SPayload.Target.SLOT,
 			0,
 			0,
 			slotId,
@@ -184,7 +188,7 @@ public abstract class HandledScreenMixin {
 	private boolean portableStorage$isOverCraftingStorage(double mouseX, double mouseY) {
 		// 仅在工作台界面检测
         if (!(((HandledScreen<?>)(Object)this) instanceof CraftingScreen)
-            && !(((HandledScreen<?>)(Object)this) instanceof com.portable.storage.client.screen.PortableCraftingScreen)) return false;
+            && !(((HandledScreen<?>)(Object)this) instanceof PortableCraftingScreen)) return false;
 		
 		// 检查是否有工作台升级
         if (!portableStorage$hasCraftingTableUpgrade()) return false;
@@ -204,7 +208,7 @@ public abstract class HandledScreenMixin {
 	private boolean portableStorage$isOverCraftingUpgradeSlots(double mouseX, double mouseY) {
 		// 仅在工作台界面检测
         if (!(((HandledScreen<?>)(Object)this) instanceof CraftingScreen)
-            && !(((HandledScreen<?>)(Object)this) instanceof com.portable.storage.client.screen.PortableCraftingScreen)) return false;
+            && !(((HandledScreen<?>)(Object)this) instanceof PortableCraftingScreen)) return false;
 		
 		// 检查是否有工作台升级
         if (!portableStorage$hasCraftingTableUpgrade()) return false;
@@ -248,7 +252,7 @@ public abstract class HandledScreenMixin {
 
         var handler = client.player.currentScreenHandler;
         // 自定义工作台界面（PortableCraftingScreenHandler）视为已启用升级
-        if (handler instanceof com.portable.storage.screen.PortableCraftingScreenHandler) return true;
+        if (handler instanceof PortableCraftingScreenHandler) return true;
         if (!(handler instanceof net.minecraft.screen.CraftingScreenHandler)) return false;
 
 		// 检查所有升级槽位是否有工作台且未禁用

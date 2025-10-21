@@ -1,14 +1,17 @@
 package com.portable.storage.mixin.client;
 
-import com.portable.storage.client.ClientUpgradeState;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
-import net.minecraft.client.gui.widget.ClickableWidget;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.portable.storage.PortableStorage;
+import com.portable.storage.client.ClientUpgradeState;
+
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.Element;
+import net.minecraft.client.gui.screen.ingame.InventoryScreen;
+import net.minecraft.client.gui.widget.ClickableWidget;
 
 @Mixin(InventoryScreen.class)
 public abstract class RemoveRecipeBookButtonMixin {
@@ -36,7 +39,7 @@ public abstract class RemoveRecipeBookButtonMixin {
         for (Element child : self.children()) {
             if (child instanceof ClickableWidget widget && widget instanceof net.minecraft.client.gui.widget.TexturedButtonWidget) {
                 recipeBookButton = widget;
-                com.portable.storage.PortableStorage.LOGGER.debug("找到配方书按钮: 类名={}, 大小={}x{}", 
+                PortableStorage.LOGGER.debug("找到配方书按钮: 类名={}, 大小={}x{}", 
                     widget.getClass().getSimpleName(), widget.getWidth(), widget.getHeight());
                 break;
             }
@@ -48,10 +51,10 @@ public abstract class RemoveRecipeBookButtonMixin {
                 if (recipeBookButton instanceof net.minecraft.client.gui.widget.ClickableWidget widget) {
                     widget.visible = false;
                     widget.active = false;
-                    com.portable.storage.PortableStorage.LOGGER.debug("成功隐藏配方书按钮: 类名={}", recipeBookButton.getClass().getSimpleName());
+                    PortableStorage.LOGGER.debug("成功隐藏配方书按钮: 类名={}", recipeBookButton.getClass().getSimpleName());
                 }
             } catch (Exception e) {
-                com.portable.storage.PortableStorage.LOGGER.error("隐藏配方书按钮失败: {}", e.getMessage());
+                PortableStorage.LOGGER.error("隐藏配方书按钮失败: {}", e.getMessage());
             }
         }
     }

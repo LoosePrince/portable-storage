@@ -1,11 +1,12 @@
 package com.portable.storage.net.payload;
 
 import com.portable.storage.PortableStorage;
+
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.codec.PacketCodecs;
 import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.Identifier;
 
 public record StorageSyncS2CPayload(NbtCompound nbt) implements CustomPayload {

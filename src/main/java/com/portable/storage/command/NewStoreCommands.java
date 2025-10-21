@@ -1,20 +1,29 @@
 package com.portable.storage.command;
 
+import java.util.Map;
+
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
-import net.minecraft.command.argument.GameProfileArgumentType;
-import com.portable.storage.player.PlayerStorageService;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
+import com.portable.storage.net.ServerNetworkingHandlers;
+import com.portable.storage.newstore.ItemKeyHasher;
+import com.portable.storage.newstore.PlayerStore;
+import com.portable.storage.newstore.RefCountRebuilder;
+import com.portable.storage.newstore.TemplateIndex;
+import com.portable.storage.newstore.TemplateSlices;
+import com.portable.storage.player.PlayerStorageService;
+import com.portable.storage.player.StoragePersistence;
+import com.portable.storage.storage.StorageInventory;
+
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.command.CommandRegistryAccess;
+import net.minecraft.command.argument.GameProfileArgumentType;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
-
-import java.util.Map;
 
 public final class NewStoreCommands {
     private NewStoreCommands() {}
@@ -47,7 +56,7 @@ public final class NewStoreCommands {
 
     private static int executeRebuild(CommandContext<ServerCommandSource> ctx, boolean cleanup) {
         MinecraftServer server = ctx.getSource().getServer();
-        com.portable.storage.newstore.RefCountRebuilder.rebuild(server, cleanup);
+        RefCountRebuilder.rebuild(server, cleanup);
         ctx.getSource().sendFeedback(() -> (cleanup
             ? Text.translatable("command.portable-storage.newstore.rebuild_cleanup")
             : Text.translatable("command.portable-storage.newstore.rebuild")
@@ -63,7 +72,7 @@ public final class NewStoreCommands {
         }
         MinecraftServer server = player.getServer();
         if (server == null) return 0;
-        Map<String, com.portable.storage.newstore.PlayerStore.Entry> m = com.portable.storage.newstore.PlayerStore.readAll(server, player.getUuid());
+        Map<String, PlayerStore.Entry> m = PlayerStore.readAll(server, player.getUuid());
         long totalLocal = m.values().stream().mapToLong(e -> Math.max(0L, e.count)).sum();
         final int size = m.size();
         final long total = totalLocal;
@@ -89,16 +98,16 @@ public final class NewStoreCommands {
     public static boolean migrateOne(MinecraftServer server, java.util.UUID uuid) {
         try {
             // 准备索引
-            com.portable.storage.newstore.TemplateIndex index = com.portable.storage.newstore.TemplateIndex.load(server);
+            TemplateIndex index = TemplateIndex.load(server);
 
             // 在线/离线两路：获取旧版仓库
             net.minecraft.server.network.ServerPlayerEntity online = server.getPlayerManager().getPlayer(uuid);
-            com.portable.storage.storage.StorageInventory legacy;
+            StorageInventory legacy;
             boolean onlinePlayer = (online != null);
             if (onlinePlayer) {
                 legacy = PlayerStorageService.getInventory(online);
             } else {
-                legacy = com.portable.storage.player.StoragePersistence.loadStorage(server, uuid);
+                legacy = StoragePersistence.loadStorage(server, uuid);
             }
 
             // 汇总所有条目
@@ -124,14 +133,14 @@ public final class NewStoreCommands {
                 net.minecraft.item.ItemStack st = stacks.get(i);
                 long cnt = counts.get(i);
                 // 模板与索引
-                String key = com.portable.storage.newstore.ItemKeyHasher.hash(st, onlinePlayer ? online.getRegistryManager() : null);
+                String key = ItemKeyHasher.hash(st, onlinePlayer ? online.getRegistryManager() : null);
                 if (key == null || key.isEmpty()) continue;
                 if (index.find(key) == null) {
-                    com.portable.storage.newstore.TemplateSlices.putTemplate(() -> server, index, key, st, onlinePlayer ? online.getRegistryManager() : null);
+                    TemplateSlices.putTemplate(() -> server, index, key, st, onlinePlayer ? online.getRegistryManager() : null);
                 }
                 index.incRef(key, cnt);
                 // 玩家计数
-                com.portable.storage.newstore.PlayerStore.add(server, uuid, key, cnt, System.currentTimeMillis());
+                PlayerStore.add(server, uuid, key, cnt, System.currentTimeMillis());
             }
 
             // 清空旧版（逐条 take 掉）
@@ -145,10 +154,10 @@ public final class NewStoreCommands {
 
             // 持久化：索引、新版玩家文件已在 add 内写；写回玩家 .dat 清空旧版（无论在线/离线）
             index.save(server);
-            com.portable.storage.player.StoragePersistence.saveStorage(server, uuid, legacy);
+            StoragePersistence.saveStorage(server, uuid, legacy);
             if (onlinePlayer) {
                 // 在线玩家：下发同步
-                com.portable.storage.net.ServerNetworkingHandlers.sendSync(online);
+                ServerNetworkingHandlers.sendSync(online);
             }
             return true;
         } catch (Throwable t) {

@@ -1,15 +1,18 @@
 package com.portable.storage.mixin;
 
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import com.portable.storage.net.ServerNetworkingHandlers;
 import com.portable.storage.storage.StorageInventory;
+
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.BowItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.server.network.ServerPlayerEntity;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * 允许在背包没有箭时，若随身仓库中存在任意箭变体，则返回一支“虚拟箭”以开始蓄力。
@@ -35,7 +38,7 @@ public abstract class PlayerEntityProjectileMixin {
                 var server = player.getServer();
                 if (server != null) {
                     // 构建合并视图（旧版+新版）
-                    StorageInventory merged = com.portable.storage.net.ServerNetworkingHandlers.buildMergedSnapshot(player);
+                    StorageInventory merged = ServerNetworkingHandlers.buildMergedSnapshot(player);
                     
                     // 优先查找普通箭
                     int spectralIdx = -1;
@@ -93,7 +96,7 @@ public abstract class PlayerEntityProjectileMixin {
                 var server = player.getServer();
                 if (server != null) {
                     // 构建合并视图（旧版+新版）
-                    StorageInventory merged = com.portable.storage.net.ServerNetworkingHandlers.buildMergedSnapshot(player);
+                    StorageInventory merged = ServerNetworkingHandlers.buildMergedSnapshot(player);
                     
                     // 优先查找普通箭
                     int spectralIdx = -1;

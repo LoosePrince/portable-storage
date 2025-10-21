@@ -1,12 +1,12 @@
 package com.portable.storage.net.payload;
 
+import static com.portable.storage.PortableStorage.MOD_ID;
+
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
-
-import static com.portable.storage.PortableStorage.MOD_ID;
 
 /**
  * 统一的打开界面请求（C2S）。

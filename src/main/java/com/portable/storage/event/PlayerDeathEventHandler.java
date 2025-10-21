@@ -2,7 +2,9 @@ package com.portable.storage.event;
 
 import com.portable.storage.PortableStorage;
 import com.portable.storage.item.StorageKeyItem;
+import com.portable.storage.net.ServerNetworkingHandlers;
 import com.portable.storage.player.PlayerStorageAccess;
+
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.item.ItemStack;
@@ -39,7 +41,7 @@ public class PlayerDeathEventHandler {
                 // 启用状态应该在 COPY_FROM 事件中根据游戏规则正确设置
                 
                 // 同步数据到客户端
-                com.portable.storage.net.ServerNetworkingHandlers.sendSync(newPlayer);
+                ServerNetworkingHandlers.sendSync(newPlayer);
                 
                 PortableStorage.LOGGER.info("Restored portable storage data for player {} after respawn", newPlayer.getName().getString());
                 

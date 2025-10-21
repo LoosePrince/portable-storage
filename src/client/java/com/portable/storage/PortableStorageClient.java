@@ -1,24 +1,29 @@
 package com.portable.storage;
 
-import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import com.portable.storage.client.ClientConfig;
 import com.portable.storage.client.ClientNetworkingHandlers;
 import com.portable.storage.client.ModernUiCompat;
-import com.portable.storage.client.screen.PortableCraftingScreen;
 import com.portable.storage.client.event.ScreenEventHandler;
-import net.minecraft.client.render.entity.EntityRenderer;
-import net.minecraft.client.render.entity.EntityRendererFactory;
-import net.minecraft.util.Identifier;
+import com.portable.storage.client.screen.PortableCraftingScreen;
+import com.portable.storage.config.ServerConfig;
+import com.portable.storage.entity.ModEntities;
+import com.portable.storage.entity.RiftAvatarEntity;
+import com.portable.storage.item.StorageKeyItem;
+
+import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.minecraft.client.gui.screen.ingame.HandledScreens;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.client.render.entity.EntityRenderer;
+import net.minecraft.client.render.entity.EntityRendererFactory;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.NbtComponent;
+import net.minecraft.item.Items;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
+import net.minecraft.util.Identifier;
 
 public class PortableStorageClient implements ClientModInitializer {
 	@Override
@@ -35,9 +40,9 @@ public class PortableStorageClient implements ClientModInitializer {
 
 		// 注册复制体渲染器（沿用盔甲架渲染）
 		try {
-			EntityRendererRegistry.register(com.portable.storage.entity.ModEntities.RIFT_AVATAR, (EntityRendererFactory.Context ctx) -> new EntityRenderer<com.portable.storage.entity.RiftAvatarEntity>(ctx) {
+			EntityRendererRegistry.register(ModEntities.RIFT_AVATAR, (EntityRendererFactory.Context ctx) -> new EntityRenderer<RiftAvatarEntity>(ctx) {
 				@Override
-				public Identifier getTexture(com.portable.storage.entity.RiftAvatarEntity entity) {
+				public Identifier getTexture(RiftAvatarEntity entity) {
 					return Identifier.of("minecraft", "textures/entity/steve.png");
 				}
 			});
@@ -68,7 +73,7 @@ public class PortableStorageClient implements ClientModInitializer {
             try {
                 if (stack != null && stack.getItem() == PortableStorage.STORAGE_KEY_ITEM) {
                     // 显示绑定信息
-                    Text boundText = com.portable.storage.item.StorageKeyItem.getBoundTooltip(stack);
+                    Text boundText = StorageKeyItem.getBoundTooltip(stack);
                     if (boundText != null) {
                         lines.add(boundText);
                     }
@@ -85,7 +90,7 @@ public class PortableStorageClient implements ClientModInitializer {
             try {
                 if (stack != null) {
                     // 获取配置的启用物品
-                    String enableItem = com.portable.storage.config.ServerConfig.getInstance().getEnableItem();
+                    String enableItem = ServerConfig.getInstance().getEnableItem();
                     if (enableItem != null && !enableItem.isEmpty()) {
                         // 解析物品ID
                         String[] parts = enableItem.split(":");

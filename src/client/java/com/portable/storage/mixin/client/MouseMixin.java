@@ -1,17 +1,19 @@
 package com.portable.storage.mixin.client;
 
-import com.portable.storage.client.ClientStorageState;
-import com.portable.storage.client.ui.StorageUIComponent;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.Mouse;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.util.Window;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.portable.storage.client.ClientStorageState;
+import com.portable.storage.client.ui.StorageUIComponent;
+
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Mouse;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.util.Window;
 
 @Mixin(Mouse.class)
 public abstract class MouseMixin {

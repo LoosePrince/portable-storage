@@ -1,6 +1,7 @@
 package com.portable.storage.client;
 
 import com.portable.storage.storage.UpgradeInventory;
+
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 
@@ -113,7 +114,7 @@ public final class ClientUpgradeState {
      * 检查是否为扩展槽位
      */
     public static boolean isExtendedSlot(int slot) {
-        return com.portable.storage.storage.UpgradeInventory.isExtendedSlot(slot);
+        return UpgradeInventory.isExtendedSlot(slot);
     }
     
     /**

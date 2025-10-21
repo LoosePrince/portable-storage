@@ -1,12 +1,14 @@
 package com.portable.storage.mixin;
 
-import com.portable.storage.net.ServerNetworkingHandlers;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.BlockPos;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.portable.storage.net.ServerNetworkingHandlers;
+
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.math.BlockPos;
 
 /**
  * 监听玩家起床事件，清理临时床方块

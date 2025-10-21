@@ -1,25 +1,29 @@
 package com.portable.storage.mixin.client;
 
+import java.util.function.Consumer;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
 import com.portable.storage.client.ClientContainerDisplayConfig;
 import com.portable.storage.client.ClientStorageState;
+import com.portable.storage.client.ClientUpgradeState;
 import com.portable.storage.client.emi.HasPortableStorageExclusionAreas;
+import com.portable.storage.client.emi.PortableStorageExclusionHelper;
 import com.portable.storage.client.ui.StorageUIComponent;
 import com.portable.storage.util.ContainerTypeDetector;
+
 import dev.emi.emi.api.widget.Bounds;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ingame.CraftingScreen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import org.spongepowered.asm.mixin.Unique;
-
-import java.util.function.Consumer;
 
 /**
  * 通用容器界面Mixin
@@ -160,8 +164,8 @@ public abstract class GenericContainerScreenMixin implements HasPortableStorageE
     private boolean portableStorage$hasCraftingTableUpgrade() {
         // 检查所有升级槽位是否有工作台且未禁用
         for (int i = 0; i < 5; i++) {
-            var stack = com.portable.storage.client.ClientUpgradeState.getStack(i);
-            if (!stack.isEmpty() && stack.getItem() == net.minecraft.item.Items.CRAFTING_TABLE && !com.portable.storage.client.ClientUpgradeState.isSlotDisabled(i)) {
+            var stack = ClientUpgradeState.getStack(i);
+            if (!stack.isEmpty() && stack.getItem() == net.minecraft.item.Items.CRAFTING_TABLE && !ClientUpgradeState.isSlotDisabled(i)) {
                 return true;
             }
         }
@@ -172,7 +176,7 @@ public abstract class GenericContainerScreenMixin implements HasPortableStorageE
     public void getPortableStorageExclusionAreas(Consumer<Bounds> consumer) {
         if (!portableStorage$shouldShowStorageInContainer()) return;
         // 通用容器：仓库位于底部，不显示折叠按钮/搜索位置/切换按钮
-        com.portable.storage.client.emi.PortableStorageExclusionHelper.addAreasForScreen(
+        PortableStorageExclusionHelper.addAreasForScreen(
             consumer, this.x, this.y, this.backgroundWidth, this.backgroundHeight,
             false,
             false,

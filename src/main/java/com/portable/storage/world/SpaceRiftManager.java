@@ -1,5 +1,14 @@
 package com.portable.storage.world;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+import com.portable.storage.PortableStorage;
+import com.portable.storage.config.ServerConfig;
+import com.portable.storage.entity.RiftAvatarEntity;
+
+import net.minecraft.network.packet.s2c.play.WorldBorderInitializeS2CPacket;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -10,11 +19,6 @@ import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.GlobalPos;
 import net.minecraft.world.World;
 import net.minecraft.world.border.WorldBorder;
-import net.minecraft.network.packet.s2c.play.WorldBorderInitializeS2CPacket;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
 
 /**
  * 空间裂隙：维度/分地/传送/边界 管理
@@ -32,7 +36,7 @@ public final class SpaceRiftManager {
 
     // 裂隙大小从配置中获取，默认为1区块
     private static int getPlotChunkSize() {
-        return com.portable.storage.config.ServerConfig.getInstance().getRiftSize();
+        return ServerConfig.getInstance().getRiftSize();
     }
     private static final int PLOT_SPACING_CHUNKS = 64; // 相邻玩家相隔64区块
     private static final int PLOT_HEIGHT = 100; // 逻辑高度，仅用于边界判断
@@ -147,14 +151,14 @@ public final class SpaceRiftManager {
         BlockPos recorded = lastRiftPos.getOrDefault(player.getUuid(), center);
         BlockPos pos = clampToPlot(origin, recorded);
         try {
-            net.minecraft.entity.Entity avatar = com.portable.storage.entity.RiftAvatarEntity.spawn(rift, pos, player.getUuid());
+            net.minecraft.entity.Entity avatar = RiftAvatarEntity.spawn(rift, pos, player.getUuid());
             if (avatar != null) {
                 avatar.setCustomName(net.minecraft.text.Text.translatable("portable_storage.rift_avatar", player.getName().getString()));
             }
             avatars.put(player.getUuid(), avatar);
-            com.portable.storage.PortableStorage.LOGGER.debug("Rift avatar created for {} at {}", player.getName().getString(), pos);
+            PortableStorage.LOGGER.debug("Rift avatar created for {} at {}", player.getName().getString(), pos);
         } catch (Throwable t) {
-            com.portable.storage.PortableStorage.LOGGER.error("Failed to create rift avatar for {}", player.getName().getString(), t);
+            PortableStorage.LOGGER.error("Failed to create rift avatar for {}", player.getName().getString(), t);
         }
     }
 

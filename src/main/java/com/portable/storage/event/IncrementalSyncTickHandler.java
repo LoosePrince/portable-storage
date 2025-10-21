@@ -1,7 +1,9 @@
 package com.portable.storage.event;
 
+import com.portable.storage.config.ServerConfig;
 import com.portable.storage.net.ServerNetworkingHandlers;
 import com.portable.storage.sync.PlayerViewState;
+
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.server.network.ServerPlayerEntity;
 
@@ -21,14 +23,14 @@ public final class IncrementalSyncTickHandler {
             tickCounter++;
             // 读取配置（允许运行时调整）
             try {
-                var cfg = com.portable.storage.config.ServerConfig.getInstance();
+                var cfg = ServerConfig.getInstance();
                 if (!cfg.isEnableIncrementalSync()) return; // 关闭增量则不推送
                 intervalTicks = Math.max(1, cfg.getIncrementalSyncIntervalTicks());
             } catch (Throwable ignored) {}
             if ((tickCounter % intervalTicks) != 0) return;
             java.util.Collection<ServerPlayerEntity> targets;
             try {
-                var cfg = com.portable.storage.config.ServerConfig.getInstance();
+                var cfg = ServerConfig.getInstance();
                 if (cfg.isEnableOnDemandSync()) {
                     java.util.ArrayList<ServerPlayerEntity> list = new java.util.ArrayList<>();
                     for (java.util.UUID uuid : PlayerViewState.getViewingPlayers()) {

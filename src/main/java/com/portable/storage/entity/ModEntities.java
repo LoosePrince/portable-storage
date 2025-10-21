@@ -1,12 +1,13 @@
 package com.portable.storage.entity;
 
 import com.portable.storage.PortableStorage;
+
+import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnGroup;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.util.Identifier;
-import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 
 public final class ModEntities {
     private ModEntities() {}
@@ -25,7 +26,7 @@ public final class ModEntities {
         PortableStorage.LOGGER.info("Registering entities for " + PortableStorage.MOD_ID);
         try {
             // 为复制体注册默认属性
-            FabricDefaultAttributeRegistry.register(RIFT_AVATAR, com.portable.storage.entity.RiftAvatarEntity.createAttributes());
+            FabricDefaultAttributeRegistry.register(RIFT_AVATAR, RiftAvatarEntity.createAttributes());
         } catch (Throwable ignored) {}
     }
 }

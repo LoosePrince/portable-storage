@@ -1,7 +1,12 @@
 package com.portable.storage.client.util;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import com.portable.storage.client.ClientConfig;
-import java.util.*;
 
 /**
  * 多音字词典

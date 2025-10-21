@@ -1,10 +1,10 @@
 package com.portable.storage.util;
 
-import net.minecraft.server.network.ServerPlayerEntity;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+
+import net.minecraft.server.network.ServerPlayerEntity;
 
 /**
  * 仓库激活确认管理器

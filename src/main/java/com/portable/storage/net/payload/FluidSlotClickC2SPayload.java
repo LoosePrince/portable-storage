@@ -1,11 +1,11 @@
 package com.portable.storage.net.payload;
 
+import static com.portable.storage.PortableStorage.MOD_ID;
+
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Identifier;
-
-import static com.portable.storage.PortableStorage.MOD_ID;
 
 /**
  * 客户端点击流体槽位的消息

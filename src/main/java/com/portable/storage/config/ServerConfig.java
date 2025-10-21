@@ -1,14 +1,15 @@
 package com.portable.storage.config;
 
-import com.electronwill.nightconfig.core.Config;
-import com.electronwill.nightconfig.core.file.CommentedFileConfig;
-import com.portable.storage.PortableStorage;
-import net.fabricmc.loader.api.FabricLoader;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+
+import com.electronwill.nightconfig.core.Config;
+import com.electronwill.nightconfig.core.file.CommentedFileConfig;
+import com.portable.storage.PortableStorage;
+
+import net.fabricmc.loader.api.FabricLoader;
 
 /**
  * 服务端配置管理器

@@ -1,16 +1,17 @@
 package com.portable.storage.event;
 
-import com.portable.storage.storage.UpgradeInventory;
-import com.portable.storage.player.PlayerStorageService;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 import com.portable.storage.net.ServerNetworkingHandlers;
+import com.portable.storage.player.PlayerStorageService;
+import com.portable.storage.storage.UpgradeInventory;
+
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Hand;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
 
 /**
  * 活塞升级处理器

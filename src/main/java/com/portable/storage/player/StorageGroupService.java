@@ -1,15 +1,17 @@
 package com.portable.storage.player;
 
-import com.portable.storage.storage.StorageInventory;
-import com.portable.storage.storage.UpgradeInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
+
+import com.portable.storage.net.ServerNetworkingHandlers;
+import com.portable.storage.storage.StorageInventory;
+import com.portable.storage.storage.UpgradeInventory;
+
+import net.minecraft.item.ItemStack;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.network.ServerPlayerEntity;
 
 /**
  * 基于“绑定木桶所有者”聚合共享视图并从中提取物品的服务。
@@ -107,7 +109,7 @@ public final class StorageGroupService {
         // 发送给所有者
         ServerPlayerEntity owner = server.getPlayerManager().getPlayer(ownerUuid);
         if (owner != null) {
-            com.portable.storage.net.ServerNetworkingHandlers.sendSync(owner);
+            ServerNetworkingHandlers.sendSync(owner);
         }
 
         // 发送给所有使用该ownerUuid绑定木桶的玩家
@@ -129,7 +131,7 @@ public final class StorageGroupService {
             }
 
             if (usesThisOwner) {
-                com.portable.storage.net.ServerNetworkingHandlers.sendSync(player);
+                ServerNetworkingHandlers.sendSync(player);
             }
         }
     }

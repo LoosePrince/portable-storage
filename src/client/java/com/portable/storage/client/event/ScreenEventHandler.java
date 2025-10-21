@@ -1,6 +1,7 @@
 package com.portable.storage.client.event;
 
 import com.portable.storage.sync.PlayerViewState;
+
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.gui.screen.Screen;
 

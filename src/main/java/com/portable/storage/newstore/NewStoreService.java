@@ -1,9 +1,13 @@
 package com.portable.storage.newstore;
 
+import com.portable.storage.net.ServerNetworkingHandlers;
+import com.portable.storage.player.StoragePersistence;
+import com.portable.storage.storage.StorageInventory;
+
+import net.minecraft.item.ItemStack;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.item.ItemStack;
 
 /**
  * 新版存储的公共服务：对外部自动化与交互提供统一的“存入新版存储”入口。
@@ -26,7 +30,7 @@ public final class NewStoreService {
         PlayerStore.add(server, player.getUuid(), key, stack.getCount(), now);
         index.incRef(key, stack.getCount());
         index.save(server);
-        com.portable.storage.net.ServerNetworkingHandlers.sendSync(player);
+        ServerNetworkingHandlers.sendSync(player);
     }
 
     public static void insertForOfflineUuid(MinecraftServer server, java.util.UUID uuid, ItemStack stack, RegistryWrapper.WrapperLookup lookup) {
@@ -58,7 +62,7 @@ public final class NewStoreService {
                 TemplateSlices.removeTemplate(() -> server, index, key);
             }
             index.save(server);
-            com.portable.storage.net.ServerNetworkingHandlers.sendSync(player);
+            ServerNetworkingHandlers.sendSync(player);
         }
         return taken;
     }
@@ -88,13 +92,13 @@ public final class NewStoreService {
     /**
      * 构建共享视图：合并所有相关玩家的旧版+新版存储
      */
-    public static com.portable.storage.storage.StorageInventory buildSharedView(MinecraftServer server, java.util.UUID viewerUuid, java.util.Set<java.util.UUID> sharedUuids) {
-        com.portable.storage.storage.StorageInventory agg = new com.portable.storage.storage.StorageInventory(0);
+    public static StorageInventory buildSharedView(MinecraftServer server, java.util.UUID viewerUuid, java.util.Set<java.util.UUID> sharedUuids) {
+        StorageInventory agg = new StorageInventory(0);
         if (server == null || sharedUuids == null || sharedUuids.isEmpty()) return agg;
         
         // 1) 先合并旧版存储
         for (java.util.UUID uuid : sharedUuids) {
-            var legacy = com.portable.storage.player.StoragePersistence.loadStorage(server, uuid);
+            var legacy = StoragePersistence.loadStorage(server, uuid);
             for (int i = 0; i < legacy.getCapacity(); i++) {
                 ItemStack disp = legacy.getDisplayStack(i);
                 if (disp.isEmpty()) continue;
@@ -115,7 +119,7 @@ public final class NewStoreService {
         TemplateIndex index = TemplateIndex.load(server);
         for (java.util.UUID uuid : sharedUuids) {
             var entries = PlayerStore.readAll(server, uuid);
-            for (com.portable.storage.newstore.PlayerStore.Entry e : entries.values()) {
+            for (PlayerStore.Entry e : entries.values()) {
                 if (e.count <= 0) continue;
                 ItemStack stack = TemplateSlices.getTemplate(() -> server, index, e.key, null);
                 if (stack.isEmpty()) continue;
@@ -144,7 +148,7 @@ public final class NewStoreService {
         // 1) 先从旧版存储提取
         for (java.util.UUID uuid : sharedUuids) {
             if (remaining <= 0) break;
-            var legacy = com.portable.storage.player.StoragePersistence.loadStorage(server, uuid);
+            var legacy = StoragePersistence.loadStorage(server, uuid);
             for (int i = 0; i < legacy.getCapacity() && remaining > 0; i++) {
                 ItemStack disp = legacy.getDisplayStack(i);
                 if (disp.isEmpty()) continue;
@@ -158,7 +162,7 @@ public final class NewStoreService {
                 }
             }
             // 保存旧版变更
-            com.portable.storage.player.StoragePersistence.saveStorage(server, uuid, legacy);
+            StoragePersistence.saveStorage(server, uuid, legacy);
         }
         
         // 2) 再从新版存储提取

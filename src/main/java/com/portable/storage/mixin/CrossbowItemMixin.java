@@ -1,9 +1,16 @@
 package com.portable.storage.mixin;
 
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.portable.storage.net.ServerNetworkingHandlers;
+import com.portable.storage.newstore.NewStoreService;
 import com.portable.storage.player.PlayerStorageService;
 import com.portable.storage.storage.StorageInventory;
 import com.portable.storage.storage.UpgradeInventory;
-import com.portable.storage.newstore.NewStoreService;
+
 import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.enchantment.Enchantments;
 import net.minecraft.entity.LivingEntity;
@@ -14,10 +21,6 @@ import net.minecraft.item.Items;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.world.World;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * 弩的装填：在装填过程判定并从随身仓库扣除一支箭（若背包无箭）。
@@ -55,7 +58,7 @@ public abstract class CrossbowItemMixin {
             boolean hasSpectralArrowUpgrade = upgrades.isSpectralArrowUpgradeActive();
             
             // 构建合并视图（旧版+新版）
-            StorageInventory merged = com.portable.storage.net.ServerNetworkingHandlers.buildMergedSnapshot(serverPlayer);
+            StorageInventory merged = ServerNetworkingHandlers.buildMergedSnapshot(serverPlayer);
             
             // 优先查找普通箭，与PlayerEntityProjectileMixin保持一致
             int spectralIdx = -1;

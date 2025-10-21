@@ -1,23 +1,27 @@
 package com.portable.storage.mixin;
 
-import com.portable.storage.config.ServerConfig;
-import com.portable.storage.player.PlayerStorageAccess;
-import com.portable.storage.storage.StorageInventory;
-import com.portable.storage.storage.UpgradeInventory;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.math.Box;
-import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.portable.storage.config.ServerConfig;
+import com.portable.storage.newstore.NewStoreService;
+import com.portable.storage.player.PlayerEnablementState;
+import com.portable.storage.player.PlayerStorageAccess;
+import com.portable.storage.storage.StorageInventory;
+import com.portable.storage.storage.UpgradeInventory;
+
+import net.minecraft.entity.ItemEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.registry.RegistryWrapper;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.util.math.Box;
+import net.minecraft.world.World;
 
 /**
  * 将随身仓库以字段的形式附着在玩家上，并随 Player NBT 读写。
@@ -94,8 +98,8 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 		portableStorage$enabled = enabled;
 		if (self instanceof ServerPlayerEntity serverPlayer) {
 			// 兼容：同步服务端的全局状态，便于网络同步逻辑复用
-			com.portable.storage.player.PlayerEnablementState state =
-				com.portable.storage.player.PlayerEnablementState.get(serverPlayer.getServer());
+			PlayerEnablementState state =
+				PlayerEnablementState.get(serverPlayer.getServer());
 			state.setPlayerEnabled(serverPlayer.getUuid(), enabled);
 		}
 	}
@@ -209,7 +213,7 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 			ItemStack itemStack = itemEntity.getStack();
 			if (itemStack.isEmpty()) continue;
             // 新版：直接存入新版存储
-            com.portable.storage.newstore.NewStoreService.insertForOnlinePlayer(player instanceof net.minecraft.server.network.ServerPlayerEntity sp ? sp : null, itemStack);
+            NewStoreService.insertForOnlinePlayer(player instanceof net.minecraft.server.network.ServerPlayerEntity sp ? sp : null, itemStack);
 			
 			// 移除掉落物
 			itemEntity.discard();

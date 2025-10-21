@@ -1,12 +1,13 @@
 package com.portable.storage.event;
 
+import java.util.Iterator;
+import java.util.Set;
+
 import com.portable.storage.net.ServerNetworkingHandlers;
+
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
-
-import java.util.Iterator;
-import java.util.Set;
 
 /**
  * 临时床清理处理器

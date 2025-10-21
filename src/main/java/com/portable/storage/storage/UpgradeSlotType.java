@@ -1,5 +1,8 @@
 package com.portable.storage.storage;
 
+import com.portable.storage.PortableStorage;
+import com.portable.storage.config.ServerConfig;
+
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 
@@ -105,7 +108,7 @@ public enum UpgradeSlotType {
      * 获取裂隙升级物品
      */
     private static net.minecraft.item.Item getRiftUpgradeItem() {
-        String configValue = com.portable.storage.config.ServerConfig.getInstance().getRiftUpgradeItem();
+        String configValue = ServerConfig.getInstance().getRiftUpgradeItem();
         try {
             // 解析格式: "类型:命名空间:物品ID"
             String[] parts = configValue.split(":", 3);
@@ -121,7 +124,7 @@ public enum UpgradeSlotType {
                 return net.minecraft.registry.Registries.ITEM.get(id);
             }
         } catch (Exception e) {
-            com.portable.storage.PortableStorage.LOGGER.warn("Failed to parse rift upgrade item: {}", configValue, e);
+            PortableStorage.LOGGER.warn("Failed to parse rift upgrade item: {}", configValue, e);
             return net.minecraft.item.Items.DRAGON_EGG; // 默认回退
         }
     }

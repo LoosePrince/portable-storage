@@ -1,24 +1,31 @@
 package com.portable.storage.mixin.client;
 
-import com.portable.storage.PortableStorage;
-import com.portable.storage.client.ClientConfig;
-import com.portable.storage.client.ui.StorageUIComponent;
-// 统一后不再使用 RefillCraftingC2SPayload
-// 统一后使用 SyncControlC2SPayload
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.util.Identifier;
-import net.minecraft.item.Items;
-import net.minecraft.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import com.portable.storage.PortableStorage;
+import com.portable.storage.client.ClientConfig;
+import com.portable.storage.client.ClientStorageState;
+import com.portable.storage.client.ClientUpgradeState;
+import com.portable.storage.client.ClientVirtualCraftingConfig;
+import com.portable.storage.client.ui.StorageUIComponent;
+import com.portable.storage.client.ui.VirtualCraftingOverlayState;
+import com.portable.storage.net.payload.CraftingOverlayActionC2SPayload;
+import com.portable.storage.net.payload.SyncControlC2SPayload;
+import com.portable.storage.sync.PlayerViewState;
+
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.ingame.InventoryScreen;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.util.Identifier;
 
 @Mixin(InventoryScreen.class)
 public abstract class InventoryScreenMixin {
@@ -66,11 +73,11 @@ public abstract class InventoryScreenMixin {
         PortableStorage.LOGGER.debug("Portable Storage: UI component initialized, collapsed={}", portableStorage$uiComponent.isCollapsed());
 
         // 标记开始查看仓库界面
-        com.portable.storage.sync.PlayerViewState.startViewing(MinecraftClient.getInstance().player.getUuid());
+        PlayerViewState.startViewing(MinecraftClient.getInstance().player.getUuid());
         
         // 打开界面时请求同步
-        ClientPlayNetworking.send(new com.portable.storage.net.payload.SyncControlC2SPayload(
-            com.portable.storage.net.payload.SyncControlC2SPayload.Op.REQUEST,
+        ClientPlayNetworking.send(new SyncControlC2SPayload(
+            SyncControlC2SPayload.Op.REQUEST,
             0L,
             false
         ));
@@ -89,14 +96,14 @@ public abstract class InventoryScreenMixin {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client != null && client.textRenderer != null) {
             // 检查仓库是否已启用
-            if (com.portable.storage.client.ClientStorageState.isStorageEnabled()) {
+            if (ClientStorageState.isStorageEnabled()) {
                 // 渲染仓库UI（启用折叠功能）
                 portableStorage$uiComponent.render(context, mouseX, mouseY, delta, x, y, backgroundWidth, backgroundHeight, true);
             }
             // 若启用工作台升级且配置允许，则在2x2合成区域上覆盖3x3槽位提示（严格根据实际槽位坐标对齐）
-            if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient() && 
-                com.portable.storage.client.ClientConfig.getInstance().virtualCraftingVisible && 
-                com.portable.storage.client.ClientVirtualCraftingConfig.isEnableVirtualCrafting()) {
+            if (ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient() && 
+                ClientConfig.getInstance().virtualCraftingVisible && 
+                ClientVirtualCraftingConfig.isEnableVirtualCrafting()) {
                 MinecraftClient mc2 = MinecraftClient.getInstance();
                 if (mc2 != null && mc2.player != null && mc2.player.currentScreenHandler instanceof net.minecraft.screen.PlayerScreenHandler handler) {
                     // PlayerScreenHandler: 0=输出, 1..4=2x2输入
@@ -116,7 +123,7 @@ public abstract class InventoryScreenMixin {
                                 context.drawTexture(portableStorage$SLOT_TEX, sxOverlay, syOverlay, 0, 0, 18, 18, 18, 18);
                                 // 渲染虚拟物品（若已同步）
                                 int idx = 1 + r * 3 + c;
-                                net.minecraft.item.ItemStack vis = com.portable.storage.client.ui.VirtualCraftingOverlayState.get(idx);
+                                net.minecraft.item.ItemStack vis = VirtualCraftingOverlayState.get(idx);
                                 if (!vis.isEmpty()) {
                                     context.drawItem(vis, sxOverlay + 1, syOverlay + 1);
                                     context.drawItemInSlot(MinecraftClient.getInstance().textRenderer, vis, sxOverlay + 1, syOverlay + 1);
@@ -133,7 +140,7 @@ public abstract class InventoryScreenMixin {
                         int outX = x + handler.getSlot(0).x - 1;
                         int outY = y + handler.getSlot(0).y - 1;
                         context.drawTexture(portableStorage$SLOT_TEX, outX, outY, 0, 0, 18, 18, 18, 18);
-                        net.minecraft.item.ItemStack resultVis = com.portable.storage.client.ui.VirtualCraftingOverlayState.get(0);
+                        net.minecraft.item.ItemStack resultVis = VirtualCraftingOverlayState.get(0);
                         if (!resultVis.isEmpty()) {
                             context.drawItem(resultVis, outX + 1, outY + 1);
                             context.drawItemInSlot(MinecraftClient.getInstance().textRenderer, resultVis, outX + 1, outY + 1);
@@ -145,7 +152,7 @@ public abstract class InventoryScreenMixin {
                         }
                         // 悬停工具提示
                         if (hoveredSlotIdx >= 0) {
-                            net.minecraft.item.ItemStack tip = com.portable.storage.client.ui.VirtualCraftingOverlayState.get(hoveredSlotIdx);
+                            net.minecraft.item.ItemStack tip = VirtualCraftingOverlayState.get(hoveredSlotIdx);
                             if (!tip.isEmpty()) {
                                 context.drawItemTooltip(MinecraftClient.getInstance().textRenderer, tip, mouseX, mouseY);
                             }
@@ -191,7 +198,7 @@ public abstract class InventoryScreenMixin {
         }
 
         // 覆盖层虚拟3x3交互：将点击转发给服务端进行合成/取出
-        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient() && com.portable.storage.client.ClientConfig.getInstance().virtualCraftingVisible) {
+        if (ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient() && ClientConfig.getInstance().virtualCraftingVisible) {
             InventoryScreen self2 = (InventoryScreen)(Object)this;
             int screenWidth2 = self2.width;
             int screenHeight2 = self2.height;
@@ -226,8 +233,8 @@ public abstract class InventoryScreenMixin {
                     if (mouseX >= overlayLeft && mouseX < overlayRight && mouseY >= overlayTop && mouseY < overlayBottom) {
                         // 双击合并到光标
                         if (isDoubleClick) {
-                            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
-                                com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.DOUBLE_CLICK,
+                            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new CraftingOverlayActionC2SPayload(
+                                CraftingOverlayActionC2SPayload.Action.DOUBLE_CLICK,
                                 0, 0, false,
                                 net.minecraft.item.ItemStack.EMPTY,
                                 "",
@@ -242,8 +249,8 @@ public abstract class InventoryScreenMixin {
                         int col = Math.min(2, Math.max(0, relX / slotSize));
                         int row = Math.min(2, Math.max(0, relY / slotSize));
                         int slotIndex = 1 + row * 3 + col; // 1..9
-                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
-                            com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.CLICK,
+                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new CraftingOverlayActionC2SPayload(
+                            CraftingOverlayActionC2SPayload.Action.CLICK,
                             slotIndex, button, shift,
                             net.minecraft.item.ItemStack.EMPTY,
                             "",
@@ -260,8 +267,8 @@ public abstract class InventoryScreenMixin {
                     if (mouseX >= outX && mouseX < outX + 18 && mouseY >= outY && mouseY < outY + 18) {
                         // 双击合并到光标
                         if (isDoubleClick) {
-                            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
-                                com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.DOUBLE_CLICK,
+                            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new CraftingOverlayActionC2SPayload(
+                                CraftingOverlayActionC2SPayload.Action.DOUBLE_CLICK,
                                 0, 0, false,
                                 net.minecraft.item.ItemStack.EMPTY,
                                 "",
@@ -272,7 +279,7 @@ public abstract class InventoryScreenMixin {
                             return;
                         }
                         // 客户端前置校验：若光标已达最大或继续取会超过最大，则不发送取出
-                        ItemStack resultVis = com.portable.storage.client.ui.VirtualCraftingOverlayState.get(0);
+                        ItemStack resultVis = VirtualCraftingOverlayState.get(0);
                         if (!resultVis.isEmpty()) {
                             ItemStack cursor = mc2.player.currentScreenHandler.getCursorStack();
                             if (!cursor.isEmpty() && !ItemStack.areItemsAndComponentsEqual(cursor, resultVis)) {
@@ -290,8 +297,8 @@ public abstract class InventoryScreenMixin {
                                 }
                             }
                         }
-                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
-                            com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.CLICK,
+                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new CraftingOverlayActionC2SPayload(
+                            CraftingOverlayActionC2SPayload.Action.CLICK,
                             0, button, shift,
                             net.minecraft.item.ItemStack.EMPTY,
                             "",
@@ -306,7 +313,7 @@ public abstract class InventoryScreenMixin {
         }
 
         // 覆盖层激活时，阻断对原 2x2 槽位(1..4)的交互
-        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient() && com.portable.storage.client.ClientConfig.getInstance().virtualCraftingVisible) {
+        if (ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient() && ClientConfig.getInstance().virtualCraftingVisible) {
             MinecraftClient mc3 = MinecraftClient.getInstance();
             if (mc3 != null && mc3.player != null && mc3.player.currentScreenHandler instanceof net.minecraft.screen.PlayerScreenHandler handler) {
                 int screenX = ((InventoryScreen)(Object)this).width;
@@ -327,7 +334,7 @@ public abstract class InventoryScreenMixin {
         }
 
         // 检查仓库是否已启用
-        if (com.portable.storage.client.ClientStorageState.isStorageEnabled()) {
+        if (ClientStorageState.isStorageEnabled()) {
             // 委托给UI组件处理（启用折叠功能）
             if (portableStorage$uiComponent.mouseClicked(mouseX, mouseY, button, true)) {
                 cir.setReturnValue(true);
@@ -339,7 +346,7 @@ public abstract class InventoryScreenMixin {
     @Inject(method = "mouseReleased", at = @At("HEAD"), cancellable = true)
     private void portableStorage$mouseReleased(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
         // 检查仓库是否已启用
-        if (com.portable.storage.client.ClientStorageState.isStorageEnabled()) {
+        if (ClientStorageState.isStorageEnabled()) {
             // 检查鼠标是否在仓库UI区域内，如果是则阻止事件穿透
             if (portableStorage$uiComponent.isOverAnyComponent(mouseX, mouseY)) {
                 cir.setReturnValue(true);
@@ -348,7 +355,7 @@ public abstract class InventoryScreenMixin {
         }
 
         // 在覆盖层启用时，阻断原 2x2 槽位与覆盖区域的释放事件，防止穿透
-        if (!(com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient() && com.portable.storage.client.ClientConfig.getInstance().virtualCraftingVisible)) return;
+        if (!(ClientStorageState.isStorageEnabled() && portableStorage$hasCraftingUpgradeClient() && ClientConfig.getInstance().virtualCraftingVisible)) return;
 
         InventoryScreen self = (InventoryScreen)(Object)this;
         int screenWidth = self.width;
@@ -397,14 +404,14 @@ public abstract class InventoryScreenMixin {
 
     @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
     private void portableStorage$keyPressed(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
-        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$uiComponent.keyPressed(keyCode, scanCode, modifiers)) {
+        if (ClientStorageState.isStorageEnabled() && portableStorage$uiComponent.keyPressed(keyCode, scanCode, modifiers)) {
             cir.setReturnValue(true);
         }
     }
 
     @Inject(method = "charTyped", at = @At("HEAD"), cancellable = true)
     private void portableStorage$charTyped(char chr, int modifiers, CallbackInfoReturnable<Boolean> cir) {
-        if (com.portable.storage.client.ClientStorageState.isStorageEnabled() && portableStorage$uiComponent.charTyped(chr, modifiers)) {
+        if (ClientStorageState.isStorageEnabled() && portableStorage$uiComponent.charTyped(chr, modifiers)) {
             cir.setReturnValue(true);
         }
     }
@@ -510,8 +517,8 @@ public abstract class InventoryScreenMixin {
         }
         
         // 发送补充请求到服务器
-        ClientPlayNetworking.send(new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
-            com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.REFILL,
+        ClientPlayNetworking.send(new CraftingOverlayActionC2SPayload(
+            CraftingOverlayActionC2SPayload.Action.REFILL,
             slotIndex, 0, false,
             targetStack,
             "",
@@ -522,9 +529,9 @@ public abstract class InventoryScreenMixin {
 
     @Unique
     private boolean portableStorage$hasCraftingUpgradeClient() {
-        for (int i = 0; i < com.portable.storage.client.ClientUpgradeState.getSlotCount(); i++) {
-            ItemStack st = com.portable.storage.client.ClientUpgradeState.getStack(i);
-            if (!st.isEmpty() && st.getItem() == Items.CRAFTING_TABLE && !com.portable.storage.client.ClientUpgradeState.isSlotDisabled(i)) {
+        for (int i = 0; i < ClientUpgradeState.getSlotCount(); i++) {
+            ItemStack st = ClientUpgradeState.getStack(i);
+            if (!st.isEmpty() && st.getItem() == Items.CRAFTING_TABLE && !ClientUpgradeState.isSlotDisabled(i)) {
                 return true;
             }
         }

@@ -1,13 +1,15 @@
 package com.portable.storage.event;
 
-import com.portable.storage.storage.UpgradeInventory;
 import com.portable.storage.player.PlayerStorageService;
+import com.portable.storage.storage.UpgradeInventory;
+
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.enums.SlabType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.state.property.Properties;
 import net.minecraft.text.Text;
@@ -53,7 +55,7 @@ public class PistonBlockRotationHandler {
         
         // 检查主手是否手持活塞
         ItemStack mainHandStack = serverPlayer.getMainHandStack();
-        if (mainHandStack.isEmpty() || !mainHandStack.isOf(net.minecraft.item.Items.PISTON)) {
+        if (mainHandStack.isEmpty() || !mainHandStack.isOf(Items.PISTON)) {
             return ActionResult.PASS;
         }
         
@@ -162,11 +164,11 @@ public class PistonBlockRotationHandler {
     /**
      * 获取下一个轴
      */
-    private static net.minecraft.util.math.Direction.Axis getNextAxis(net.minecraft.util.math.Direction.Axis current) {
-        net.minecraft.util.math.Direction.Axis[] axes = {
-            net.minecraft.util.math.Direction.Axis.X,
-            net.minecraft.util.math.Direction.Axis.Y,
-            net.minecraft.util.math.Direction.Axis.Z
+    private static Direction.Axis getNextAxis(Direction.Axis current) {
+        Direction.Axis[] axes = {
+            Direction.Axis.X,
+            Direction.Axis.Y,
+            Direction.Axis.Z
         };
         for (int i = 0; i < axes.length; i++) {
             if (axes[i] == current) {

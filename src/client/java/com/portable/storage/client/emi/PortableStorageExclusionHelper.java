@@ -1,9 +1,10 @@
 package com.portable.storage.client.emi;
 
-import com.portable.storage.client.ClientConfig;
-import dev.emi.emi.api.widget.Bounds;
-
 import java.util.function.Consumer;
+
+import com.portable.storage.client.ClientConfig;
+
+import dev.emi.emi.api.widget.Bounds;
 
 /**
  * Helper to register EMI exclusion areas for Portable Storage UI overlays.

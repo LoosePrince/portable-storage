@@ -2,8 +2,12 @@ package com.portable.storage.event;
 
 import com.portable.storage.PortableStorage;
 import com.portable.storage.config.ServerConfig;
+import com.portable.storage.net.ServerNetworkingHandlers;
 import com.portable.storage.player.PlayerStorageAccess;
+import com.portable.storage.player.PlayerStorageService;
+import com.portable.storage.storage.UpgradeInventory;
 import com.portable.storage.util.StorageActivationConfirmation;
+
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
@@ -103,7 +107,7 @@ public class PlayerInteractEventHandler {
 
             // 同步清空升级槽位与流体/垃圾槽位
             try {
-                com.portable.storage.storage.UpgradeInventory upgrades = com.portable.storage.player.PlayerStorageService.getUpgradeInventory(player);
+                UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
                 // 清空基础槽位 0..4
                 for (int i = 0; i < upgrades.getBaseSlotCount(); i++) {
                     upgrades.setStack(i, net.minecraft.item.ItemStack.EMPTY);
@@ -118,8 +122,8 @@ public class PlayerInteractEventHandler {
                 upgrades.setFluidUnits("water", 0);
                 upgrades.setFluidUnits("milk", 0);
                 // 同步到客户端
-                com.portable.storage.net.ServerNetworkingHandlers.sendUpgradeSync(player);
-                com.portable.storage.net.ServerNetworkingHandlers.sendSync(player);
+                ServerNetworkingHandlers.sendUpgradeSync(player);
+                ServerNetworkingHandlers.sendSync(player);
             } catch (Throwable ignored) {}
         }
         

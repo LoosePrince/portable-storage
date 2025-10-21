@@ -1,6 +1,9 @@
 package com.portable.storage.client.emi;
 
+import com.portable.storage.PortableStorage;
+import com.portable.storage.client.ClientConfig;
 import com.portable.storage.client.screen.PortableCraftingScreen;
+
 import dev.emi.emi.api.EmiEntrypoint;
 import dev.emi.emi.api.EmiPlugin;
 import dev.emi.emi.api.EmiRegistry;
@@ -24,7 +27,7 @@ public class PortableStorageEmiPlugin implements EmiPlugin {
         registry.addWorkstation(VanillaEmiRecipeCategories.CRAFTING, EmiStack.of(Items.CRAFTING_TABLE));
         
         // 绑定到自定义的 ScreenHandlerType，确保走我们的处理器
-        registry.addRecipeHandler(com.portable.storage.PortableStorage.PORTABLE_CRAFTING_HANDLER, new PortableStorageEmiTransferHandler());
+        registry.addRecipeHandler(PortableStorage.PORTABLE_CRAFTING_HANDLER, new PortableStorageEmiTransferHandler());
         
         // 添加通用堆叠提供器，让 EMI 能够从仓库槽位获取物品
         registry.addGenericStackProvider((screen, x, y) -> {
@@ -46,7 +49,7 @@ public class PortableStorageEmiPlugin implements EmiPlugin {
             if (screen instanceof PortableCraftingScreen portableScreen) {
                 portableScreen.getExclusionAreas(consumer);
             } else if (screen instanceof InventoryScreen invScreen) {
-                boolean storageOnTop = (com.portable.storage.client.ClientConfig.getInstance().storagePos == com.portable.storage.client.ClientConfig.StoragePos.TOP);
+                boolean storageOnTop = (ClientConfig.getInstance().storagePos == ClientConfig.StoragePos.TOP);
                 // 背包：包含折叠按钮、包含搜索位置设置、不包含切换原版按钮
                 PortableStorageExclusionHelper.addAreasForScreen(
                     consumer,

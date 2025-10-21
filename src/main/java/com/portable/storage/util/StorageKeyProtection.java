@@ -1,6 +1,8 @@
 package com.portable.storage.util;
 
+import com.portable.storage.PortableStorage;
 import com.portable.storage.item.StorageKeyItem;
+
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.damage.DamageTypes;
@@ -123,7 +125,7 @@ public class StorageKeyProtection {
         
         // 虚空保护：不销毁，抬升到安全位置 - 参考 SoulBindingService
         if (source.isOf(DamageTypes.OUT_OF_WORLD)) {
-            com.portable.storage.PortableStorage.LOGGER.info("Storage key void protection triggered at position ({}, {}, {})", 
+            PortableStorage.LOGGER.info("Storage key void protection triggered at position ({}, {}, {})", 
                 itemEntity.getX(), itemEntity.getY(), itemEntity.getZ());
             
             double x = itemEntity.getX();
@@ -136,7 +138,7 @@ public class StorageKeyProtection {
             // 设置向上的速度
             itemEntity.setVelocity(0, 0.4, 0);
             
-            com.portable.storage.PortableStorage.LOGGER.info("Storage key teleported to safe position ({}, {}, {})", x, safeY, z);
+            PortableStorage.LOGGER.info("Storage key teleported to safe position ({}, {}, {})", x, safeY, z);
             return true;
         }
         

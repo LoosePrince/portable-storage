@@ -1,13 +1,14 @@
 package com.portable.storage.newstore;
 
+import java.util.Map;
+
 import com.portable.storage.storage.StorageInventory;
+
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.registry.RegistryWrapper;
-
-import java.util.*;
 
 /**
  * 将旧版库存（StorageInventory entries）与新版玩家存储（PlayerStore entries）合并为下发用 entries。

@@ -1,6 +1,22 @@
 package com.portable.storage.net;
 
-import com.portable.storage.net.payload.*;
+import com.portable.storage.net.payload.ConfigSyncS2CPayload;
+import com.portable.storage.net.payload.CraftingOverlayActionC2SPayload;
+import com.portable.storage.net.payload.FluidClickC2SPayload;
+import com.portable.storage.net.payload.FluidConversionC2SPayload;
+import com.portable.storage.net.payload.FluidSlotClickC2SPayload;
+import com.portable.storage.net.payload.IncrementalStorageSyncS2CPayload;
+import com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload;
+import com.portable.storage.net.payload.RequestOpenScreenC2SPayload;
+import com.portable.storage.net.payload.ScrollC2SPayload;
+import com.portable.storage.net.payload.StorageActionC2SPayload;
+import com.portable.storage.net.payload.StorageSyncS2CPayload;
+import com.portable.storage.net.payload.SyncControlC2SPayload;
+import com.portable.storage.net.payload.UpgradeSlotClickC2SPayload;
+import com.portable.storage.net.payload.XpBottleClickC2SPayload;
+import com.portable.storage.net.payload.XpBottleConversionC2SPayload;
+import com.portable.storage.net.payload.XpBottleMaintenanceToggleC2SPayload;
+
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 
 public final class NetworkChannels {
@@ -21,7 +37,7 @@ public final class NetworkChannels {
 		PayloadTypeRegistry.playC2S().register(RequestOpenScreenC2SPayload.ID, RequestOpenScreenC2SPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(StorageSyncS2CPayload.ID, StorageSyncS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IncrementalStorageSyncS2CPayload.ID, IncrementalStorageSyncS2CPayload.CODEC);
-		PayloadTypeRegistry.playS2C().register(com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload.ID, com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload.PACKET_CODEC);
+		PayloadTypeRegistry.playS2C().register(OverlayCraftingSyncS2CPayload.ID, OverlayCraftingSyncS2CPayload.PACKET_CODEC);
 		PayloadTypeRegistry.playS2C().register(ConfigSyncS2CPayload.ID, ConfigSyncS2CPayload.CODEC);
 	}
 }

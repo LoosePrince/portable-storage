@@ -1,8 +1,8 @@
 package com.portable.storage.util;
 
+import net.minecraft.registry.Registries;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.ScreenHandlerType;
-import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 
 /**

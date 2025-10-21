@@ -1,9 +1,10 @@
 package com.portable.storage.client.util;
 
+import java.util.List;
+import java.util.Locale;
+
 import com.github.promeg.pinyinhelper.Pinyin;
 import com.portable.storage.client.ClientConfig;
-import java.util.Locale;
-import java.util.List;
 
 /**
  * 拼音搜索辅助工具类
