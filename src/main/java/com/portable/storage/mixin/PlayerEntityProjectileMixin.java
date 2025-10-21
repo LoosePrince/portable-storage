@@ -1,11 +1,11 @@
 package com.portable.storage.mixin;
 
-import com.portable.storage.player.PlayerStorageService;
 import com.portable.storage.storage.StorageInventory;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.BowItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.server.network.ServerPlayerEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -29,47 +29,54 @@ public abstract class PlayerEntityProjectileMixin {
                 if (isArrow(s)) return;
             }
 
-            // 背包无箭，检查随身仓库
-            StorageInventory inv = PlayerStorageService.getInventory(self);
-            
-            // 优先查找普通箭
-            int spectralIdx = -1;
-            int normalIdx = -1;
-            ItemStack matchedArrow = null;
-            
-            for (int i = 0; i < inv.getCapacity(); i++) {
-                ItemStack disp = inv.getDisplayStack(i);
-                if (!disp.isEmpty() && isArrow(disp) && inv.getCountByIndex(i) > 0) {
-                    if (disp.isOf(Items.ARROW)) {
-                        normalIdx = i;
-                        matchedArrow = disp;
-                        break; // 优先使用普通箭
-                    } else if (disp.isOf(Items.SPECTRAL_ARROW) && spectralIdx == -1) {
-                        spectralIdx = i;
-                        if (matchedArrow == null) {
-                            matchedArrow = disp;
+            // 背包无箭，检查新版随身仓库
+            if (self instanceof ServerPlayerEntity) {
+                ServerPlayerEntity player = (ServerPlayerEntity) self;
+                var server = player.getServer();
+                if (server != null) {
+                    // 构建合并视图（旧版+新版）
+                    StorageInventory merged = com.portable.storage.net.ServerNetworkingHandlers.buildMergedSnapshot(player);
+                    
+                    // 优先查找普通箭
+                    int spectralIdx = -1;
+                    int normalIdx = -1;
+                    ItemStack matchedArrow = null;
+                    
+                    for (int i = 0; i < merged.getCapacity(); i++) {
+                        ItemStack disp = merged.getDisplayStack(i);
+                        if (!disp.isEmpty() && isArrow(disp) && merged.getCountByIndex(i) > 0) {
+                            if (disp.isOf(Items.ARROW)) {
+                                normalIdx = i;
+                                matchedArrow = disp;
+                                break; // 优先使用普通箭
+                            } else if (disp.isOf(Items.SPECTRAL_ARROW) && spectralIdx == -1) {
+                                spectralIdx = i;
+                                if (matchedArrow == null) {
+                                    matchedArrow = disp;
+                                }
+                            }
                         }
                     }
-                }
-            }
-            
-            if (matchedArrow == null) return; // 仓库也没有箭
+                    
+                    if (matchedArrow == null) return; // 仓库也没有箭
 
-            // 如果有普通箭，直接使用普通箭
-            if (normalIdx >= 0) {
-                ItemStack variant = inv.getDisplayStack(normalIdx).copy();
-                variant.setCount(1);
-                cir.setReturnValue(variant);
-            } else if (spectralIdx >= 0) {
-                // 没有普通箭但有光灵箭，使用光灵箭
-                ItemStack variant = inv.getDisplayStack(spectralIdx).copy();
-                variant.setCount(1);
-                cir.setReturnValue(variant);
-            } else {
-                // 其他情况，返回与仓库中首个箭变体一致的 1 个箭
-                ItemStack variant = inv.getDisplayStack(spectralIdx).copy();
-                variant.setCount(1);
-                cir.setReturnValue(variant);
+                    // 如果有普通箭，直接使用普通箭
+                    if (normalIdx >= 0) {
+                        ItemStack variant = merged.getDisplayStack(normalIdx).copy();
+                        variant.setCount(1);
+                        cir.setReturnValue(variant);
+                    } else if (spectralIdx >= 0) {
+                        // 没有普通箭但有光灵箭，使用光灵箭
+                        ItemStack variant = merged.getDisplayStack(spectralIdx).copy();
+                        variant.setCount(1);
+                        cir.setReturnValue(variant);
+                    } else {
+                        // 其他情况，返回与仓库中首个箭变体一致的 1 个箭
+                        ItemStack variant = merged.getDisplayStack(spectralIdx).copy();
+                        variant.setCount(1);
+                        cir.setReturnValue(variant);
+                    }
+                }
             }
         }
         // 处理弩的弹药
@@ -80,47 +87,54 @@ public abstract class PlayerEntityProjectileMixin {
                 if (isCrossbowAmmo(s)) return;
             }
 
-            // 背包无弹药，检查随身仓库
-            StorageInventory inv = PlayerStorageService.getInventory(self);
-            
-            // 优先查找普通箭
-            int spectralIdx = -1;
-            int normalIdx = -1;
-            ItemStack matchedAmmo = null;
-            
-            for (int i = 0; i < inv.getCapacity(); i++) {
-                ItemStack disp = inv.getDisplayStack(i);
-                if (!disp.isEmpty() && isCrossbowAmmo(disp) && inv.getCountByIndex(i) > 0) {
-                    if (disp.isOf(Items.ARROW)) {
-                        normalIdx = i;
-                        matchedAmmo = disp;
-                        break; // 优先使用普通箭
-                    } else if (disp.isOf(Items.SPECTRAL_ARROW) && spectralIdx == -1) {
-                        spectralIdx = i;
-                        if (matchedAmmo == null) {
-                            matchedAmmo = disp;
+            // 背包无弹药，检查新版随身仓库
+            if (self instanceof ServerPlayerEntity) {
+                ServerPlayerEntity player = (ServerPlayerEntity) self;
+                var server = player.getServer();
+                if (server != null) {
+                    // 构建合并视图（旧版+新版）
+                    StorageInventory merged = com.portable.storage.net.ServerNetworkingHandlers.buildMergedSnapshot(player);
+                    
+                    // 优先查找普通箭
+                    int spectralIdx = -1;
+                    int normalIdx = -1;
+                    ItemStack matchedAmmo = null;
+                    
+                    for (int i = 0; i < merged.getCapacity(); i++) {
+                        ItemStack disp = merged.getDisplayStack(i);
+                        if (!disp.isEmpty() && isCrossbowAmmo(disp) && merged.getCountByIndex(i) > 0) {
+                            if (disp.isOf(Items.ARROW)) {
+                                normalIdx = i;
+                                matchedAmmo = disp;
+                                break; // 优先使用普通箭
+                            } else if (disp.isOf(Items.SPECTRAL_ARROW) && spectralIdx == -1) {
+                                spectralIdx = i;
+                                if (matchedAmmo == null) {
+                                    matchedAmmo = disp;
+                                }
+                            }
                         }
                     }
-                }
-            }
-            
-            if (matchedAmmo == null) return; // 仓库也没有弹药
+                    
+                    if (matchedAmmo == null) return; // 仓库也没有弹药
 
-            // 如果有普通箭，直接使用普通箭
-            if (normalIdx >= 0) {
-                ItemStack variant = inv.getDisplayStack(normalIdx).copy();
-                variant.setCount(1);
-                cir.setReturnValue(variant);
-            } else if (spectralIdx >= 0) {
-                // 没有普通箭但有光灵箭，使用光灵箭
-                ItemStack variant = inv.getDisplayStack(spectralIdx).copy();
-                variant.setCount(1);
-                cir.setReturnValue(variant);
-            } else {
-                // 其他情况，返回与仓库中首个弹药变体一致的 1 个弹药
-                ItemStack variant = inv.getDisplayStack(spectralIdx).copy();
-                variant.setCount(1);
-                cir.setReturnValue(variant);
+                    // 如果有普通箭，直接使用普通箭
+                    if (normalIdx >= 0) {
+                        ItemStack variant = merged.getDisplayStack(normalIdx).copy();
+                        variant.setCount(1);
+                        cir.setReturnValue(variant);
+                    } else if (spectralIdx >= 0) {
+                        // 没有普通箭但有光灵箭，使用光灵箭
+                        ItemStack variant = merged.getDisplayStack(spectralIdx).copy();
+                        variant.setCount(1);
+                        cir.setReturnValue(variant);
+                    } else {
+                        // 其他情况，返回与仓库中首个弹药变体一致的 1 个弹药
+                        ItemStack variant = merged.getDisplayStack(spectralIdx).copy();
+                        variant.setCount(1);
+                        cir.setReturnValue(variant);
+                    }
+                }
             }
         }
     }

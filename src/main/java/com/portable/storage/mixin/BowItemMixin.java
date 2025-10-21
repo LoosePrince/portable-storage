@@ -47,21 +47,24 @@ public abstract class BowItemMixin {
         } catch (Throwable ignored) {}
 
         if (player instanceof ServerPlayerEntity) {
-            StorageInventory inv = PlayerStorageService.getInventory(player);
+            ServerPlayerEntity serverPlayer = (ServerPlayerEntity) player;
             UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
 
             // 检查是否有光灵箭升级
             boolean hasSpectralArrowUpgrade = upgrades.isSpectralArrowUpgradeActive();
+
+            // 构建合并视图（旧版+新版）
+            StorageInventory merged = com.portable.storage.net.ServerNetworkingHandlers.buildMergedSnapshot(serverPlayer);
 
             // 优先查找普通箭，与PlayerEntityProjectileMixin保持一致
             int spectralIdx = -1;
             ItemStack matchedArrow = null;
             int matchIndex = -1;
             
-            for (int i = 0; i < inv.getCapacity(); i++) {
-                ItemStack disp = inv.getDisplayStack(i);
+            for (int i = 0; i < merged.getCapacity(); i++) {
+                ItemStack disp = merged.getDisplayStack(i);
                 if (disp.isEmpty()) continue;
-                if (isArrow(disp) && inv.getCountByIndex(i) > 0) {
+                if (isArrow(disp) && merged.getCountByIndex(i) > 0) {
                     if (disp.isOf(Items.ARROW)) {
                         matchedArrow = disp;
                         matchIndex = i;

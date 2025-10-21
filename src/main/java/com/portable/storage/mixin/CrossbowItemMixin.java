@@ -48,20 +48,23 @@ public abstract class CrossbowItemMixin {
         } catch (Throwable ignored) {}
 
         if (player instanceof ServerPlayerEntity) {
-            StorageInventory inv = PlayerStorageService.getInventory(player);
+            ServerPlayerEntity serverPlayer = (ServerPlayerEntity) player;
             UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
             
             // 检查是否有光灵箭升级
             boolean hasSpectralArrowUpgrade = upgrades.isSpectralArrowUpgradeActive();
+            
+            // 构建合并视图（旧版+新版）
+            StorageInventory merged = com.portable.storage.net.ServerNetworkingHandlers.buildMergedSnapshot(serverPlayer);
             
             // 优先查找普通箭，与PlayerEntityProjectileMixin保持一致
             int spectralIdx = -1;
             ItemStack matchedAmmo = null;
             int idx = -1;
             
-            for (int i = 0; i < inv.getCapacity(); i++) {
-                ItemStack disp = inv.getDisplayStack(i);
-                if (!disp.isEmpty() && isCrossbowAmmo(disp) && inv.getCountByIndex(i) > 0) {
+            for (int i = 0; i < merged.getCapacity(); i++) {
+                ItemStack disp = merged.getDisplayStack(i);
+                if (!disp.isEmpty() && isCrossbowAmmo(disp) && merged.getCountByIndex(i) > 0) {
                     if (disp.isOf(Items.ARROW)) {
                         matchedAmmo = disp;
                         idx = i;
