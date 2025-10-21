@@ -101,7 +101,7 @@ jobs:
           files: build/libs/portable-storage-${{ needs.build.outputs.new_version }}.jar
           
           # 版本信息
-          name: Portable Storage ${{ needs.build.outputs.new_version }} [Fabric 1.21]
+          name: Portable Storage ${{ needs.build.outputs.new_version }} [Fabric 1.21-1.21.1]
           version: ${{ needs.build.outputs.new_version }}
           version-type: release
           changelog: ${{ needs.build.outputs.changelog }}
@@ -128,7 +128,7 @@ jobs:
             **Portable Storage** 是一个基于 Fabric 的 Minecraft 模组，为玩家添加随身仓库功能。
 
             ### 系统要求
-            - Minecraft 1.21
+            - Minecraft 1.21/1.21.1
             - Fabric Loader 0.17.2+
             - Fabric API 0.102.0+
 
