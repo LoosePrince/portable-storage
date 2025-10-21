@@ -254,7 +254,20 @@ public final class ServerNetworkingHandlers {
 				else if (button == 1) {
 					ItemStack cursor = player.currentScreenHandler.getCursorStack();
 					if (!cursor.isEmpty() && cursor.isOf(UpgradeInventory.createFluidBucket(fluidType).getItem())) {
-                        upgrades.addFluidUnits(fluidType, 1);
+						// 检查是否启用无限流体
+						ServerConfig config = ServerConfig.getInstance();
+						boolean shouldNotAdd = false;
+						if (fluidType.equals("lava") && config.isEnableInfiniteLava()) {
+							int units = upgrades.getFluidUnits(fluidType);
+							shouldNotAdd = units >= config.getInfiniteLavaThreshold();
+						} else if (fluidType.equals("water") && config.isEnableInfiniteWater()) {
+							int units = upgrades.getFluidUnits(fluidType);
+							shouldNotAdd = units >= config.getInfiniteWaterThreshold();
+						}
+						
+						if (!shouldNotAdd) {
+							upgrades.addFluidUnits(fluidType, 1);
+						}
                         player.currentScreenHandler.setCursorStack(new ItemStack(net.minecraft.item.Items.BUCKET));
                         player.currentScreenHandler.sendContentUpdates();
                         sendSync(player);
@@ -279,7 +292,18 @@ public final class ServerNetworkingHandlers {
 					if (!cursor.isEmpty() && cursor.isOf(net.minecraft.item.Items.BUCKET)) {
 						int units = upgrades.getFluidUnits(fluidType);
 						if (units > 0) {
-							upgrades.removeFluidUnits(fluidType, 1);
+							// 检查是否启用无限流体
+							ServerConfig config = ServerConfig.getInstance();
+							boolean shouldNotConsume = false;
+							if (fluidType.equals("lava") && config.isEnableInfiniteLava()) {
+								shouldNotConsume = units >= config.getInfiniteLavaThreshold();
+							} else if (fluidType.equals("water") && config.isEnableInfiniteWater()) {
+								shouldNotConsume = units >= config.getInfiniteWaterThreshold();
+							}
+							
+							if (!shouldNotConsume) {
+								upgrades.removeFluidUnits(fluidType, 1);
+							}
 							ItemStack fluidBucket = UpgradeInventory.createFluidBucket(fluidType);
 							
 							// 如果手中有多个空桶，将多余的空桶放入仓库
@@ -322,14 +346,25 @@ public final class ServerNetworkingHandlers {
 						}
 						
 						if (bucketToConsume != null) {
+							// 检查是否启用无限流体
+							ServerConfig config = ServerConfig.getInstance();
+							boolean shouldNotConsume = false;
+							if (fluidType.equals("lava") && config.isEnableInfiniteLava()) {
+								shouldNotConsume = units >= config.getInfiniteLavaThreshold();
+							} else if (fluidType.equals("water") && config.isEnableInfiniteWater()) {
+								shouldNotConsume = units >= config.getInfiniteWaterThreshold();
+							}
+							
 							// 消耗一个桶
 							bucketToConsume.decrement(1);
 							if (bucketToConsume.isEmpty()) {
 								handler.slots.get(bucketSlot).setStack(ItemStack.EMPTY);
 							}
 							
-							// 消耗一个流体单位并创建流体桶
-							upgrades.removeFluidUnits(fluidType, 1);
+							// 消耗一个流体单位并创建流体桶（如果未启用无限流体或数量未达到阈值）
+							if (!shouldNotConsume) {
+								upgrades.removeFluidUnits(fluidType, 1);
+							}
 							ItemStack fluidBucket = UpgradeInventory.createFluidBucket(fluidType);
 							
 							// 将流体桶放入背包
@@ -696,8 +731,10 @@ public final class ServerNetworkingHandlers {
     private static void insertIntoPlayerInventory(ServerPlayerEntity player, ItemStack stack) {
 		Inventory inv = player.getInventory();
 		if (stack.isEmpty()) return;
+		
+		// 只尝试插入到主物品栏+快捷栏（槽位0-35），不包括装备栏和副手
 		// 先尝试合并
-		for (int i = 0; i < inv.size(); i++) {
+		for (int i = 0; i <= 35 && !stack.isEmpty(); i++) {
 			ItemStack cur = inv.getStack(i);
 			if (!cur.isEmpty() && ItemStack.areItemsAndComponentsEqual(cur, stack)) {
 				int max = Math.min(cur.getMaxCount(), inv.getMaxCountPerStack());
@@ -706,18 +743,22 @@ public final class ServerNetworkingHandlers {
 					cur.increment(can);
 					stack.decrement(can);
 					inv.markDirty();
-					if (stack.isEmpty()) return;
 				}
 			}
 		}
 		// 放到空位
-		for (int i = 0; i < inv.size() && !stack.isEmpty(); i++) {
+		for (int i = 0; i <= 35 && !stack.isEmpty(); i++) {
 			if (inv.getStack(i).isEmpty()) {
 				inv.setStack(i, stack.copy());
 				stack.setCount(0);
 				inv.markDirty();
 				break;
 			}
+		}
+		
+		// 如果还有剩余物品，丢到地上
+		if (!stack.isEmpty()) {
+			player.dropItem(stack, false);
 		}
 	}
 
@@ -747,6 +788,7 @@ public final class ServerNetworkingHandlers {
         StorageSyncManager.setLastSnapshot(player.getUuid(), toSnapshotMap(merged));
         sendUpgradeSync(player);
         sendEnablementSync(player);
+        sendInfiniteFluidConfigSync(player);
     }
 
     private static void sendIncrementalAll(ServerPlayerEntity player) {
@@ -923,6 +965,18 @@ public final class ServerNetworkingHandlers {
 		data.putBoolean("enabled", enabled);
 		ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
 			ConfigSyncS2CPayload.Topic.STORAGE_ENABLEMENT, data
+		));
+	}
+	
+	public static void sendInfiniteFluidConfigSync(ServerPlayerEntity player) {
+		ServerConfig config = ServerConfig.getInstance();
+		NbtCompound data = new NbtCompound();
+		data.putBoolean("enableInfiniteLava", config.isEnableInfiniteLava());
+		data.putBoolean("enableInfiniteWater", config.isEnableInfiniteWater());
+		data.putInt("infiniteLavaThreshold", config.getInfiniteLavaThreshold());
+		data.putInt("infiniteWaterThreshold", config.getInfiniteWaterThreshold());
+		ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
+			ConfigSyncS2CPayload.Topic.INFINITE_FLUID_CONFIG, data
 		));
 	}
 

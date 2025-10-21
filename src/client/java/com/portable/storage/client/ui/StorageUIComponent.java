@@ -6,6 +6,7 @@ import java.util.Locale;
 
 import com.portable.storage.PortableStorage;
 import com.portable.storage.client.ClientConfig;
+import com.portable.storage.client.ClientInfiniteFluidConfig;
 import com.portable.storage.client.ClientNetworkingHandlers;
 import com.portable.storage.client.ClientRiftConfig;
 import com.portable.storage.client.ClientStorageState;
@@ -430,7 +431,12 @@ public class StorageUIComponent {
                                 context.getMatrices().translate(0.0f, 0.0f, 100.0f);
                                 drawFluidTexture(context, fluidType, sx + 1, sy + 1);
                                 // 渲染数量
-                                String countText = formatCount(units);
+                                String countText;
+                                if (ClientInfiniteFluidConfig.shouldShowInfinite(fluidType, units)) {
+                                    countText = Text.translatable(PortableStorage.MOD_ID + ".fluid.infinite_symbol").getString();
+                                } else {
+                                    countText = formatCount(units);
+                                }
                                 float scale = 0.75f;
                                 int textWidth = client.textRenderer.getWidth(countText);
                                 int txUnscaled = sx + slotSize - 1 - (int)(textWidth * scale);
@@ -736,7 +742,15 @@ public class StorageUIComponent {
                     int units = ClientUpgradeState.getFluidUnits(fluidType);
                     lines = new java.util.ArrayList<>();
                     lines.add(Text.translatable(PortableStorage.MOD_ID + ".fluid." + fluidType + ".title"));
-                    lines.add(Text.translatable(PortableStorage.MOD_ID + ".fluid.units", String.valueOf(units)));
+                    
+                    // 检查是否应该显示为无限
+                    String unitsText;
+                    if (ClientInfiniteFluidConfig.shouldShowInfinite(fluidType, units)) {
+                        unitsText = Text.translatable(PortableStorage.MOD_ID + ".fluid.infinite").getString();
+                    } else {
+                        unitsText = String.valueOf(units);
+                    }
+                    lines.add(Text.translatable(PortableStorage.MOD_ID + ".fluid.units", unitsText));
                     lines.add(Text.translatable(PortableStorage.MOD_ID + ".fluid.desc"));
                 } else {
                     lines = net.minecraft.client.gui.screen.Screen.getTooltipFromItem(client, hoveredStack);
@@ -2009,15 +2023,7 @@ public class StorageUIComponent {
                                                 
                                                 if (hasBucket) {
                                                     // 发送流体转换请求（左键）
-                                                    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new StorageActionC2SPayload(
-                                                        StorageActionC2SPayload.Action.CLICK,
-                                                        StorageActionC2SPayload.Target.FLUID,
-                                                        0,
-                                                        button,
-                                                        0,
-                                                        fluidType,
-                                                        0
-                                                    ));
+                                                    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new FluidConversionC2SPayload(fluidType, button));
                                                     return true;
                                                 }
                                             }

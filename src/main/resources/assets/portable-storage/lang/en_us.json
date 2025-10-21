@@ -52,6 +52,8 @@
   "portable-storage.fluid.water.title": "Water",
   "portable-storage.fluid.milk.title": "Milk",
   "portable-storage.fluid.units": "Units: %s",
+  "portable-storage.fluid.infinite": "Infinite",
+  "portable-storage.fluid.infinite_symbol": "∞",
   "portable-storage.fluid.desc": "Fluid, cannot be taken out directly, use empty bucket right-click to take out",
   "portable-storage.ui.upgrade_status": "[%s]",
   "portable-storage.ui.upgrade_disabled": "Disabled",

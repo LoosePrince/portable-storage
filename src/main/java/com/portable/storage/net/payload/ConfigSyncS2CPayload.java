@@ -32,7 +32,8 @@ public record ConfigSyncS2CPayload(Topic topic, NbtCompound data) implements Cus
         UPGRADE,
         XP_STEP,
         RIFT_CONFIG,
-        VIRTUAL_CRAFTING_CONFIG
+        VIRTUAL_CRAFTING_CONFIG,
+        INFINITE_FLUID_CONFIG
     }
 }
 

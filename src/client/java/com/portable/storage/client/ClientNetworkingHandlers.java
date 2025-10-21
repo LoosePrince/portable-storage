@@ -122,6 +122,16 @@ public final class ClientNetworkingHandlers {
                             }
                         }
                     }
+                    case INFINITE_FLUID_CONFIG -> {
+                        var nbt = payload.data();
+                        if (nbt != null) {
+                            boolean enableLava = nbt.getBoolean("enableInfiniteLava");
+                            boolean enableWater = nbt.getBoolean("enableInfiniteWater");
+                            int lavaThreshold = nbt.getInt("infiniteLavaThreshold");
+                            int waterThreshold = nbt.getInt("infiniteWaterThreshold");
+                            ClientInfiniteFluidConfig.updateConfig(enableLava, enableWater, lavaThreshold, waterThreshold);
+                        }
+                    }
                 }
             });
         });

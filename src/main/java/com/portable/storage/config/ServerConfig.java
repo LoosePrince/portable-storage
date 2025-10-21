@@ -37,6 +37,12 @@ public class ServerConfig {
     // 工作台虚拟合成功能配置
     private boolean enableVirtualCrafting = true;
     
+    // 无限流体功能配置
+    private boolean enableInfiniteLava = true;
+    private boolean enableInfiniteWater = true;
+    private int infiniteLavaThreshold = 10000;
+    private int infiniteWaterThreshold = 2;
+    
     // 工作台升级容器界面显示配置
     private boolean stonecutter = false;
     private boolean cartographyTable = false;
@@ -212,6 +218,28 @@ public class ServerConfig {
             # 默认值: true
             enable_virtual_crafting = true
             
+            # 启用无限岩浆功能
+            # 启用后岩浆流体在仓库内数量大于阈值时数量显示∞（无限）
+            # 存取都不会使其数量变化
+            # 默认值: true
+            enable_infinite_lava = true
+            
+            # 启用无限水功能
+            # 启用后水流体在仓库内数量大于阈值时数量显示∞（无限）
+            # 存取都不会使其数量变化
+            # 默认值: true
+            enable_infinite_water = true
+            
+            # 无限岩浆阈值
+            # 岩浆流体数量大于此值时显示为无限
+            # 默认值: 10000
+            infinite_lava_threshold = 10000
+            
+            # 无限水阈值
+            # 水流体数量大于此值时显示为无限
+            # 默认值: 2
+            infinite_water_threshold = 2
+            
             [container_display]
             # 工作台升级在容器界面显示仓库的配置
             # 启用工作台升级后，以下容器界面将显示仓库界面
@@ -291,6 +319,10 @@ public class ServerConfig {
             riftUpgradeItem = storageConfig.getOrElse("rift_upgrade_item", "block:minecraft:dragon_egg");
             riftSize = storageConfig.getOrElse("rift_size", 1);
             enableVirtualCrafting = storageConfig.getOrElse("enable_virtual_crafting", true);
+            enableInfiniteLava = storageConfig.getOrElse("enable_infinite_lava", true);
+            enableInfiniteWater = storageConfig.getOrElse("enable_infinite_water", true);
+            infiniteLavaThreshold = storageConfig.getOrElse("infinite_lava_threshold", 10000);
+            infiniteWaterThreshold = storageConfig.getOrElse("infinite_water_threshold", 2);
         } else {
             PortableStorage.LOGGER.warn("配置文件中未找到 [storage] 部分，使用默认值");
         }
@@ -348,6 +380,10 @@ public class ServerConfig {
         storageConfig.set("rift_upgrade_item", riftUpgradeItem);
         storageConfig.set("rift_size", riftSize);
         storageConfig.set("enable_virtual_crafting", enableVirtualCrafting);
+        storageConfig.set("enable_infinite_lava", enableInfiniteLava);
+        storageConfig.set("enable_infinite_water", enableInfiniteWater);
+        storageConfig.set("infinite_lava_threshold", infiniteLavaThreshold);
+        storageConfig.set("infinite_water_threshold", infiniteWaterThreshold);
         
         Config containerConfig = config.get("container_display");
         if (containerConfig == null) {
@@ -696,6 +732,10 @@ public class ServerConfig {
         consumeEnableItem = true;
         enableIncrementalSync = false;
         enableOnDemandSync = true;
+        enableInfiniteLava = true;
+        enableInfiniteWater = true;
+        infiniteLavaThreshold = 10000;
+        infiniteWaterThreshold = 2;
         
         // 容器配置默认值
         stonecutter = false;
@@ -768,6 +808,22 @@ public class ServerConfig {
         return enableVirtualCrafting;
     }
     
+    public boolean isEnableInfiniteLava() {
+        return enableInfiniteLava;
+    }
+    
+    public boolean isEnableInfiniteWater() {
+        return enableInfiniteWater;
+    }
+    
+    public int getInfiniteLavaThreshold() {
+        return infiniteLavaThreshold;
+    }
+    
+    public int getInfiniteWaterThreshold() {
+        return infiniteWaterThreshold;
+    }
+    
     // Setter 方法（用于运行时修改配置）
     public void setRequireConditionToEnable(boolean requireConditionToEnable) {
         this.requireConditionToEnable = requireConditionToEnable;
@@ -799,6 +855,22 @@ public class ServerConfig {
     
     public void setEnableVirtualCrafting(boolean enableVirtualCrafting) {
         this.enableVirtualCrafting = enableVirtualCrafting;
+    }
+    
+    public void setEnableInfiniteLava(boolean enableInfiniteLava) {
+        this.enableInfiniteLava = enableInfiniteLava;
+    }
+    
+    public void setEnableInfiniteWater(boolean enableInfiniteWater) {
+        this.enableInfiniteWater = enableInfiniteWater;
+    }
+    
+    public void setInfiniteLavaThreshold(int infiniteLavaThreshold) {
+        this.infiniteLavaThreshold = infiniteLavaThreshold;
+    }
+    
+    public void setInfiniteWaterThreshold(int infiniteWaterThreshold) {
+        this.infiniteWaterThreshold = infiniteWaterThreshold;
     }
     
     // 容器配置 Getter 方法

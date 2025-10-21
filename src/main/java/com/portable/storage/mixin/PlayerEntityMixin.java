@@ -10,6 +10,7 @@ import com.portable.storage.config.ServerConfig;
 import com.portable.storage.newstore.NewStoreService;
 import com.portable.storage.player.PlayerEnablementState;
 import com.portable.storage.player.PlayerStorageAccess;
+import com.portable.storage.player.PlayerStorageService;
 import com.portable.storage.storage.StorageInventory;
 import com.portable.storage.storage.UpgradeInventory;
 
@@ -212,8 +213,43 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
         for (ItemEntity itemEntity : itemEntities) {
 			ItemStack itemStack = itemEntity.getStack();
 			if (itemStack.isEmpty()) continue;
-            // 新版：直接存入新版存储
-            NewStoreService.insertForOnlinePlayer(player instanceof net.minecraft.server.network.ServerPlayerEntity sp ? sp : null, itemStack);
+			
+			// 检查是否为流体桶，如果是则走流体存入逻辑
+			if (player instanceof net.minecraft.server.network.ServerPlayerEntity sp) {
+				if (UpgradeInventory.isValidFluidItem(itemStack) && !itemStack.isOf(net.minecraft.item.Items.BUCKET)) {
+					// 流体桶：转换为空桶并添加流体单位
+					String fluidType = UpgradeInventory.getFluidType(itemStack);
+					if (fluidType != null) {
+						UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(sp);
+						
+						// 检查是否启用无限流体
+						ServerConfig config = ServerConfig.getInstance();
+						boolean shouldNotAdd = false;
+						if (fluidType.equals("lava") && config.isEnableInfiniteLava()) {
+							int units = upgrades.getFluidUnits(fluidType);
+							shouldNotAdd = units >= config.getInfiniteLavaThreshold();
+						} else if (fluidType.equals("water") && config.isEnableInfiniteWater()) {
+							int units = upgrades.getFluidUnits(fluidType);
+							shouldNotAdd = units >= config.getInfiniteWaterThreshold();
+						}
+						
+						if (!shouldNotAdd) {
+							upgrades.addFluidUnits(fluidType, 1);
+						}
+						
+						// 将空桶存入仓库
+						ItemStack emptyBucket = new ItemStack(net.minecraft.item.Items.BUCKET);
+						NewStoreService.insertForOnlinePlayer(sp, emptyBucket);
+						
+						// 移除掉落物
+						itemEntity.discard();
+						continue;
+					}
+				}
+				
+				// 普通物品：直接存入新版存储
+				NewStoreService.insertForOnlinePlayer(sp, itemStack);
+			}
 			
 			// 移除掉落物
 			itemEntity.discard();

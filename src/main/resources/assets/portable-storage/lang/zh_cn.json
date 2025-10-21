@@ -52,6 +52,8 @@
   "portable-storage.fluid.water.title": "水",
   "portable-storage.fluid.milk.title": "牛奶",
   "portable-storage.fluid.units": "单位：%s",
+  "portable-storage.fluid.infinite": "无限",
+  "portable-storage.fluid.infinite_symbol": "∞",
   "portable-storage.fluid.desc": "流体，无法直接取出，使用空桶右键取出",
   "portable-storage.ui.upgrade_status": "[%s]",
   "portable-storage.ui.upgrade_disabled": "已禁用",
