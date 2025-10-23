@@ -1,13 +1,20 @@
 package com.portable.storage.newstore;
 
+import com.portable.storage.PortableStorage;
+import com.portable.storage.config.ServerConfig;
 import com.portable.storage.net.ServerNetworkingHandlers;
 import com.portable.storage.player.StoragePersistence;
 import com.portable.storage.storage.StorageInventory;
 
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtIo;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
+
+import java.io.ByteArrayOutputStream;
 
 /**
  * 新版存储的公共服务：对外部自动化与交互提供统一的“存入新版存储”入口。
@@ -19,6 +26,21 @@ public final class NewStoreService {
         if (player == null || stack == null || stack.isEmpty()) return;
         MinecraftServer server = player.getServer();
         if (server == null) return;
+        
+        // 检查单个物品大小限制
+        ServerConfig config = ServerConfig.getInstance();
+        if (config.isEnableSizeLimit()) {
+            long itemSize = calculateItemSize(stack, player.getRegistryManager());
+            long maxSize = config.getMaxStorageSizeBytes();
+            
+            if (itemSize > maxSize) {
+                // 发送大小限制消息给玩家
+                player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.size_limit_exceeded", 
+                    formatSize(itemSize), formatSize(maxSize)), false);
+                return;
+            }
+        }
+        
         StoragePaths.ensureDirectories(server);
         TemplateIndex index = TemplateIndex.load(server);
         String key = ItemKeyHasher.hash(stack, player.getRegistryManager());
@@ -189,6 +211,50 @@ public final class NewStoreService {
         }
         
         return got;
+    }
+    
+    
+    /**
+     * 计算单个物品的大小
+     */
+    private static long calculateItemSize(ItemStack stack, RegistryWrapper.WrapperLookup lookup) {
+        if (stack == null || stack.isEmpty()) return 0;
+        
+        try {
+            // 将物品序列化为NBT
+            NbtCompound nbt = new NbtCompound();
+            var encoded = ItemStack.CODEC.encodeStart(
+                net.minecraft.registry.RegistryOps.of(net.minecraft.nbt.NbtOps.INSTANCE, lookup), 
+                stack
+            );
+            
+            if (encoded.result().isEmpty()) return 0;
+            
+            net.minecraft.nbt.NbtElement itemNbt = encoded.result().get();
+            nbt.put("item", itemNbt);
+            nbt.putInt("count", stack.getCount());
+            
+            // 计算NBT大小
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            NbtIo.writeCompressed(nbt, baos);
+            return baos.size();
+        } catch (Exception e) {
+            // 估算大小
+            return 64 + (stack.getComponents().isEmpty() ? 0 : 100);
+        }
+    }
+    
+    /**
+     * 格式化字节大小
+     */
+    private static String formatSize(long bytes) {
+        if (bytes < 1024) {
+            return bytes + " B";
+        } else if (bytes < 1024 * 1024) {
+            return String.format("%.1f KB", bytes / 1024.0);
+        } else {
+            return String.format("%.1f MB", bytes / (1024.0 * 1024.0));
+        }
     }
 }
 

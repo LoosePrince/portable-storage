@@ -131,6 +131,13 @@
   "command.portable-storage.newstore.verify.invalid_entries": "  无效键条目: %s",
   "command.portable-storage.newstore.verify.inconsistent": "发现数据不一致！建议运行 /portable-storage newstore rebuild 修复",
   "command.portable-storage.newstore.verify.passed": "数据验证通过 ✓",
-  "command.portable-storage.newstore.dump.warning": "警告：发现异常数据 - 负数计数: %s, 零计数条目: %s"
+  "command.portable-storage.newstore.dump.warning": "警告：发现异常数据 - 负数计数: %s, 零计数条目: %s",
+  "command.portable-storage.newstore.test_large_item.success": "已生成大型测试物品并放入背包",
+  "command.portable-storage.newstore.test_large_item.dropped": "已生成大型测试物品并丢到地上（背包已满）",
+  "command.portable-storage.newstore.get_item_size.no_item": "手中没有物品",
+  "command.portable-storage.newstore.get_item_size.result": "物品: %s x%d，大小: %s",
+  "command.portable-storage.newstore.get_item_size.exceeds_limit": "⚠️ 物品大小超过限制 (最大: %s)",
+  "command.portable-storage.newstore.get_item_size.within_limit": "✓ 物品大小在限制范围内 (最大: %s)",
+  "portable-storage.message.size_limit_exceeded": "物品大小超限！物品大小: %s，最大限制: %s"
 }
 

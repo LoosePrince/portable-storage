@@ -35,7 +35,7 @@ public final class NewStoreCommands {
 
     private static void registerInternal(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess access, CommandManager.RegistrationEnvironment env) {
         LiteralArgumentBuilder<ServerCommandSource> root = CommandManager.literal("portable-storage")
-            .requires(src -> src.hasPermissionLevel(2))
+            .requires(src -> src.hasPermissionLevel(4))
             .then(CommandManager.literal("newstore")
                 .then(CommandManager.literal("migrate")
                     .then(CommandManager.argument("player", GameProfileArgumentType.gameProfile())
@@ -53,6 +53,12 @@ public final class NewStoreCommands {
                 )
                 .then(CommandManager.literal("verify")
                     .executes(NewStoreCommands::executeVerify)
+                )
+                .then(CommandManager.literal("test-large-item")
+                    .executes(NewStoreCommands::executeTestLargeItem)
+                )
+                .then(CommandManager.literal("get-item-size")
+                    .executes(NewStoreCommands::executeGetItemSize)
                 )
             );
         dispatcher.register(root);
@@ -223,6 +229,172 @@ public final class NewStoreCommands {
         } catch (Throwable t) {
             return false;
         }
+    }
+    
+    private static int executeTestLargeItem(CommandContext<ServerCommandSource> ctx) {
+        ServerPlayerEntity player = ctx.getSource().getPlayer();
+        if (player == null) {
+            ctx.getSource().sendError(Text.literal("Only players can run this command"));
+            return 0;
+        }
+        
+        // 创建一个带有大量NBT数据的物品
+        net.minecraft.item.ItemStack stack = new net.minecraft.item.ItemStack(net.minecraft.item.Items.WRITTEN_BOOK);
+        
+        // 创建大量页面来增加物品大小，每页包含不重复的内容
+        net.minecraft.nbt.NbtList pages = new net.minecraft.nbt.NbtList();
+        
+        // 创建200页，每页包含不重复的文本
+        // 反正也打不开，随便搞，单个大小约 146kb 注意别给整成禁人书了，使用此命令概不负责
+        for (int pageNum = 0; pageNum < 200; pageNum++) {
+            StringBuilder pageContent = new StringBuilder();
+            pageContent.append("测试页面 ").append(pageNum + 1).append("\n");
+            pageContent.append("这是用于测试存储大小限制的页面。\n");
+            pageContent.append("每页包含独特的内容来增加数据大小。\n\n");
+            
+            // 每页添加独特的内容
+            for (int i = 0; i < 20; i++) {
+                int lineNum = pageNum * 20 + i + 1;
+                pageContent.append("独特内容行 ").append(lineNum).append(": ");
+                
+                // 生成每行独特的内容
+                pageContent.append("这是第").append(lineNum).append("行的独特文本内容。");
+                pageContent.append("包含随机数据: ").append(System.currentTimeMillis() + lineNum).append("。");
+                pageContent.append("用于测试物品大小限制功能。");
+                pageContent.append("行号: ").append(lineNum).append("，页面: ").append(pageNum + 1).append("。");
+                pageContent.append("时间戳: ").append(System.nanoTime() + lineNum).append("。");
+                pageContent.append("随机字符串: ").append(generateRandomString(20)).append("。\n");
+            }
+            
+            // 添加页面特有的信息
+            pageContent.append("\n页面特有信息:\n");
+            pageContent.append("- 页面编号: ").append(pageNum + 1).append("\n");
+            pageContent.append("- 生成时间: ").append(System.currentTimeMillis()).append("\n");
+            pageContent.append("- 页面哈希: ").append(Integer.toHexString((pageNum + 1) * 12345)).append("\n");
+            pageContent.append("- 内容长度: ").append(pageContent.length()).append(" 字符\n");
+            
+            // 创建页面文本，使用JSON格式
+            String pageText = "{\"text\":\"" + pageContent.toString().replace("\"", "\\\"") + "\"}";
+            pages.add(net.minecraft.nbt.NbtString.of(pageText));
+        }
+        
+        // 设置物品的NBT数据
+        net.minecraft.nbt.NbtCompound nbt = new net.minecraft.nbt.NbtCompound();
+        nbt.putString("title", "大型测试物品");
+        nbt.putString("author", "Portable Storage");
+        nbt.put("pages", pages);
+        
+        stack.set(net.minecraft.component.DataComponentTypes.CUSTOM_DATA, net.minecraft.component.type.NbtComponent.of(nbt));
+        
+        // 给玩家物品
+        if (player.getInventory().insertStack(stack)) {
+            ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.test_large_item.success"), true);
+        } else {
+            // 如果背包满了，丢到地上
+            player.dropItem(stack, false);
+            ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.test_large_item.dropped"), true);
+        }
+        
+        return 1;
+    }
+    
+    private static int executeGetItemSize(CommandContext<ServerCommandSource> ctx) {
+        ServerPlayerEntity player = ctx.getSource().getPlayer();
+        if (player == null) {
+            ctx.getSource().sendError(Text.literal("Only players can run this command"));
+            return 0;
+        }
+        
+        net.minecraft.item.ItemStack mainHand = player.getMainHandStack();
+        if (mainHand.isEmpty()) {
+            ctx.getSource().sendError(Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.get_item_size.no_item"));
+            return 0;
+        }
+        
+        // 计算物品大小
+        long itemSize = calculateItemSize(mainHand, player.getRegistryManager());
+        String formattedSize = formatSize(itemSize);
+        
+        // 获取物品信息
+        String itemName = mainHand.getName().getString();
+        int count = mainHand.getCount();
+        
+        // 发送结果
+        ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.get_item_size.result", 
+            itemName, count, formattedSize), false);
+        
+        // 检查是否超过限制
+        com.portable.storage.config.ServerConfig config = com.portable.storage.config.ServerConfig.getInstance();
+        if (config.isEnableSizeLimit()) {
+            long maxSize = config.getMaxStorageSizeBytes();
+            if (itemSize > maxSize) {
+                ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.get_item_size.exceeds_limit", 
+                    formatSize(maxSize)), false);
+            } else {
+                ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.get_item_size.within_limit", 
+                    formatSize(maxSize)), false);
+            }
+        }
+        
+        return 1;
+    }
+    
+    /**
+     * 计算单个物品的大小
+     */
+    private static long calculateItemSize(net.minecraft.item.ItemStack stack, net.minecraft.registry.RegistryWrapper.WrapperLookup lookup) {
+        if (stack == null || stack.isEmpty()) return 0;
+        
+        try {
+            // 将物品序列化为NBT
+            net.minecraft.nbt.NbtCompound nbt = new net.minecraft.nbt.NbtCompound();
+            var encoded = net.minecraft.item.ItemStack.CODEC.encodeStart(
+                net.minecraft.registry.RegistryOps.of(net.minecraft.nbt.NbtOps.INSTANCE, lookup), 
+                stack
+            );
+            
+            if (encoded.result().isEmpty()) return 0;
+            
+            net.minecraft.nbt.NbtElement itemNbt = encoded.result().get();
+            nbt.put("item", itemNbt);
+            nbt.putInt("count", stack.getCount());
+            
+            // 计算NBT大小
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            net.minecraft.nbt.NbtIo.writeCompressed(nbt, baos);
+            return baos.size();
+        } catch (Exception e) {
+            // 估算大小
+            return 64 + (stack.getComponents().isEmpty() ? 0 : 100);
+        }
+    }
+    
+    /**
+     * 格式化字节大小
+     */
+    private static String formatSize(long bytes) {
+        if (bytes < 1024) {
+            return bytes + " B";
+        } else if (bytes < 1024 * 1024) {
+            return String.format("%.1f KB", bytes / 1024.0);
+        } else {
+            return String.format("%.1f MB", bytes / (1024.0 * 1024.0));
+        }
+    }
+    
+    /**
+     * 生成指定长度的随机字符串
+     */
+    private static String generateRandomString(int length) {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        StringBuilder sb = new StringBuilder();
+        java.util.Random random = new java.util.Random();
+        
+        for (int i = 0; i < length; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        
+        return sb.toString();
     }
 }
 

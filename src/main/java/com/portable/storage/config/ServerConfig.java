@@ -44,6 +44,10 @@ public class ServerConfig {
     private int infiniteLavaThreshold = 10000;
     private int infiniteWaterThreshold = 2;
     
+    // 存储大小限制配置
+    private boolean enableSizeLimit = true;
+    private long maxStorageSizeBytes = 100 * 1024; // 100KB
+    
     // 工作台升级容器界面显示配置
     private boolean stonecutter = false;
     private boolean cartographyTable = false;
@@ -258,6 +262,16 @@ public class ServerConfig {
             # 默认值: 2
             infinite_water_threshold = 2
             
+            # 是否启用物品大小限制
+            # 启用后限制单个物品的大小，防止过大的物品存入存储
+            # 默认值: true
+            enable_size_limit = true
+            
+            # 最大物品大小（字节）
+            # 单个物品的大小不能超过此值
+            # 默认值: 102400 (100KB)
+            max_storage_size_bytes = 102400
+            
             [container_display]
             # 工作台升级在容器界面显示仓库的配置
             # 启用工作台升级后，以下容器界面将显示仓库界面
@@ -342,6 +356,8 @@ public class ServerConfig {
             enableInfiniteWater = storageConfig.getOrElse("enable_infinite_water", true);
             infiniteLavaThreshold = storageConfig.getOrElse("infinite_lava_threshold", 10000);
             infiniteWaterThreshold = storageConfig.getOrElse("infinite_water_threshold", 2);
+            enableSizeLimit = storageConfig.getOrElse("enable_size_limit", true);
+            maxStorageSizeBytes = storageConfig.getOrElse("max_storage_size_bytes", 102400L);
         } else {
             PortableStorage.LOGGER.warn("配置文件中未找到 [storage] 部分，使用默认值");
         }
@@ -404,6 +420,8 @@ public class ServerConfig {
         storageConfig.set("enable_infinite_water", enableInfiniteWater);
         storageConfig.set("infinite_lava_threshold", infiniteLavaThreshold);
         storageConfig.set("infinite_water_threshold", infiniteWaterThreshold);
+        storageConfig.set("enable_size_limit", enableSizeLimit);
+        storageConfig.set("max_storage_size_bytes", maxStorageSizeBytes);
         
         Config containerConfig = config.get("container_display");
         if (containerConfig == null) {
@@ -756,6 +774,8 @@ public class ServerConfig {
         enableInfiniteWater = true;
         infiniteLavaThreshold = 10000;
         infiniteWaterThreshold = 2;
+        enableSizeLimit = true;
+        maxStorageSizeBytes = 102400;
         
         // 容器配置默认值
         stonecutter = false;
@@ -848,6 +868,14 @@ public class ServerConfig {
         return infiniteWaterThreshold;
     }
     
+    public boolean isEnableSizeLimit() {
+        return enableSizeLimit;
+    }
+    
+    public long getMaxStorageSizeBytes() {
+        return maxStorageSizeBytes;
+    }
+    
     // Setter 方法（用于运行时修改配置）
     public void setRequireConditionToEnable(boolean requireConditionToEnable) {
         this.requireConditionToEnable = requireConditionToEnable;
@@ -895,6 +923,14 @@ public class ServerConfig {
     
     public void setInfiniteWaterThreshold(int infiniteWaterThreshold) {
         this.infiniteWaterThreshold = infiniteWaterThreshold;
+    }
+    
+    public void setEnableSizeLimit(boolean enableSizeLimit) {
+        this.enableSizeLimit = enableSizeLimit;
+    }
+    
+    public void setMaxStorageSizeBytes(long maxStorageSizeBytes) {
+        this.maxStorageSizeBytes = maxStorageSizeBytes;
     }
     
     // 容器配置 Getter 方法

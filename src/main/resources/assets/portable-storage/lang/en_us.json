@@ -128,6 +128,13 @@
   "command.portable-storage.newstore.verify.invalid_entries": "  Invalid key entries: %s",
   "command.portable-storage.newstore.verify.inconsistent": "Data inconsistency detected! Recommend running /portable-storage newstore rebuild to fix",
   "command.portable-storage.newstore.verify.passed": "Data verification passed ✓",
-  "command.portable-storage.newstore.dump.warning": "Warning: Abnormal data detected - negative count: %s, zero count entries: %s"
+  "command.portable-storage.newstore.dump.warning": "Warning: Abnormal data detected - negative count: %s, zero count entries: %s",
+  "command.portable-storage.newstore.test_large_item.success": "Generated large test item and added to inventory",
+  "command.portable-storage.newstore.test_large_item.dropped": "Generated large test item and dropped on ground (inventory full)",
+  "command.portable-storage.newstore.get_item_size.no_item": "No item in hand",
+  "command.portable-storage.newstore.get_item_size.result": "Item: %s x%d, Size: %s",
+  "command.portable-storage.newstore.get_item_size.exceeds_limit": "⚠️ Item size exceeds limit (Max: %s)",
+  "command.portable-storage.newstore.get_item_size.within_limit": "✓ Item size within limit (Max: %s)",
+  "portable-storage.message.size_limit_exceeded": "Item size limit exceeded! Item size: %s, Max limit: %s"
 }
 

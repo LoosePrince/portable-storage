@@ -30,7 +30,7 @@ public final class SpaceRiftCommands {
 
     private static void registerInternal(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess access, CommandManager.RegistrationEnvironment env) {
         LiteralArgumentBuilder<ServerCommandSource> root = CommandManager.literal("portable-storage")
-            .requires(src -> src.hasPermissionLevel(2))
+            .requires(src -> src.hasPermissionLevel(4))
             .then(CommandManager.literal("rift")
                 .then(CommandManager.literal("reset")
                     .then(CommandManager.argument("player", GameProfileArgumentType.gameProfile())
