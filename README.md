@@ -29,6 +29,8 @@
 
 **Portable Storage** 是一个基于 [Fabric](https://fabricmc.net/) 和 [Fabric API](https://www.curseforge.com/minecraft/mc-mods/fabric-api) 的 Minecraft 模组，为玩家提供随身仓库功能。仓库目前采用无限堆叠设计，按物品变体（含组件和NBT数据）进行智能存储，支持多玩家共享和自动化设备交互。
 
+无限并非真无限，单种物品最大为Long.MAX_VALUE
+
 ### 相关链接
 
 - MOD百科：https://www.mcmod.cn/class/22574.html
