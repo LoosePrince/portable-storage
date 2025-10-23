@@ -571,9 +571,8 @@ public final class ServerNetworkingHandlers {
                 ServerPlayerEntity player = (ServerPlayerEntity) context.player();
                 if (payload.screen() == RequestOpenScreenC2SPayload.Screen.VANILLA_CRAFTING) {
                     // 切回原版工作台
-                    final net.minecraft.util.math.BlockPos[] openPosHolder = new net.minecraft.util.math.BlockPos[1];
-                    final net.minecraft.world.World[] openWorldHolder = new net.minecraft.world.World[1];
                     if (player.currentScreenHandler instanceof PortableCraftingScreenHandler pch) {
+                        // 先保存合成槽中的物品到玩家背包
                         for (int i = 1; i <= 9 && i < pch.slots.size(); i++) {
                             net.minecraft.screen.slot.Slot slot = pch.getSlot(i);
                             ItemStack st = slot.getStack();
@@ -583,12 +582,10 @@ public final class ServerNetworkingHandlers {
                                 insertIntoPlayerInventory(player, copy);
                             }
                         }
-                        pch.getContext().run((w, pos) -> {
-                            openWorldHolder[0] = w;
-                            openPosHolder[0] = pos;
-                        });
                     }
                     player.closeHandledScreen();
+                    
+                    // 使用空的上下文创建原版工作台界面，不需要真实的工作台位置
                     player.openHandledScreen(new net.minecraft.screen.NamedScreenHandlerFactory() {
                         @Override
                         public net.minecraft.text.Text getDisplayName() {
@@ -596,9 +593,7 @@ public final class ServerNetworkingHandlers {
                         }
                         @Override
                         public net.minecraft.screen.ScreenHandler createMenu(int syncId, net.minecraft.entity.player.PlayerInventory inv, net.minecraft.entity.player.PlayerEntity playerEntity) {
-                            net.minecraft.world.World w = openWorldHolder[0] != null ? openWorldHolder[0] : player.getWorld();
-                            net.minecraft.util.math.BlockPos p = openPosHolder[0] != null ? openPosHolder[0] : player.getBlockPos();
-                            return new net.minecraft.screen.CraftingScreenHandler(syncId, inv, net.minecraft.screen.ScreenHandlerContext.create(w, p));
+                            return new net.minecraft.screen.CraftingScreenHandler(syncId, inv, net.minecraft.screen.ScreenHandlerContext.EMPTY);
                         }
                     });
                 } else if (payload.screen() == RequestOpenScreenC2SPayload.Screen.PORTABLE_CRAFTING) {
