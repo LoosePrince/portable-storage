@@ -1445,26 +1445,26 @@ public class StorageUIComponent {
         if (count < 1000) return String.valueOf(count);
         if (count < 1000000) {
             double v = count / 1000.0;
-            return v < 10 ? String.format(Locale.US, "%.1fk", v) : String.format(Locale.US, "%.0fk", v);
+            return v < 10 ? String.format(Locale.US, "%.1fk", Math.floor(v * 10) / 10) : String.format(Locale.US, "%.0fk", Math.floor(v));
         }
         if (count < 1000000000) {
             double v = count / 1000000.0;
-            return v < 10 ? String.format(Locale.US, "%.1fM", v) : String.format(Locale.US, "%.0fM", v);
+            return v < 10 ? String.format(Locale.US, "%.1fM", Math.floor(v * 10) / 10) : String.format(Locale.US, "%.0fM", Math.floor(v));
         }
         if (count < 1000000000000L) {
             double v = count / 1000000000.0;
-            return v < 10 ? String.format(Locale.US, "%.1fG", v) : String.format(Locale.US, "%.0fG", v);
+            return v < 10 ? String.format(Locale.US, "%.1fG", Math.floor(v * 10) / 10) : String.format(Locale.US, "%.0fG", Math.floor(v));
         }
         if (count < 1000000000000000L) {
             double v = count / 1000000000000.0;
-            return v < 10 ? String.format(Locale.US, "%.1fT", v) : String.format(Locale.US, "%.0fT", v);
+            return v < 10 ? String.format(Locale.US, "%.1fT", Math.floor(v * 10) / 10) : String.format(Locale.US, "%.0fT", Math.floor(v));
         }
         if (count < 1000000000000000000L) {
             double v = count / 1000000000000000.0;
-            return v < 10 ? String.format(Locale.US, "%.1fP", v) : String.format(Locale.US, "%.0fP", v);
+            return v < 10 ? String.format(Locale.US, "%.1fP", Math.floor(v * 10) / 10) : String.format(Locale.US, "%.0fP", Math.floor(v));
         }
         double v = count / 1000000000000000000.0;
-        return v < 10 ? String.format(Locale.US, "%.1fE", v) : String.format(Locale.US, "%.0fE", v);
+        return v < 10 ? String.format(Locale.US, "%.1fE", Math.floor(v * 10) / 10) : String.format(Locale.US, "%.0fE", Math.floor(v));
     }
 
     private String formatTimestamp(long timestamp) {
