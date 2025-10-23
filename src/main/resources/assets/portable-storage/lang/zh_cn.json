@@ -122,6 +122,15 @@
   "command.portable-storage.newstore.dump": "新版存储条目：%s 项，总数量：%s",
   "command.portable-storage.newstore.migrate": "已迁移玩家数：%s",
   "command.portable-storage.newstore.migrateAll.progress": "批量迁移中：%s/%s，成功：%s",
-  "command.portable-storage.newstore.migrateAll.done": "批量迁移完成：成功 %s/%s"
+  "command.portable-storage.newstore.migrateAll.done": "批量迁移完成：成功 %s/%s",
+  "command.portable-storage.newstore.verify.title": "数据验证结果:",
+  "command.portable-storage.newstore.verify.total_entries": "  总条目数: %s",
+  "command.portable-storage.newstore.verify.total_count": "  总数量: %s",
+  "command.portable-storage.newstore.verify.negative_entries": "  负数条目: %s",
+  "command.portable-storage.newstore.verify.zero_entries": "  零数量条目: %s",
+  "command.portable-storage.newstore.verify.invalid_entries": "  无效键条目: %s",
+  "command.portable-storage.newstore.verify.inconsistent": "发现数据不一致！建议运行 /portable-storage newstore rebuild 修复",
+  "command.portable-storage.newstore.verify.passed": "数据验证通过 ✓",
+  "command.portable-storage.newstore.dump.warning": "警告：发现异常数据 - 负数计数: %s, 零计数条目: %s"
 }
 

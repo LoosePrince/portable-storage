@@ -119,6 +119,15 @@
   "command.portable-storage.newstore.dump": "New store entries: %s, total: %s",
   "command.portable-storage.newstore.migrate": "Migrated players: %s",
   "command.portable-storage.newstore.migrateAll.progress": "Migrating: %s/%s, success: %s",
-  "command.portable-storage.newstore.migrateAll.done": "Migration finished: success %s/%s"
+  "command.portable-storage.newstore.migrateAll.done": "Migration finished: success %s/%s",
+  "command.portable-storage.newstore.verify.title": "Data verification results:",
+  "command.portable-storage.newstore.verify.total_entries": "  Total entries: %s",
+  "command.portable-storage.newstore.verify.total_count": "  Total count: %s",
+  "command.portable-storage.newstore.verify.negative_entries": "  Negative entries: %s",
+  "command.portable-storage.newstore.verify.zero_entries": "  Zero count entries: %s",
+  "command.portable-storage.newstore.verify.invalid_entries": "  Invalid key entries: %s",
+  "command.portable-storage.newstore.verify.inconsistent": "Data inconsistency detected! Recommend running /portable-storage newstore rebuild to fix",
+  "command.portable-storage.newstore.verify.passed": "Data verification passed ✓",
+  "command.portable-storage.newstore.dump.warning": "Warning: Abnormal data detected - negative count: %s, zero count entries: %s"
 }
 

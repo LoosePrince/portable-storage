@@ -51,6 +51,9 @@ public final class NewStoreCommands {
                 .then(CommandManager.literal("dump")
                     .executes(NewStoreCommands::executeDumpSelf)
                 )
+                .then(CommandManager.literal("verify")
+                    .executes(NewStoreCommands::executeVerify)
+                )
             );
         dispatcher.register(root);
     }
@@ -74,11 +77,67 @@ public final class NewStoreCommands {
         MinecraftServer server = player.getServer();
         if (server == null) return 0;
         Map<String, PlayerStore.Entry> m = PlayerStore.readAll(server, player.getUuid());
-        long totalLocal = m.values().stream().mapToLong(e -> Math.max(0L, e.count)).sum();
+        // 修复：直接使用 count 值，因为 readAll 已经过滤了 count <= 0 的条目
+        long totalLocal = m.values().stream().mapToLong(e -> e.count).sum();
         final int size = m.size();
         final long total = totalLocal;
+        
+        // 添加调试信息：检查是否有异常数据
+        long negativeCount = m.values().stream().mapToLong(e -> e.count < 0 ? e.count : 0).sum();
+        long zeroCount = m.values().stream().mapToLong(e -> e.count == 0 ? 1 : 0).sum();
+        
+        if (negativeCount != 0 || zeroCount > 0) {
+            ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.dump.warning", negativeCount, zeroCount), false);
+        }
+        
         ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.dump", size, total), false);
         return 1;
+    }
+
+    private static int executeVerify(CommandContext<ServerCommandSource> ctx) {
+        ServerPlayerEntity player = ctx.getSource().getPlayer();
+        if (player == null) {
+            ctx.getSource().sendError(Text.literal("Only players can run verify without args"));
+            return 0;
+        }
+        MinecraftServer server = player.getServer();
+        if (server == null) return 0;
+        
+        Map<String, PlayerStore.Entry> m = PlayerStore.readAll(server, player.getUuid());
+        int totalEntries = m.size();
+        long totalCount = m.values().stream().mapToLong(e -> e.count).sum();
+        
+        // 检查数据一致性
+        final int[] negativeEntries = {0};
+        final int[] zeroEntries = {0};
+        final int[] invalidEntries = {0};
+        
+        for (PlayerStore.Entry entry : m.values()) {
+            if (entry.count < 0) {
+                negativeEntries[0]++;
+            } else if (entry.count == 0) {
+                zeroEntries[0]++;
+            }
+            if (entry.key == null || entry.key.isEmpty()) {
+                invalidEntries[0]++;
+            }
+        }
+        
+        // 输出验证结果
+        ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.verify.title"), false);
+        ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.verify.total_entries", totalEntries), false);
+        ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.verify.total_count", totalCount), false);
+        ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.verify.negative_entries", negativeEntries[0]), false);
+        ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.verify.zero_entries", zeroEntries[0]), false);
+        ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.verify.invalid_entries", invalidEntries[0]), false);
+        
+        if (negativeEntries[0] > 0 || zeroEntries[0] > 0 || invalidEntries[0] > 0) {
+            ctx.getSource().sendError(Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.verify.inconsistent"));
+            return 0;
+        } else {
+            ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.verify.passed"), false);
+            return 1;
+        }
     }
 
     private static int executeMigrate(CommandContext<ServerCommandSource> ctx) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
