@@ -5,12 +5,14 @@ name: build
 on:
   push:
     branches:
-      - main
+      - 1.21/1.21.1
     paths-ignore:
       - '**/*.md'
+      - '.github/workflows/**'
   pull_request:
     paths-ignore:
       - '**/*.md'
+      - '.github/workflows/**'
 
 jobs:
   build:
