@@ -387,7 +387,7 @@ public class StorageUIComponent {
                         // 渲染数量为"仓库XP池"的数值
                         long totalXp = ClientUpgradeState.getCachedXpPool();
                         if (totalXp > 0) {
-                            String countText = formatCount((int)Math.min(Integer.MAX_VALUE, totalXp));
+                            String countText = formatCount(totalXp);
                             float scale = 0.75f;
                             int textWidth = client.textRenderer.getWidth(countText);
                             int txUnscaled = sx + slotSize - 1 - (int)(textWidth * scale);
@@ -435,7 +435,7 @@ public class StorageUIComponent {
                                 if (ClientInfiniteFluidConfig.shouldShowInfinite(fluidType, units)) {
                                     countText = Text.translatable(PortableStorage.MOD_ID + ".fluid.infinite_symbol").getString();
                                 } else {
-                                    countText = formatCount(units);
+                                    countText = formatCount((long) units);
                                 }
                                 float scale = 0.75f;
                                 int textWidth = client.textRenderer.getWidth(countText);
@@ -496,7 +496,7 @@ public class StorageUIComponent {
 
                             // 数量渲染：0.75 缩放，右下角
                             long logicalCount = (cinfo != null) ? cinfo.totalCount : ClientStorageState.getCount(storageIndex);
-                            int displayCount = (int)Math.min(Integer.MAX_VALUE, logicalCount > 0 ? logicalCount : originalCount);
+                            long displayCount = logicalCount > 0 ? logicalCount : originalCount;
                             if (displayCount > 1) {
                                 String countText = formatCount(displayCount);
                                 float scale = 0.75f;
@@ -1441,7 +1441,7 @@ public class StorageUIComponent {
         indices.sort(comparator);
     }
     
-    private String formatCount(int count) {
+    private String formatCount(long count) {
         if (count < 1000) return String.valueOf(count);
         if (count < 1000000) {
             double v = count / 1000.0;
@@ -1451,8 +1451,20 @@ public class StorageUIComponent {
             double v = count / 1000000.0;
             return v < 10 ? String.format(Locale.US, "%.1fM", v) : String.format(Locale.US, "%.0fM", v);
         }
-        double v = count / 1000000000.0;
-        return v < 10 ? String.format(Locale.US, "%.1fG", v) : String.format(Locale.US, "%.0fG", v);
+        if (count < 1000000000000L) {
+            double v = count / 1000000000.0;
+            return v < 10 ? String.format(Locale.US, "%.1fG", v) : String.format(Locale.US, "%.0fG", v);
+        }
+        if (count < 1000000000000000L) {
+            double v = count / 1000000000000.0;
+            return v < 10 ? String.format(Locale.US, "%.1fT", v) : String.format(Locale.US, "%.0fT", v);
+        }
+        if (count < 1000000000000000000L) {
+            double v = count / 1000000000000000.0;
+            return v < 10 ? String.format(Locale.US, "%.1fP", v) : String.format(Locale.US, "%.0fP", v);
+        }
+        double v = count / 1000000000000000000.0;
+        return v < 10 ? String.format(Locale.US, "%.1fE", v) : String.format(Locale.US, "%.0fE", v);
     }
 
     private String formatTimestamp(long timestamp) {
