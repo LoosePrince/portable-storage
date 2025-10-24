@@ -191,7 +191,9 @@ public final class NewStoreService {
         
         // 2) 再从新版存储提取
         if (remaining > 0) {
-            String key = ItemKeyHasher.hash(variant, null);
+            // 使用服务器的注册表上下文，确保与存储时使用相同的上下文
+            var lookup = server.getRegistryManager();
+            String key = ItemKeyHasher.hash(variant, lookup);
             if (key != null && !key.isEmpty()) {
                 for (java.util.UUID uuid : sharedUuids) {
                     if (remaining <= 0) break;
