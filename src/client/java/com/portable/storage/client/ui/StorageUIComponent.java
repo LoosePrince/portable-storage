@@ -150,6 +150,16 @@ public class StorageUIComponent {
         this.searchField.setVisible(true);
         this.searchField.setDrawsBackground(true);
         this.searchField.setEditableColor(0xFFFFFF);
+        this.searchField.setUneditableColor(0xFFFFFF);
+        // 尝试禁用文字阴影
+        try {
+            // 通过反射禁用阴影渲染
+            java.lang.reflect.Field shadowField = TextFieldWidget.class.getDeclaredField("shadow");
+            shadowField.setAccessible(true);
+            shadowField.set(this.searchField, false);
+        } catch (Exception ignored) {
+            // 如果反射失败，忽略错误
+        }
         this.searchField.setChangedListener(text -> {
             this.query = text == null ? "" : text;
             this.scroll = 0.0f;
@@ -272,7 +282,8 @@ public class StorageUIComponent {
         // 渲染搜索框
         updateSearchFieldPosition();
         if (this.searchField != null) {
-            this.searchField.render(context, mouseX, mouseY, delta);
+            // 自定义渲染搜索框，避免文字重影问题
+            renderSearchFieldCustom(context, mouseX, mouseY, delta);
         }
     }
     
@@ -2374,6 +2385,67 @@ public class StorageUIComponent {
         }
         
         return ItemStack.EMPTY;
+    }
+    
+    // ========== 自定义搜索框渲染 ==========
+    
+    /**
+     * 自定义渲染搜索框，避免文字重影问题
+     */
+    private void renderSearchFieldCustom(DrawContext context, int mouseX, int mouseY, float delta) {
+        if (this.searchField == null) return;
+        
+        // 获取搜索框的基本信息
+        int x = this.searchField.getX();
+        int y = this.searchField.getY();
+        int width = this.searchField.getWidth();
+        int height = this.searchField.getHeight();
+        
+        // 渲染背景
+        if (this.searchField.isVisible()) {
+            // 绘制搜索框背景
+            context.fill(x, y, x + width, y + height, 0x80000000);
+            // 绘制白色边框，确保边框与搜索框大小完全一致
+            // 使用fill方法绘制边框，确保像素完美对齐
+            context.fill(x, y, x + width, y + 1, 0xFFFFFFFF); // 上边框
+            context.fill(x, y, x + 1, y + height, 0xFFFFFFFF); // 左边框
+            context.fill(x + width - 1, y, x + width, y + height, 0xFFFFFFFF); // 右边框
+            context.fill(x, y + height - 1, x + width, y + height, 0xFFFFFFFF); // 下边框
+        }
+        
+        // 渲染文字内容（无阴影）
+        String text = this.searchField.getText();
+        if (text != null && !text.isEmpty()) {
+            // 直接渲染文字，不使用阴影
+            context.drawText(
+                MinecraftClient.getInstance().textRenderer,
+                text,
+                x + 4, y + (height - 8) / 2,
+                0xFFFFFF,
+                false
+            );
+        } else {
+            // 渲染占位符文字
+            String placeholder = Text.translatable(PortableStorage.MOD_ID + ".search.placeholder").getString();
+            if (placeholder != null && !placeholder.isEmpty()) {
+                context.drawText(
+                    MinecraftClient.getInstance().textRenderer,
+                    placeholder,
+                    x + 4, y + (height - 8) / 2,
+                    0x808080,
+                    false
+                );
+            }
+        }
+        
+        // 处理鼠标交互
+        if (this.searchField.isFocused()) {
+            // 绘制光标
+            int cursorX = x + 4 + MinecraftClient.getInstance().textRenderer.getWidth(text != null ? text : "");
+            int cursorY = y + 2;
+            int cursorHeight = height - 4;
+            context.fill(cursorX, cursorY, cursorX + 1, cursorY + cursorHeight, 0xFFFFFFFF);
+        }
     }
     
     // ========== 辅助判断 ==========

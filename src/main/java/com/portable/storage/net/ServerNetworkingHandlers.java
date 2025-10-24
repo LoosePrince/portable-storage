@@ -1718,13 +1718,13 @@ public final class ServerNetworkingHandlers {
             return 0;
         }
         
+        // 使用合并的视图，确保与 takeFromStorage 一致
+        StorageInventory merged = buildMergedSnapshot(player);
         long totalCount = 0;
-        for (StorageInventory s : getViewStorages(player)) {
-            for (int i = 0; i < s.getCapacity(); i++) {
-                ItemStack disp = s.getDisplayStack(i);
-                if (!disp.isEmpty() && ItemStack.areItemsAndComponentsEqual(disp, variant)) {
-                    totalCount += s.getCountByIndex(i);
-                }
+        for (int i = 0; i < merged.getCapacity(); i++) {
+            ItemStack disp = merged.getDisplayStack(i);
+            if (!disp.isEmpty() && ItemStack.areItemsAndComponentsEqual(disp, variant)) {
+                totalCount += merged.getCountByIndex(i);
             }
         }
         return totalCount;
