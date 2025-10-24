@@ -11,7 +11,8 @@ import net.minecraft.nbt.NbtCompound;
  */
 public final class ClientUpgradeState {
     private static final UpgradeInventory upgradeInventory = new UpgradeInventory();
-    private static final boolean[] disabledSlots = new boolean[10]; // 10个槽位的禁用状态（5个基础+5个扩展）
+    private static final int TOTAL_SLOT_COUNT = 10; // 5个基础槽位 + 5个扩展槽位
+    private static final boolean[] disabledSlots = new boolean[TOTAL_SLOT_COUNT]; // 槽位的禁用状态（5个基础+5个扩展）
     private static ItemStack fluidStack = ItemStack.EMPTY; // 流体槽位物品
     private static ItemStack trashStack = ItemStack.EMPTY; // 垃圾桶槽位物品
     
@@ -90,7 +91,7 @@ public final class ClientUpgradeState {
      * 检查指定槽位是否被禁用
      */
     public static boolean isSlotDisabled(int slot) {
-        if (slot < 0 || slot >= 10) return false;
+        if (slot < 0 || slot >= TOTAL_SLOT_COUNT) return false;
         return disabledSlots[slot];
     }
     
@@ -98,7 +99,7 @@ public final class ClientUpgradeState {
      * 切换指定槽位的禁用状态
      */
     public static void toggleSlotDisabled(int slot) {
-        if (slot < 0 || slot >= 10) return;
+        if (slot < 0 || slot >= TOTAL_SLOT_COUNT) return;
         disabledSlots[slot] = !disabledSlots[slot];
     }
     
@@ -106,7 +107,7 @@ public final class ClientUpgradeState {
      * 设置指定槽位的禁用状态
      */
     public static void setSlotDisabled(int slot, boolean disabled) {
-        if (slot < 0 || slot >= 10) return;
+        if (slot < 0 || slot >= TOTAL_SLOT_COUNT) return;
         disabledSlots[slot] = disabled;
     }
     

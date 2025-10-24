@@ -784,6 +784,9 @@ public final class ServerNetworkingHandlers {
         sendUpgradeSync(player);
         sendEnablementSync(player);
         sendInfiniteFluidConfigSync(player);
+        sendRiftConfigSync(player);
+        sendVirtualCraftingConfigSync(player);
+        sendContainerDisplayConfigSync(player);
     }
 
     private static void sendIncrementalAll(ServerPlayerEntity player) {
@@ -972,6 +975,58 @@ public final class ServerNetworkingHandlers {
 		data.putInt("infiniteWaterThreshold", config.getInfiniteWaterThreshold());
 		ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
 			ConfigSyncS2CPayload.Topic.INFINITE_FLUID_CONFIG, data
+		));
+	}
+	
+	public static void sendRiftConfigSync(ServerPlayerEntity player) {
+		ServerConfig config = ServerConfig.getInstance();
+		NbtCompound data = new NbtCompound();
+		data.putString("riftUpgradeItem", config.getRiftUpgradeItem());
+		data.putInt("riftSize", config.getRiftSize());
+		ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
+			ConfigSyncS2CPayload.Topic.RIFT_CONFIG, data
+		));
+	}
+	
+	public static void sendVirtualCraftingConfigSync(ServerPlayerEntity player) {
+		ServerConfig config = ServerConfig.getInstance();
+		NbtCompound data = new NbtCompound();
+		data.putBoolean("enableVirtualCrafting", config.isEnableVirtualCrafting());
+		ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
+			ConfigSyncS2CPayload.Topic.VIRTUAL_CRAFTING_CONFIG, data
+		));
+	}
+	
+	public static void sendContainerDisplayConfigSync(ServerPlayerEntity player) {
+		ServerConfig config = ServerConfig.getInstance();
+		NbtCompound data = new NbtCompound();
+		data.putBoolean("stonecutter", config.isStonecutter());
+		data.putBoolean("cartographyTable", config.isCartographyTable());
+		data.putBoolean("smithingTable", config.isSmithingTable());
+		data.putBoolean("grindstone", config.isGrindstone());
+		data.putBoolean("loom", config.isLoom());
+		data.putBoolean("furnace", config.isFurnace());
+		data.putBoolean("smoker", config.isSmoker());
+		data.putBoolean("blastFurnace", config.isBlastFurnace());
+		data.putBoolean("anvil", config.isAnvil());
+		data.putBoolean("enchantingTable", config.isEnchantingTable());
+		data.putBoolean("brewingStand", config.isBrewingStand());
+		data.putBoolean("beacon", config.isBeacon());
+		data.putBoolean("chest", config.isChest());
+		data.putBoolean("barrel", config.isBarrel());
+		data.putBoolean("enderChest", config.isEnderChest());
+		data.putBoolean("shulkerBox", config.isShulkerBox());
+		data.putBoolean("dispenser", config.isDispenser());
+		data.putBoolean("dropper", config.isDropper());
+		data.putBoolean("crafter", config.isCrafter());
+		data.putBoolean("hopper", config.isHopper());
+		data.putBoolean("trappedChest", config.isTrappedChest());
+		data.putBoolean("hopperMinecart", config.isHopperMinecart());
+		data.putBoolean("chestMinecart", config.isChestMinecart());
+		data.putBoolean("chestBoat", config.isChestBoat());
+		data.putBoolean("bambooChestRaft", config.isBambooChestRaft());
+		ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
+			ConfigSyncS2CPayload.Topic.DISPLAY_CONFIG, data
 		));
 	}
 
@@ -1194,13 +1249,24 @@ public final class ServerNetworkingHandlers {
         UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
         
         if (button == 0) {
-            // 左键：放入物品到垃圾桶槽位
+            // 左键：如果鼠标有物品则放入，如果鼠标没有物品则取出
             ItemStack cursor = player.currentScreenHandler.getCursorStack();
             if (!cursor.isEmpty()) {
+                // 鼠标有物品：放入到垃圾桶槽位
                 if (upgrades.tryInsertTrashSlot(cursor)) {
                     player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
                     player.currentScreenHandler.sendContentUpdates();
                     sendUpgradeSync(player);
+                }
+            } else {
+                // 鼠标没有物品：从垃圾桶槽位取出
+                if (upgrades.isTrashSlotActive()) {
+                    ItemStack trashItem = upgrades.takeTrashSlot();
+                    if (!trashItem.isEmpty()) {
+                        player.currentScreenHandler.setCursorStack(trashItem);
+                        player.currentScreenHandler.sendContentUpdates();
+                        sendUpgradeSync(player);
+                    }
                 }
             }
         } else if (button == 1) {

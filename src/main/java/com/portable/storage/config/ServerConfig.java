@@ -357,7 +357,14 @@ public class ServerConfig {
             infiniteLavaThreshold = storageConfig.getOrElse("infinite_lava_threshold", 10000);
             infiniteWaterThreshold = storageConfig.getOrElse("infinite_water_threshold", 2);
             enableSizeLimit = storageConfig.getOrElse("enable_size_limit", true);
-            maxStorageSizeBytes = storageConfig.getOrElse("max_storage_size_bytes", 102400L);
+            Object sizeValue = storageConfig.get("max_storage_size_bytes");
+            if (sizeValue instanceof Integer) {
+                maxStorageSizeBytes = ((Integer) sizeValue).longValue();
+            } else if (sizeValue instanceof Long) {
+                maxStorageSizeBytes = (Long) sizeValue;
+            } else {
+                maxStorageSizeBytes = 102400L;
+            }
         } else {
             PortableStorage.LOGGER.warn("配置文件中未找到 [storage] 部分，使用默认值");
         }

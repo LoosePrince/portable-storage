@@ -139,11 +139,13 @@ public final class NewStoreService {
         
         // 2) 再合并新版存储
         TemplateIndex index = TemplateIndex.load(server);
+        // 使用服务器的注册表上下文，确保附魔等基于注册表的数据正确解析
+        var lookup = server.getRegistryManager();
         for (java.util.UUID uuid : sharedUuids) {
             var entries = PlayerStore.readAll(server, uuid);
             for (PlayerStore.Entry e : entries.values()) {
                 if (e.count <= 0) continue;
-                ItemStack stack = TemplateSlices.getTemplate(() -> server, index, e.key, null);
+                ItemStack stack = TemplateSlices.getTemplate(() -> server, index, e.key, lookup);
                 if (stack.isEmpty()) continue;
                 long left = e.count;
                 while (left > 0) {

@@ -41,7 +41,7 @@ public class PlayerJoinEventHandler {
             // 清空垃圾桶槽位（客户端缓存）
             UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
             if (upgrades.isTrashSlotActive()) {
-                upgrades.setStack(10, net.minecraft.item.ItemStack.EMPTY);
+                upgrades.setTrashSlot(net.minecraft.item.ItemStack.EMPTY);
             }
             pendingMigrations.remove(player.getUuid());
         });

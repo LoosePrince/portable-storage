@@ -1002,7 +1002,13 @@ public class StorageUIComponent {
                     context.fill(extendedLeft + 1, trashSlotY + 1, extendedLeft + upgradeSlotSize - 1, trashSlotY + upgradeSlotSize - 1, 0x80FFFFFF);
                     context.getMatrices().pop();
                 }
+            } else {
+                // 垃圾桶槽位不可见时，重置点击区域
+                trashSlotLeft = trashSlotTop = trashSlotRight = trashSlotBottom = -1;
             }
+        } else {
+            // 箱子升级未激活时，重置点击区域
+            trashSlotLeft = trashSlotTop = trashSlotRight = trashSlotBottom = -1;
         }
         
         // 渲染流体槽位（在基础升级槽位下面，右侧）
@@ -1032,6 +1038,9 @@ public class StorageUIComponent {
                 context.fill(upgradeLeft + 1, fluidSlotY + 1, upgradeLeft + upgradeSlotSize - 1, fluidSlotY + upgradeSlotSize - 1, 0x80FFFFFF);
                 context.getMatrices().pop();
             }
+        } else {
+            // 流体槽位不可见时，重置点击区域
+            fluidSlotLeft = fluidSlotTop = fluidSlotRight = fluidSlotBottom = -1;
         }
         
         // 渲染升级槽位滚动条（如果需要）
