@@ -192,12 +192,8 @@ public final class ClientStorageState {
     }
 
     private static String makeKeyForStack(ItemStack s) {
-        // 使用完整的 ItemStack 编码生成唯一键，确保所有组件都被考虑
-        var id = net.minecraft.registry.Registries.ITEM.getId(s.getItem());
-        var ops = net.minecraft.nbt.NbtOps.INSTANCE;
-        var encoded = ItemStack.CODEC.encodeStart(ops, s);
-        String signature = encoded.result().map(net.minecraft.nbt.NbtElement::toString).orElse("");
-        return id + "#" + Integer.toHexString(signature.hashCode());
+        // 直接使用 ItemKeyHasher 生成键，确保与新版储存系统完全一致
+        return com.portable.storage.newstore.ItemKeyHasher.hash(s, lookupForClient());
     }
 
     private static net.minecraft.registry.RegistryWrapper.WrapperLookup lookupForClient() {
