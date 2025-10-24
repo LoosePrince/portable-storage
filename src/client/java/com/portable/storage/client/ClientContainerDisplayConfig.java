@@ -117,6 +117,7 @@ public class ClientContainerDisplayConfig {
             case "minecraft:brewing_stand": return brewingStand;
             case "minecraft:beacon": return beacon;
             case "minecraft:generic_9x3": return chest;
+            case "minecraft:generic_9x6": return chest;
             case "minecraft:generic_3x3": return barrel;
             case "minecraft:ender_chest": return enderChest;
             case "minecraft:shulker_box": return shulkerBox;

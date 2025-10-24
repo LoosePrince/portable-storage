@@ -148,7 +148,8 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
                 if (world != null && world.getServer() != null) {
                     // 标记后续同线程 removeStack 为自动化提取
                     THREAD_AUTOMATION_EXTRACT.set(true);
-                    // 检查仓库中是否有标记物品对应的物品
+                    
+                    // 检查旧版储存系统
                     List<StorageInventory> storages = StorageGroupService.getStoragesByOwner(world.getServer(), ownerUuid);
                     for (StorageInventory storage : storages) {
                         for (int i = 0; i < storage.getCapacity(); i++) {
@@ -156,6 +157,15 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
                             if (!disp.isEmpty() && ItemStack.areItemsAndComponentsEqual(disp, marker)) {
                                 return true; // 仓库中有对应物品，允许提取
                             }
+                        }
+                    }
+                    
+                    // 检查新版储存系统
+                    StorageInventory newStoreView = NewStoreService.buildSharedView(world.getServer(), ownerUuid, java.util.Set.of(ownerUuid));
+                    for (int i = 0; i < newStoreView.getCapacity(); i++) {
+                        ItemStack disp = newStoreView.getDisplayStack(i);
+                        if (!disp.isEmpty() && ItemStack.areItemsAndComponentsEqual(disp, marker)) {
+                            return true; // 新版仓库中有对应物品，允许提取
                         }
                     }
                 }
