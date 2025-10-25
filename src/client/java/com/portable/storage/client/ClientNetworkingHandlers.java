@@ -8,6 +8,7 @@ import com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload;
 import com.portable.storage.net.payload.StorageSyncS2CPayload;
 import com.portable.storage.net.payload.SyncControlC2SPayload;
 import com.portable.storage.net.payload.XpBottleMaintenanceToggleC2SPayload;
+import com.portable.storage.net.payload.RequestFilterRulesSyncS2CPayload;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
@@ -147,6 +148,18 @@ public final class ClientNetworkingHandlers {
 		});
 		
         // 旧 XP_STEP / DISPLAY_CONFIG / UPGRADE / ENABLEMENT 的接收器已由 ConfigSyncS2CPayload 统一替代
+        
+        // 筛选界面不需要服务器端处理，直接由客户端管理
+        // 移除对RequestOpenScreenC2SPayload的客户端接收器注册
+        
+        // 处理服务器请求同步筛选规则
+        ClientPlayNetworking.registerGlobalReceiver(RequestFilterRulesSyncS2CPayload.ID, (payload, context) -> {
+            context.client().execute(() -> {
+                if (context.client().player == null) return;
+                // 主动同步筛选规则到服务器
+                syncFilterRulesToServer();
+            });
+        });
 	}
 	
 	public static void sendXpBottleMaintenanceToggle() {
@@ -162,6 +175,32 @@ public final class ClientNetworkingHandlers {
 			null,
 			null
 		));
+	}
+	
+	/**
+	 * 同步筛选规则到服务器
+	 */
+	private static void syncFilterRulesToServer() {
+		// 转换规则格式
+		java.util.List<com.portable.storage.net.payload.SyncFilterRulesC2SPayload.FilterRule> serverFilterRules = new java.util.ArrayList<>();
+		java.util.List<com.portable.storage.net.payload.SyncFilterRulesC2SPayload.FilterRule> serverDestroyRules = new java.util.ArrayList<>();
+		
+		for (com.portable.storage.client.ClientConfig.FilterRule rule : com.portable.storage.client.ClientConfig.getInstance().filterRules) {
+			serverFilterRules.add(new com.portable.storage.net.payload.SyncFilterRulesC2SPayload.FilterRule(
+				rule.matchRule, rule.isWhitelist, rule.enabled
+			));
+		}
+		
+		for (com.portable.storage.client.ClientConfig.FilterRule rule : com.portable.storage.client.ClientConfig.getInstance().destroyRules) {
+			serverDestroyRules.add(new com.portable.storage.net.payload.SyncFilterRulesC2SPayload.FilterRule(
+				rule.matchRule, rule.isWhitelist, rule.enabled
+			));
+		}
+		
+		// 发送到服务器
+		ClientPlayNetworking.send(
+			new com.portable.storage.net.payload.SyncFilterRulesC2SPayload(serverFilterRules, serverDestroyRules)
+		);
 	}
 }
 

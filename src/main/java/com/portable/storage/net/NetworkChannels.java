@@ -16,6 +16,8 @@ import com.portable.storage.net.payload.UpgradeSlotClickC2SPayload;
 import com.portable.storage.net.payload.XpBottleClickC2SPayload;
 import com.portable.storage.net.payload.XpBottleConversionC2SPayload;
 import com.portable.storage.net.payload.XpBottleMaintenanceToggleC2SPayload;
+import com.portable.storage.net.payload.SyncFilterRulesC2SPayload;
+import com.portable.storage.net.payload.RequestFilterRulesSyncS2CPayload;
 
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 
@@ -35,10 +37,12 @@ public final class NetworkChannels {
 		PayloadTypeRegistry.playC2S().register(FluidClickC2SPayload.ID, FluidClickC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(FluidConversionC2SPayload.ID, FluidConversionC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(RequestOpenScreenC2SPayload.ID, RequestOpenScreenC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(SyncFilterRulesC2SPayload.ID, SyncFilterRulesC2SPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(StorageSyncS2CPayload.ID, StorageSyncS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IncrementalStorageSyncS2CPayload.ID, IncrementalStorageSyncS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(OverlayCraftingSyncS2CPayload.ID, OverlayCraftingSyncS2CPayload.PACKET_CODEC);
 		PayloadTypeRegistry.playS2C().register(ConfigSyncS2CPayload.ID, ConfigSyncS2CPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(RequestFilterRulesSyncS2CPayload.ID, RequestFilterRulesSyncS2CPayload.CODEC);
 	}
 }
 

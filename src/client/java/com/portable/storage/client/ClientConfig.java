@@ -56,6 +56,12 @@ public class ClientConfig {
     // 多音字映射表：字符 -> 所有可能的拼音数组
     public java.util.Map<String, String[]> polyphoneMap = new java.util.HashMap<>();
     
+    // 筛选规则列表
+    public java.util.List<FilterRule> filterRules = new java.util.ArrayList<>();
+    
+    // 销毁规则列表
+    public java.util.List<FilterRule> destroyRules = new java.util.ArrayList<>();
+    
     public enum SortMode {
         COUNT("count"),           // 数量
         NAME("name"),            // 物品名称
@@ -142,6 +148,8 @@ public class ClientConfig {
                 merged.favorites = new java.util.LinkedHashSet<>(defaults.favorites);
                 merged.pinyinSearch = defaults.pinyinSearch;
                 merged.polyphoneMap = new java.util.HashMap<>(defaults.polyphoneMap);
+                merged.filterRules = new java.util.ArrayList<>(defaults.filterRules);
+                merged.destroyRules = new java.util.ArrayList<>(defaults.destroyRules);
 
                 // 再按文件中存在的键覆盖
                 if (obj.has("collapsed")) {
@@ -244,6 +252,50 @@ public class ClientConfig {
                     merged.initializeDefaultPolyphoneMap();
                     changed = true;
                 }
+                
+                // 读取筛选规则（如果存在）
+                if (obj.has("filterRules")) {
+                    try {
+                        JsonArray filterArray = obj.getAsJsonArray("filterRules");
+                        java.util.List<FilterRule> filterRules = new java.util.ArrayList<>();
+                        for (int i = 0; i < filterArray.size(); i++) {
+                            JsonObject ruleObj = filterArray.get(i).getAsJsonObject();
+                            FilterRule rule = new FilterRule();
+                            rule.matchRule = ruleObj.has("matchRule") ? ruleObj.get("matchRule").getAsString() : "";
+                            rule.isWhitelist = ruleObj.has("isWhitelist") ? ruleObj.get("isWhitelist").getAsBoolean() : true;
+                            rule.enabled = ruleObj.has("enabled") ? ruleObj.get("enabled").getAsBoolean() : true;
+                            filterRules.add(rule);
+                        }
+                        merged.filterRules = filterRules;
+                    } catch (Exception ignored) { 
+                        // 解析失败，使用默认值
+                        changed = true;
+                    }
+                } else {
+                    changed = true;
+                }
+                
+                // 读取销毁规则（如果存在）
+                if (obj.has("destroyRules")) {
+                    try {
+                        JsonArray destroyArray = obj.getAsJsonArray("destroyRules");
+                        java.util.List<FilterRule> destroyRules = new java.util.ArrayList<>();
+                        for (int i = 0; i < destroyArray.size(); i++) {
+                            JsonObject ruleObj = destroyArray.get(i).getAsJsonObject();
+                            FilterRule rule = new FilterRule();
+                            rule.matchRule = ruleObj.has("matchRule") ? ruleObj.get("matchRule").getAsString() : "";
+                            rule.isWhitelist = ruleObj.has("isWhitelist") ? ruleObj.get("isWhitelist").getAsBoolean() : true;
+                            rule.enabled = ruleObj.has("enabled") ? ruleObj.get("enabled").getAsBoolean() : true;
+                            destroyRules.add(rule);
+                        }
+                        merged.destroyRules = destroyRules;
+                    } catch (Exception ignored) { 
+                        // 解析失败，使用默认值
+                        changed = true;
+                    }
+                } else {
+                    changed = true;
+                }
 
                 INSTANCE = merged;
                 if (changed) {
@@ -320,6 +372,25 @@ public class ClientConfig {
      */
     public java.util.Set<String> getAllPolyphones() {
         return new java.util.HashSet<>(polyphoneMap.keySet());
+    }
+    
+    /**
+     * 筛选规则类
+     */
+    public static class FilterRule {
+        public String matchRule;      // 匹配规则
+        public boolean isWhitelist;   // 是否为白名单模式
+        public boolean enabled;       // 是否启用
+        
+        public FilterRule() {
+            this("", true, true);
+        }
+        
+        public FilterRule(String matchRule, boolean isWhitelist, boolean enabled) {
+            this.matchRule = matchRule;
+            this.isWhitelist = isWhitelist;
+            this.enabled = enabled;
+        }
     }
 }
 

@@ -135,6 +135,25 @@
   "command.portable-storage.newstore.get_item_size.result": "Item: %s x%d, Size: %s",
   "command.portable-storage.newstore.get_item_size.exceeds_limit": "⚠️ Item size exceeds limit (Max: %s)",
   "command.portable-storage.newstore.get_item_size.within_limit": "✓ Item size within limit (Max: %s)",
-  "portable-storage.message.size_limit_exceeded": "Item size limit exceeded! Item size: %s, Max limit: %s"
+  "portable-storage.message.size_limit_exceeded": "Item size limit exceeded! Item size: %s, Max limit: %s",
+  "portable-storage.filter.list.title": "%s Rule Management",
+  "portable-storage.filter.list.input": "Filter Condition",
+  "portable-storage.filter.list.input.placeholder": "Enter item ID, mod ID or regex",
+  "portable-storage.filter.list.whitelist": "Whitelist Mode",
+  "portable-storage.filter.list.blacklist": "Blacklist Mode",
+  "portable-storage.filter.list.add": "Add",
+  "portable-storage.filter.list.clear": "Clear",
+  "portable-storage.filter.list.back": "Back",
+  "portable-storage.filter.list.mode.whitelist": "Whitelist",
+  "portable-storage.filter.list.mode.blacklist": "Blacklist",
+  "portable-storage.filter.list.status.enabled": "Enabled",
+  "portable-storage.filter.list.status.disabled": "Disabled",
+  "portable-storage.filter.list.header.rule": "Match Rule",
+  "portable-storage.filter.list.header.mode": "Mode",
+  "portable-storage.filter.list.header.status": "Status",
+  "portable-storage.filter.list.header.action": "Action",
+  "portable-storage.filter.list.action.delete": "Delete",
+  "portable-storage.filter.list.mode.filter": "Filter",
+  "portable-storage.filter.list.mode.destroy": "Destroy"
 }
 

@@ -200,6 +200,11 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 	 */
 	@Unique
 	private void portableStorage$collectNearbyItems(PlayerEntity player, World world) {
+		// 如果是服务器端玩家，请求同步筛选规则
+		if (player instanceof net.minecraft.server.network.ServerPlayerEntity sp) {
+			com.portable.storage.storage.FilterRuleManager.requestRulesSync(sp);
+		}
+		
 		// 5格范围的掉落物检测
 		Box searchBox = new Box(
 			player.getX() - 5, player.getY() - 5, player.getZ() - 5,
@@ -247,12 +252,24 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 					}
 				}
 				
-				// 普通物品：直接存入新版存储
-				NewStoreService.insertForOnlinePlayer(sp, itemStack);
+				// 应用筛选和销毁规则
+				boolean shouldProcess = false;
+				if (com.portable.storage.storage.FilterRuleManager.shouldDestroyItem(sp, itemStack)) {
+					// 物品匹配销毁规则，直接删除
+					// 不存入仓库，直接丢弃
+					shouldProcess = true;
+				} else if (com.portable.storage.storage.FilterRuleManager.shouldPickupItem(sp, itemStack)) {
+					// 物品匹配筛选规则，存入仓库
+					NewStoreService.insertForOnlinePlayer(sp, itemStack);
+					shouldProcess = true;
+				}
+				// 如果既不匹配筛选规则也不匹配销毁规则，则不处理（不拾取）
+				
+				// 只有被处理的物品才删除掉落物
+				if (shouldProcess) {
+					itemEntity.discard();
+				}
 			}
-			
-			// 移除掉落物
-			itemEntity.discard();
 		}
 	}
 }

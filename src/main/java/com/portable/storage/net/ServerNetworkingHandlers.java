@@ -18,6 +18,7 @@ import com.portable.storage.net.payload.SyncControlC2SPayload;
 import com.portable.storage.net.payload.XpBottleClickC2SPayload;
 import com.portable.storage.net.payload.XpBottleConversionC2SPayload;
 import com.portable.storage.net.payload.XpBottleMaintenanceToggleC2SPayload;
+import com.portable.storage.net.payload.SyncFilterRulesC2SPayload;
 import com.portable.storage.newstore.NewStoreService;
 import com.portable.storage.player.PlayerStorageAccess;
 import com.portable.storage.player.PlayerStorageService;
@@ -384,6 +385,14 @@ public final class ServerNetworkingHandlers {
 		
         // 旧 EmiRecipeFillC2SPayload 接收器已移除（使用统一 CraftingOverlayActionC2SPayload）
 		
+		// 筛选规则同步
+		ServerPlayNetworking.registerGlobalReceiver(SyncFilterRulesC2SPayload.ID, (payload, context) -> {
+			context.server().execute(() -> {
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				com.portable.storage.storage.FilterRuleManager.syncPlayerRules(player, payload.filterRules(), payload.destroyRules());
+			});
+		});
+
 		// 玩家加入时发送容器显示配置同步（统一配置同步）
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			ServerPlayerEntity player = handler.player;
@@ -624,6 +633,15 @@ public final class ServerNetworkingHandlers {
                             return new PortableCraftingScreenHandler(syncId, inv, net.minecraft.screen.ScreenHandlerContext.create(player.getWorld(), player.getBlockPos()));
                         }
                     });
+                } else if (payload.screen() == RequestOpenScreenC2SPayload.Screen.FILTER_MAIN) {
+                    // 筛选系统主界面 - 客户端处理，服务器端无需特殊处理
+                    // 客户端会直接打开FilterMainScreen
+                } else if (payload.screen() == RequestOpenScreenC2SPayload.Screen.FILTER_SCREEN) {
+                    // 筛选界面 - 客户端处理，服务器端无需特殊处理
+                    // 客户端会直接打开FilterScreen
+                } else if (payload.screen() == RequestOpenScreenC2SPayload.Screen.DESTROY_SCREEN) {
+                    // 销毁界面 - 客户端处理，服务器端无需特殊处理
+                    // 客户端会直接打开DestroyScreen
                 }
             });
         });

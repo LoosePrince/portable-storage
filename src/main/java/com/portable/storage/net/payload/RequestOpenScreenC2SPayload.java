@@ -34,7 +34,7 @@ public record RequestOpenScreenC2SPayload(Screen screen, BlockPos pos, String di
     @Override
     public Id<? extends CustomPayload> getId() { return ID; }
 
-    public enum Screen { VANILLA_CRAFTING, PORTABLE_CRAFTING }
+    public enum Screen { VANILLA_CRAFTING, PORTABLE_CRAFTING, FILTER_MAIN, FILTER_SCREEN, DESTROY_SCREEN }
 }
 
 

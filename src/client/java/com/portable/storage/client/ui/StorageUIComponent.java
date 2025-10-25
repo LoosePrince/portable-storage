@@ -1861,6 +1861,17 @@ public class StorageUIComponent {
                             return true;
                         }
                     }
+                    // 漏斗升级槽位中键：打开筛选系统主界面
+                    if (i == 1 && ClientUpgradeState.getStack(1) != null && !ClientUpgradeState.getStack(1).isEmpty() && !ClientUpgradeState.isSlotDisabled(1)) {
+                        // 获取当前屏幕作为父界面，这样返回按钮可以正确回到原界面
+                        net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
+                        if (client.currentScreen != null) {
+                            client.setScreen(new com.portable.storage.client.screen.FilterMainScreen(client.currentScreen));
+                        } else {
+                            com.portable.storage.client.screen.FilterScreenManager.openFilterMainScreen();
+                        }
+                        return true;
+                    }
                     // 附魔之瓶槽位中键：切换等级维持状态
                     if (i == 7 && ClientUpgradeState.isXpBottleUpgradeActive()) {
                         ClientNetworkingHandlers.sendXpBottleMaintenanceToggle();
