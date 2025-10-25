@@ -6,11 +6,14 @@ import org.jetbrains.annotations.Nullable;
 
 import com.mojang.serialization.MapCodec;
 import com.portable.storage.blockentity.BoundBarrelBlockEntity;
+import com.portable.storage.blockentity.ModBlockEntities;
 
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.BlockWithEntity;
 import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.entity.BlockEntityTicker;
+import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -50,6 +53,12 @@ public class BoundBarrelBlock extends BlockWithEntity {
         return new BoundBarrelBlockEntity(pos, state);
     }
 
+    @Nullable
+    @Override
+    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state, BlockEntityType<T> type) {
+        return world.isClient ? null : validateTicker(type, ModBlockEntities.BOUND_BARREL, BoundBarrelBlockEntity::tick);
+    }
+
     @Override
     protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
         if (world.isClient) {
@@ -71,6 +80,8 @@ public class BoundBarrelBlock extends BlockWithEntity {
         if (!state.isOf(newState.getBlock())) {
             BlockEntity blockEntity = world.getBlockEntity(pos);
             if (blockEntity instanceof BoundBarrelBlockEntity boundBarrel) {
+                // 归还输出槽位的物品到仓库
+                boundBarrel.returnOutputItemsToStorage();
                 // 掉落木桶内部的标记物品
                 ItemScatterer.spawn(world, pos, boundBarrel);
             }
