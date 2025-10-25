@@ -198,8 +198,11 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         
         long currentTime = world.getTime();
         
-        // 处理输入槽位：只在有物品时才处理，或10秒强制处理
-        boolean shouldProcessInput = hasInputItems && (currentTime - lastInputBatchTime >= FORCE_INPUT_INTERVAL);
+        // 处理输入槽位：只在有物品时才处理，或10秒强制处理，或退出重进后强制处理
+        boolean shouldProcessInput = hasInputItems && (
+            lastInputBatchTime == 0 || // 退出重进后强制处理
+            (currentTime - lastInputBatchTime >= FORCE_INPUT_INTERVAL) // 10秒强制处理
+        );
         
         if (shouldProcessInput) {
             processInputSlots();
@@ -398,6 +401,20 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         }
         inventory = DefaultedList.ofSize(size(), ItemStack.EMPTY);
         Inventories.readNbt(nbt, inventory, registryLookup);
+        
+        // 检查是否有输入物品，如果有则标记需要处理（避免退出重进后时间判定失效）
+        boolean hasItems = false;
+        for (int slot = INPUT_SLOTS_START; slot <= INPUT_SLOTS_END; slot++) {
+            if (!getStack(slot).isEmpty()) {
+                hasItems = true;
+                break;
+            }
+        }
+        if (hasItems) {
+            hasInputItems = true;
+            // 标记需要立即处理，在tick时处理
+            lastInputBatchTime = 0; // 强制下次tick时处理
+        }
     }
 }
 
