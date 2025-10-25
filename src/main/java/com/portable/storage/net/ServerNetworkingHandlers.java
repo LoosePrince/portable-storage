@@ -1808,10 +1808,12 @@ public final class ServerNetworkingHandlers {
     }
 
     private static ItemStack findFirstMatchingInMerged(ServerPlayerEntity viewer, net.minecraft.recipe.Ingredient ing) {
-        for (StorageInventory s : getViewStorages(viewer)) {
-            for (int i = 0; i < s.getCapacity(); i++) {
-                ItemStack disp = s.getDisplayStack(i);
-                if (!disp.isEmpty() && ing.test(disp)) return disp;
+        // 使用合并快照而不是单独的存储视图，确保包含新版仓库物品
+        StorageInventory merged = buildMergedSnapshot(viewer);
+        for (int i = 0; i < merged.getCapacity(); i++) {
+            ItemStack disp = merged.getDisplayStack(i);
+            if (!disp.isEmpty() && ing.test(disp)) {
+                return disp;
             }
         }
         return ItemStack.EMPTY;
