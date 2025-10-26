@@ -45,6 +45,68 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
     // 输入处理状态：避免重复处理
     private boolean hasInputItems = false;
     
+    // 筛选规则存储
+    private java.util.List<FilterRule> filterRules = new java.util.ArrayList<>();
+    
+    /**
+     * 筛选规则类
+     */
+    public static class FilterRule {
+        public String matchRule;
+        public boolean isWhitelist;
+        public boolean enabled;
+        
+        public FilterRule() {
+            this("", true, true);
+        }
+        
+        public FilterRule(String matchRule, boolean isWhitelist, boolean enabled) {
+            this.matchRule = matchRule;
+            this.isWhitelist = isWhitelist;
+            this.enabled = enabled;
+        }
+        
+        public NbtCompound toNbt() {
+            NbtCompound nbt = new NbtCompound();
+            nbt.putString("matchRule", matchRule);
+            nbt.putBoolean("isWhitelist", isWhitelist);
+            nbt.putBoolean("enabled", enabled);
+            return nbt;
+        }
+        
+        public static FilterRule fromNbt(NbtCompound nbt) {
+            return new FilterRule(
+                nbt.getString("matchRule"),
+                nbt.getBoolean("isWhitelist"),
+                nbt.getBoolean("enabled")
+            );
+        }
+    }
+    
+    /**
+     * 获取筛选规则
+     */
+    public java.util.List<FilterRule> getFilterRules() {
+        return new java.util.ArrayList<>(filterRules);
+    }
+    
+    /**
+     * 获取销毁规则
+     */
+    
+    /**
+     * 设置筛选规则
+     */
+    public void setFilterRules(java.util.List<FilterRule> rules) {
+        this.filterRules = new java.util.ArrayList<>(rules);
+        markDirty();
+        // 通知客户端更新
+        if (world != null && !world.isClient) {
+            world.updateListeners(pos, getCachedState(), getCachedState(), net.minecraft.block.Block.NOTIFY_LISTENERS);
+        }
+    }
+    
+    
     // 槽位布局：
     // 0-4: 输出槽位 (漏斗可提取，对应标记槽位10-14)
     // 5-9: 输入槽位 (漏斗可插入，对应5个面)
@@ -150,7 +212,9 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
     public boolean canInsert(int slot, ItemStack stack, @Nullable Direction dir) {
         // 只允许向输入槽位(5-9)插入
         if (ownerUuid == null || stack.isEmpty()) return false;
-        return slot >= INPUT_SLOTS_START && slot <= INPUT_SLOTS_END;
+        if (slot < INPUT_SLOTS_START || slot > INPUT_SLOTS_END) return false;
+        
+        return true;
     }
 
     @Override
@@ -171,8 +235,18 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
 
     @Override
     public void setStack(int slot, ItemStack stack) {
-        // 输入槽位：直接设置，不立即存入仓库
+        // 输入槽位：检查筛选规则
         if (slot >= INPUT_SLOTS_START && slot <= INPUT_SLOTS_END) {
+            // 检查筛选规则：如果物品不匹配筛选规则，不插入
+            if (!stack.isEmpty() && !com.portable.storage.storage.BarrelFilterRuleManager.shouldPickupItem(this, stack)) {
+                // 物品不匹配筛选规则，不插入
+                super.setStack(slot, ItemStack.EMPTY);
+                hasInputItems = false;
+                markDirty();
+                return;
+            }
+            
+            // 物品通过筛选，正常插入
             super.setStack(slot, stack);
             // 更新输入状态：有物品时标记为需要处理
             hasInputItems = !stack.isEmpty();
@@ -370,6 +444,16 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
     }
 
     @Override
+    public net.minecraft.network.packet.Packet<net.minecraft.network.listener.ClientPlayPacketListener> toUpdatePacket() {
+        return net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket.create(this);
+    }
+
+    @Override
+    public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registryLookup) {
+        return createNbt(registryLookup);
+    }
+
+    @Override
     protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
         super.writeNbt(nbt, registryLookup);
         if (ownerUuid != null) {
@@ -380,6 +464,16 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         }
         nbt.putLong("last_batch_time", lastBatchTime);
         nbt.putLong("last_input_batch_time", lastInputBatchTime);
+        
+        // 保存筛选规则
+        NbtCompound filterRulesNbt = new NbtCompound();
+        for (int i = 0; i < filterRules.size(); i++) {
+            filterRulesNbt.put("rule_" + i, filterRules.get(i).toNbt());
+        }
+        filterRulesNbt.putInt("count", filterRules.size());
+        nbt.put("filter_rules", filterRulesNbt);
+        
+        
         // 注意：inputCache 不需要持久化，每次重启时清空即可
         Inventories.writeNbt(nbt, inventory, registryLookup);
     }
@@ -399,6 +493,20 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         if (nbt.contains("last_input_batch_time")) {
             lastInputBatchTime = nbt.getLong("last_input_batch_time");
         }
+        
+        // 读取筛选规则
+        filterRules.clear();
+        if (nbt.contains("filter_rules")) {
+            NbtCompound filterRulesNbt = nbt.getCompound("filter_rules");
+            int count = filterRulesNbt.getInt("count");
+            for (int i = 0; i < count; i++) {
+                if (filterRulesNbt.contains("rule_" + i)) {
+                    filterRules.add(FilterRule.fromNbt(filterRulesNbt.getCompound("rule_" + i)));
+                }
+            }
+        }
+        
+        
         inventory = DefaultedList.ofSize(size(), ItemStack.EMPTY);
         Inventories.readNbt(nbt, inventory, registryLookup);
         

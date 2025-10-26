@@ -67,9 +67,19 @@ public class BoundBarrelBlock extends BlockWithEntity {
         
         BlockEntity blockEntity = world.getBlockEntity(pos);
         if (blockEntity instanceof BoundBarrelBlockEntity boundBarrel) {
-            player.openHandledScreen(boundBarrel);
-            // 切换为漏斗界面后，统计按漏斗检查计数
-            player.incrementStat(Stats.INSPECT_HOPPER);
+            // 检查是否是Shift+右键（打开筛选配置）
+            if (player.isSneaking()) {
+                // 发送打开筛选界面的网络包
+                net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(
+                    (net.minecraft.server.network.ServerPlayerEntity) player,
+                    new com.portable.storage.net.payload.OpenBarrelFilterS2CPayload(pos)
+                );
+            } else {
+                // 普通右键打开木桶界面
+                player.openHandledScreen(boundBarrel);
+                // 切换为漏斗界面后，统计按漏斗检查计数
+                player.incrementStat(Stats.INSPECT_HOPPER);
+            }
         }
         
         return ActionResult.CONSUME;

@@ -73,4 +73,15 @@ public class FilterScreenManager {
             ""
         ));
     }
+    
+    /**
+     * 请求服务器打开绑定木桶筛选界面
+     */
+    public static void requestBarrelFilterScreen(net.minecraft.util.math.BlockPos barrelPos) {
+        ClientPlayNetworking.send(new RequestOpenScreenC2SPayload(
+            RequestOpenScreenC2SPayload.Screen.BARREL_FILTER,
+            barrelPos,
+            ""
+        ));
+    }
 }

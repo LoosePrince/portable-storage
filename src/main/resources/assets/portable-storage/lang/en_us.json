@@ -80,7 +80,7 @@
   "portable-storage.tooltip.last_modified": "Last Modified: %s",
   "portable-storage.message.storage_enabled": "Used %s to enable portable storage!",
   "portable-storage.ui.upgrade_desc.crafting_table": "Crafting Table: Display warehouse in the container interface",
-  "portable-storage.ui.upgrade_desc.hopper": "Hopper: Auto-pickup drops within 5 blocks into storage",
+  "portable-storage.ui.upgrade_desc.hopper": "Hopper: Auto-pickup drops within 5 blocks into storage, middle-click to open filter configuration",
   "portable-storage.ui.upgrade_desc.chest": "Chest: Adds 6 extended upgrade slots",
   "portable-storage.ui.upgrade_desc.barrel": "Barrel: Create bound barrel",
   "portable-storage.ui.upgrade_desc.spectral_arrow": "Spectral Arrow: Normal arrows apply 10s glowing",
@@ -154,6 +154,8 @@
   "portable-storage.filter.list.header.action": "Action",
   "portable-storage.filter.list.action.delete": "Delete",
   "portable-storage.filter.list.mode.filter": "Filter",
-  "portable-storage.filter.list.mode.destroy": "Destroy"
+  "portable-storage.filter.list.mode.destroy": "Destroy",
+  "portable-storage.barrel.filter.title": "Bound Barrel Filter Configuration",
+  "portable-storage.barrel.filter.desc": "Shift+Right-click bound barrel to open filter configuration"
 }
 

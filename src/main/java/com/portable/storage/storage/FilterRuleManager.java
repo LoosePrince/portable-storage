@@ -1,16 +1,20 @@
 package com.portable.storage.storage;
 
-import com.portable.storage.PortableStorage;
-import com.portable.storage.net.payload.SyncFilterRulesC2SPayload;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+
+import com.portable.storage.PortableStorage;
+import com.portable.storage.blockentity.BoundBarrelBlockEntity;
+import com.portable.storage.net.payload.SyncFilterRulesC2SPayload;
+
+import net.minecraft.item.ItemStack;
+import net.minecraft.registry.Registries;
+import net.minecraft.server.network.ServerPlayerEntity;
 
 /**
  * 服务器端筛选规则管理器
@@ -191,57 +195,6 @@ public class FilterRuleManager {
     }
     
     /**
-     * 检查物品是否匹配规则
-     */
-    private static boolean matchesRule(ItemStack itemStack, SyncFilterRulesC2SPayload.FilterRule rule) {
-        String itemId = Registries.ITEM.getId(itemStack.getItem()).toString();
-        String itemName = itemStack.getName().getString();
-        String modId = Registries.ITEM.getId(itemStack.getItem()).getNamespace();
-        
-        boolean matches = false;
-        
-        try {
-            // 尝试正则表达式匹配
-            Pattern pattern = Pattern.compile(rule.matchRule, Pattern.CASE_INSENSITIVE);
-            matches = pattern.matcher(itemId).find() || 
-                     pattern.matcher(itemName).find() ||
-                     pattern.matcher(modId).find();
-        } catch (PatternSyntaxException e) {
-            // 正则表达式无效，使用简单字符串匹配
-            String lowerRule = rule.matchRule.toLowerCase();
-            matches = itemId.toLowerCase().contains(lowerRule) ||
-                     itemName.toLowerCase().contains(lowerRule) ||
-                     modId.toLowerCase().contains(lowerRule);
-        }
-        
-        // 根据白名单/黑名单模式返回结果
-        if (rule.isWhitelist) {
-            // 白名单：匹配则通过
-            return matches;
-        } else {
-            // 黑名单：匹配则排除
-            return !matches;
-        }
-    }
-    
-    /**
-     * 获取玩家的规则数量统计
-     */
-    public static String getPlayerRulesStats(ServerPlayerEntity player) {
-        PlayerFilterRules rules = playerRules.get(player.getUuid());
-        if (rules == null) {
-            return "无规则";
-        }
-        
-        int enabledFilters = (int) rules.filterRules.stream().filter(r -> r.enabled).count();
-        int enabledDestroys = (int) rules.destroyRules.stream().filter(r -> r.enabled).count();
-        
-        return String.format("筛选规则: %d/%d, 销毁规则: %d/%d", 
-            enabledFilters, rules.filterRules.size(),
-            enabledDestroys, rules.destroyRules.size());
-    }
-    
-    /**
      * 清理玩家的规则（玩家离线时）
      */
     public static void clearPlayerRules(UUID playerId) {
@@ -265,5 +218,12 @@ public class FilterRuleManager {
         );
         
         PortableStorage.LOGGER.debug("Requested filter rules sync for player {}", player.getName().getString());
+    }
+    
+    /**
+     * 检查物品是否应该被绑定木桶拾取
+     */
+    public static boolean shouldPickupItemForBarrel(BoundBarrelBlockEntity barrel, ItemStack itemStack) {
+        return BarrelFilterRuleManager.shouldPickupItem(barrel, itemStack);
     }
 }

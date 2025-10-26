@@ -26,7 +26,14 @@ public class FilterMainScreen extends Screen {
         this.parent = parent;
     }
     
+    public FilterMainScreen(Screen parent, net.minecraft.util.math.BlockPos barrelPos) {
+        super(Text.translatable("portable-storage.barrel.filter.title"));
+        this.parent = parent;
+        this.barrelPos = barrelPos;
+    }
+    
     private Screen parent = null;
+    private net.minecraft.util.math.BlockPos barrelPos = null;
     
     @Override
     protected void init() {
@@ -89,10 +96,18 @@ public class FilterMainScreen extends Screen {
     }
     
     private void openFilterScreen() {
-        MinecraftClient.getInstance().setScreen(new FilterListScreen(this, FilterListScreen.Mode.FILTER));
+        if (barrelPos != null) {
+            MinecraftClient.getInstance().setScreen(new FilterListScreen(this, FilterListScreen.Mode.FILTER, barrelPos));
+        } else {
+            MinecraftClient.getInstance().setScreen(new FilterListScreen(this, FilterListScreen.Mode.FILTER));
+        }
     }
     
     private void openDestroyScreen() {
-        MinecraftClient.getInstance().setScreen(new FilterListScreen(this, FilterListScreen.Mode.DESTROY));
+        if (barrelPos != null) {
+            MinecraftClient.getInstance().setScreen(new FilterListScreen(this, FilterListScreen.Mode.DESTROY, barrelPos));
+        } else {
+            MinecraftClient.getInstance().setScreen(new FilterListScreen(this, FilterListScreen.Mode.DESTROY));
+        }
     }
 }

@@ -82,7 +82,17 @@ public class FilterListScreen extends Screen {
         this.rules = mode == Mode.FILTER ? ClientConfig.getInstance().filterRules : ClientConfig.getInstance().destroyRules;
     }
     
+    public FilterListScreen(Screen parent, Mode mode, net.minecraft.util.math.BlockPos barrelPos) {
+        super(Text.translatable("portable-storage.filter.list.title", mode.getDisplayName()));
+        this.parent = parent;
+        this.mode = mode;
+        this.barrelPos = barrelPos;
+        this.rules = new java.util.ArrayList<>(); // 绑定木桶的规则列表，从方块实体加载
+    }
+    
     private Screen parent = null;
+    private net.minecraft.util.math.BlockPos barrelPos = null;
+    private Mode mode;
     
     // 自适应相关
     private float scale = 1.0f;
@@ -188,8 +198,13 @@ public class FilterListScreen extends Screen {
         this.addDrawableChild(clearButton);
         this.addDrawableChild(backButton);
         
-        // 初始化时同步规则到服务器
-        syncRulesToServer();
+        // 如果是绑定木桶模式，从方块实体加载规则
+        if (barrelPos != null) {
+            loadRulesFromBarrel();
+        } else {
+            // 初始化时同步规则到服务器（玩家模式）
+            syncRulesToServer();
+        }
         
         // 标记开始查看仓库界面
         if (MinecraftClient.getInstance().player != null) {
@@ -284,10 +299,16 @@ public class FilterListScreen extends Screen {
         if (!matchRule.isEmpty()) {
             ClientConfig.FilterRule rule = new ClientConfig.FilterRule(matchRule, isWhitelistMode, true);
             rules.add(rule);
-            ClientConfig.save(); // 保存到配置文件
             
-            // 同步规则到服务器
-            syncRulesToServer();
+            if (barrelPos != null) {
+                // 绑定木桶模式：保存到绑定木桶
+                saveRulesToBarrel();
+            } else {
+                // 玩家模式：保存到配置文件
+                ClientConfig.save();
+                // 同步规则到服务器
+                syncRulesToServer();
+            }
             
             // 清空输入框
             filterInput.setText("");
@@ -297,10 +318,89 @@ public class FilterListScreen extends Screen {
     
     private void clearAllRules() {
         rules.clear();
-        ClientConfig.save(); // 保存到配置文件
         
-        // 同步规则到服务器
-        syncRulesToServer();
+        if (barrelPos != null) {
+            // 绑定木桶模式：保存到绑定木桶
+            saveRulesToBarrel();
+        } else {
+            // 玩家模式：保存到配置文件
+            ClientConfig.save();
+            // 同步规则到服务器
+            syncRulesToServer();
+        }
+    }
+    
+    /**
+     * 从绑定木桶方块实体加载规则
+     */
+    private void loadRulesFromBarrel() {
+        if (barrelPos == null) return;
+        
+        net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
+        if (client.world == null) return;
+        
+        net.minecraft.block.entity.BlockEntity blockEntity = client.world.getBlockEntity(barrelPos);
+        if (blockEntity instanceof com.portable.storage.blockentity.BoundBarrelBlockEntity barrel) {
+            // 加载筛选规则
+            rules.clear();
+            java.util.List<com.portable.storage.blockentity.BoundBarrelBlockEntity.FilterRule> barrelRules = barrel.getFilterRules();
+            for (com.portable.storage.blockentity.BoundBarrelBlockEntity.FilterRule rule : barrelRules) {
+                rules.add(new ClientConfig.FilterRule(rule.matchRule, rule.isWhitelist, rule.enabled));
+            }
+        }
+    }
+    
+    /**
+     * 保存规则到绑定木桶
+     */
+    private void saveRulesToBarrel() {
+        if (barrelPos == null) return;
+        
+        // 获取当前筛选规则
+        java.util.List<com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload.FilterRule> filterRules = new java.util.ArrayList<>();
+        
+        // 从绑定木桶方块实体获取当前规则
+        net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
+        if (client.world != null) {
+            net.minecraft.block.entity.BlockEntity blockEntity = client.world.getBlockEntity(barrelPos);
+            if (blockEntity instanceof com.portable.storage.blockentity.BoundBarrelBlockEntity barrel) {
+                // 获取现有的筛选规则
+                for (com.portable.storage.blockentity.BoundBarrelBlockEntity.FilterRule rule : barrel.getFilterRules()) {
+                    filterRules.add(new com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload.FilterRule(
+                        rule.matchRule, rule.isWhitelist, rule.enabled
+                    ));
+                }
+            }
+        }
+        
+        // 更新筛选规则列表
+        filterRules.clear();
+        for (ClientConfig.FilterRule rule : rules) {
+            filterRules.add(new com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload.FilterRule(
+                rule.matchRule, rule.isWhitelist, rule.enabled
+            ));
+        }
+        
+        // 发送网络包到服务器
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
+            new com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload(barrelPos, filterRules)
+        );
+        
+        // 同时更新客户端的方块实体，确保界面切换时规则不会丢失
+        if (client.world != null) {
+            net.minecraft.block.entity.BlockEntity blockEntity = client.world.getBlockEntity(barrelPos);
+            if (blockEntity instanceof com.portable.storage.blockentity.BoundBarrelBlockEntity barrel) {
+                // 转换规则格式并更新客户端方块实体
+                java.util.List<com.portable.storage.blockentity.BoundBarrelBlockEntity.FilterRule> clientFilterRules = new java.util.ArrayList<>();
+                for (com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload.FilterRule rule : filterRules) {
+                    clientFilterRules.add(new com.portable.storage.blockentity.BoundBarrelBlockEntity.FilterRule(
+                        rule.matchRule(), rule.isWhitelist(), rule.enabled()
+                    ));
+                }
+                
+                barrel.setFilterRules(clientFilterRules);
+            }
+        }
     }
     
     /**
@@ -461,9 +561,16 @@ public class FilterListScreen extends Screen {
                 mouseY >= y && mouseY <= y + itemHeight) {
                 ClientConfig.FilterRule rule = rules.get(i);
                 rule.enabled = !rule.enabled;
-                ClientConfig.save();
-                // 同步规则到服务器
-                syncRulesToServer();
+                
+                if (barrelPos != null) {
+                    // 绑定木桶模式：保存到绑定木桶
+                    saveRulesToBarrel();
+                } else {
+                    // 玩家模式：保存到配置文件
+                    ClientConfig.save();
+                    // 同步规则到服务器
+                    syncRulesToServer();
+                }
                 return true;
             }
             
@@ -471,9 +578,16 @@ public class FilterListScreen extends Screen {
             if (mouseX >= centerX + (int)(320 * scale) && mouseX <= centerX + (int)(370 * scale) && 
                 mouseY >= y && mouseY <= y + itemHeight) {
                 rules.remove(i);
-                ClientConfig.save();
-                // 同步规则到服务器
-                syncRulesToServer();
+                
+                if (barrelPos != null) {
+                    // 绑定木桶模式：保存到绑定木桶
+                    saveRulesToBarrel();
+                } else {
+                    // 玩家模式：保存到配置文件
+                    ClientConfig.save();
+                    // 同步规则到服务器
+                    syncRulesToServer();
+                }
                 return true;
             }
         }

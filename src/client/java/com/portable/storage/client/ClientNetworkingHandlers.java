@@ -9,6 +9,7 @@ import com.portable.storage.net.payload.StorageSyncS2CPayload;
 import com.portable.storage.net.payload.SyncControlC2SPayload;
 import com.portable.storage.net.payload.XpBottleMaintenanceToggleC2SPayload;
 import com.portable.storage.net.payload.RequestFilterRulesSyncS2CPayload;
+import com.portable.storage.net.payload.OpenBarrelFilterS2CPayload;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
@@ -150,7 +151,17 @@ public final class ClientNetworkingHandlers {
         // 旧 XP_STEP / DISPLAY_CONFIG / UPGRADE / ENABLEMENT 的接收器已由 ConfigSyncS2CPayload 统一替代
         
         // 筛选界面不需要服务器端处理，直接由客户端管理
-        // 移除对RequestOpenScreenC2SPayload的客户端接收器注册
+        // 但绑定木桶筛选需要特殊处理
+        ClientPlayNetworking.registerGlobalReceiver(OpenBarrelFilterS2CPayload.ID, (payload, context) -> {
+            context.client().execute(() -> {
+                // 直接打开绑定木桶筛选界面
+                context.client().setScreen(new com.portable.storage.client.screen.FilterListScreen(
+                    context.client().currentScreen, 
+                    com.portable.storage.client.screen.FilterListScreen.Mode.FILTER, 
+                    payload.barrelPos()
+                ));
+            });
+        });
         
         // 处理服务器请求同步筛选规则
         ClientPlayNetworking.registerGlobalReceiver(RequestFilterRulesSyncS2CPayload.ID, (payload, context) -> {

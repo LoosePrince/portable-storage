@@ -19,6 +19,7 @@ import com.portable.storage.net.payload.XpBottleClickC2SPayload;
 import com.portable.storage.net.payload.XpBottleConversionC2SPayload;
 import com.portable.storage.net.payload.XpBottleMaintenanceToggleC2SPayload;
 import com.portable.storage.net.payload.SyncFilterRulesC2SPayload;
+import com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload;
 import com.portable.storage.newstore.NewStoreService;
 import com.portable.storage.player.PlayerStorageAccess;
 import com.portable.storage.player.PlayerStorageService;
@@ -392,6 +393,32 @@ public final class ServerNetworkingHandlers {
 				com.portable.storage.storage.FilterRuleManager.syncPlayerRules(player, payload.filterRules(), payload.destroyRules());
 			});
 		});
+		
+		// 处理绑定木桶筛选规则同步
+		ServerPlayNetworking.registerGlobalReceiver(SyncBarrelFilterRulesC2SPayload.ID, (payload, context) -> {
+			context.server().execute(() -> {
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				net.minecraft.world.World world = player.getWorld();
+				net.minecraft.block.entity.BlockEntity blockEntity = world.getBlockEntity(payload.barrelPos());
+				
+				if (blockEntity instanceof com.portable.storage.blockentity.BoundBarrelBlockEntity barrel) {
+					// 转换规则格式
+					java.util.List<com.portable.storage.blockentity.BoundBarrelBlockEntity.FilterRule> filterRules = new java.util.ArrayList<>();
+					for (com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload.FilterRule rule : payload.filterRules()) {
+						filterRules.add(new com.portable.storage.blockentity.BoundBarrelBlockEntity.FilterRule(
+							rule.matchRule(), rule.isWhitelist(), rule.enabled()
+						));
+					}
+					
+					// 更新绑定木桶的规则
+					barrel.setFilterRules(filterRules);
+					barrel.markDirty();
+					
+					// 调试信息
+					System.out.println("服务器更新绑定木桶规则: 筛选=" + filterRules.size());
+				}
+			});
+		});
 
 		// 玩家加入时发送容器显示配置同步（统一配置同步）
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
@@ -642,6 +669,9 @@ public final class ServerNetworkingHandlers {
                 } else if (payload.screen() == RequestOpenScreenC2SPayload.Screen.DESTROY_SCREEN) {
                     // 销毁界面 - 客户端处理，服务器端无需特殊处理
                     // 客户端会直接打开DestroyScreen
+                } else if (payload.screen() == RequestOpenScreenC2SPayload.Screen.BARREL_FILTER) {
+                    // 绑定木桶筛选界面 - 客户端处理，服务器端无需特殊处理
+                    // 客户端会直接打开FilterMainScreen，但数据来源是绑定木桶
                 }
             });
         });

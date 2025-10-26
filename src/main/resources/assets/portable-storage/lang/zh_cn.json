@@ -84,7 +84,7 @@
   "portable-storage.tooltip.last_modified": "最后修改：%s",
   "portable-storage.message.storage_enabled": "已使用 %s 启用随身仓库功能！",
   "portable-storage.ui.upgrade_desc.crafting_table": "工作台：在容器界面显示仓库",
-  "portable-storage.ui.upgrade_desc.hopper": "漏斗：自动拾取周围5格范围内的掉落物到仓库中",
+  "portable-storage.ui.upgrade_desc.hopper": "漏斗：自动拾取周围5格范围内的掉落物到仓库中，中键点击打开筛选配置",
   "portable-storage.ui.upgrade_desc.chest": "箱子：增加扩展升级槽6个",
   "portable-storage.ui.upgrade_desc.barrel": "木桶：创建绑定木桶",
   "portable-storage.ui.upgrade_desc.spectral_arrow": "光灵箭：射出的普通箭矢将使目标获得10s的发光效果",
@@ -162,6 +162,8 @@
   "portable-storage.filter.list.header.action": "操作",
   "portable-storage.filter.list.action.delete": "删除",
   "portable-storage.filter.list.mode.filter": "筛选",
-  "portable-storage.filter.list.mode.destroy": "销毁"
+  "portable-storage.filter.list.mode.destroy": "销毁",
+  "portable-storage.barrel.filter.title": "绑定木桶筛选配置",
+  "portable-storage.barrel.filter.desc": "Shift+右键绑定木桶打开筛选配置"
 }
 
