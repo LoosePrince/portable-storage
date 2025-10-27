@@ -1,11 +1,14 @@
 package com.portable.storage.blockentity;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.jetbrains.annotations.Nullable;
 
 import com.portable.storage.PortableStorage;
 import com.portable.storage.newstore.NewStoreService;
+import com.portable.storage.player.StorageGroupService;
+import com.portable.storage.storage.StorageInventory;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.LootableContainerBlockEntity;
@@ -22,31 +25,34 @@ import net.minecraft.text.Text;
 import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
 
 /**
- * 绑定木桶的方块实体 - 虚拟槽位版本
- * 实现虚拟槽位系统，批量结算，大幅提升性能
+ * 绑定木桶的方块实体
+ * 实现 SidedInventory 以支持漏斗交互
  */
 public class BoundBarrelBlockEntity extends LootableContainerBlockEntity implements SidedInventory {
     private DefaultedList<ItemStack> inventory;
     private UUID ownerUuid;
     private String ownerName;
-    
-    // 批量处理相关
-    private long lastBatchTime = 0;
-    private long lastInputBatchTime = 0;
-    private static final long BATCH_INTERVAL = 20; // 1秒 = 20游戏刻（输出）
-    private static final long FORCE_INPUT_INTERVAL = 200; // 10秒 = 200游戏刻（强制输入）
-    
-    // 输入缓存：收集物品，批量处理
-    private java.util.List<ItemStack> inputCache = new java.util.ArrayList<>();
-    
-    // 输入处理状态：避免重复处理
-    private boolean hasInputItems = false;
+    // 标记当前线程是否处于自动化（如漏斗）提取流程，用于 removeStack 决策
+    private static final ThreadLocal<Boolean> THREAD_AUTOMATION_EXTRACT = ThreadLocal.withInitial(() -> false);
+    // 记录当前线程本次自动化插入的来源方块位置（通常为漏斗位置），由 canInsert 写入、setStack 读取
+    private static final ThreadLocal<BlockPos> THREAD_INSERT_SOURCE = new ThreadLocal<>();
+    // 槽位5防重复处理：记录上一次在同一游戏刻处理的物品堆
+    private long lastSlot5ProcessTick = -1L;
+    private ItemStack lastSlot5Processed = ItemStack.EMPTY;
+    private BlockPos lastSlot5SourcePos = null;
     
     // 筛选规则存储
     private java.util.List<FilterRule> filterRules = new java.util.ArrayList<>();
+    
+    // 筛选规则缓存，避免重复计算
+    private volatile boolean filterRulesEmpty = true;
+    private volatile long lastFilterRulesCheckTick = -1;
+    
+    // 物品键缓存，避免重复计算 SHA-256
+    private volatile String lastItemKey = null;
+    private volatile ItemStack lastItemForKey = ItemStack.EMPTY;
     
     /**
      * 筛选规则类
@@ -91,10 +97,6 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
     }
     
     /**
-     * 获取销毁规则
-     */
-    
-    /**
      * 设置筛选规则
      */
     public void setFilterRules(java.util.List<FilterRule> rules) {
@@ -105,23 +107,12 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
             world.updateListeners(pos, getCachedState(), getCachedState(), net.minecraft.block.Block.NOTIFY_LISTENERS);
         }
     }
-    
-    
-    // 槽位布局：
-    // 0-4: 输出槽位 (漏斗可提取，对应标记槽位10-14)
-    // 5-9: 输入槽位 (漏斗可插入，对应5个面)
-    // 10-14: 标记槽位 (玩家可见，用于设置标记)
-    private static final int OUTPUT_SLOTS_START = 0;
-    private static final int OUTPUT_SLOTS_END = 4;
-    private static final int INPUT_SLOTS_START = 5;
-    private static final int INPUT_SLOTS_END = 9;
-    private static final int MARKER_SLOTS_START = 10;
-    private static final int MARKER_SLOTS_END = 14;
-    private static final int TOTAL_SLOTS = 15;
 
     public BoundBarrelBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.BOUND_BARREL, pos, state);
-        this.inventory = DefaultedList.ofSize(TOTAL_SLOTS, ItemStack.EMPTY);
+        // 0-4：标记槽位（显示在界面）
+        // 5：隐藏输入槽位（仅用于漏斗/自动化插入）
+        this.inventory = DefaultedList.ofSize(6, ItemStack.EMPTY);
     }
 
     @Override
@@ -144,268 +135,278 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
 
     @Override
     protected ScreenHandler createScreenHandler(int syncId, PlayerInventory playerInventory) {
-        // 使用漏斗界面：仅展示标记槽位（10-14），隐藏虚拟槽位
-        net.minecraft.inventory.Inventory visibleMarkerInventory = new net.minecraft.inventory.Inventory() {
+        // 使用漏斗界面：仅展示前5个标记槽位（0..4），隐藏第6个输入槽位（5）
+        net.minecraft.inventory.Inventory visibleFiveSlotInventory = new net.minecraft.inventory.Inventory() {
             @Override
             public int size() { return 5; }
 
             @Override
-            public boolean isEmpty() { 
-                return getStack(10).isEmpty() && getStack(11).isEmpty() && 
-                       getStack(12).isEmpty() && getStack(13).isEmpty() && getStack(14).isEmpty(); 
-            }
+            public boolean isEmpty() { return BoundBarrelBlockEntity.this.isEmpty() ||
+                (getStack(0).isEmpty() && getStack(1).isEmpty() && getStack(2).isEmpty() && getStack(3).isEmpty() && getStack(4).isEmpty()); }
 
             @Override
-            public ItemStack getStack(int slot) { return BoundBarrelBlockEntity.this.getStack(slot + 10); }
+            public ItemStack getStack(int slot) { return BoundBarrelBlockEntity.this.getStack(slot); }
 
             @Override
-            public ItemStack removeStack(int slot, int amount) { return BoundBarrelBlockEntity.this.removeStack(slot + 10, amount); }
+            public ItemStack removeStack(int slot, int amount) { return BoundBarrelBlockEntity.this.removeStack(slot, amount); }
 
             @Override
-            public ItemStack removeStack(int slot) { return BoundBarrelBlockEntity.this.removeStack(slot + 10); }
+            public ItemStack removeStack(int slot) { return BoundBarrelBlockEntity.this.removeStack(slot); }
 
             @Override
-            public void setStack(int slot, ItemStack stack) { BoundBarrelBlockEntity.this.setStack(slot + 10, stack); }
+            public void setStack(int slot, ItemStack stack) { BoundBarrelBlockEntity.this.setStack(slot, stack); }
 
             @Override
             public void markDirty() { BoundBarrelBlockEntity.this.markDirty(); }
 
             @Override
-            public boolean canPlayerUse(net.minecraft.entity.player.PlayerEntity player) { 
-                return BoundBarrelBlockEntity.this.canPlayerUse(player); 
-            }
+            public boolean canPlayerUse(net.minecraft.entity.player.PlayerEntity player) { return BoundBarrelBlockEntity.this.canPlayerUse(player); }
 
             @Override
             public void clear() {
-                for (int i = 0; i < 5; i++) BoundBarrelBlockEntity.this.setStack(i + 10, ItemStack.EMPTY);
+                for (int i = 0; i < 5; i++) BoundBarrelBlockEntity.this.setStack(i, ItemStack.EMPTY);
             }
         };
-        return new net.minecraft.screen.HopperScreenHandler(syncId, playerInventory, visibleMarkerInventory);
+        return new net.minecraft.screen.HopperScreenHandler(syncId, playerInventory, visibleFiveSlotInventory);
     }
 
     @Override
     public int size() {
-        return TOTAL_SLOTS;
-    }
-
-    /**
-     * 方块实体 tick 方法
-     */
-    public static void tick(World world, BlockPos pos, BlockState state, BoundBarrelBlockEntity blockEntity) {
-        if (blockEntity != null) {
-            blockEntity.portableStorage$processBatchIfNeeded();
-        }
+        return 6;
     }
 
     // ==== SidedInventory 实现 ====
 
     @Override
     public int[] getAvailableSlots(Direction side) {
+        // 允许自动化访问所有槽位，但通过 canInsert/canExtract 进行权限控制：
+        // 0-4 仅可被提取（根据标记槽位从仓库输出），5 仅可被插入（存入仓库）
         if (ownerUuid != null) {
-            // 返回所有虚拟槽位：输出槽位(0-4) + 输入槽位(5-9)
-            return new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+            return new int[]{0, 1, 2, 3, 4, 5};
         }
-        return new int[]{};
+        // 未绑定时仅允许访问槽位0
+        return new int[]{0};
     }
 
     @Override
     public boolean canInsert(int slot, ItemStack stack, @Nullable Direction dir) {
-        // 只允许向输入槽位(5-9)插入
+        // 仅允许自动化（存在方向）向隐藏输入槽位5插入；标记槽位0-4不可插入
         if (ownerUuid == null || stack.isEmpty()) return false;
-        if (slot < INPUT_SLOTS_START || slot > INPUT_SLOTS_END) return false;
-        
-        return true;
+        if (slot != 5) return false;
+        // dir != null 表示来自自动化方块（如漏斗/投掷器）
+        if (dir != null) {
+            // 记录来源位置：从本方块位置沿交互方向的相邻方块
+            THREAD_INSERT_SOURCE.set(pos.offset(dir));
+            return true;
+        }
+        return false;
     }
 
     @Override
     public boolean canExtract(int slot, ItemStack stack, Direction dir) {
-        // 只允许从输出槽位(0-4)提取
-        if (ownerUuid == null) return false;
-        return slot >= OUTPUT_SLOTS_START && slot <= OUTPUT_SLOTS_END && !stack.isEmpty();
+        // 槽位0-4：标记物品位
+        if (slot >= 0 && slot <= 4 && ownerUuid != null) {
+            ItemStack marker = getStack(slot);
+            if (marker.isEmpty()) return false;
+            if (dir != null) {
+                // 漏斗操作：检查仓库中是否有对应物品
+                if (world != null && world.getServer() != null) {
+                    // 标记后续同线程 removeStack 为自动化提取
+                    THREAD_AUTOMATION_EXTRACT.set(true);
+                    
+                    // 使用快速检查方法（只检查物品数量，不构建完整视图）
+                    boolean hasItem = NewStoreService.hasItemInStorage(world.getServer(), ownerUuid, marker);
+                    if (hasItem) {
+                        return true; // 新版仓库中有对应物品，允许提取
+                    }
+                    
+                    // 如果新版储存没有，再检查旧版储存系统
+                    List<StorageInventory> storages = StorageGroupService.getStoragesByOwner(world.getServer(), ownerUuid);
+                    for (StorageInventory storage : storages) {
+                        for (int i = 0; i < storage.getCapacity(); i++) {
+                            ItemStack disp = storage.getDisplayStack(i);
+                            if (!disp.isEmpty() && ItemStack.areItemsAndComponentsEqual(disp, marker)) {
+                                return true; // 旧版仓库中有对应物品，允许提取
+                            }
+                        }
+                    }
+                }
+                // 未查到物品时，撤销自动化标记
+                THREAD_AUTOMATION_EXTRACT.set(false);
+                return false; // 仓库中没有对应物品，不允许提取
+            } else {
+                // 玩家操作：允许取出标记物品本身
+                return ItemStack.areItemsAndComponentsEqual(stack, marker);
+            }
+        }
+        // 隐藏输入槽位5及其他：不允许被提取
+        return false;
     }
 
     @Override
     public ItemStack removeStack(int slot, int amount) {
-        // 虚拟槽位：直接移除，不需要查询仓库
-        if (slot >= OUTPUT_SLOTS_START && slot <= OUTPUT_SLOTS_END) {
-            return super.removeStack(slot, amount);
+        // 槽位0-4的特殊处理（标记槽位）：
+        if (ownerUuid != null && slot >= 0 && slot <= 4 && amount > 0) {
+            ItemStack marker = getStack(slot);
+            if (!marker.isEmpty() && world != null && world.getServer() != null) {
+                boolean isAutomation = THREAD_AUTOMATION_EXTRACT.get();
+                if (isAutomation) {
+                    // 漏斗操作：从仓库提取物品
+                    ItemStack want = marker.copy();
+                    want.setCount(Math.min(amount, marker.getMaxCount()));
+
+                    ItemStack taken = NewStoreService.takeFromNewStore(
+                        world.getServer(),
+                        ownerUuid,
+                        want,
+                        want.getCount()
+                    );
+
+                    if (!taken.isEmpty()) {
+                        // 本次提取完成，清理自动化标记
+                        THREAD_AUTOMATION_EXTRACT.set(false);
+                        return taken;
+                    }
+                    // 如果仓库为空，不提取任何东西
+                    THREAD_AUTOMATION_EXTRACT.set(false);
+                    return ItemStack.EMPTY;
+                } else {
+                    // 玩家操作：取出标记物品本身
+                    return super.removeStack(slot, amount);
+                }
+            }
         }
+
+        // 默认行为：从内部库存取出
         return super.removeStack(slot, amount);
     }
 
     @Override
     public void setStack(int slot, ItemStack stack) {
-        // 输入槽位：检查筛选规则
-        if (slot >= INPUT_SLOTS_START && slot <= INPUT_SLOTS_END) {
-            // 检查筛选规则：如果物品不匹配筛选规则，不插入
-            if (!stack.isEmpty() && !com.portable.storage.storage.BarrelFilterRuleManager.shouldPickupItem(this, stack)) {
-                // 物品不匹配筛选规则，不插入
-                super.setStack(slot, ItemStack.EMPTY);
-                hasInputItems = false;
-                markDirty();
+        // 槽位5为隐藏输入槽位：仅用于自动化插入（UI 不暴露该槽位）
+        if (ownerUuid != null && slot == 5 && !stack.isEmpty() && world != null && world.getServer() != null) {
+            // 防止某些模组在同一游戏刻内以相同物品堆重复调用 setStack 导致重复入仓
+            long nowTick = world.getTime();
+            BlockPos sourcePos = THREAD_INSERT_SOURCE.get();
+            if (nowTick == lastSlot5ProcessTick && !lastSlot5Processed.isEmpty()
+                && ItemStack.areItemsAndComponentsEqual(stack, lastSlot5Processed)
+                && stack.getCount() == lastSlot5Processed.getCount()
+                && ((sourcePos == null && lastSlot5SourcePos == null) || (sourcePos != null && sourcePos.equals(lastSlot5SourcePos)))) {
+                // 忽略重复调用，保持槽位不被写入，避免翻倍
+                THREAD_INSERT_SOURCE.remove();
                 return;
             }
-            
-            // 物品通过筛选，正常插入
-            super.setStack(slot, stack);
-            // 更新输入状态：有物品时标记为需要处理
-            hasInputItems = !stack.isEmpty();
+
+            // 检查筛选规则：如果物品不匹配筛选规则，不插入
+            if (!shouldPickupItemFast(stack)) {
+                // 物品不匹配筛选规则，不插入
+                THREAD_INSERT_SOURCE.remove();
+                return;
+            }
+
+            ItemStack toInsert = stack.copy();
+            insertIntoOwnerStorage(toInsert);
+            // 置空插入槽位（物品已被存入仓库）
+            super.setStack(slot, ItemStack.EMPTY);
             markDirty();
+            // 记录本次处理指纹
+            lastSlot5ProcessTick = nowTick;
+            lastSlot5Processed = stack.copy();
+            lastSlot5SourcePos = sourcePos;
+            THREAD_INSERT_SOURCE.remove();
             return;
         }
-        
-        // 标记槽位：允许玩家直接设置/替换标记
-        if (slot >= MARKER_SLOTS_START && slot <= MARKER_SLOTS_END) {
-            super.setStack(slot, stack);
-            markDirty();
-            return;
-        }
-        
+
+        // 槽位0-4为标记槽位：允许玩家直接设置/替换标记
         super.setStack(slot, stack);
     }
 
     /**
-     * 批量处理：检查是否需要执行批量操作
+     * 快速获取物品键（带缓存优化）
      */
-    public void portableStorage$processBatchIfNeeded() {
-        if (world == null || world.getServer() == null || ownerUuid == null) return;
+    private String getItemKeyFast(ItemStack itemStack) {
+        if (itemStack.isEmpty()) return null;
         
-        long currentTime = world.getTime();
-        
-        // 处理输入槽位：只在有物品时才处理，或10秒强制处理，或退出重进后强制处理
-        boolean shouldProcessInput = hasInputItems && (
-            lastInputBatchTime == 0 || // 退出重进后强制处理
-            (currentTime - lastInputBatchTime >= FORCE_INPUT_INTERVAL) // 10秒强制处理
-        );
-        
-        if (shouldProcessInput) {
-            processInputSlots();
-            lastInputBatchTime = currentTime;
+        // 检查缓存是否有效
+        if (ItemStack.areItemsAndComponentsEqual(itemStack, lastItemForKey)) {
+            return lastItemKey;
         }
         
-        // 处理输出槽位
-        if (currentTime - lastBatchTime >= BATCH_INTERVAL) {
-            processOutputSlots();
-            lastBatchTime = currentTime;
-        }
-    }
-
-
-    /**
-     * 处理输入槽位：将物品存入仓库（与输出处理一致的性能）
-     * 只有槽位满了或10秒到了才存入，避免频繁调用存储系统
-     */
-    private void processInputSlots() {
-        // 快速检查：如果没有物品，直接返回（大部分时候都是这种情况）
-        if (!hasInputItems) {
-            return;
-        }
-        
-        // 简化逻辑：直接处理所有物品，让调用方控制触发条件
-        
-        // 收集所有需要处理的物品
-        inputCache.clear();
-        boolean foundItems = false;
-        for (int slot = INPUT_SLOTS_START; slot <= INPUT_SLOTS_END; slot++) {
-            ItemStack stack = getStack(slot);
-            if (!stack.isEmpty()) {
-                inputCache.add(stack.copy());
-                setStack(slot, ItemStack.EMPTY); // 清空槽位
-                foundItems = true;
-            }
-        }
-        
-        // 更新状态
-        hasInputItems = foundItems;
-        
-        // 批量处理：减少存储系统调用次数
-        if (!inputCache.isEmpty()) {
-            batchInsertIntoOwnerStorage(inputCache);
-        }
-        
-        // 注意：时间更新在调用方处理，这里不需要重复更新
-    }
-
-    /**
-     * 处理输出槽位：从仓库填充物品
-     */
-    private void processOutputSlots() {
-        for (int slot = OUTPUT_SLOTS_START; slot <= OUTPUT_SLOTS_END; slot++) {
-            int markerSlot = slot + 10; // 对应的标记槽位
-            ItemStack marker = getStack(markerSlot);
-            if (marker.isEmpty()) {
-                // 没有标记，清空输出槽位
-                setStack(slot, ItemStack.EMPTY);
-                continue;
-            }
+        // 计算新的物品键
+        if (world != null && world.getServer() != null) {
+            String key = com.portable.storage.newstore.ItemKeyHasher.hash(itemStack, world.getServer().getRegistryManager());
             
-            ItemStack currentOutput = getStack(slot);
-            if (currentOutput.isEmpty() || !ItemStack.areItemsAndComponentsEqual(currentOutput, marker)) {
-                // 输出槽位为空或物品不匹配，从仓库取出一组
-                ItemStack want = marker.copy();
-                want.setCount(marker.getMaxCount());
-                
-                ItemStack taken = NewStoreService.takeFromNewStore(
-                    world.getServer(),
-                    ownerUuid,
-                    want,
-                    want.getCount()
-                );
-                
-                if (!taken.isEmpty()) {
-                    setStack(slot, taken);
-                } else {
-                    setStack(slot, ItemStack.EMPTY);
-                }
-            }
+            // 更新缓存
+            lastItemKey = key;
+            lastItemForKey = itemStack.copy();
+            
+            return key;
         }
+        
+        return null;
     }
-
+    
     /**
-     * 批量将物品存入所有者的仓库（优化版本）
+     * 快速筛选检查（带缓存优化）
      */
-    private void batchInsertIntoOwnerStorage(java.util.List<ItemStack> items) {
-        if (world == null || world.getServer() == null || ownerUuid == null || items.isEmpty()) return;
-        try {
-            var server = world.getServer();
-            // 批量处理：减少存储系统调用次数
-            for (ItemStack stack : items) {
-                if (!stack.isEmpty()) {
-                    NewStoreService.insertForOfflineUuid(server, ownerUuid, stack, null);
-                }
-            }
-        } catch (Throwable e) {
-            PortableStorage.LOGGER.error("Failed to batch insert items into owner's storage", e);
+    private boolean shouldPickupItemFast(ItemStack itemStack) {
+        if (itemStack.isEmpty()) return false;
+        
+        // 检查缓存是否有效
+        long currentTick = world != null ? world.getTime() : 0;
+        if (lastFilterRulesCheckTick != currentTick) {
+            // 更新缓存
+            filterRulesEmpty = filterRules.isEmpty();
+            lastFilterRulesCheckTick = currentTick;
         }
+        
+        // 如果没有筛选规则，拾取所有物品
+        if (filterRulesEmpty) {
+            return true;
+        }
+        
+        // 有筛选规则时，使用完整的筛选逻辑
+        return com.portable.storage.storage.BarrelFilterRuleManager.shouldPickupItem(this, itemStack);
     }
-
+    
     /**
-     * 将物品存入所有者的仓库（优化版本，避免网络同步）
+     * 将物品存入所有者的仓库（新版存储）- 优化版本，与输出流程一致
      */
     private void insertIntoOwnerStorage(ItemStack stack) {
         if (world == null || world.getServer() == null || ownerUuid == null) return;
+        
         try {
             var server = world.getServer();
-            // 统一使用离线版本，避免网络同步的性能开销
-            NewStoreService.insertForOfflineUuid(server, ownerUuid, stack, null);
+            
+            // 使用缓存的物品键，避免重复计算 SHA-256
+            String key = getItemKeyFast(stack);
+            if (key == null || key.isEmpty()) return;
+            
+            // 纯内存操作：不进行文件IO
+            com.portable.storage.newstore.TemplateIndex index = com.portable.storage.newstore.StorageMemoryCache.getTemplateIndex();
+            
+            // 如果模板不存在，只在内存中创建
+            if (index.find(key) == null) {
+                // 分配切片ID
+                int slice = index.getOrAllocateSlice();
+                
+                // 创建新模板条目（仅内存）
+                index.put(key, slice, 0);
+                
+                // 将模板添加到内存缓存
+                com.portable.storage.newstore.StorageMemoryCache.addTemplate(key, stack.copy());
+            }
+            
+            // 纯内存操作：更新玩家数据和引用计数
+            long now = System.currentTimeMillis();
+            com.portable.storage.newstore.PlayerStore.add(server, ownerUuid, key, stack.getCount(), now);
+            index.incRef(key, stack.getCount());
+            
+            // 标记为脏，由定时任务处理文件IO
+            com.portable.storage.newstore.StorageMemoryCache.markTemplateIndexDirty();
+            
         } catch (Throwable e) {
             PortableStorage.LOGGER.error("Failed to insert item into owner's storage", e);
-        }
-    }
-
-    /**
-     * 归还输出槽位的物品到仓库
-     * 在绑定木桶被破坏或标记物被拿走/更换时调用
-     */
-    public void returnOutputItemsToStorage() {
-        if (world == null || world.getServer() == null || ownerUuid == null) return;
-        
-        for (int slot = OUTPUT_SLOTS_START; slot <= OUTPUT_SLOTS_END; slot++) {
-            ItemStack stack = getStack(slot);
-            if (!stack.isEmpty()) {
-                insertIntoOwnerStorage(stack);
-                setStack(slot, ItemStack.EMPTY);
-            }
         }
     }
 
@@ -429,17 +430,17 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
     public void copyDataToItem(ItemStack stack) {
         if (ownerUuid == null) return;
 
-        NbtCompound nbt = new NbtCompound();
-        nbt.putUuid("ps_owner_uuid", ownerUuid);
-        nbt.putLong("ps_owner_uuid_most", ownerUuid.getMostSignificantBits());
-        nbt.putLong("ps_owner_uuid_least", ownerUuid.getLeastSignificantBits());
+        NbtCompound customData = new NbtCompound();
+        customData.putUuid("ps_owner_uuid", ownerUuid);
+        customData.putLong("ps_owner_uuid_most", ownerUuid.getMostSignificantBits());
+        customData.putLong("ps_owner_uuid_least", ownerUuid.getLeastSignificantBits());
         
         if (ownerName != null) {
-            nbt.putString("ps_owner_name", ownerName);
+            customData.putString("ps_owner_name", ownerName);
         }
 
-        stack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt));
-        stack.set(DataComponentTypes.BLOCK_ENTITY_DATA, NbtComponent.of(nbt));
+        // 只设置自定义数据，不设置方块实体数据
+        stack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(customData));
         stack.set(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
     }
 
@@ -462,8 +463,6 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         if (ownerName != null) {
             nbt.putString("ps_owner_name", ownerName);
         }
-        nbt.putLong("last_batch_time", lastBatchTime);
-        nbt.putLong("last_input_batch_time", lastInputBatchTime);
         
         // 保存筛选规则
         NbtCompound filterRulesNbt = new NbtCompound();
@@ -473,8 +472,6 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         filterRulesNbt.putInt("count", filterRules.size());
         nbt.put("filter_rules", filterRulesNbt);
         
-        
-        // 注意：inputCache 不需要持久化，每次重启时清空即可
         Inventories.writeNbt(nbt, inventory, registryLookup);
     }
 
@@ -486,12 +483,6 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         }
         if (nbt.contains("ps_owner_name")) {
             ownerName = nbt.getString("ps_owner_name");
-        }
-        if (nbt.contains("last_batch_time")) {
-            lastBatchTime = nbt.getLong("last_batch_time");
-        }
-        if (nbt.contains("last_input_batch_time")) {
-            lastInputBatchTime = nbt.getLong("last_input_batch_time");
         }
         
         // 读取筛选规则
@@ -506,23 +497,8 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
             }
         }
         
-        
         inventory = DefaultedList.ofSize(size(), ItemStack.EMPTY);
         Inventories.readNbt(nbt, inventory, registryLookup);
-        
-        // 检查是否有输入物品，如果有则标记需要处理（避免退出重进后时间判定失效）
-        boolean hasItems = false;
-        for (int slot = INPUT_SLOTS_START; slot <= INPUT_SLOTS_END; slot++) {
-            if (!getStack(slot).isEmpty()) {
-                hasItems = true;
-                break;
-            }
-        }
-        if (hasItems) {
-            hasInputItems = true;
-            // 标记需要立即处理，在tick时处理
-            lastInputBatchTime = 0; // 强制下次tick时处理
-        }
     }
 }
 

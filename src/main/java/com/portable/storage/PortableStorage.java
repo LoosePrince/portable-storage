@@ -20,12 +20,14 @@ import com.portable.storage.event.SpaceRiftProtectionEvents;
 import com.portable.storage.event.StorageKeyAutoUseHandler;
 import com.portable.storage.event.TempBedEventHandler;
 import com.portable.storage.event.XpMaintenanceEventHandler;
+import com.portable.storage.newstore.StorageMemoryCache;
 import com.portable.storage.item.ModItems;
 import com.portable.storage.net.NetworkChannels;
 import com.portable.storage.net.ServerNetworkingHandlers;
 import com.portable.storage.screen.PortableCraftingScreenHandler;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.resource.featuretoggle.FeatureSet;
@@ -106,6 +108,17 @@ public class PortableStorage implements ModInitializer {
 		
 		// 注册活塞方块朝向处理器
 		PistonBlockRotationHandler.register();
+		
+		// 注册服务器生命周期事件
+		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+			// 服务器启动时初始化内存缓存
+			StorageMemoryCache.initialize(server);
+		});
+		
+		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+			// 服务器关闭时清理内存缓存
+			StorageMemoryCache.shutdown();
+		});
 		
 		LOGGER.info("Portable Storage initialized");
 	}

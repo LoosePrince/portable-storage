@@ -14,6 +14,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 
+import java.util.Map;
+import java.util.UUID;
+
 import java.io.ByteArrayOutputStream;
 
 /**
@@ -41,33 +44,59 @@ public final class NewStoreService {
             }
         }
         
-        StoragePaths.ensureDirectories(server);
-        TemplateIndex index = TemplateIndex.load(server);
+        TemplateIndex index = StorageMemoryCache.getTemplateIndex();
         String key = ItemKeyHasher.hash(stack, player.getRegistryManager());
         if (key == null || key.isEmpty()) return;
+        
+        // 如果模板不存在，在内存中创建
         if (index.find(key) == null) {
-            TemplateSlices.putTemplate(() -> server, index, key, stack.copy(), player.getRegistryManager());
+            // 分配切片ID
+            int slice = index.getOrAllocateSlice();
+            
+            // 创建新模板条目
+            index.put(key, slice, 0);
+            
+            // 将模板添加到内存缓存
+            StorageMemoryCache.addTemplate(key, stack.copy());
         }
+        
+        // 纯内存操作：更新玩家数据和引用计数
         long now = System.currentTimeMillis();
         PlayerStore.add(server, player.getUuid(), key, stack.getCount(), now);
         index.incRef(key, stack.getCount());
-        index.save(server);
+        
+        // 标记为脏，由定时任务处理文件IO
+        StorageMemoryCache.markTemplateIndexDirty();
         ServerNetworkingHandlers.sendSync(player);
     }
 
     public static void insertForOfflineUuid(MinecraftServer server, java.util.UUID uuid, ItemStack stack, RegistryWrapper.WrapperLookup lookup) {
         if (server == null || uuid == null || stack == null || stack.isEmpty()) return;
-        StoragePaths.ensureDirectories(server);
-        TemplateIndex index = TemplateIndex.load(server);
+        
+        // 纯内存操作：不进行文件IO
+        TemplateIndex index = StorageMemoryCache.getTemplateIndex();
         String key = ItemKeyHasher.hash(stack, lookup);
         if (key == null || key.isEmpty()) return;
+        
+        // 如果模板不存在，在内存中创建
         if (index.find(key) == null) {
-            TemplateSlices.putTemplate(() -> server, index, key, stack.copy(), lookup);
+            // 分配切片ID
+            int slice = index.getOrAllocateSlice();
+            
+            // 创建新模板条目
+            index.put(key, slice, 0);
+            
+            // 将模板添加到内存缓存
+            StorageMemoryCache.addTemplate(key, stack.copy());
         }
+        
+        // 更新玩家数据和引用计数
         long now = System.currentTimeMillis();
         PlayerStore.add(server, uuid, key, stack.getCount(), now);
         index.incRef(key, stack.getCount());
-        index.save(server);
+        
+        // 标记为脏，由定时任务处理文件IO
+        StorageMemoryCache.markTemplateIndexDirty();
     }
 
     public static long takeForOnlinePlayer(ServerPlayerEntity player, ItemStack variant, int want) {
@@ -76,14 +105,23 @@ public final class NewStoreService {
         if (server == null) return 0;
         String key = ItemKeyHasher.hash(variant, player.getRegistryManager());
         if (key == null || key.isEmpty()) return 0;
+        
+        // 减少玩家物品数量
         long taken = PlayerStore.remove(server, player.getUuid(), key, want, System.currentTimeMillis());
         if (taken > 0) {
-            TemplateIndex index = TemplateIndex.load(server);
+            // 更新引用计数
+            TemplateIndex index = StorageMemoryCache.getTemplateIndex();
             index.incRef(key, -taken);
+            
+            // 如果引用计数为0，标记为待删除（不立即删除文件）
             if (index.find(key) != null && index.find(key).ref <= 0) {
-                TemplateSlices.removeTemplate(() -> server, index, key);
+                // 从内存缓存中移除模板
+                StorageMemoryCache.getTemplateCache().remove(key);
+                // 标记模板索引为脏，由定时任务处理文件删除
             }
-            index.save(server);
+            
+            // 标记为脏，由定时任务处理文件IO
+            StorageMemoryCache.markTemplateIndexDirty();
             ServerNetworkingHandlers.sendSync(player);
         }
         return taken;
@@ -96,14 +134,23 @@ public final class NewStoreService {
         if (server == null || uuid == null || variant == null || variant.isEmpty() || want <= 0) return ItemStack.EMPTY;
         String key = ItemKeyHasher.hash(variant, null);
         if (key == null || key.isEmpty()) return ItemStack.EMPTY;
+        
+        // 减少玩家物品数量
         long taken = PlayerStore.remove(server, uuid, key, want, System.currentTimeMillis());
         if (taken > 0) {
-            TemplateIndex index = TemplateIndex.load(server);
+            // 更新引用计数
+            TemplateIndex index = StorageMemoryCache.getTemplateIndex();
             index.incRef(key, -taken);
+            
+            // 如果引用计数为0，标记为待删除（不立即删除文件）
             if (index.find(key) != null && index.find(key).ref <= 0) {
-                TemplateSlices.removeTemplate(() -> server, index, key);
+                // 从内存缓存中移除模板
+                StorageMemoryCache.getTemplateCache().remove(key);
+                // 标记模板索引为脏，由定时任务处理文件删除
             }
-            index.save(server);
+            
+            // 标记为脏，由定时任务处理文件IO
+            StorageMemoryCache.markTemplateIndexDirty();
             ItemStack result = variant.copy();
             result.setCount((int) Math.min(variant.getMaxCount(), taken));
             return result;
@@ -138,15 +185,25 @@ public final class NewStoreService {
         }
         
         // 2) 再合并新版存储
-        TemplateIndex index = TemplateIndex.load(server);
+        // 使用内存缓存中的模板索引
+        TemplateIndex index = StorageMemoryCache.getTemplateIndex();
         // 使用服务器的注册表上下文，确保附魔等基于注册表的数据正确解析
         var lookup = server.getRegistryManager();
         for (java.util.UUID uuid : sharedUuids) {
             var entries = PlayerStore.readAll(server, uuid);
             for (PlayerStore.Entry e : entries.values()) {
                 if (e.count <= 0) continue;
-                ItemStack stack = TemplateSlices.getTemplate(() -> server, index, e.key, lookup);
-                if (stack.isEmpty()) continue;
+                // 优先从内存缓存获取模板
+                ItemStack stack = StorageMemoryCache.getTemplateCache().get(e.key);
+                if (stack == null || stack.isEmpty()) {
+                    // 如果内存缓存中没有，则从文件加载
+                    stack = TemplateSlices.getTemplate(() -> server, index, e.key, lookup);
+                    if (stack != null && !stack.isEmpty()) {
+                        // 将加载的模板添加到内存缓存
+                        StorageMemoryCache.addTemplate(e.key, stack);
+                    }
+                }
+                if (stack == null || stack.isEmpty()) continue;
                 long left = e.count;
                 while (left > 0) {
                     int chunk = (int) Math.min(Integer.MAX_VALUE, left);
@@ -204,12 +261,16 @@ public final class NewStoreService {
                     }
                 }
                 if (got > 0) {
-                    TemplateIndex index = TemplateIndex.load(server);
+                    // 使用内存缓存中的模板索引
+                    TemplateIndex index = StorageMemoryCache.getTemplateIndex();
                     index.incRef(key, -got);
                     if (index.find(key) != null && index.find(key).ref <= 0) {
                         TemplateSlices.removeTemplate(() -> server, index, key);
+                        // 从内存缓存中移除模板
+                        StorageMemoryCache.getTemplateCache().remove(key);
                     }
-                    index.save(server);
+                    // 标记模板索引为脏，由定时任务处理
+                    StorageMemoryCache.markTemplateIndexDirty();
                 }
             }
         }
@@ -259,6 +320,23 @@ public final class NewStoreService {
         } else {
             return String.format("%.1f MB", bytes / (1024.0 * 1024.0));
         }
+    }
+    
+    /**
+     * 快速检查仓库中是否有指定物品（用于漏斗性能优化）
+     */
+    public static boolean hasItemInStorage(MinecraftServer server, UUID ownerUuid, ItemStack itemStack) {
+        if (itemStack.isEmpty()) return false;
+        
+        // 生成物品键
+        String key = ItemKeyHasher.hash(itemStack, server.getRegistryManager());
+        if (key == null) return false;
+        
+        // 检查玩家数据中是否有该物品
+        Map<String, PlayerStore.Entry> entries = PlayerStore.readAll(server, ownerUuid);
+        PlayerStore.Entry entry = entries.get(key);
+        
+        return entry != null && entry.count > 0;
     }
 }
 

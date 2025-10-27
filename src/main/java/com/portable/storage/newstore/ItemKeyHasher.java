@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 
+import com.portable.storage.PortableStorage;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtOps;
@@ -48,6 +49,7 @@ public final class ItemKeyHasher {
 
             return HexFormat.of().formatHex(sha.digest());
         } catch (Exception e) {
+            PortableStorage.LOGGER.error("Failed to hash ItemStack", e);
             return "";
         }
     }

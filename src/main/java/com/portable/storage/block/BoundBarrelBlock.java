@@ -6,7 +6,6 @@ import org.jetbrains.annotations.Nullable;
 
 import com.mojang.serialization.MapCodec;
 import com.portable.storage.blockentity.BoundBarrelBlockEntity;
-import com.portable.storage.blockentity.ModBlockEntities;
 
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
@@ -56,7 +55,8 @@ public class BoundBarrelBlock extends BlockWithEntity {
     @Nullable
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state, BlockEntityType<T> type) {
-        return world.isClient ? null : validateTicker(type, ModBlockEntities.BOUND_BARREL, BoundBarrelBlockEntity::tick);
+        // 绑定木桶不需要 tick 方法，使用即时处理
+        return null;
     }
 
     @Override
@@ -90,8 +90,7 @@ public class BoundBarrelBlock extends BlockWithEntity {
         if (!state.isOf(newState.getBlock())) {
             BlockEntity blockEntity = world.getBlockEntity(pos);
             if (blockEntity instanceof BoundBarrelBlockEntity boundBarrel) {
-                // 归还输出槽位的物品到仓库
-                boundBarrel.returnOutputItemsToStorage();
+                // 绑定木桶使用即时处理，不需要归还输出槽位物品
                 // 掉落木桶内部的标记物品
                 ItemScatterer.spawn(world, pos, boundBarrel);
             }
