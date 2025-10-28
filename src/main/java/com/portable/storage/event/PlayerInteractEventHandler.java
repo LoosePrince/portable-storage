@@ -88,6 +88,18 @@ public class PlayerInteractEventHandler {
                         .formatted(net.minecraft.util.Formatting.YELLOW), false);
                 return TypedActionResult.fail(stack);
             }
+        } else {
+            // 仓库被禁用（死亡后重新激活的情况），检查是否允许降级
+            StorageType currentType = access.portableStorage$getStorageType();
+            if (currentType == StorageType.FULL && targetStorageType == StorageType.PRIMARY) {
+                // 从完整仓库降级到初级仓库，只有在允许清空数据时才允许
+                if (!config.isClearStorageOnEnable()) {
+                    player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.cannot_downgrade_storage")
+                            .formatted(net.minecraft.util.Formatting.RED), false);
+                    return TypedActionResult.fail(stack);
+                }
+                // 如果允许清空数据，则继续执行（会在后续的清空检查中要求确认）
+            }
         }
         
         // 检查是否有待确认的激活请求
@@ -105,17 +117,24 @@ public class PlayerInteractEventHandler {
         }
         
         // 检查是否需要清空仓库数据，如果需要且仓库有数据，则要求确认
-        if (config.isClearStorageOnEnable() && !access.portableStorage$getInventory().isEmpty()) {
-            // 设置待确认状态
-            StorageActivationConfirmation.setPendingConfirmation(serverPlayer);
+        if (config.isClearStorageOnEnable()) {
+            // 检查旧版仓库是否有数据
+            boolean oldStorageHasData = !access.portableStorage$getInventory().isEmpty();
+            // 检查新版仓库是否有数据
+            boolean newStorageHasData = !com.portable.storage.newstore.NewStoreService.isPlayerStorageEmpty(serverPlayer);
             
-            // 发送确认消息
-            player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.confirm_activation")
-                    .formatted(net.minecraft.util.Formatting.YELLOW), false);
-            player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.confirm_activation_hint")
-                    .formatted(net.minecraft.util.Formatting.GRAY), false);
-            
-            return TypedActionResult.fail(stack);
+            if (oldStorageHasData || newStorageHasData) {
+                // 设置待确认状态
+                StorageActivationConfirmation.setPendingConfirmation(serverPlayer);
+                
+                // 发送确认消息
+                player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.confirm_activation")
+                        .formatted(net.minecraft.util.Formatting.YELLOW), false);
+                player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.confirm_activation_hint")
+                        .formatted(net.minecraft.util.Formatting.GRAY), false);
+                
+                return TypedActionResult.fail(stack);
+            }
         }
         
         // 直接激活（仓库为空或不需要清空数据）
@@ -140,7 +159,12 @@ public class PlayerInteractEventHandler {
         
         // 检查是否需要清空仓库数据（仅在首次激活时清空，升级时不清空）
         if (config.isClearStorageOnEnable() && !wasAlreadyEnabled) {
+            // 清空旧版存储
             access.portableStorage$getInventory().clear();
+            
+            // 清空新版存储
+            com.portable.storage.newstore.NewStoreService.clearPlayerStorage(player);
+            
             PortableStorage.LOGGER.info("Cleared storage data for player {} when enabling storage", 
                 player.getName().getString());
 

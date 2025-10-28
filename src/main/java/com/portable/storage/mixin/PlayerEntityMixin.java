@@ -208,11 +208,17 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 	}
 	
 	/**
-	 * 检查是否有漏斗升级（未禁用）
+	 * 检查是否有漏斗升级（未禁用且仓库已启用）
 	 */
 	@Unique
 	private boolean portableStorage$hasHopperUpgrade(PlayerEntity player) {
 		if (portableStorage$upgradeInventory == null) return false;
+		
+		// 检查仓库是否启用
+		PlayerStorageAccess access = (PlayerStorageAccess) player;
+		if (!access.portableStorage$isStorageEnabled()) {
+			return false;
+		}
 
 		for (int i = 0; i < 5; i++) {
 			ItemStack stack = portableStorage$upgradeInventory.getStack(i);

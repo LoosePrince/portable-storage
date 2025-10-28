@@ -34,6 +34,10 @@ public abstract class ArrowEntityMixin extends PersistentProjectileEntity {
         if (this.getWorld().isClient) return;
         if (!(this.getOwner() instanceof ServerPlayerEntity player)) return;
 
+        // 检查仓库是否启用
+        com.portable.storage.player.PlayerStorageAccess access = (com.portable.storage.player.PlayerStorageAccess) player;
+        if (!access.portableStorage$isStorageEnabled()) return;
+
         // 检查箭矢类型是否为普通箭
         ItemStack arrowStack = this.asItemStack();
         if (!arrowStack.isOf(Items.ARROW)) return;

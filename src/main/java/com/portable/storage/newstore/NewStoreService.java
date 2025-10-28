@@ -16,6 +16,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -168,6 +169,36 @@ public final class NewStoreService {
             return result;
         }
         return ItemStack.EMPTY;
+    }
+
+    /**
+     * 清空玩家的新版存储数据
+     */
+    public static void clearPlayerStorage(ServerPlayerEntity player) {
+        if (player == null) return;
+        MinecraftServer server = player.getServer();
+        if (server == null) return;
+        
+        UUID uuid = player.getUuid();
+        
+        // 获取玩家当前的所有存储条目
+        Map<String, PlayerStore.Entry> entries = PlayerStore.readAll(server, uuid);
+        
+        // 更新引用计数（减少所有物品的引用）
+        TemplateIndex index = StorageMemoryCache.getTemplateIndex();
+        for (PlayerStore.Entry entry : entries.values()) {
+            if (entry.key != null && !entry.key.isEmpty() && entry.count > 0) {
+                index.incRef(entry.key, -entry.count);
+            }
+        }
+        
+        // 清空玩家的存储条目
+        PlayerStore.writeAll(server, uuid, new LinkedHashMap<>(), System.currentTimeMillis());
+        
+        // 标记为脏，由定时任务处理文件IO
+        StorageMemoryCache.markTemplateIndexDirty();
+        
+        PortableStorage.LOGGER.info("Cleared new storage data for player {}", player.getName().getString());
     }
 
     /**
@@ -378,6 +409,30 @@ public final class NewStoreService {
         PlayerStorageAccess access = (PlayerStorageAccess) player;
         StorageType storageType = access.portableStorage$getStorageType();
         return currentTypeCount < storageType.getCapacityLimit();
+    }
+
+    /**
+     * 检查玩家的新版存储是否为空
+     * @param player 玩家
+     * @return true表示存储为空，false表示有物品
+     */
+    public static boolean isPlayerStorageEmpty(ServerPlayerEntity player) {
+        if (player == null) return true;
+        
+        MinecraftServer server = player.getServer();
+        if (server == null) return true;
+        
+        // 获取玩家当前存储的所有条目
+        Map<String, PlayerStore.Entry> entries = PlayerStore.readAll(server, player.getUuid());
+        
+        // 检查是否有任何物品数量大于0
+        for (PlayerStore.Entry entry : entries.values()) {
+            if (entry != null && entry.count > 0) {
+                return false; // 有物品，存储不为空
+            }
+        }
+        
+        return true; // 没有物品或所有物品数量为0，存储为空
     }
 }
 

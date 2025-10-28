@@ -1195,7 +1195,11 @@ public final class ServerNetworkingHandlers {
                 return;
             }
             if (slot == 6 && upgrades.isBedUpgradeActive()) {
-                handleBedUpgradeSleep(player);
+                // 检查仓库是否启用
+                com.portable.storage.player.PlayerStorageAccess access = (com.portable.storage.player.PlayerStorageAccess) player;
+                if (access.portableStorage$isStorageEnabled()) {
+                    handleBedUpgradeSleep(player);
+                }
                 return;
             }
             if (slot == 7 && !upgrades.isSlotDisabled(7, player) && !upgrades.getStack(7).isEmpty()) {
@@ -1941,6 +1945,12 @@ public final class ServerNetworkingHandlers {
      * 检查玩家是否有工作台升级且未禁用
      */
     private static boolean portableStorage$hasCraftingTableUpgrade(ServerPlayerEntity player) {
+        // 检查仓库是否启用
+        com.portable.storage.player.PlayerStorageAccess access = (com.portable.storage.player.PlayerStorageAccess) player;
+        if (!access.portableStorage$isStorageEnabled()) {
+            return false;
+        }
+
         UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
         ScreenHandler handler = player.currentScreenHandler;
 

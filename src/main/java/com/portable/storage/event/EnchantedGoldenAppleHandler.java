@@ -47,6 +47,12 @@ public class EnchantedGoldenAppleHandler {
     private static void checkAndAutoEat(ServerPlayerEntity player) {
         UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
         
+        // 检查仓库是否启用
+        com.portable.storage.player.PlayerStorageAccess access = (com.portable.storage.player.PlayerStorageAccess) player;
+        if (!access.portableStorage$isStorageEnabled()) {
+            return;
+        }
+        
         // 检查附魔金苹果升级是否激活
         if (!upgrades.isEnchantedGoldenAppleUpgradeActive()) {
             return;
