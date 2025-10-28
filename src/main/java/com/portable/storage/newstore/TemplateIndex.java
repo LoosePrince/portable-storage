@@ -11,6 +11,8 @@ import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.server.MinecraftServer;
 
+import com.portable.storage.util.SafeNbtIo;
+
 /**
  * 模板索引：key -> { slice:int, ref:long(optional), size:int(optional) }
  */
@@ -32,7 +34,7 @@ public final class TemplateIndex {
         TemplateIndex idx = new TemplateIndex();
         if (!Files.exists(file)) return idx;
         try {
-            NbtCompound root = NbtIo.readCompressed(file, NbtSizeTracker.ofUnlimitedBytes());
+            NbtCompound root = SafeNbtIo.readCompressed(file, NbtSizeTracker.ofUnlimitedBytes());
             if (root != null && root.contains(ROOT)) {
                 NbtCompound m = root.getCompound(ROOT);
                 for (String k : m.getKeys()) {
@@ -63,7 +65,7 @@ public final class TemplateIndex {
         }
         root.put(ROOT, m);
         try {
-            NbtIo.writeCompressed(root, file);
+            SafeNbtIo.writeCompressed(root, file);
         } catch (IOException ignored) {}
     }
 

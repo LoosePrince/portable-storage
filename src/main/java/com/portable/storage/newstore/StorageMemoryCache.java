@@ -355,7 +355,7 @@ public final class StorageMemoryCache {
                 list.add(c);
             }
             root.put(PlayerStore.ENTRIES, list);
-            net.minecraft.nbt.NbtIo.writeCompressed(root, file);
+            com.portable.storage.util.SafeNbtIo.writeCompressed(root, file);
         } catch (Exception e) {
             throw new RuntimeException("Failed to write player data to file", e);
         }
