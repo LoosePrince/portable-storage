@@ -2011,6 +2011,11 @@ public final class ServerNetworkingHandlers {
 	}
 	
 	private static void handleBedUpgradeSleep(ServerPlayerEntity player) {
+        // 裂隙内禁止使用床升级原地睡觉
+        if (player.getWorld().getRegistryKey() == com.portable.storage.world.SpaceRiftManager.DIMENSION_KEY) {
+            player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".bed.no_sleep_in_rift"), true);
+            return;
+        }
 		// 检查是否在白天
 		if (player.getWorld().isDay()) {
 			// 白天不能睡觉，发送消息

@@ -77,6 +77,7 @@
   "portable-storage.bed_placed": "The temporary bed has been placed at your feet, lower your head and click on it to sleep!",
   "portable-storage.bed.no_sleep": "Cannot sleep during the day!",
   "portable-storage.bed.no_safe_place": "No safe place to place bed!",
+  "portable-storage.bed.no_sleep_in_rift": "You cannot sleep in place with the Bed upgrade inside the Rift!",
   "portable-storage.search": "Search",
   "container.portable-storage.bound_barrel": "%s's Bound Barrel",
   "container.portable-storage.bound_barrel.unknown": "Bound Barrel",

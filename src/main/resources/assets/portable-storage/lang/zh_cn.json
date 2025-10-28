@@ -77,6 +77,7 @@
   "portable-storage.bed_placed": "临时床已放置在你脚下，低头点击它来睡觉！",
   "portable-storage.bed.no_sleep": "白天不能睡觉！",
   "portable-storage.bed.no_safe_place": "没有安全的地方放置床！",
+  "portable-storage.bed.no_sleep_in_rift": "裂隙中无法使用床升级原地睡觉！",
   "portable-storage.search": "搜索",
   "container.portable-storage.bound_barrel": "%s的绑定木桶",
   "container.portable-storage.bound_barrel.unknown": "绑定木桶",
