@@ -48,6 +48,11 @@ public class ServerConfig {
     private boolean enableSizeLimit = true;
     private long maxStorageSizeBytes = 100 * 1024; // 100KB
     
+    // 初级仓库功能配置
+    private boolean enablePrimaryStorage = true;
+    private String primaryStorageItem = "minecraft:heart_of_the_sea";
+    private boolean consumePrimaryStorageItem = true;
+    
     // 工作台升级容器界面显示配置
     private boolean stonecutter = false;
     private boolean cartographyTable = false;
@@ -199,6 +204,22 @@ public class ServerConfig {
             # 启用后使用仓库激活物品时会清空玩家现有的仓库数据
             # 默认值: true
             clear_storage_on_enable = true
+            
+            # 是否启用初级仓库功能
+            # 启用后玩家可以使用海洋之心激活初级仓库
+            # 默认值: true
+            enable_primary_storage = true
+            
+            # 初级仓库激活物品
+            # 用于激活初级仓库的物品，默认海洋之心
+            # 格式: "命名空间:物品ID"
+            # 默认值: "minecraft:heart_of_the_sea"
+            primary_storage_item = "minecraft:heart_of_the_sea"
+            
+            # 初级仓库激活物品是否消耗
+            # 开启后激活初级仓库时会消耗该物品一个
+            # 默认值: true
+            consume_primary_storage_item = true
             
             # 是否启用裂隙功能
             # 启用后玩家可以通过裂隙升级槽进入私人裂隙空间
@@ -365,6 +386,9 @@ public class ServerConfig {
             } else {
                 maxStorageSizeBytes = 102400L;
             }
+            enablePrimaryStorage = storageConfig.getOrElse("enable_primary_storage", true);
+            primaryStorageItem = storageConfig.getOrElse("primary_storage_item", "minecraft:heart_of_the_sea");
+            consumePrimaryStorageItem = storageConfig.getOrElse("consume_primary_storage_item", true);
         } else {
             PortableStorage.LOGGER.warn("配置文件中未找到 [storage] 部分，使用默认值");
         }
@@ -429,6 +453,9 @@ public class ServerConfig {
         storageConfig.set("infinite_water_threshold", infiniteWaterThreshold);
         storageConfig.set("enable_size_limit", enableSizeLimit);
         storageConfig.set("max_storage_size_bytes", maxStorageSizeBytes);
+        storageConfig.set("enable_primary_storage", enablePrimaryStorage);
+        storageConfig.set("primary_storage_item", primaryStorageItem);
+        storageConfig.set("consume_primary_storage_item", consumePrimaryStorageItem);
         
         Config containerConfig = config.get("container_display");
         if (containerConfig == null) {
@@ -784,6 +811,11 @@ public class ServerConfig {
         enableSizeLimit = true;
         maxStorageSizeBytes = 102400;
         
+        // 初级仓库配置默认值
+        enablePrimaryStorage = true;
+        primaryStorageItem = "minecraft:heart_of_the_sea";
+        consumePrimaryStorageItem = true;
+        
         // 容器配置默认值
         stonecutter = false;
         cartographyTable = false;
@@ -837,6 +869,18 @@ public class ServerConfig {
     
     public boolean isClearStorageOnEnable() {
         return clearStorageOnEnable;
+    }
+    
+    public boolean isEnablePrimaryStorage() {
+        return enablePrimaryStorage;
+    }
+    
+    public String getPrimaryStorageItem() {
+        return primaryStorageItem;
+    }
+    
+    public boolean isConsumePrimaryStorageItem() {
+        return consumePrimaryStorageItem;
     }
     
     public boolean isEnableRiftFeature() {

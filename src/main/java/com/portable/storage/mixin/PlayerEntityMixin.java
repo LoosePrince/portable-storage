@@ -12,6 +12,7 @@ import com.portable.storage.player.PlayerEnablementState;
 import com.portable.storage.player.PlayerStorageAccess;
 import com.portable.storage.player.PlayerStorageService;
 import com.portable.storage.storage.StorageInventory;
+import com.portable.storage.storage.StorageType;
 import com.portable.storage.storage.UpgradeInventory;
 
 import net.minecraft.entity.ItemEntity;
@@ -38,6 +39,9 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 	
 	@Unique
 	private boolean portableStorage$enabled = false;
+	
+	@Unique
+	private StorageType portableStorage$storageType = StorageType.FULL;
 
 	@Unique
 	private static final String PORTABLE_STORAGE_NBT = "portable_storage";
@@ -47,6 +51,9 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 	
 	@Unique
 	private static final String PORTABLE_STORAGE_ENABLED_NBT = "portable_storage_enabled";
+	
+	@Unique
+	private static final String PORTABLE_STORAGE_TYPE_NBT = "portable_storage_type";
 	
 	@Unique
 	private long portableStorage$lastHopperCheck = 0;
@@ -104,6 +111,16 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 			state.setPlayerEnabled(serverPlayer.getUuid(), enabled);
 		}
 	}
+	
+	@Override
+	public StorageType portableStorage$getStorageType() {
+		return portableStorage$storageType;
+	}
+	
+	@Override
+	public void portableStorage$setStorageType(StorageType type) {
+		this.portableStorage$storageType = type;
+	}
 
     @Inject(method = "readCustomDataFromNbt", at = @At("TAIL"))
     private void portableStorage$read(NbtCompound nbt, CallbackInfo ci) {
@@ -135,6 +152,14 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 			ServerConfig config = ServerConfig.getInstance();
 			this.portableStorage$enabled = !config.isRequireConditionToEnable();
 		}
+		
+		if (nbt.contains(PORTABLE_STORAGE_TYPE_NBT)) {
+			String typeKey = nbt.getString(PORTABLE_STORAGE_TYPE_NBT);
+			this.portableStorage$storageType = StorageType.fromKey(typeKey);
+		} else {
+			// 新玩家默认为完整仓库
+			this.portableStorage$storageType = StorageType.FULL;
+		}
 	}
 
     @Inject(method = "writeCustomDataToNbt", at = @At("TAIL"))
@@ -162,6 +187,9 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 		
 		// 保存启用状态（始终随玩家 NBT 持久化）
 		nbt.putBoolean(PORTABLE_STORAGE_ENABLED_NBT, this.portableStorage$enabled);
+		
+		// 保存仓库类型
+		nbt.putString(PORTABLE_STORAGE_TYPE_NBT, this.portableStorage$storageType.getKey());
 	}
 	
 	@Inject(method = "tick", at = @At("TAIL"))
@@ -170,7 +198,7 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 		World world = self.getWorld();
 		
 		// 检查是否有漏斗升级
-		if (portableStorage$hasHopperUpgrade()) {
+		if (portableStorage$hasHopperUpgrade(self)) {
 			long currentTime = world.getTime();
 			if (currentTime - portableStorage$lastHopperCheck >= HOPPER_CHECK_INTERVAL) {
 				portableStorage$lastHopperCheck = currentTime;
@@ -183,12 +211,12 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 	 * 检查是否有漏斗升级（未禁用）
 	 */
 	@Unique
-	private boolean portableStorage$hasHopperUpgrade() {
+	private boolean portableStorage$hasHopperUpgrade(PlayerEntity player) {
 		if (portableStorage$upgradeInventory == null) return false;
 
 		for (int i = 0; i < 5; i++) {
 			ItemStack stack = portableStorage$upgradeInventory.getStack(i);
-			if (!stack.isEmpty() && stack.getItem() == Items.HOPPER && !portableStorage$upgradeInventory.isSlotDisabled(i)) {
+			if (!stack.isEmpty() && stack.getItem() == Items.HOPPER && !portableStorage$upgradeInventory.isSlotDisabled(i, (ServerPlayerEntity) player)) {
 				return true;
 			}
 		}
@@ -254,24 +282,48 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 				
 				// 应用筛选和销毁规则
 				boolean shouldProcess = false;
+				boolean shouldDiscard = false;
+				
 				if (com.portable.storage.storage.FilterRuleManager.shouldDestroyItem(sp, itemStack)) {
 					// 物品匹配销毁规则，直接删除
 					// 不存入仓库，直接丢弃
 					shouldProcess = true;
+					shouldDiscard = true;
 				} else if (com.portable.storage.storage.FilterRuleManager.shouldPickupItem(sp, itemStack)) {
-					// 物品匹配筛选规则，存入仓库
-					NewStoreService.insertForOnlinePlayer(sp, itemStack);
-					shouldProcess = true;
+					// 物品匹配筛选规则，尝试存入仓库
+					// 检查容量限制
+					PlayerStorageAccess access = (PlayerStorageAccess) sp;
+					StorageType storageType = access.portableStorage$getStorageType();
+					if (storageType.hasCapacityLimit()) {
+						// 检查是否已达到容量限制
+						if (!NewStoreService.canAddNewItemType(sp, itemStack)) {
+							// 容量限制，不拾取物品，让物品继续存在
+							shouldProcess = false;
+							shouldDiscard = false;
+						} else {
+							// 容量允许，存入仓库
+							NewStoreService.insertForOnlinePlayer(sp, itemStack);
+							shouldProcess = true;
+							shouldDiscard = true;
+						}
+					} else {
+						// 无容量限制，直接存入
+						NewStoreService.insertForOnlinePlayer(sp, itemStack);
+						shouldProcess = true;
+						shouldDiscard = true;
+					}
 				}
 				// 如果既不匹配筛选规则也不匹配销毁规则，则不处理（不拾取）
 				
 				// 只有被处理的物品才删除掉落物
-				if (shouldProcess) {
+				if (shouldProcess && shouldDiscard) {
 					itemEntity.discard();
 				}
 			}
 		}
 	}
 }
+
+
 
 

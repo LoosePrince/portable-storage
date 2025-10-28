@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import com.portable.storage.block.ModBlocks;
 import com.portable.storage.blockentity.ModBlockEntities;
+import com.portable.storage.command.BarrelCommands;
 import com.portable.storage.command.NewStoreCommands;
 import com.portable.storage.command.SpaceRiftCommands;
 import com.portable.storage.config.ServerConfig;
@@ -97,6 +98,8 @@ public class PortableStorage implements ModInitializer {
 		SpaceRiftCommands.register();
 		// 注册新存储调试/维护指令
 		NewStoreCommands.register();
+		// 注册绑定木桶指令
+		BarrelCommands.register();
 		
 		// 注册增量同步调度器（周期性向正在查看的玩家推送diff）
 		IncrementalSyncTickHandler.register();

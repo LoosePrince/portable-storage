@@ -671,6 +671,11 @@ public class StorageUIComponent {
                 tooltipLines.add(slotLine);
                 // 第二行：升级名称
                 tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_name", upgradeName));
+                
+                // 如果是初级仓库限制的槽位，添加特殊说明
+                if (UpgradeInventory.isPrimaryStorageRestrictedSlot(slotIndex)) {
+                    tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".tooltip.primary_storage_restricted"));
+                }
 
                 // 附加升级说明（末尾追加）
                 switch (slotIndex) {

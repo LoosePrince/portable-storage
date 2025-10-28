@@ -7,8 +7,10 @@ import org.jetbrains.annotations.Nullable;
 
 import com.portable.storage.PortableStorage;
 import com.portable.storage.newstore.NewStoreService;
+import com.portable.storage.player.PlayerStorageAccess;
 import com.portable.storage.player.StorageGroupService;
 import com.portable.storage.storage.StorageInventory;
+import com.portable.storage.storage.StorageType;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.LootableContainerBlockEntity;
@@ -193,6 +195,12 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         // 仅允许自动化（存在方向）向隐藏输入槽位5插入；标记槽位0-4不可插入
         if (ownerUuid == null || stack.isEmpty()) return false;
         if (slot != 5) return false;
+        
+        // 检查所有者是否使用初级仓库
+        if (isOwnerUsingPrimaryStorage()) {
+            return false; // 初级仓库禁用绑定木桶的自动化插入
+        }
+        
         // dir != null 表示来自自动化方块（如漏斗/投掷器）
         if (dir != null) {
             // 记录来源位置：从本方块位置沿交互方向的相邻方块
@@ -208,6 +216,12 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         if (slot >= 0 && slot <= 4 && ownerUuid != null) {
             ItemStack marker = getStack(slot);
             if (marker.isEmpty()) return false;
+            
+            // 检查所有者是否使用初级仓库
+            if (isOwnerUsingPrimaryStorage()) {
+                return false; // 初级仓库禁用绑定木桶的自动化提取
+            }
+            
             if (dir != null) {
                 // 漏斗操作：检查仓库中是否有对应物品
                 if (world != null && world.getServer() != null) {
@@ -425,6 +439,23 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
 
     public String getOwnerName() {
         return ownerName;
+    }
+    
+    /**
+     * 检查所有者是否使用初级仓库
+     */
+    private boolean isOwnerUsingPrimaryStorage() {
+        if (ownerUuid == null || world == null || world.getServer() == null) {
+            return false;
+        }
+        
+        net.minecraft.server.network.ServerPlayerEntity ownerPlayer = world.getServer().getPlayerManager().getPlayer(ownerUuid);
+        if (ownerPlayer != null) {
+            PlayerStorageAccess access = (PlayerStorageAccess) ownerPlayer;
+            return access.portableStorage$getStorageType() == StorageType.PRIMARY;
+        }
+        
+        return false;
     }
 
     public void copyDataToItem(ItemStack stack) {

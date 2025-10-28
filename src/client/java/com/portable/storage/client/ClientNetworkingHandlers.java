@@ -10,6 +10,7 @@ import com.portable.storage.net.payload.SyncControlC2SPayload;
 import com.portable.storage.net.payload.XpBottleMaintenanceToggleC2SPayload;
 import com.portable.storage.net.payload.RequestFilterRulesSyncS2CPayload;
 import com.portable.storage.net.payload.OpenBarrelFilterS2CPayload;
+import com.portable.storage.storage.StorageType;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
@@ -56,8 +57,15 @@ public final class ClientNetworkingHandlers {
                     }
                     case STORAGE_ENABLEMENT -> {
                         var nbt = payload.data();
-                        if (nbt != null && nbt.contains("enabled")) {
-                            ClientStorageState.setStorageEnabled(nbt.getBoolean("enabled"));
+                        if (nbt != null) {
+                            if (nbt.contains("enabled")) {
+                                ClientStorageState.setStorageEnabled(nbt.getBoolean("enabled"));
+                            }
+                            if (nbt.contains("storageType")) {
+                                String typeKey = nbt.getString("storageType");
+                                StorageType type = StorageType.fromKey(typeKey);
+                                ClientStorageState.setStorageType(type);
+                            }
                         }
                     }
                     case XP_STEP -> {

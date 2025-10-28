@@ -1,6 +1,7 @@
 package com.portable.storage.player;
 
 import com.portable.storage.storage.StorageInventory;
+import com.portable.storage.storage.StorageType;
 import com.portable.storage.storage.UpgradeInventory;
 
 /**
@@ -21,6 +22,16 @@ public interface PlayerStorageAccess {
 	 * 设置玩家随身仓库启用状态
 	 */
 	void portableStorage$setStorageEnabled(boolean enabled);
+	
+	/**
+	 * 获取玩家仓库类型
+	 */
+	StorageType portableStorage$getStorageType();
+	
+	/**
+	 * 设置玩家仓库类型
+	 */
+	void portableStorage$setStorageType(StorageType type);
 }
 
 

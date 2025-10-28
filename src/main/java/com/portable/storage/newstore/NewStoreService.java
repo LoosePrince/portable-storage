@@ -3,8 +3,10 @@ package com.portable.storage.newstore;
 import com.portable.storage.PortableStorage;
 import com.portable.storage.config.ServerConfig;
 import com.portable.storage.net.ServerNetworkingHandlers;
+import com.portable.storage.player.PlayerStorageAccess;
 import com.portable.storage.player.StoragePersistence;
 import com.portable.storage.storage.StorageInventory;
+import com.portable.storage.storage.StorageType;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
@@ -47,6 +49,16 @@ public final class NewStoreService {
         TemplateIndex index = StorageMemoryCache.getTemplateIndex();
         String key = ItemKeyHasher.hash(stack, player.getRegistryManager());
         if (key == null || key.isEmpty()) return;
+        
+        // 检查初级仓库容量限制（在创建新模板之前检查）
+        PlayerStorageAccess access = (PlayerStorageAccess) player;
+        StorageType storageType = access.portableStorage$getStorageType();
+        if (storageType.hasCapacityLimit()) {
+            // 检查是否已达到容量限制
+            if (!canAddNewItemType(player, stack)) {
+                return;
+            }
+        }
         
         // 如果模板不存在，在内存中创建
         if (index.find(key) == null) {
@@ -337,6 +349,35 @@ public final class NewStoreService {
         PlayerStore.Entry entry = entries.get(key);
         
         return entry != null && entry.count > 0;
+    }
+    
+    /**
+     * 检查是否可以添加新的物品种类到仓库中
+     * @param player 玩家
+     * @param stack 要添加的物品
+     * @return true表示可以添加，false表示已达到容量限制
+     */
+    public static boolean canAddNewItemType(ServerPlayerEntity player, ItemStack stack) {
+        if (player == null || stack == null || stack.isEmpty()) return false;
+        
+        MinecraftServer server = player.getServer();
+        if (server == null) return false;
+        
+        // 获取玩家当前存储的物品种类数量
+        var entries = PlayerStore.readAll(server, player.getUuid());
+        int currentTypeCount = entries.size();
+        
+        // 检查要添加的物品是否已经存在
+        String key = ItemKeyHasher.hash(stack, player.getRegistryManager());
+        if (key != null && !key.isEmpty() && entries.containsKey(key)) {
+            // 物品已存在，可以添加（只是增加数量）
+            return true;
+        }
+        
+        // 物品不存在，检查是否已达到容量限制
+        PlayerStorageAccess access = (PlayerStorageAccess) player;
+        StorageType storageType = access.portableStorage$getStorageType();
+        return currentTypeCount < storageType.getCapacityLimit();
     }
 }
 

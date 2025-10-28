@@ -83,6 +83,8 @@
   "block.portable-storage.bound_barrel": "绑定木桶",
   "portable-storage.tooltip.last_modified": "最后修改：%s",
   "portable-storage.message.storage_enabled": "已使用 %s 启用随身仓库功能！",
+  "portable-storage.message.primary_storage_enabled": "已使用 %s 启用初级仓库功能！",
+  "portable-storage.message.primary_storage_reactivated": "初级仓库已重新激活！你的物品很安全。",
   "portable-storage.ui.upgrade_desc.crafting_table": "工作台：在容器界面显示仓库",
   "portable-storage.ui.upgrade_desc.hopper": "漏斗：自动拾取周围5格范围内的掉落物到仓库中，中键点击打开筛选配置",
   "portable-storage.ui.upgrade_desc.chest": "箱子：增加扩展升级槽6个",
@@ -175,6 +177,20 @@
   "portable-storage.filter.list.mode.filter": "筛选",
   "portable-storage.filter.list.mode.destroy": "销毁",
   "portable-storage.barrel.filter.title": "绑定木桶筛选配置",
-  "portable-storage.barrel.filter.desc": "Shift+右键绑定木桶打开筛选配置"
+  "portable-storage.barrel.filter.desc": "Shift+右键绑定木桶打开筛选配置",
+  "portable-storage.storage_type.primary": "初级仓库",
+  "portable-storage.storage_type.full": "完整仓库",
+  "portable-storage.tooltip.storage_type": "仓库类型：%s",
+  "portable-storage.ui.capacity_info": "容量：%d/%d种",
+  "portable-storage.ui.capacity_unlimited": "容量：无限制",
+  "portable-storage.message.primary_storage_slot_restricted": "初级仓库不支持此升级槽位",
+  "portable-storage.tooltip.primary_storage_restricted": "初级仓库限制：此槽位不可用",
+  "portable-storage.message.primary_storage_barrel_restricted": "初级仓库不支持绑定木桶交互",
+  "portable-storage.command.barrel.give.success": "已获得绑定到自己的绑定木桶",
+  "portable-storage.command.barrel.give.inventory_full": "背包已满，无法获得绑定木桶",
+  "item.portable-storage.bound_barrel": "绑定木桶 (%s)",
+  "portable-storage.message.cannot_downgrade_storage": "无法从完整仓库降级到初级仓库",
+  "portable-storage.message.storage_upgraded": "仓库已从初级仓库升级到完整仓库！",
+  "portable-storage.message.capacity_limit_exceeded": "%s容量已满！当前限制：%d种物品"
 }
 

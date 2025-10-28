@@ -6,6 +6,8 @@ import org.jetbrains.annotations.Nullable;
 
 import com.mojang.serialization.MapCodec;
 import com.portable.storage.blockentity.BoundBarrelBlockEntity;
+import com.portable.storage.player.PlayerStorageAccess;
+import com.portable.storage.storage.StorageType;
 
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
@@ -67,6 +69,22 @@ public class BoundBarrelBlock extends BlockWithEntity {
         
         BlockEntity blockEntity = world.getBlockEntity(pos);
         if (blockEntity instanceof BoundBarrelBlockEntity boundBarrel) {
+            // 检查绑定木桶所有者的仓库类型
+            if (boundBarrel.getOwnerUuid() != null) {
+                // 获取所有者玩家
+                net.minecraft.server.network.ServerPlayerEntity ownerPlayer = world.getServer().getPlayerManager().getPlayer(boundBarrel.getOwnerUuid());
+                if (ownerPlayer != null) {
+                    PlayerStorageAccess access = (PlayerStorageAccess) ownerPlayer;
+                    StorageType storageType = access.portableStorage$getStorageType();
+                    
+                    // 如果是初级仓库，禁用绑定木桶的交互
+                    if (storageType == StorageType.PRIMARY) {
+                        player.sendMessage(net.minecraft.text.Text.translatable("portable-storage.message.primary_storage_barrel_restricted"), true);
+                        return ActionResult.CONSUME;
+                    }
+                }
+            }
+            
             // 检查是否是Shift+右键（打开筛选配置）
             if (player.isSneaking()) {
                 // 发送打开筛选界面的网络包

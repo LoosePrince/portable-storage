@@ -2,6 +2,7 @@ package com.portable.storage.client;
 
 import com.mojang.serialization.DynamicOps;
 import com.portable.storage.net.payload.SyncControlC2SPayload;
+import com.portable.storage.storage.StorageType;
 
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -18,6 +19,7 @@ public final class ClientStorageState {
     private static long[] timestamps = new long[54];
     private static int capacity = 54;
     private static boolean storageEnabled = false; // 默认未启用，等待服务端同步
+    private static StorageType storageType = StorageType.FULL; // 默认完整仓库
     // 增量会话与序列
     private static long clientSessionId = 0L;
     private static int expectedSeq = 1;
@@ -40,6 +42,12 @@ public final class ClientStorageState {
     
     public static void setStorageEnabled(boolean enabled) {
         storageEnabled = enabled;
+    }
+    
+    public static StorageType getStorageType() { return storageType; }
+    
+    public static void setStorageType(StorageType type) {
+        storageType = type;
     }
 
     public static void updateFromNbt(NbtCompound nbt, net.minecraft.registry.RegistryWrapper.WrapperLookup lookup) {

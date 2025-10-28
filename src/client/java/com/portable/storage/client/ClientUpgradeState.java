@@ -1,5 +1,6 @@
 package com.portable.storage.client;
 
+import com.portable.storage.storage.StorageType;
 import com.portable.storage.storage.UpgradeInventory;
 import com.portable.storage.storage.AutoEatMode;
 
@@ -93,6 +94,14 @@ public final class ClientUpgradeState {
      */
     public static boolean isSlotDisabled(int slot) {
         if (slot < 0 || slot >= TOTAL_SLOT_COUNT) return false;
+        
+        // 检查是否为初级仓库限制的槽位
+        if (UpgradeInventory.isPrimaryStorageRestrictedSlot(slot)) {
+            // 只有在使用初级仓库时才禁用这些槽位
+            StorageType currentType = ClientStorageState.getStorageType();
+            return currentType == StorageType.PRIMARY;
+        }
+        
         return disabledSlots[slot];
     }
     
@@ -152,7 +161,7 @@ public final class ClientUpgradeState {
      */
     public static boolean isXpBottleUpgradeActive() {
         net.minecraft.item.ItemStack stack = upgradeInventory.getStack(7);
-        return stack != null && !stack.isEmpty() && !upgradeInventory.isSlotDisabled(7);
+        return stack != null && !stack.isEmpty() && !isSlotDisabled(7);
     }
     
     /**
@@ -160,7 +169,7 @@ public final class ClientUpgradeState {
      */
     public static boolean isEnchantedGoldenAppleUpgradeActive() {
         net.minecraft.item.ItemStack stack = upgradeInventory.getStack(9);
-        return stack != null && !stack.isEmpty() && !upgradeInventory.isSlotDisabled(9);
+        return stack != null && !stack.isEmpty() && !isSlotDisabled(9);
     }
     
     /**

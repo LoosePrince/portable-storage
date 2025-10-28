@@ -722,8 +722,6 @@ public class UnifiedUpgradeManager {
         }
     }
     
-    // ===== 兼容性方法 =====
-    
     /**
      * 获取所有扩展槽位中的物品（用于箱子升级取消时掉落）
      */
