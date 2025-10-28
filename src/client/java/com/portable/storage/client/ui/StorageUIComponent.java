@@ -687,6 +687,22 @@ public class StorageUIComponent {
                         tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_piston.auto_refill"));
                         tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_piston.block_rotation"));
                     }
+                    case 9 -> {
+                        // 附魔金苹果升级：显示当前模式和详细信息
+                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.title"));
+                        
+                        // 当前模式
+                        com.portable.storage.storage.AutoEatMode currentMode = ClientUpgradeState.getCurrentAutoEatMode();
+                        String modeName = Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.mode." + currentMode.getKey()).getString();
+                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.current_mode", modeName));
+                        
+                        // 饱食度阈值
+                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.threshold", currentMode.getThreshold()));
+                        
+                        // 交互提示
+                        tooltipLines.add(Text.empty()); // 空行分隔
+                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.interact.middle_click"));
+                    }
                 }
 
                 if (hasItem && isDisabled) {
@@ -1785,13 +1801,6 @@ public class StorageUIComponent {
         // 升级槽位点击
         for (int i = 0; i < totalUpgradeCount; i++) {
             if (isIn(mouseX, mouseY, upgradeSlotLefts[i], upgradeSlotTops[i], upgradeSlotRights[i], upgradeSlotBottoms[i])) {
-                // 扩展槽位检查特定操作
-                if (ClientUpgradeState.isExtendedSlot(i)) {
-                    // 槽位5（光灵箭）、槽位6（床）、槽位7（附魔之瓶）、槽位8（活塞）可以接受点击
-                    if (i != 5 && i != 6 && i != 7 && i != 8) {
-                        return true; // 阻止进一步处理
-                    }
-                }
                 
                 if (button == 1) { // 右键点击
                     // 工作台升级槽位右键：打开自定义工作台界面
@@ -1875,6 +1884,20 @@ public class StorageUIComponent {
                     // 附魔之瓶槽位中键：切换等级维持状态
                     if (i == 7 && ClientUpgradeState.isXpBottleUpgradeActive()) {
                         ClientNetworkingHandlers.sendXpBottleMaintenanceToggle();
+                        return true;
+                    }
+                    // 附魔金苹果升级槽位中键：切换自动进食模式
+                    if (i == 9 && ClientUpgradeState.isEnchantedGoldenAppleUpgradeActive()) {
+                        // 发送中键点击到服务端
+                        ClientPlayNetworking.send(new StorageActionC2SPayload(
+                            StorageActionC2SPayload.Action.CLICK,
+                            StorageActionC2SPayload.Target.UPGRADE,
+                            i,
+                            button,
+                            0,
+                            "",
+                            0
+                        ));
                         return true;
                     }
                     // 其他槽位切换禁用状态
@@ -2607,8 +2630,7 @@ public class StorageUIComponent {
             case 6: key = "block.minecraft.red_bed"; break; // 床升级
             case 7: key = "item.minecraft.experience_bottle"; break; // 附魔之瓶升级
             case 8: key = "block.minecraft.piston"; break; // 活塞升级
-            case 9: case 10: 
-                key = "portable_storage.upgrade.extended_slot"; break;
+            case 9: key = "item.minecraft.enchanted_golden_apple"; break; // 附魔金苹果升级
             default: key = "portable_storage.upgrade.unknown";
         }
         return Text.translatable(key).getString();

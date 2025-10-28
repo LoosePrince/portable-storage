@@ -1,6 +1,7 @@
 package com.portable.storage.client;
 
 import com.portable.storage.storage.UpgradeInventory;
+import com.portable.storage.storage.AutoEatMode;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
@@ -155,6 +156,14 @@ public final class ClientUpgradeState {
     }
     
     /**
+     * 检查附魔金苹果升级是否激活（槽位9）
+     */
+    public static boolean isEnchantedGoldenAppleUpgradeActive() {
+        net.minecraft.item.ItemStack stack = upgradeInventory.getStack(9);
+        return stack != null && !stack.isEmpty() && !upgradeInventory.isSlotDisabled(9);
+    }
+    
+    /**
      * 检查垃圾桶槽位是否激活
      */
     public static boolean isTrashSlotActive() {
@@ -189,6 +198,18 @@ public final class ClientUpgradeState {
     
     public static void setXpTransferStep(int step) {
         xpTransferStep = Math.max(0, Math.min(3, step)); // 确保在 0-3 范围内
+    }
+    
+    // ===== 自动进食模式管理 =====
+    private static AutoEatMode currentAutoEatMode = AutoEatMode.DEFAULT;
+    public static AutoEatMode getCurrentAutoEatMode() { return currentAutoEatMode; }
+    
+    public static void cycleAutoEatMode() {
+        currentAutoEatMode = currentAutoEatMode.next();
+    }
+    
+    public static void setAutoEatMode(AutoEatMode mode) {
+        currentAutoEatMode = mode != null ? mode : AutoEatMode.DEFAULT;
     }
 }
 

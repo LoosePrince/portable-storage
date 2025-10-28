@@ -27,6 +27,7 @@ import com.portable.storage.player.StoragePersistence;
 import com.portable.storage.screen.PortableCraftingScreenHandler;
 import com.portable.storage.storage.StorageInventory;
 import com.portable.storage.storage.UpgradeInventory;
+import com.portable.storage.storage.AutoEatMode;
 import com.portable.storage.sync.PlayerViewState;
 import com.portable.storage.sync.StorageSyncManager;
 import com.portable.storage.world.SpaceRiftManager;
@@ -46,6 +47,16 @@ public final class ServerNetworkingHandlers {
     // 附魔之瓶升级：循环的存取等级索引，简单存内存，不做持久化
     private static final java.util.Map<java.util.UUID, Integer> xpStepIndexByPlayer = new java.util.concurrent.ConcurrentHashMap<>();
     private static final int[] XP_STEPS = new int[] {1, 5, 10, 100};
+    
+    // 附魔金苹果升级：自动进食模式，简单存内存，不做持久化
+    private static final java.util.Map<java.util.UUID, AutoEatMode> autoEatModeByPlayer = new java.util.concurrent.ConcurrentHashMap<>();
+    
+    /**
+     * 获取玩家的当前自动进食模式
+     */
+    public static AutoEatMode getPlayerAutoEatMode(ServerPlayerEntity player) {
+        return autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DEFAULT);
+    }
 	
 	/**
 	 * 检查玩家是否已启用随身仓库功能
@@ -1003,6 +1014,15 @@ public final class ServerNetworkingHandlers {
 				ConfigSyncS2CPayload.Topic.XP_STEP, data
 			));
 		}
+		// 同步自动进食模式
+		{
+			AutoEatMode mode = autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DEFAULT);
+			NbtCompound data = new NbtCompound();
+			data.putInt("modeIndex", mode.getIndex());
+			ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
+				ConfigSyncS2CPayload.Topic.AUTO_EAT_MODE, data
+			));
+		}
 	}
 	
 	public static void sendEnablementSync(ServerPlayerEntity player) {
@@ -1154,12 +1174,6 @@ public final class ServerNetworkingHandlers {
         // 直接复用原 UpgradeSlotClick 逻辑主体
         UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
         if (slot < 0 || slot >= upgrades.getSlotCount()) return;
-        if (UpgradeInventory.isExtendedSlot(slot)) {
-            // 扩展槽位5-9（映射到统一管理器的0-4）可以接受操作
-            if (slot != 5 && slot != 6 && slot != 7 && slot != 8) {
-                return;
-            }
-        }
         if (button == 1) {
             if (slot == 4 && !upgrades.isSlotDisabled(4) && !upgrades.getStack(4).isEmpty()) {
                 // 裂隙升级槽：右键在维度间来回切换
@@ -1183,7 +1197,31 @@ public final class ServerNetworkingHandlers {
                 ));
                 return;
             }
-            // 垃圾桶槽位已改为独立 Target.TRASH 处理，移除旧 slot==10 分支
+            upgrades.toggleSlotDisabled(slot);
+            sendUpgradeSync(player);
+            return;
+        }
+        
+        if (button == 2) { // 中键点击
+            if (slot == 9 && !upgrades.isSlotDisabled(9) && !upgrades.getStack(9).isEmpty()) {
+                // 附魔金苹果升级槽：中键切换自动进食模式
+                AutoEatMode currentMode = autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DEFAULT);
+                AutoEatMode nextMode = currentMode.next();
+                autoEatModeByPlayer.put(player.getUuid(), nextMode);
+                
+                // 发送消息给玩家
+                String modeName = Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.mode." + nextMode.getKey()).getString();
+                player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.mode_switched", modeName), true);
+                
+                // 同步模式到客户端
+                net.minecraft.nbt.NbtCompound data = new net.minecraft.nbt.NbtCompound();
+                data.putInt("modeIndex", nextMode.getIndex());
+                ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
+                    ConfigSyncS2CPayload.Topic.AUTO_EAT_MODE, data
+                ));
+                return;
+            }
+            // 其他槽位中键：切换禁用状态
             upgrades.toggleSlotDisabled(slot);
             sendUpgradeSync(player);
             return;

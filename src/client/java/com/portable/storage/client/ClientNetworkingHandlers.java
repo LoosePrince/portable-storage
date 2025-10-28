@@ -66,6 +66,14 @@ public final class ClientNetworkingHandlers {
                             ClientUpgradeState.setXpTransferStep(nbt.getInt("stepIndex"));
                         }
                     }
+                    case AUTO_EAT_MODE -> {
+                        var nbt = payload.data();
+                        if (nbt != null && nbt.contains("modeIndex")) {
+                            int modeIndex = nbt.getInt("modeIndex");
+                            com.portable.storage.storage.AutoEatMode mode = com.portable.storage.storage.AutoEatMode.fromIndex(modeIndex);
+                            ClientUpgradeState.setAutoEatMode(mode);
+                        }
+                    }
                     case DISPLAY_CONFIG -> {
                         var nbt = payload.data();
                         if (nbt != null) {

@@ -322,6 +322,13 @@ public class UpgradeInventory {
     }
     
     /**
+     * 检查附魔金苹果升级是否激活（扩展槽位4有附魔金苹果且未被禁用）
+     */
+    public boolean isEnchantedGoldenAppleUpgradeActive() {
+        return upgradeManager.isEnchantedGoldenAppleUpgradeActive();
+    }
+    
+    /**
      * 检查垃圾桶槽位是否激活
      */
     public boolean isTrashSlotActive() {

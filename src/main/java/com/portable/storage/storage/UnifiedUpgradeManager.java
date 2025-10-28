@@ -258,6 +258,14 @@ public class UnifiedUpgradeManager {
     }
     
     /**
+     * 检查附魔金苹果升级是否激活
+     */
+    public boolean isEnchantedGoldenAppleUpgradeActive() {
+        ItemStack stack = getExtendedSlot(4); // 扩展槽位4是附魔金苹果
+        return !stack.isEmpty() && !isExtendedSlotDisabled(4);
+    }
+    
+    /**
      * 检查垃圾桶槽位是否激活
      */
     public boolean isTrashSlotActive() {

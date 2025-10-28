@@ -9,6 +9,7 @@ import com.portable.storage.command.NewStoreCommands;
 import com.portable.storage.command.SpaceRiftCommands;
 import com.portable.storage.config.ServerConfig;
 import com.portable.storage.entity.ModEntities;
+import com.portable.storage.event.EnchantedGoldenAppleHandler;
 import com.portable.storage.event.IncrementalSyncTickHandler;
 import com.portable.storage.event.PistonBlockRotationHandler;
 import com.portable.storage.event.PistonUpgradeHandler;
@@ -20,10 +21,10 @@ import com.portable.storage.event.SpaceRiftProtectionEvents;
 import com.portable.storage.event.StorageKeyAutoUseHandler;
 import com.portable.storage.event.TempBedEventHandler;
 import com.portable.storage.event.XpMaintenanceEventHandler;
-import com.portable.storage.newstore.StorageMemoryCache;
 import com.portable.storage.item.ModItems;
 import com.portable.storage.net.NetworkChannels;
 import com.portable.storage.net.ServerNetworkingHandlers;
+import com.portable.storage.newstore.StorageMemoryCache;
 import com.portable.storage.screen.PortableCraftingScreenHandler;
 
 import net.fabricmc.api.ModInitializer;
@@ -108,6 +109,9 @@ public class PortableStorage implements ModInitializer {
 		
 		// 注册活塞方块朝向处理器
 		PistonBlockRotationHandler.register();
+		
+		// 注册附魔金苹果升级事件处理器
+		EnchantedGoldenAppleHandler.register();
 		
 		// 注册服务器生命周期事件
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
