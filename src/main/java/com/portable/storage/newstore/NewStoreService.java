@@ -71,6 +71,10 @@ public final class NewStoreService {
             
             // 将模板添加到内存缓存
             StorageMemoryCache.addTemplate(key, stack.copy());
+        } else if (!StorageMemoryCache.getTemplateCache().containsKey(key)) {
+            // 模板索引已存在但内存缓存缺失时，补写缓存，避免界面不可见
+            StorageMemoryCache.addTemplate(key, stack.copy());
+            StorageMemoryCache.markTemplateIndexDirty();
         }
         
         // 纯内存操作：更新玩家数据和引用计数
@@ -101,6 +105,10 @@ public final class NewStoreService {
             
             // 将模板添加到内存缓存
             StorageMemoryCache.addTemplate(key, stack.copy());
+        } else if (!StorageMemoryCache.getTemplateCache().containsKey(key)) {
+            // 模板索引已存在但内存缓存缺失时，补写缓存
+            StorageMemoryCache.addTemplate(key, stack.copy());
+            StorageMemoryCache.markTemplateIndexDirty();
         }
         
         // 更新玩家数据和引用计数

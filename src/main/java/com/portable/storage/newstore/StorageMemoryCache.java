@@ -1,6 +1,5 @@
 package com.portable.storage.newstore;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -15,9 +14,7 @@ import com.portable.storage.PortableStorage;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.server.MinecraftServer;
 
 /**
@@ -154,7 +151,7 @@ public final class StorageMemoryCache {
                     for (String key : templateIndex.keys()) {
                         TemplateIndex.Entry entry = templateIndex.get(key);
                         if (entry != null) {
-                            ItemStack template = TemplateSlices.getTemplate(() -> server, templateIndex, key, null);
+                            ItemStack template = TemplateSlices.getTemplate(() -> server, templateIndex, key, server.getRegistryManager());
                             if (!template.isEmpty()) {
                                 templateCache.put(key, template);
                                 loadedCount++;
