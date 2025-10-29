@@ -71,6 +71,10 @@ public class StorageUIComponent {
     private int[] visibleIndexMap = new int[0];
     private String query = "";
     private boolean collapsed = false;
+    
+    // 当前渲染参数（用于点击检测）
+    private int currentScreenX = 0;
+    private int currentBackgroundWidth = 176;
     // 智能折叠：代表索引 -> 折叠信息
     private static final class CollapsedInfo {
         ItemStack displayStack; // 无 NBT + 光效 的展示用物品
@@ -123,10 +127,6 @@ public class StorageUIComponent {
     // 切换原版界面点击区域
     private int switchVanillaLeft, switchVanillaTop, switchVanillaRight, switchVanillaBottom;
     
-    
-    public StorageUIComponent() {
-    }
-    
     /**
      * 设置切换原版界面的回调
      */
@@ -178,6 +178,10 @@ public class StorageUIComponent {
         // 记录当前实例，便于全局滚轮注入转发
         currentInstance = this;
         // 排序配置直接从 ClientConfig 读取，无需缓存
+        
+        // 保存当前渲染参数，用于点击检测
+        this.currentScreenX = screenX;
+        this.currentBackgroundWidth = backgroundWidth;
 
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null || client.textRenderer == null) return;
@@ -2539,7 +2543,43 @@ public class StorageUIComponent {
     }
     
     public boolean isOverAnyComponent(double mouseX, double mouseY) {
-        return isOverStorageArea(mouseX, mouseY) || isOverScrollbar(mouseX, mouseY) || isOverUpgradeArea(mouseX, mouseY);
+        // 基于整个背景图区域进行点击检测，而不是单个组件
+        return isOverBackgroundArea(mouseX, mouseY);
+    }
+    
+    /**
+     * 检查鼠标是否在仓库背景图区域内
+     */
+    private boolean isOverBackgroundArea(double mouseX, double mouseY) {
+        // 计算背景图的实际绘制区域（与drawExtensionBackground中的计算保持一致）
+        int upgradeLeft = gridLeft - 24;
+        
+        // 计算扩展槽位需要的额外宽度
+        int extendedSlotWidth = 0;
+        if (ClientUpgradeState.isChestUpgradeActive()) {
+            extendedSlotWidth = upgradeSlotSize + upgradeSpacing + 2;
+        }
+        
+        // 使用保存的渲染参数
+        int screenX = this.currentScreenX;
+        int backgroundWidth = this.currentBackgroundWidth;
+        
+        int panelLeft = screenX + backgroundWidth + 8;
+        
+        int extLeft = upgradeLeft - 2 - extendedSlotWidth;
+        int extTop = gridTop - 2;
+        int extRight = panelLeft - 2;
+        int extBottom = gridTop + visibleRows * (slotSize + slotSpacing) + 2;
+        
+        // 背景图绘制区域（包含偏移）
+        final int bgOffsetX = 4;
+        final int bgOffsetY = 4;
+        int bgLeft = extLeft - bgOffsetX;
+        int bgTop = extTop - bgOffsetY;
+        int bgRight = extRight + bgOffsetX;
+        int bgBottom = extBottom + bgOffsetY;
+        
+        return mouseX >= bgLeft && mouseX < bgRight && mouseY >= bgTop && mouseY < bgBottom;
     }
     
     
