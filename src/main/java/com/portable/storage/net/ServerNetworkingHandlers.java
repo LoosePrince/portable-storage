@@ -840,9 +840,17 @@ public final class ServerNetworkingHandlers {
             }
         }
         
-        // 直接调用 NewStoreService 确保使用统一逻辑
-        NewStoreService.insertForOnlinePlayer(player, stack);
-        return ItemStack.EMPTY;
+        long accepted = NewStoreService.insertCountForOnlinePlayer(player, stack);
+        int original = stack.getCount();
+        if (accepted <= 0) {
+            return stack;
+        } else if (accepted >= original) {
+            return ItemStack.EMPTY;
+        } else {
+            ItemStack remainder = stack.copy();
+            remainder.setCount(original - (int)Math.min(Integer.MAX_VALUE, accepted));
+            return remainder;
+        }
     }
 
     public static void sendSync(ServerPlayerEntity player) {

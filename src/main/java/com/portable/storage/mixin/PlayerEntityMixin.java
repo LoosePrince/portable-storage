@@ -276,9 +276,13 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 							upgrades.addFluidUnits(fluidType, 1);
 						}
 						
-						// 将空桶存入仓库
-						ItemStack emptyBucket = new ItemStack(net.minecraft.item.Items.BUCKET);
-						NewStoreService.insertForOnlinePlayer(sp, emptyBucket);
+                        // 将空桶存入仓库（返回未接收的部分）
+                        ItemStack emptyBucket = new ItemStack(net.minecraft.item.Items.BUCKET);
+                        long accepted = NewStoreService.insertCountForOnlinePlayer(sp, emptyBucket);
+                        if (accepted <= 0) {
+                            // 未被接受则把空桶掉落在地（保持物品不丢失）
+                            sp.dropItem(emptyBucket, false);
+                        }
 						
 						// 移除掉落物
 						itemEntity.discard();
@@ -307,16 +311,33 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 							shouldProcess = false;
 							shouldDiscard = false;
 						} else {
-							// 容量允许，存入仓库
-							NewStoreService.insertForOnlinePlayer(sp, itemStack);
-							shouldProcess = true;
-							shouldDiscard = true;
+                            // 容量允许，存入仓库（仅接受一部分时，保留剩余）
+                            long accepted = NewStoreService.insertCountForOnlinePlayer(sp, itemStack);
+                            if (accepted > 0) {
+                                shouldProcess = true;
+                                int cnt = itemStack.getCount();
+                                if (accepted >= cnt) {
+                                    shouldDiscard = true; // 全部接收，移除掉落物
+                                } else {
+                                    // 部分接收，更新掉落物剩余数量
+                                    itemStack.setCount(cnt - (int)Math.min(Integer.MAX_VALUE, accepted));
+                                    shouldDiscard = false;
+                                }
+                            }
 						}
 					} else {
-						// 无容量限制，直接存入
-						NewStoreService.insertForOnlinePlayer(sp, itemStack);
-						shouldProcess = true;
-						shouldDiscard = true;
+                        // 无容量限制，直接存入（部分接收也要保留剩余）
+                        long accepted = NewStoreService.insertCountForOnlinePlayer(sp, itemStack);
+                        if (accepted > 0) {
+                            shouldProcess = true;
+                            int cnt = itemStack.getCount();
+                            if (accepted >= cnt) {
+                                shouldDiscard = true;
+                            } else {
+                                itemStack.setCount(cnt - (int)Math.min(Integer.MAX_VALUE, accepted));
+                                shouldDiscard = false;
+                            }
+                        }
 					}
 				}
 				// 如果既不匹配筛选规则也不匹配销毁规则，则不处理（不拾取）

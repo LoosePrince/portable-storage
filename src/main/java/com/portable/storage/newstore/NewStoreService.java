@@ -29,9 +29,16 @@ public final class NewStoreService {
     private NewStoreService() {}
 
     public static void insertForOnlinePlayer(ServerPlayerEntity player, ItemStack stack) {
-        if (player == null || stack == null || stack.isEmpty()) return;
+        insertCountForOnlinePlayer(player, stack);
+    }
+
+    /**
+     * 插入并返回实际接受数量。
+     */
+    public static long insertCountForOnlinePlayer(ServerPlayerEntity player, ItemStack stack) {
+        if (player == null || stack == null || stack.isEmpty()) return 0;
         MinecraftServer server = player.getServer();
-        if (server == null) return;
+        if (server == null) return 0;
         
         // 检查单个物品大小限制
         ServerConfig config = ServerConfig.getInstance();
@@ -40,24 +47,37 @@ public final class NewStoreService {
             long maxSize = config.getMaxStorageSizeBytes();
             
             if (itemSize > maxSize) {
-                // 发送大小限制消息给玩家
-                player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.size_limit_exceeded", 
-                    formatSize(itemSize), formatSize(maxSize)), false);
-                return;
+                return 0;
             }
         }
         
         TemplateIndex index = StorageMemoryCache.getTemplateIndex();
         String key = ItemKeyHasher.hash(stack, player.getRegistryManager());
-        if (key == null || key.isEmpty()) return;
+        if (key == null || key.isEmpty()) return 0;
         
+        // 单种物品堆叠上限检查（-1 表示不限制）
+        long perItemLimit = config.getSingleItemStackLimit();
+        if (perItemLimit < 0) perItemLimit = Long.MAX_VALUE;
+        long currentCount = 0L;
+        {
+            Map<String, PlayerStore.Entry> entries = PlayerStore.readAll(server, player.getUuid());
+            PlayerStore.Entry e = entries.get(key);
+            if (e != null) currentCount = Math.max(0L, e.count);
+        }
+        long remainingCap = perItemLimit - currentCount;
+        if (remainingCap <= 0) {
+            return 0;
+        }
+        long allowed = Math.min(stack.getCount(), remainingCap);
+        if (allowed <= 0) return 0;
+
         // 检查初级仓库容量限制（在创建新模板之前检查）
         PlayerStorageAccess access = (PlayerStorageAccess) player;
         StorageType storageType = access.portableStorage$getStorageType();
         if (storageType.hasCapacityLimit()) {
             // 检查是否已达到容量限制
             if (!canAddNewItemType(player, stack)) {
-                return;
+                return 0;
             }
         }
         
@@ -79,12 +99,13 @@ public final class NewStoreService {
         
         // 纯内存操作：更新玩家数据和引用计数
         long now = System.currentTimeMillis();
-        PlayerStore.add(server, player.getUuid(), key, stack.getCount(), now);
-        index.incRef(key, stack.getCount());
+        PlayerStore.add(server, player.getUuid(), key, allowed, now);
+        index.incRef(key, allowed);
         
         // 标记为脏，由定时任务处理文件IO
         StorageMemoryCache.markTemplateIndexDirty();
         ServerNetworkingHandlers.sendSync(player);
+        return allowed;
     }
 
     public static void insertForOfflineUuid(MinecraftServer server, java.util.UUID uuid, ItemStack stack, RegistryWrapper.WrapperLookup lookup) {
@@ -94,6 +115,22 @@ public final class NewStoreService {
         TemplateIndex index = StorageMemoryCache.getTemplateIndex();
         String key = ItemKeyHasher.hash(stack, lookup);
         if (key == null || key.isEmpty()) return;
+        
+        // 单种物品堆叠上限检查（-1 表示不限制）
+        long perItemLimit = ServerConfig.getInstance().getSingleItemStackLimit();
+        if (perItemLimit < 0) perItemLimit = Long.MAX_VALUE;
+        long currentCount = 0L;
+        {
+            Map<String, PlayerStore.Entry> entries = PlayerStore.readAll(server, uuid);
+            PlayerStore.Entry e = entries.get(key);
+            if (e != null) currentCount = Math.max(0L, e.count);
+        }
+        long remainingCap = perItemLimit - currentCount;
+        if (remainingCap <= 0) {
+            return; // 已达上限，忽略
+        }
+        long allowed = Math.min(stack.getCount(), remainingCap);
+        if (allowed <= 0) return;
         
         // 如果模板不存在，在内存中创建
         if (index.find(key) == null) {
@@ -113,8 +150,8 @@ public final class NewStoreService {
         
         // 更新玩家数据和引用计数
         long now = System.currentTimeMillis();
-        PlayerStore.add(server, uuid, key, stack.getCount(), now);
-        index.incRef(key, stack.getCount());
+        PlayerStore.add(server, uuid, key, allowed, now);
+        index.incRef(key, allowed);
         
         // 标记为脏，由定时任务处理文件IO
         StorageMemoryCache.markTemplateIndexDirty();

@@ -47,6 +47,7 @@ public class ServerConfig {
     // 存储大小限制配置
     private boolean enableSizeLimit = true;
     private long maxStorageSizeBytes = 100 * 1024; // 100KB
+    private long singleItemStackLimit = -1; // -1 表示不限制
     
     // 初级仓库功能配置
     private boolean enablePrimaryStorage = true;
@@ -293,6 +294,12 @@ public class ServerConfig {
             # 默认值: 102400 (100KB)
             max_storage_size_bytes = 102400
             
+            # 单种物品的堆叠上限
+            # -1 表示不限制（等效于 Long.MAX_VALUE）
+            # 注意：该限制针对同一种物品的总数量，而非物品堆叠的 NBT/组件变化
+            # 默认值: -1
+            single_item_stack_limit = -1
+            
             [container_display]
             # 工作台升级在容器界面显示仓库的配置
             # 启用工作台升级后，以下容器界面将显示仓库界面
@@ -386,6 +393,14 @@ public class ServerConfig {
             } else {
                 maxStorageSizeBytes = 102400L;
             }
+            Object perItemLimit = storageConfig.get("single_item_stack_limit");
+            if (perItemLimit instanceof Integer) {
+                singleItemStackLimit = ((Integer) perItemLimit).longValue();
+            } else if (perItemLimit instanceof Long) {
+                singleItemStackLimit = (Long) perItemLimit;
+            } else {
+                singleItemStackLimit = -1L;
+            }
             enablePrimaryStorage = storageConfig.getOrElse("enable_primary_storage", true);
             primaryStorageItem = storageConfig.getOrElse("primary_storage_item", "minecraft:heart_of_the_sea");
             consumePrimaryStorageItem = storageConfig.getOrElse("consume_primary_storage_item", true);
@@ -453,6 +468,7 @@ public class ServerConfig {
         storageConfig.set("infinite_water_threshold", infiniteWaterThreshold);
         storageConfig.set("enable_size_limit", enableSizeLimit);
         storageConfig.set("max_storage_size_bytes", maxStorageSizeBytes);
+        storageConfig.set("single_item_stack_limit", singleItemStackLimit);
         storageConfig.set("enable_primary_storage", enablePrimaryStorage);
         storageConfig.set("primary_storage_item", primaryStorageItem);
         storageConfig.set("consume_primary_storage_item", consumePrimaryStorageItem);
@@ -528,6 +544,10 @@ public class ServerConfig {
             storageConfig.set("incremental_sync_max_entries", 512);
             changed = true;
         }
+        if (storageConfig == null || !storageConfig.contains("single_item_stack_limit")) {
+            storageConfig.set("single_item_stack_limit", -1);
+            changed = true;
+        }
 
         Config containerConfig = config.get("container_display");
         if (containerConfig == null) {
@@ -590,6 +610,9 @@ public class ServerConfig {
             }
             if (!containsKey(section, "enable_on_demand_sync")) {
                 toAppend.append(buildOnDemandSyncBlock());
+            }
+            if (!containsKey(section, "single_item_stack_limit")) {
+                toAppend.append(buildSingleItemStackLimitBlock());
             }
             
             // 检查容器配置部分
@@ -665,6 +688,7 @@ public class ServerConfig {
         sb.append(buildConsumeEnableBlock());
         sb.append(buildIncrementalSyncBlock());
         sb.append(buildOnDemandSyncBlock());
+        sb.append(buildSingleItemStackLimitBlock());
         sb.append(ls).append(buildFullContainerDisplaySection());
         return sb.toString();
     }
@@ -710,6 +734,15 @@ public class ServerConfig {
             + "# 可以显著减少服务器负载，但可能导致数据延迟" + ls
             + "# 默认值: false" + ls
             + "enable_on_demand_sync = false" + ls + ls;
+    }
+
+    private static String buildSingleItemStackLimitBlock() {
+        String ls = System.lineSeparator();
+        return "# 单种物品的堆叠上限" + ls
+            + "# -1 表示不限制（等效于 Long.MAX_VALUE）" + ls
+            + "# 注意：该限制针对同一种物品的总数量，而非物品堆叠的 NBT/组件变化" + ls
+            + "# 默认值: -1" + ls
+            + "single_item_stack_limit = -1" + ls + ls;
     }
 
     private static String buildFullContainerDisplaySection() {
@@ -810,6 +843,7 @@ public class ServerConfig {
         infiniteWaterThreshold = 2;
         enableSizeLimit = true;
         maxStorageSizeBytes = 102400;
+        singleItemStackLimit = -1;
         
         // 初级仓库配置默认值
         enablePrimaryStorage = true;
@@ -926,6 +960,9 @@ public class ServerConfig {
     public long getMaxStorageSizeBytes() {
         return maxStorageSizeBytes;
     }
+    public long getSingleItemStackLimit() {
+        return singleItemStackLimit;
+    }
     
     // Setter 方法（用于运行时修改配置）
     public void setRequireConditionToEnable(boolean requireConditionToEnable) {
@@ -982,6 +1019,9 @@ public class ServerConfig {
     
     public void setMaxStorageSizeBytes(long maxStorageSizeBytes) {
         this.maxStorageSizeBytes = maxStorageSizeBytes;
+    }
+    public void setSingleItemStackLimit(long singleItemStackLimit) {
+        this.singleItemStackLimit = singleItemStackLimit;
     }
     
     // 容器配置 Getter 方法
