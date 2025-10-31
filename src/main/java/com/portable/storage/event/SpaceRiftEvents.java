@@ -100,9 +100,9 @@ public final class SpaceRiftEvents {
             
             if (returnPoint != null) {
                 // 有返回点：传送到返回点
-                net.minecraft.server.world.ServerWorld targetWorld = player.getServer().getWorld(returnPoint.dimension());
+        net.minecraft.server.world.ServerWorld targetWorld = player.getServer().getWorld(returnPoint.getDimension());
                 if (targetWorld != null) {
-                    net.minecraft.util.math.BlockPos pos = returnPoint.pos();
+            net.minecraft.util.math.BlockPos pos = returnPoint.getPos();
                     SpaceRiftManager.clearReturnPoint(id);
                     SpaceRiftManager.resetToWorldBorder(player);
                     // 离开裂隙时创建复制体

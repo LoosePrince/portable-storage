@@ -224,10 +224,10 @@ public final class NewStoreCommands {
                 net.minecraft.item.ItemStack st = stacks.get(i);
                 long cnt = counts.get(i);
                 // 模板与索引
-                String key = ItemKeyHasher.hash(st, onlinePlayer ? online.getRegistryManager() : null);
+                String key = ItemKeyHasher.hash(st, null);
                 if (key == null || key.isEmpty()) continue;
                 if (index.find(key) == null) {
-                    TemplateSlices.putTemplate(() -> server, index, key, st, onlinePlayer ? online.getRegistryManager() : null);
+                    TemplateSlices.putTemplate(() -> server, index, key, st, null);
                 }
                 index.incRef(key, cnt);
                 // 玩家计数
@@ -293,7 +293,7 @@ public final class NewStoreCommands {
                         if (Files.exists(backupFile)) {
                             try {
                                 // 验证备份文件
-                                net.minecraft.nbt.NbtIo.readCompressed(backupFile, net.minecraft.nbt.NbtSizeTracker.ofUnlimitedBytes());
+                                net.minecraft.nbt.NbtIo.readCompressed(backupFile.toFile());
                                 // 恢复文件
                                 Files.move(backupFile, originalFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                                 Files.deleteIfExists(file);
@@ -493,13 +493,11 @@ public final class NewStoreCommands {
             pages.add(net.minecraft.nbt.NbtString.of(pageText));
         }
         
-        // 设置物品的NBT数据
-        net.minecraft.nbt.NbtCompound nbt = new net.minecraft.nbt.NbtCompound();
+        // 设置物品的NBT数据（1.20.1 直接写入 NBT）
+        net.minecraft.nbt.NbtCompound nbt = stack.getOrCreateNbt();
         nbt.putString("title", "大型测试物品");
         nbt.putString("author", "Portable Storage");
         nbt.put("pages", pages);
-        
-        stack.set(net.minecraft.component.DataComponentTypes.CUSTOM_DATA, net.minecraft.component.type.NbtComponent.of(nbt));
         
         // 给玩家物品
         if (player.getInventory().insertStack(stack)) {
@@ -527,7 +525,7 @@ public final class NewStoreCommands {
         }
         
         // 计算物品大小
-        long itemSize = calculateItemSize(mainHand, player.getRegistryManager());
+        long itemSize = calculateItemSize(mainHand, null);
         String formattedSize = formatSize(itemSize);
         
         // 获取物品信息
@@ -580,7 +578,7 @@ public final class NewStoreCommands {
             return baos.size();
         } catch (Exception e) {
             // 估算大小
-            return 64 + (stack.getComponents().isEmpty() ? 0 : 100);
+            return 64 + ((stack.getNbt() == null || stack.getNbt().isEmpty()) ? 0 : 100);
         }
     }
     

@@ -69,7 +69,7 @@ public final class StorageGroupService {
             for (int i = 0; i < s.getCapacity() && remaining > 0; i++) {
                 ItemStack disp = s.getDisplayStack(i);
                 if (disp.isEmpty()) continue;
-                if (ItemStack.areItemsAndComponentsEqual(disp, variant)) {
+                if (com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(disp, variant)) {
                     long can = Math.min(remaining, s.getCountByIndex(i));
                     if (can > 0) {
                         long t = s.takeByIndex(i, (int)can, ts);
@@ -138,9 +138,8 @@ public final class StorageGroupService {
 
     private static java.util.UUID tryGetOwnerUuidFromItem(net.minecraft.item.ItemStack stack) {
         try {
-            net.minecraft.component.type.NbtComponent comp = stack.get(net.minecraft.component.DataComponentTypes.CUSTOM_DATA);
-            if (comp == null) return null;
-            net.minecraft.nbt.NbtCompound nbt = comp.copyNbt();
+            net.minecraft.nbt.NbtCompound nbt = stack.getNbt();
+            if (nbt == null) return null;
             if (nbt.contains("ps_owner_uuid_most") && nbt.contains("ps_owner_uuid_least")) {
                 return new java.util.UUID(nbt.getLong("ps_owner_uuid_most"), nbt.getLong("ps_owner_uuid_least"));
             }

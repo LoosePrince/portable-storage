@@ -130,8 +130,8 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
             RegistryWrapper.WrapperLookup lookup = null;
             try {
                 PlayerEntity self = (PlayerEntity)(Object)this;
-                if (self != null && self.getRegistryManager() != null) {
-                    lookup = self.getRegistryManager();
+                if (self != null && self.getWorld() != null) {
+                    lookup = self.getWorld().getRegistryManager();
                 }
             } catch (Throwable ignored) {}
             if (lookup != null) inv.readNbt(nbt.getCompound(PORTABLE_STORAGE_NBT), lookup);
@@ -170,8 +170,8 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
             RegistryWrapper.WrapperLookup lookup = null;
             try {
                 PlayerEntity self = (PlayerEntity)(Object)this;
-                if (self != null && self.getRegistryManager() != null) {
-                    lookup = self.getRegistryManager();
+                if (self != null && self.getWorld() != null) {
+                    lookup = self.getWorld().getRegistryManager();
                 }
             } catch (Throwable ignored) {}
             if (lookup != null) this.portableStorage$inventory.writeNbt(out, lookup);

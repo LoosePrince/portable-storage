@@ -33,6 +33,29 @@ import net.minecraft.util.Identifier;
  * 仓库UI组件，可在不同界面复用
  */
 public class StorageUIComponent {
+    private static void sendStorageAction(com.portable.storage.net.payload.StorageActionC2SPayload payload) {
+        net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        com.portable.storage.net.payload.StorageActionC2SPayload.write(b, payload);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.StorageActionC2SPayload.ID, b);
+    }
+
+    private static void sendScroll(com.portable.storage.net.payload.ScrollC2SPayload payload) {
+        net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        com.portable.storage.net.payload.ScrollC2SPayload.write(b, payload);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.ScrollC2SPayload.ID, b);
+    }
+
+    private static void sendOpenScreen(com.portable.storage.net.payload.RequestOpenScreenC2SPayload payload) {
+        net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        com.portable.storage.net.payload.RequestOpenScreenC2SPayload.write(b, payload);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.RequestOpenScreenC2SPayload.ID, b);
+    }
+
+    private static void sendFluidConversion(com.portable.storage.net.payload.FluidConversionC2SPayload payload) {
+        net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        com.portable.storage.net.payload.FluidConversionC2SPayload.write(b, payload);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.FluidConversionC2SPayload.ID, b);
+    }
     // 当前激活实例（用于全局滚轮转发）
     private static StorageUIComponent currentInstance;
 
@@ -886,7 +909,7 @@ public class StorageUIComponent {
                 int mouseOffset = (int)mouseY - top - dragGrabOffset;
                 float newScroll = (float)mouseOffset / (float)maxScrollPx;
                 this.scroll = Math.max(0.0f, Math.min(1.0f, newScroll));
-                ClientPlayNetworking.send(new ScrollC2SPayload(this.scroll));
+                sendScroll(new com.portable.storage.net.payload.ScrollC2SPayload(this.scroll));
             }
         }
     }
@@ -1352,7 +1375,7 @@ public class StorageUIComponent {
                 // 展示堆叠用无 NBT 的基础物品 + 光效
                 ItemStack repStack = stacks.get(rep);
                 ItemStack display = new ItemStack(repStack.getItem());
-                display.set(net.minecraft.component.DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
+                // 1.20.1 无 ENCHANTMENT_GLINT_OVERRIDE，保持默认外观
                 CollapsedInfo info = new CollapsedInfo();
                 info.displayStack = display;
                 info.totalCount = (int)Math.min(Integer.MAX_VALUE, total);
@@ -1781,7 +1804,7 @@ public class StorageUIComponent {
         // 流体槽位点击
         if (isIn(mouseX, mouseY, fluidSlotLeft, fluidSlotTop, fluidSlotRight, fluidSlotBottom)) {
             // 发送流体槽位点击到服务器
-            ClientPlayNetworking.send(new StorageActionC2SPayload(
+            sendStorageAction(new StorageActionC2SPayload(
                 StorageActionC2SPayload.Action.CLICK,
                 StorageActionC2SPayload.Target.FLUID,
                 0,
@@ -1796,7 +1819,7 @@ public class StorageUIComponent {
         // 垃圾桶槽位点击
         if (isIn(mouseX, mouseY, trashSlotLeft, trashSlotTop, trashSlotRight, trashSlotBottom)) {
             // 发送垃圾桶槽位点击到服务器
-            ClientPlayNetworking.send(new StorageActionC2SPayload(
+            sendStorageAction(new StorageActionC2SPayload(
                 StorageActionC2SPayload.Action.CLICK,
                 StorageActionC2SPayload.Target.TRASH,
                 0,
@@ -1815,7 +1838,7 @@ public class StorageUIComponent {
                 if (button == 1) { // 右键点击
                     // 工作台升级槽位右键：打开自定义工作台界面
                     if (i == 0 && ClientUpgradeState.getStack(0) != null && !ClientUpgradeState.getStack(0).isEmpty() && !ClientUpgradeState.isSlotDisabled(0)) {
-                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new RequestOpenScreenC2SPayload(
+                        sendOpenScreen(new RequestOpenScreenC2SPayload(
                             RequestOpenScreenC2SPayload.Screen.PORTABLE_CRAFTING,
                             null,
                             ""
@@ -1825,7 +1848,7 @@ public class StorageUIComponent {
                     // 床升级槽位右键睡觉
                     if (i == 6 && ClientUpgradeState.isBedUpgradeActive()) {
                         // 发送睡觉请求到服务器
-                        ClientPlayNetworking.send(new StorageActionC2SPayload(
+                        sendStorageAction(new StorageActionC2SPayload(
                             StorageActionC2SPayload.Action.CLICK,
                             StorageActionC2SPayload.Target.UPGRADE,
                             i,
@@ -1838,7 +1861,7 @@ public class StorageUIComponent {
                     }
                     // 附魔之瓶槽位右键：切换存取等级
                     if (i == 7 && ClientUpgradeState.isXpBottleUpgradeActive()) {
-                        ClientPlayNetworking.send(new StorageActionC2SPayload(
+                        sendStorageAction(new StorageActionC2SPayload(
                             StorageActionC2SPayload.Action.CLICK,
                             StorageActionC2SPayload.Target.UPGRADE,
                             i,
@@ -1850,7 +1873,7 @@ public class StorageUIComponent {
                         return true;
                     }
                     // 其他槽位右键：发送到服务器（用于切换禁用等）
-                    ClientPlayNetworking.send(new StorageActionC2SPayload(
+                    sendStorageAction(new StorageActionC2SPayload(
                         StorageActionC2SPayload.Action.CLICK,
                         StorageActionC2SPayload.Target.UPGRADE,
                         i,
@@ -1899,7 +1922,7 @@ public class StorageUIComponent {
                     // 附魔金苹果升级槽位中键：切换自动进食模式
                     if (i == 9 && ClientUpgradeState.isEnchantedGoldenAppleUpgradeActive()) {
                         // 发送中键点击到服务端
-                        ClientPlayNetworking.send(new StorageActionC2SPayload(
+                        sendStorageAction(new StorageActionC2SPayload(
                             StorageActionC2SPayload.Action.CLICK,
                             StorageActionC2SPayload.Target.UPGRADE,
                             i,
@@ -1913,7 +1936,7 @@ public class StorageUIComponent {
                     // 其他槽位切换禁用状态
                     ClientUpgradeState.toggleSlotDisabled(i);
                     // 发送禁用状态变更到服务器
-                    ClientPlayNetworking.send(new StorageActionC2SPayload(
+                    sendStorageAction(new StorageActionC2SPayload(
                         StorageActionC2SPayload.Action.CLICK,
                         StorageActionC2SPayload.Target.UPGRADE,
                         i,
@@ -1924,7 +1947,7 @@ public class StorageUIComponent {
                     ));
                     return true;
                 } else if (button == 0) { // 左键点击 - 发送到服务器
-                    ClientPlayNetworking.send(new StorageActionC2SPayload(
+                    sendStorageAction(new StorageActionC2SPayload(
                         StorageActionC2SPayload.Action.CLICK,
                         StorageActionC2SPayload.Target.UPGRADE,
                         i,
@@ -1991,7 +2014,7 @@ public class StorageUIComponent {
                 this.scroll = Math.max(0.0f, Math.min(1.0f, newScroll));
                 dragScrollbar = true;
                 dragGrabOffset = thumbHeight / 2;
-                ClientPlayNetworking.send(new ScrollC2SPayload(this.scroll));
+                sendScroll(new ScrollC2SPayload(this.scroll));
             }
             return true;
         }
@@ -2030,7 +2053,7 @@ public class StorageUIComponent {
                                          ItemStack cursorStack = client.player.currentScreenHandler.getCursorStack();
                                          if (!cursorStack.isEmpty() && cursorStack.isOf(net.minecraft.item.Items.GLASS_BOTTLE)) {
                                              // 发送转换请求
-                                    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new StorageActionC2SPayload(
+                                    sendStorageAction(new StorageActionC2SPayload(
                                         StorageActionC2SPayload.Action.CLICK,
                                         StorageActionC2SPayload.Target.XP_BOTTLE,
                                         0,
@@ -2044,7 +2067,7 @@ public class StorageUIComponent {
                                      }
                                  }
                                  // 左键或其他情况：正常的经验存取
-                                net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new StorageActionC2SPayload(
+                                sendStorageAction(new StorageActionC2SPayload(
                                     StorageActionC2SPayload.Action.CLICK,
                                     StorageActionC2SPayload.Target.XP_BOTTLE,
                                     0,
@@ -2074,7 +2097,7 @@ public class StorageUIComponent {
                                              ItemStack cursorStack = client.player.currentScreenHandler.getCursorStack();
                                              if (!cursorStack.isEmpty() && cursorStack.isOf(net.minecraft.item.Items.BUCKET)) {
                                                  // 发送流体转换请求
-                                                 net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new FluidConversionC2SPayload(fluidType, button));
+                                                sendFluidConversion(new FluidConversionC2SPayload(fluidType, button));
                                                  return true;
                                              }
                                          }
@@ -2099,7 +2122,7 @@ public class StorageUIComponent {
                                                 
                                                 if (hasBucket) {
                                                     // 发送流体转换请求（左键）
-                                                    net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new FluidConversionC2SPayload(fluidType, button));
+                                                    sendFluidConversion(new FluidConversionC2SPayload(fluidType, button));
                                                     return true;
                                                 }
                                             }
@@ -2121,7 +2144,7 @@ public class StorageUIComponent {
                                 // 常规取物：Shift+左键=一组，Shift+右键=一个；否则遵循统一槽位点击语义
                                 boolean shift = isShiftDown();
                                 if (shift) {
-                                    ClientPlayNetworking.send(new StorageActionC2SPayload(
+                                    sendStorageAction(new StorageActionC2SPayload(
                                         StorageActionC2SPayload.Action.SHIFT_TAKE,
                                         StorageActionC2SPayload.Target.STORAGE,
                                         storageIndex,
@@ -2131,7 +2154,7 @@ public class StorageUIComponent {
                                         0
                                     ));
                                 } else {
-                                    ClientPlayNetworking.send(new StorageActionC2SPayload(
+                                    sendStorageAction(new StorageActionC2SPayload(
                                         StorageActionC2SPayload.Action.CLICK,
                                         StorageActionC2SPayload.Target.STORAGE,
                                         storageIndex,
@@ -2148,7 +2171,7 @@ public class StorageUIComponent {
                                 if (mc != null && mc.player != null) {
                                     ItemStack cursor = mc.player.currentScreenHandler.getCursorStack();
                                     if (!cursor.isEmpty()) {
-                                ClientPlayNetworking.send(new StorageActionC2SPayload(
+                                sendStorageAction(new StorageActionC2SPayload(
                                     StorageActionC2SPayload.Action.DEPOSIT_CURSOR,
                                     StorageActionC2SPayload.Target.STORAGE,
                                     0,
@@ -2301,7 +2324,7 @@ public class StorageUIComponent {
         if (isOverStorageArea(mouseX, mouseY)) {
             float delta = (float)verticalAmount * -0.1f;
             this.scroll = Math.max(0.0f, Math.min(1.0f, this.scroll + delta));
-            ClientPlayNetworking.send(new ScrollC2SPayload(this.scroll));
+            sendScroll(new ScrollC2SPayload(this.scroll));
             return true;
         }
         return false;
@@ -2341,7 +2364,7 @@ public class StorageUIComponent {
                         if (hovered >= 0) {
                             boolean ctrl = isCtrlDown();
                             int amountType = ctrl ? 1 : 0; // 1 组 或 1 个
-                            ClientPlayNetworking.send(new StorageActionC2SPayload(
+                            sendStorageAction(new StorageActionC2SPayload(
                                 StorageActionC2SPayload.Action.DROP,
                                 StorageActionC2SPayload.Target.STORAGE,
                                 hovered,

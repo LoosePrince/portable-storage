@@ -102,22 +102,28 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
         // 设置切换原版界面的回调：请求服务端打开原版工作台
         storageUi.setSwitchToVanillaCallback(() -> {
             ScreenSwapBypass.requestSkipNextCraftingSwap();
-            ClientPlayNetworking.send(new RequestOpenScreenC2SPayload(
+            net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+            RequestOpenScreenC2SPayload.write(b, new RequestOpenScreenC2SPayload(
                 RequestOpenScreenC2SPayload.Screen.VANILLA_CRAFTING,
                 null,
                 ""
             ));
+            ClientPlayNetworking.send(RequestOpenScreenC2SPayload.ID, b);
         });
 
         // 标记开始查看仓库界面
         PlayerViewState.startViewing(MinecraftClient.getInstance().player.getUuid());
         
         // 打开自定义工作台界面时请求同步仓库数据
-        ClientPlayNetworking.send(new SyncControlC2SPayload(
-            SyncControlC2SPayload.Op.REQUEST,
-            0L,
-            false
-        ));
+        {
+            net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+            SyncControlC2SPayload.write(b, new SyncControlC2SPayload(
+                SyncControlC2SPayload.Op.REQUEST,
+                0L,
+                false
+            ));
+            ClientPlayNetworking.send(SyncControlC2SPayload.ID, b);
+        }
         
         // 初始化配置监听
         this.portableStorage$lastStoragePos = config.storagePos;
@@ -289,7 +295,7 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
             ItemStack currentOutput = handler.getSlot(0).getStack();
             if (!portableStorage$lastCraftingOutput.isEmpty()) {
                 if (currentOutput.isEmpty() ||
-                    (!ItemStack.areItemsAndComponentsEqual(currentOutput, portableStorage$lastCraftingOutput)) ||
+                    (!com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(currentOutput, portableStorage$lastCraftingOutput)) ||
                     (currentOutput.getCount() < portableStorage$lastCraftingOutput.getCount())) {
                     craftOccurred = true;
                 }
@@ -311,7 +317,7 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
                             target.setCount(target.getMaxCount());
                             portableStorage$refillFromStorage(i, target);
                         }
-                    } else if (ItemStack.areItemsAndComponentsEqual(currentStack, lastStack) && currentStack.getCount() < lastStack.getCount()) {
+                    } else if (com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(currentStack, lastStack) && currentStack.getCount() < lastStack.getCount()) {
                         if (!recentClick) {
                             ItemStack target = currentStack.copy();
                             target.setCount(target.getMaxCount());
@@ -332,7 +338,8 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
 
     private void portableStorage$refillFromStorage(int slotIndex, ItemStack targetStack) {
         if (targetStack.isEmpty()) return;
-        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new CraftingOverlayActionC2SPayload(
+        net.minecraft.network.PacketByteBuf rb = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        CraftingOverlayActionC2SPayload.write(rb, new CraftingOverlayActionC2SPayload(
             CraftingOverlayActionC2SPayload.Action.REFILL,
             slotIndex, 0, false,
             targetStack,
@@ -340,6 +347,7 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
             null,
             null
         ));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(CraftingOverlayActionC2SPayload.ID, rb);
     }
 
     /**
@@ -377,7 +385,8 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
             int[] slotArray = slotIndices.stream().mapToInt(Integer::intValue).toArray();
             int[] countArray = itemCounts.stream().mapToInt(Integer::intValue).toArray();
             
-            ClientPlayNetworking.send(new CraftingOverlayActionC2SPayload(
+            net.minecraft.network.PacketByteBuf eb = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+            CraftingOverlayActionC2SPayload.write(eb, new CraftingOverlayActionC2SPayload(
                 CraftingOverlayActionC2SPayload.Action.EMI_FILL,
                 0, 0, false,
                 net.minecraft.item.ItemStack.EMPTY,
@@ -385,6 +394,7 @@ public class PortableCraftingScreen extends HandledScreen<PortableCraftingScreen
                 slotArray,
                 countArray
             ));
+            ClientPlayNetworking.send(CraftingOverlayActionC2SPayload.ID, eb);
         }
     }
 }

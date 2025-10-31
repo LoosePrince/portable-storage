@@ -78,10 +78,10 @@ public final class ServerNetworkingHandlers {
 	}
 
 	public static void register() {
-        ServerPlayNetworking.registerGlobalReceiver(SyncControlC2SPayload.ID, (payload, context) -> {
-            context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
-                if (payload.op() == SyncControlC2SPayload.Op.REQUEST) {
+        ServerPlayNetworking.registerGlobalReceiver(SyncControlC2SPayload.ID, (server, player, handler, buf, responseSender) -> {
+            var payload = com.portable.storage.net.payload.SyncControlC2SPayload.read(buf);
+            server.execute(() -> {
+                if (payload.op() == com.portable.storage.net.payload.SyncControlC2SPayload.Op.REQUEST) {
                     // 标记玩家开始查看仓库界面
                     PlayerViewState.startViewing(player.getUuid());
                     // 直接发送启用状态与全量同步
@@ -89,17 +89,16 @@ public final class ServerNetworkingHandlers {
                     if (!checkAndRejectIfNotEnabled(player)) {
                         sendSync(player);
                     }
-                } else if (payload.op() == SyncControlC2SPayload.Op.ACK) {
+                } else if (payload.op() == com.portable.storage.net.payload.SyncControlC2SPayload.Op.ACK) {
                     StorageSyncManager.handleSyncAck(player.getUuid(), payload.syncId(), payload.success());
                 }
 			});
 		});
 
 		// 新统一动作包：服务端集中处理
-		ServerPlayNetworking.registerGlobalReceiver(StorageActionC2SPayload.ID, (payload, context) -> {
-			final StorageActionC2SPayload p = payload;
-			context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+        ServerPlayNetworking.registerGlobalReceiver(StorageActionC2SPayload.ID, (server, player, handler, buf, responseSender) -> {
+            final com.portable.storage.net.payload.StorageActionC2SPayload p = com.portable.storage.net.payload.StorageActionC2SPayload.read(buf);
+            server.execute(() -> {
 				if (checkAndRejectIfNotEnabled(player)) return;
 				switch (p.target()) {
 					case STORAGE -> handleStorageAction(player, p);
@@ -119,10 +118,9 @@ public final class ServerNetworkingHandlers {
 
 
         // 统一覆盖式合成/配方填充
-        ServerPlayNetworking.registerGlobalReceiver(CraftingOverlayActionC2SPayload.ID, (payload, context) -> {
-            final CraftingOverlayActionC2SPayload p = payload;
-            context.server().execute(() -> {
-                ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+        ServerPlayNetworking.registerGlobalReceiver(CraftingOverlayActionC2SPayload.ID, (server, player, handler, buf, responseSender) -> {
+            final com.portable.storage.net.payload.CraftingOverlayActionC2SPayload p = com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.read(buf);
+            server.execute(() -> {
                 if (checkAndRejectIfNotEnabled(player)) return;
                 switch (p.action()) {
                     case CLICK -> {
@@ -130,7 +128,9 @@ public final class ServerNetworkingHandlers {
                         OverlayCraftingManager.State st = OverlayCraftingManager.get(player);
                         net.minecraft.item.ItemStack[] copy = new net.minecraft.item.ItemStack[st.slots.length];
                         for (int i = 0; i < st.slots.length; i++) copy[i] = st.slots[i].copy();
-                        ServerPlayNetworking.send(player, new OverlayCraftingSyncS2CPayload(copy));
+                        net.minecraft.network.PacketByteBuf buf1 = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+                        com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload.write(buf1, new com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload(copy));
+                        ServerPlayNetworking.send(player, com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload.ID, buf1);
                     }
                     case DOUBLE_CLICK -> {
                         var st = OverlayCraftingManager.get(player);
@@ -139,7 +139,7 @@ public final class ServerNetworkingHandlers {
                         int maxPer = Math.min(cursor.getMaxCount(), player.getInventory().getMaxCountPerStack());
                         for (int i = 1; i <= 9 && cursor.getCount() < maxPer; i++) {
                             net.minecraft.item.ItemStack s = st.slots[i];
-                            if (!s.isEmpty() && net.minecraft.item.ItemStack.areItemsAndComponentsEqual(s, cursor)) {
+                            if (!s.isEmpty() && com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(s, cursor)) {
                                 int can = Math.min(maxPer - cursor.getCount(), s.getCount());
                                 if (can > 0) {
                                     cursor.increment(can);
@@ -152,14 +152,16 @@ public final class ServerNetworkingHandlers {
                         OverlayCraftingManager.updateResult(player);
                         net.minecraft.item.ItemStack[] copy = new net.minecraft.item.ItemStack[st.slots.length];
                         for (int i = 0; i < st.slots.length; i++) copy[i] = st.slots[i].copy();
-                        ServerPlayNetworking.send(player, new OverlayCraftingSyncS2CPayload(copy));
+                        net.minecraft.network.PacketByteBuf buf2 = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+                        com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload.write(buf2, new com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload(copy));
+                        ServerPlayNetworking.send(player, com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload.ID, buf2);
                     }
                     case REFILL -> refillCraftingFromStorage(player, p.slotIndex(), p.targetStack());
                     case EMI_FILL -> handleEmiRecipeFill(player, p.recipeId(), p.slotIndices(), p.itemCounts());
                     case REFUND -> {
                         OverlayCraftingManager.refundAll(player);
-                        var handler = player.currentScreenHandler;
-                        if (handler instanceof net.minecraft.screen.PlayerScreenHandler playerHandler) {
+                        var sh = player.currentScreenHandler;
+                        if (sh instanceof net.minecraft.screen.PlayerScreenHandler playerHandler) {
                             for (int i = 1; i <= 4 && i < playerHandler.slots.size(); i++) {
                                 net.minecraft.screen.slot.Slot slot = playerHandler.getSlot(i);
                                 net.minecraft.item.ItemStack stack = slot.getStack();
@@ -181,7 +183,7 @@ public final class ServerNetworkingHandlers {
                                 outputSlot.markDirty();
                             }
                         }
-                        handler.sendContentUpdates();
+                        player.currentScreenHandler.sendContentUpdates();
                         sendSync(player);
                     }
                 }
@@ -194,9 +196,9 @@ public final class ServerNetworkingHandlers {
         // 旧 RefillCraftingC2SPayload 接收器已移除（使用统一 CraftingOverlayActionC2SPayload）
 
 		// 流体槽位点击
-		ServerPlayNetworking.registerGlobalReceiver(FluidSlotClickC2SPayload.ID, (payload, context) -> {
-			context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+        ServerPlayNetworking.registerGlobalReceiver(FluidSlotClickC2SPayload.ID, (server, player, handler, buf, responseSender) -> {
+            final com.portable.storage.net.payload.FluidSlotClickC2SPayload payload = com.portable.storage.net.payload.FluidSlotClickC2SPayload.read(buf);
+            server.execute(() -> {
 				if (checkAndRejectIfNotEnabled(player)) return;
 				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
 				
@@ -251,9 +253,9 @@ public final class ServerNetworkingHandlers {
 		});
 		
 		// 虚拟流体点击
-		ServerPlayNetworking.registerGlobalReceiver(FluidClickC2SPayload.ID, (payload, context) -> {
-			context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+        ServerPlayNetworking.registerGlobalReceiver(FluidClickC2SPayload.ID, (server, player, handler, buf, responseSender) -> {
+            final com.portable.storage.net.payload.FluidClickC2SPayload payload = com.portable.storage.net.payload.FluidClickC2SPayload.read(buf);
+            server.execute(() -> {
 				if (checkAndRejectIfNotEnabled(player)) return;
 				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
 				
@@ -291,9 +293,9 @@ public final class ServerNetworkingHandlers {
 		});
 		
 		// 虚拟流体转换
-		ServerPlayNetworking.registerGlobalReceiver(FluidConversionC2SPayload.ID, (payload, context) -> {
-			context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+        ServerPlayNetworking.registerGlobalReceiver(FluidConversionC2SPayload.ID, (server, player, handler, buf, responseSender) -> {
+            final com.portable.storage.net.payload.FluidConversionC2SPayload payload = com.portable.storage.net.payload.FluidConversionC2SPayload.read(buf);
+            server.execute(() -> {
 				if (checkAndRejectIfNotEnabled(player)) return;
 				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
 				
@@ -349,9 +351,9 @@ public final class ServerNetworkingHandlers {
 						ItemStack bucketToConsume = null;
 						int bucketSlot = -1;
 						
-						var handler = player.currentScreenHandler;
-						for (int i = 0; i < handler.slots.size(); i++) {
-							var slot = handler.slots.get(i);
+                        var handler3 = player.currentScreenHandler;
+						for (int i = 0; i < player.currentScreenHandler.slots.size(); i++) {
+							var slot = player.currentScreenHandler.slots.get(i);
 							if (slot.hasStack() && slot.getStack().isOf(net.minecraft.item.Items.BUCKET)) {
 								bucketToConsume = slot.getStack();
 								bucketSlot = i;
@@ -372,7 +374,7 @@ public final class ServerNetworkingHandlers {
 							// 消耗一个桶
 							bucketToConsume.decrement(1);
 							if (bucketToConsume.isEmpty()) {
-								handler.slots.get(bucketSlot).setStack(ItemStack.EMPTY);
+							player.currentScreenHandler.slots.get(bucketSlot).setStack(ItemStack.EMPTY);
 							}
 							
 							// 消耗一个流体单位并创建流体桶（如果未启用无限流体或数量未达到阈值）
@@ -399,26 +401,26 @@ public final class ServerNetworkingHandlers {
         // 旧 EmiRecipeFillC2SPayload 接收器已移除（使用统一 CraftingOverlayActionC2SPayload）
 		
 		// 筛选规则同步
-		ServerPlayNetworking.registerGlobalReceiver(SyncFilterRulesC2SPayload.ID, (payload, context) -> {
-			context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
-				com.portable.storage.storage.FilterRuleManager.syncPlayerRules(player, payload.filterRules(), payload.destroyRules());
+        ServerPlayNetworking.registerGlobalReceiver(SyncFilterRulesC2SPayload.ID, (server, player, handler, buf, responseSender) -> {
+            final com.portable.storage.net.payload.SyncFilterRulesC2SPayload payload = com.portable.storage.net.payload.SyncFilterRulesC2SPayload.read(buf);
+            server.execute(() -> {
+                com.portable.storage.storage.FilterRuleManager.syncPlayerRules(player, payload.filterRules, payload.destroyRules);
 			});
 		});
 		
 		// 处理绑定木桶筛选规则同步
-		ServerPlayNetworking.registerGlobalReceiver(SyncBarrelFilterRulesC2SPayload.ID, (payload, context) -> {
-			context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+        ServerPlayNetworking.registerGlobalReceiver(SyncBarrelFilterRulesC2SPayload.ID, (server, player, handler, buf, responseSender) -> {
+            final com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload payload = com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload.read(buf);
+            server.execute(() -> {
 				net.minecraft.world.World world = player.getWorld();
-				net.minecraft.block.entity.BlockEntity blockEntity = world.getBlockEntity(payload.barrelPos());
+                net.minecraft.block.entity.BlockEntity blockEntity = world.getBlockEntity(payload.barrelPos);
 				
 				if (blockEntity instanceof com.portable.storage.blockentity.BoundBarrelBlockEntity barrel) {
 					// 转换规则格式
 					java.util.List<com.portable.storage.blockentity.BoundBarrelBlockEntity.FilterRule> filterRules = new java.util.ArrayList<>();
-					for (com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload.FilterRule rule : payload.filterRules()) {
+                    for (com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload.FilterRule rule : payload.filterRules) {
 						filterRules.add(new com.portable.storage.blockentity.BoundBarrelBlockEntity.FilterRule(
-							rule.matchRule(), rule.isWhitelist(), rule.enabled()
+                            rule.matchRule, rule.isWhitelist, rule.enabled
 						));
 					}
 					
@@ -463,32 +465,38 @@ public final class ServerNetworkingHandlers {
 				data.putBoolean("chestMinecart", config.isChestMinecart());
 				data.putBoolean("chestBoat", config.isChestBoat());
 				data.putBoolean("bambooChestRaft", config.isBambooChestRaft());
-				ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
-					ConfigSyncS2CPayload.Topic.DISPLAY_CONFIG, data
-				));
+                net.minecraft.network.PacketByteBuf buf = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+                com.portable.storage.net.payload.ConfigSyncS2CPayload.write(buf,
+                    new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+                        com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.DISPLAY_CONFIG, data));
+                ServerPlayNetworking.send(player, com.portable.storage.net.payload.ConfigSyncS2CPayload.ID, buf);
 				
 				// 发送裂隙配置同步
 				NbtCompound riftData = new NbtCompound();
 				riftData.putString("riftUpgradeItem", config.getRiftUpgradeItem());
 				riftData.putInt("riftSize", config.getRiftSize());
-				ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
-					ConfigSyncS2CPayload.Topic.RIFT_CONFIG, riftData
-				));
+                net.minecraft.network.PacketByteBuf bufR = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+                com.portable.storage.net.payload.ConfigSyncS2CPayload.write(bufR,
+                    new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+                        com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.RIFT_CONFIG, riftData));
+                ServerPlayNetworking.send(player, com.portable.storage.net.payload.ConfigSyncS2CPayload.ID, bufR);
 				
 				// 发送虚拟合成配置同步
 				NbtCompound virtualCraftingData = new NbtCompound();
 				virtualCraftingData.putBoolean("enableVirtualCrafting", config.isEnableVirtualCrafting());
-				ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
-					ConfigSyncS2CPayload.Topic.VIRTUAL_CRAFTING_CONFIG, virtualCraftingData
-				));
+                net.minecraft.network.PacketByteBuf bufV = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+                com.portable.storage.net.payload.ConfigSyncS2CPayload.write(bufV,
+                    new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+                        com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.VIRTUAL_CRAFTING_CONFIG, virtualCraftingData));
+                ServerPlayNetworking.send(player, com.portable.storage.net.payload.ConfigSyncS2CPayload.ID, bufV);
 			}
 		});
 
 		// 虚拟"瓶装经验"点击：button=0 左键取出，1 右键存入
-		ServerPlayNetworking.registerGlobalReceiver(XpBottleClickC2SPayload.ID, (payload, context) -> {
+        ServerPlayNetworking.registerGlobalReceiver(XpBottleClickC2SPayload.ID, (server, player, handler, buf, responseSender) -> {
+            final com.portable.storage.net.payload.XpBottleClickC2SPayload payload = com.portable.storage.net.payload.XpBottleClickC2SPayload.read(buf);
 			int button = payload.button();
-			context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+            server.execute(() -> {
 				if (checkAndRejectIfNotEnabled(player)) return;
 				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
 				// 必须有附魔之瓶升级且未禁用
@@ -539,9 +547,9 @@ public final class ServerNetworkingHandlers {
 		});
 
 		// 附魔之瓶等级维持切换
-		ServerPlayNetworking.registerGlobalReceiver(XpBottleMaintenanceToggleC2SPayload.ID, (payload, context) -> {
-			context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+        ServerPlayNetworking.registerGlobalReceiver(XpBottleMaintenanceToggleC2SPayload.ID, (server, player, handler, buf, responseSender) -> {
+            com.portable.storage.net.payload.XpBottleMaintenanceToggleC2SPayload.read(buf);
+            server.execute(() -> {
 				if (checkAndRejectIfNotEnabled(player)) return;
 				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
 				// 必须有附魔之瓶升级且未禁用
@@ -559,9 +567,9 @@ public final class ServerNetworkingHandlers {
 		});
 
 		// 附魔之瓶转换：玻璃瓶右键瓶装经验转换为附魔之瓶
-		ServerPlayNetworking.registerGlobalReceiver(XpBottleConversionC2SPayload.ID, (payload, context) -> {
-			context.server().execute(() -> {
-				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+        ServerPlayNetworking.registerGlobalReceiver(XpBottleConversionC2SPayload.ID, (server, player, handler, buf, responseSender) -> {
+            final com.portable.storage.net.payload.XpBottleConversionC2SPayload payload = com.portable.storage.net.payload.XpBottleConversionC2SPayload.read(buf);
+            server.execute(() -> {
 				if (checkAndRejectIfNotEnabled(player)) return;
 				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
 				// 必须有附魔之瓶升级且未禁用
@@ -614,10 +622,10 @@ public final class ServerNetworkingHandlers {
 		});
 
         // 统一打开界面：根据 screen 枚举打开对应界面
-        ServerPlayNetworking.registerGlobalReceiver(RequestOpenScreenC2SPayload.ID, (payload, context) -> {
-            context.server().execute(() -> {
-                ServerPlayerEntity player = (ServerPlayerEntity) context.player();
-                if (payload.screen() == RequestOpenScreenC2SPayload.Screen.VANILLA_CRAFTING) {
+        ServerPlayNetworking.registerGlobalReceiver(RequestOpenScreenC2SPayload.ID, (server, player, handler, buf, responseSender) -> {
+            final com.portable.storage.net.payload.RequestOpenScreenC2SPayload payload = com.portable.storage.net.payload.RequestOpenScreenC2SPayload.read(buf);
+            server.execute(() -> {
+                if (payload.screen() == com.portable.storage.net.payload.RequestOpenScreenC2SPayload.Screen.VANILLA_CRAFTING) {
                     // 切回原版工作台
                     final net.minecraft.util.math.BlockPos[] openPosHolder = new net.minecraft.util.math.BlockPos[1];
                     final net.minecraft.world.World[] openWorldHolder = new net.minecraft.world.World[1];
@@ -649,7 +657,7 @@ public final class ServerNetworkingHandlers {
                             return new net.minecraft.screen.CraftingScreenHandler(syncId, inv, net.minecraft.screen.ScreenHandlerContext.create(w, p));
                         }
                     });
-                } else if (payload.screen() == RequestOpenScreenC2SPayload.Screen.PORTABLE_CRAFTING) {
+                } else if (payload.screen() == com.portable.storage.net.payload.RequestOpenScreenC2SPayload.Screen.PORTABLE_CRAFTING) {
                     if (checkAndRejectIfNotEnabled(player)) return;
                     UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
                     boolean hasCraftingUpgrade = false;
@@ -672,16 +680,16 @@ public final class ServerNetworkingHandlers {
                             return new PortableCraftingScreenHandler(syncId, inv, net.minecraft.screen.ScreenHandlerContext.create(player.getWorld(), player.getBlockPos()));
                         }
                     });
-                } else if (payload.screen() == RequestOpenScreenC2SPayload.Screen.FILTER_MAIN) {
+                } else if (payload.screen() == com.portable.storage.net.payload.RequestOpenScreenC2SPayload.Screen.FILTER_MAIN) {
                     // 筛选系统主界面 - 客户端处理，服务器端无需特殊处理
                     // 客户端会直接打开FilterMainScreen
-                } else if (payload.screen() == RequestOpenScreenC2SPayload.Screen.FILTER_SCREEN) {
+                } else if (payload.screen() == com.portable.storage.net.payload.RequestOpenScreenC2SPayload.Screen.FILTER_SCREEN) {
                     // 筛选界面 - 客户端处理，服务器端无需特殊处理
                     // 客户端会直接打开FilterScreen
-                } else if (payload.screen() == RequestOpenScreenC2SPayload.Screen.DESTROY_SCREEN) {
+                } else if (payload.screen() == com.portable.storage.net.payload.RequestOpenScreenC2SPayload.Screen.DESTROY_SCREEN) {
                     // 销毁界面 - 客户端处理，服务器端无需特殊处理
                     // 客户端会直接打开DestroyScreen
-                } else if (payload.screen() == RequestOpenScreenC2SPayload.Screen.BARREL_FILTER) {
+                } else if (payload.screen() == com.portable.storage.net.payload.RequestOpenScreenC2SPayload.Screen.BARREL_FILTER) {
                     // 绑定木桶筛选界面 - 客户端处理，服务器端无需特殊处理
                     // 客户端会直接打开FilterMainScreen，但数据来源是绑定木桶
                 }
@@ -774,9 +782,8 @@ public final class ServerNetworkingHandlers {
 
 	private static java.util.UUID getOwnerUuidFromItem(net.minecraft.item.ItemStack stack) {
 		try {
-			net.minecraft.component.type.NbtComponent comp = stack.get(net.minecraft.component.DataComponentTypes.CUSTOM_DATA);
-			if (comp == null) return null;
-			net.minecraft.nbt.NbtCompound nbt = comp.copyNbt();
+            net.minecraft.nbt.NbtCompound nbt = stack.getNbt();
+            if (nbt == null) return null;
 			if (nbt.contains("ps_owner_uuid_most") && nbt.contains("ps_owner_uuid_least")) {
 				return new java.util.UUID(nbt.getLong("ps_owner_uuid_most"), nbt.getLong("ps_owner_uuid_least"));
 			}
@@ -796,7 +803,7 @@ public final class ServerNetworkingHandlers {
 		// 先尝试合并
 		for (int i = 0; i <= 35 && !stack.isEmpty(); i++) {
 			ItemStack cur = inv.getStack(i);
-			if (!cur.isEmpty() && ItemStack.areItemsAndComponentsEqual(cur, stack)) {
+            if (!cur.isEmpty() && com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(cur, stack)) {
 				int max = Math.min(cur.getMaxCount(), inv.getMaxCountPerStack());
 				int can = Math.min(stack.getCount(), max - cur.getCount());
 				if (can > 0) {
@@ -861,8 +868,12 @@ public final class ServerNetworkingHandlers {
         long sid = StorageSyncManager.getOrStartSession(player.getUuid());
         nbt.putLong("sessionId", sid);
         // 使用玩家注册表上下文，确保附魔等基于注册表的数据正确序列化
-        merged.writeNbt(nbt, player.getRegistryManager());
-        ServerPlayNetworking.send(player, new StorageSyncS2CPayload(nbt));
+        merged.writeNbt(nbt, null);
+        {
+            net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+            com.portable.storage.net.payload.StorageSyncS2CPayload.write(b, new com.portable.storage.net.payload.StorageSyncS2CPayload(nbt));
+            ServerPlayNetworking.send(player, com.portable.storage.net.payload.StorageSyncS2CPayload.ID, b);
+        }
         // 刷新服务器端"上次快照"，用于后续生成真实 diff
         StorageSyncManager.setLastSnapshot(player.getUuid(), toSnapshotMap(merged));
         sendUpgradeSync(player);
@@ -886,7 +897,9 @@ public final class ServerNetworkingHandlers {
         } catch (Throwable ignored) {}
         java.util.List<NbtCompound> chunks = splitDiff(diff, maxEntries);
         for (NbtCompound part : chunks) {
-            ServerPlayNetworking.send(player, new IncrementalStorageSyncS2CPayload(sid, seq, part));
+            net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+            com.portable.storage.net.payload.IncrementalStorageSyncS2CPayload.write(b, new com.portable.storage.net.payload.IncrementalStorageSyncS2CPayload(sid, seq, part));
+            ServerPlayNetworking.send(player, com.portable.storage.net.payload.IncrementalStorageSyncS2CPayload.ID, b);
             seq = StorageSyncManager.nextSeq(player.getUuid());
         }
         // 更新快照
@@ -912,10 +925,7 @@ public final class ServerNetworkingHandlers {
                 e.putString("key", key);
                 e.putLong("count", cnt);
                 e.putLong("ts", ts);
-                final var lookup = player.getRegistryManager();
-                final var ops = (lookup != null)
-                    ? net.minecraft.registry.RegistryOps.of(net.minecraft.nbt.NbtOps.INSTANCE, lookup)
-                    : net.minecraft.nbt.NbtOps.INSTANCE;
+            final var ops = net.minecraft.nbt.NbtOps.INSTANCE;
                 var encoded = ItemStack.CODEC.encodeStart(ops, disp.copy());
                 encoded.result().ifPresent(n -> e.put("display", n));
                 upserts.add(e);
@@ -1021,27 +1031,35 @@ public final class ServerNetworkingHandlers {
 		up.writeNbt(nbt);
 		{
 			NbtCompound data = nbt;
-			ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
-				ConfigSyncS2CPayload.Topic.UPGRADE, data
-			));
+        {
+            net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+            com.portable.storage.net.payload.ConfigSyncS2CPayload.write(b,
+                new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+                    com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.UPGRADE, data));
+            ServerPlayNetworking.send(player, com.portable.storage.net.payload.ConfigSyncS2CPayload.ID, b);
+        }
 		}
 		// 同步XP步长
 		{
 			int xpStep = xpStepIndexByPlayer.getOrDefault(player.getUuid(), 0);
 			NbtCompound data = new NbtCompound();
 			data.putInt("stepIndex", xpStep);
-			ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
-				ConfigSyncS2CPayload.Topic.XP_STEP, data
-			));
+            net.minecraft.network.PacketByteBuf b2 = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+            com.portable.storage.net.payload.ConfigSyncS2CPayload.write(b2,
+                new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+                    com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.XP_STEP, data));
+            ServerPlayNetworking.send(player, com.portable.storage.net.payload.ConfigSyncS2CPayload.ID, b2);
 		}
 		// 同步自动进食模式
 		{
 			AutoEatMode mode = autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DEFAULT);
 			NbtCompound data = new NbtCompound();
 			data.putInt("modeIndex", mode.getIndex());
-			ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
-				ConfigSyncS2CPayload.Topic.AUTO_EAT_MODE, data
-			));
+            net.minecraft.network.PacketByteBuf b3 = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+            com.portable.storage.net.payload.ConfigSyncS2CPayload.write(b3,
+                new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+                    com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.AUTO_EAT_MODE, data));
+            ServerPlayNetworking.send(player, com.portable.storage.net.payload.ConfigSyncS2CPayload.ID, b3);
 		}
 	}
 	
@@ -1052,9 +1070,11 @@ public final class ServerNetworkingHandlers {
 		NbtCompound data = new NbtCompound();
 		data.putBoolean("enabled", enabled);
 		data.putString("storageType", storageType.getKey());
-		ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
-			ConfigSyncS2CPayload.Topic.STORAGE_ENABLEMENT, data
-		));
+        net.minecraft.network.PacketByteBuf b4 = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        com.portable.storage.net.payload.ConfigSyncS2CPayload.write(b4,
+            new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+                com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.STORAGE_ENABLEMENT, data));
+        ServerPlayNetworking.send(player, com.portable.storage.net.payload.ConfigSyncS2CPayload.ID, b4);
 	}
 	
 	public static void sendInfiniteFluidConfigSync(ServerPlayerEntity player) {
@@ -1064,9 +1084,11 @@ public final class ServerNetworkingHandlers {
 		data.putBoolean("enableInfiniteWater", config.isEnableInfiniteWater());
 		data.putInt("infiniteLavaThreshold", config.getInfiniteLavaThreshold());
 		data.putInt("infiniteWaterThreshold", config.getInfiniteWaterThreshold());
-		ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
-			ConfigSyncS2CPayload.Topic.INFINITE_FLUID_CONFIG, data
-		));
+        net.minecraft.network.PacketByteBuf b5 = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        com.portable.storage.net.payload.ConfigSyncS2CPayload.write(b5,
+            new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+                com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.INFINITE_FLUID_CONFIG, data));
+        ServerPlayNetworking.send(player, com.portable.storage.net.payload.ConfigSyncS2CPayload.ID, b5);
 	}
 	
 	public static void sendRiftConfigSync(ServerPlayerEntity player) {
@@ -1074,18 +1096,22 @@ public final class ServerNetworkingHandlers {
 		NbtCompound data = new NbtCompound();
 		data.putString("riftUpgradeItem", config.getRiftUpgradeItem());
 		data.putInt("riftSize", config.getRiftSize());
-		ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
-			ConfigSyncS2CPayload.Topic.RIFT_CONFIG, data
-		));
+        net.minecraft.network.PacketByteBuf b6 = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        com.portable.storage.net.payload.ConfigSyncS2CPayload.write(b6,
+            new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+                com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.RIFT_CONFIG, data));
+        ServerPlayNetworking.send(player, com.portable.storage.net.payload.ConfigSyncS2CPayload.ID, b6);
 	}
 	
 	public static void sendVirtualCraftingConfigSync(ServerPlayerEntity player) {
 		ServerConfig config = ServerConfig.getInstance();
 		NbtCompound data = new NbtCompound();
 		data.putBoolean("enableVirtualCrafting", config.isEnableVirtualCrafting());
-		ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
-			ConfigSyncS2CPayload.Topic.VIRTUAL_CRAFTING_CONFIG, data
-		));
+        net.minecraft.network.PacketByteBuf b7 = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        com.portable.storage.net.payload.ConfigSyncS2CPayload.write(b7,
+            new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+                com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.VIRTUAL_CRAFTING_CONFIG, data));
+        ServerPlayNetworking.send(player, com.portable.storage.net.payload.ConfigSyncS2CPayload.ID, b7);
 	}
 	
 	public static void sendContainerDisplayConfigSync(ServerPlayerEntity player) {
@@ -1116,9 +1142,11 @@ public final class ServerNetworkingHandlers {
 		data.putBoolean("chestMinecart", config.isChestMinecart());
 		data.putBoolean("chestBoat", config.isChestBoat());
 		data.putBoolean("bambooChestRaft", config.isBambooChestRaft());
-		ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
-			ConfigSyncS2CPayload.Topic.DISPLAY_CONFIG, data
-		));
+        net.minecraft.network.PacketByteBuf b8 = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        com.portable.storage.net.payload.ConfigSyncS2CPayload.write(b8,
+            new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+                com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.DISPLAY_CONFIG, data));
+        ServerPlayNetworking.send(player, com.portable.storage.net.payload.ConfigSyncS2CPayload.ID, b8);
 	}
 
     // ===== 合并仓库（共享木桶） =====
@@ -1218,9 +1246,11 @@ public final class ServerNetworkingHandlers {
                 player.sendMessage(net.minecraft.text.Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.step", step), true);
                 net.minecraft.nbt.NbtCompound data = new net.minecraft.nbt.NbtCompound();
                 data.putInt("stepIndex", idx);
-                ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
-                    ConfigSyncS2CPayload.Topic.XP_STEP, data
-                ));
+                net.minecraft.network.PacketByteBuf xbuf = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+                com.portable.storage.net.payload.ConfigSyncS2CPayload.write(xbuf,
+                    new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+                        com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.XP_STEP, data));
+                ServerPlayNetworking.send(player, com.portable.storage.net.payload.ConfigSyncS2CPayload.ID, xbuf);
                 return;
             }
             upgrades.toggleSlotDisabled(slot);
@@ -1242,9 +1272,11 @@ public final class ServerNetworkingHandlers {
                 // 同步模式到客户端
                 net.minecraft.nbt.NbtCompound data = new net.minecraft.nbt.NbtCompound();
                 data.putInt("modeIndex", nextMode.getIndex());
-                ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
-                    ConfigSyncS2CPayload.Topic.AUTO_EAT_MODE, data
-                ));
+                net.minecraft.network.PacketByteBuf abuf = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+                com.portable.storage.net.payload.ConfigSyncS2CPayload.write(abuf,
+                    new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+                        com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.AUTO_EAT_MODE, data));
+                ServerPlayNetworking.send(player, com.portable.storage.net.payload.ConfigSyncS2CPayload.ID, abuf);
                 return;
             }
             // 其他槽位中键：切换禁用状态
@@ -1313,13 +1345,13 @@ public final class ServerNetworkingHandlers {
                 java.util.UUID id = player.getUuid();
                 net.minecraft.util.math.GlobalPos back = SpaceRiftManager.getReturnPoint(id);
                 if (back != null) {
-                    net.minecraft.server.world.ServerWorld targetWorld = server.getWorld(back.dimension());
+                    net.minecraft.server.world.ServerWorld targetWorld = server.getWorld(back.getDimension());
                     if (targetWorld != null) {
                         SpaceRiftManager.clearReturnPoint(id);
                         SpaceRiftManager.resetToWorldBorder(player);
                         // 离开裂隙时创建复制体
                         SpaceRiftManager.ensureAvatarOnExit(player);
-                        net.minecraft.util.math.BlockPos p = back.pos();
+                        net.minecraft.util.math.BlockPos p = back.getPos();
                         player.teleport(targetWorld, p.getX() + 0.5, p.getY(), p.getZ() + 0.5, player.getYaw(), player.getPitch());
                         return;
                     }
@@ -1407,8 +1439,8 @@ public final class ServerNetworkingHandlers {
                     ItemStack bucketToConsume = null;
                     int bucketSlot = -1;
                     var handler = player.currentScreenHandler;
-                    for (int i = 0; i < handler.slots.size(); i++) {
-                        var slot = handler.slots.get(i);
+                    for (int i = 0; i < player.currentScreenHandler.slots.size(); i++) {
+                        var slot = player.currentScreenHandler.slots.get(i);
                         if (slot.hasStack() && slot.getStack().isOf(net.minecraft.item.Items.BUCKET)) {
                             bucketToConsume = slot.getStack();
                             bucketSlot = i;
@@ -1418,7 +1450,7 @@ public final class ServerNetworkingHandlers {
                     if (bucketToConsume != null) {
                         bucketToConsume.decrement(1);
                         if (bucketToConsume.isEmpty()) {
-                            handler.slots.get(bucketSlot).setStack(ItemStack.EMPTY);
+                            player.currentScreenHandler.slots.get(bucketSlot).setStack(ItemStack.EMPTY);
                         }
                         upgrades.removeFluidUnits(fluidType, 1);
                         ItemStack fluidBucket = UpgradeInventory.createFluidBucket(fluidType);
@@ -1644,7 +1676,7 @@ public final class ServerNetworkingHandlers {
         // 合并到已有堆叠
         for (int i = 0; i <= 35 && remaining > 0; i++) {
             ItemStack cur = inv.getStack(i);
-            if (!cur.isEmpty() && ItemStack.areItemsAndComponentsEqual(cur, variant)) {
+            if (!cur.isEmpty() && com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(cur, variant)) {
                 int max = Math.min(cur.getMaxCount(), inv.getMaxCountPerStack());
                 int room = Math.max(0, max - cur.getCount());
                 if (room > 0) remaining -= Math.min(room, remaining);
@@ -1670,7 +1702,7 @@ public final class ServerNetworkingHandlers {
         // 合并阶段
         for (int i = 0; i <= 35 && remaining > 0; i++) {
             ItemStack cur = inv.getStack(i);
-            if (!cur.isEmpty() && ItemStack.areItemsAndComponentsEqual(cur, variant)) {
+            if (!cur.isEmpty() && com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(cur, variant)) {
                 int max = Math.min(cur.getMaxCount(), inv.getMaxCountPerStack());
                 int room = Math.max(0, max - cur.getCount());
                 if (room > 0) {
@@ -1836,7 +1868,7 @@ public final class ServerNetworkingHandlers {
         long totalCount = 0;
         for (int i = 0; i < merged.getCapacity(); i++) {
             ItemStack disp = merged.getDisplayStack(i);
-            if (!disp.isEmpty() && ItemStack.areItemsAndComponentsEqual(disp, variant)) {
+            if (!disp.isEmpty() && com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(disp, variant)) {
                 totalCount += merged.getCountByIndex(i);
             }
         }
@@ -1864,8 +1896,9 @@ public final class ServerNetworkingHandlers {
 
         var id = net.minecraft.util.Identifier.tryParse(recipeIdStr);
         if (id == null) return;
-        var entry = player.getServerWorld().getRecipeManager().get(id).orElse(null);
-        if (entry == null || !(entry.value() instanceof net.minecraft.recipe.CraftingRecipe crafting)) return;
+        var opt = player.getServerWorld().getRecipeManager().get(id);
+        var recipe = opt.orElse(null);
+        if (!(recipe instanceof net.minecraft.recipe.CraftingRecipe crafting)) return;
 
         // 展开配方输入为 3x3 Ingredient 数组
         net.minecraft.recipe.Ingredient[] needs = new net.minecraft.recipe.Ingredient[9];
@@ -2097,7 +2130,7 @@ public final class ServerNetworkingHandlers {
 					new net.minecraft.util.math.Vec3d(bedPos.getX() + 0.5, bedPos.getY() + 0.5, bedPos.getZ() + 0.5),
 					net.minecraft.util.math.Direction.UP, bedPos, false
 				);
-				bedState.onUse(player.getWorld(), player, hitResult);
+                bedState.onUse(player.getWorld(), player, net.minecraft.util.Hand.MAIN_HAND, hitResult);
 				// 如果睡觉成功，发送消息
 				player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".bed_placed"), true);
 			} else {
@@ -2185,7 +2218,7 @@ public final class ServerNetworkingHandlers {
 		if (slotIndex < 0 || slotIndex >= handler.slots.size()) return;
 		Slot slot = handler.getSlot(slotIndex);
 		ItemStack current = slot.getStack();
-		if (!current.isEmpty() && !ItemStack.areItemsAndComponentsEqual(current, targetStack)) {
+        if (!current.isEmpty() && !com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(current, targetStack)) {
 			return;
 		}
 		int maxPerSlot = Math.min(targetStack.getMaxCount(), player.getInventory().getMaxCountPerStack());
@@ -2195,7 +2228,7 @@ public final class ServerNetworkingHandlers {
 			if (i == slotIndex) continue;
 			Slot s = handler.getSlot(i);
 			ItemStack st = s.getStack();
-			if (!st.isEmpty() && ItemStack.areItemsAndComponentsEqual(st, targetStack)) {
+            if (!st.isEmpty() && com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(st, targetStack)) {
 				group.add(i);
 			}
 		}

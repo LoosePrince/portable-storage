@@ -111,7 +111,7 @@ public class PistonUpgradeHandler {
         }
         
         // 情况2：当前槽位有物品，检查是否与上次相同
-        if (!ItemStack.areItemsAndComponentsEqual(current, last)) {
+        if (!com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(current, last)) {
             return false; // 物品不同，不补充
         }
         

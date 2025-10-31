@@ -65,11 +65,13 @@ public abstract class CraftingScreenMixin {
         PlayerViewState.startViewing(MinecraftClient.getInstance().player.getUuid());
         
         // 打开界面时请求同步
-        ClientPlayNetworking.send(new SyncControlC2SPayload(
-            SyncControlC2SPayload.Op.REQUEST,
+        net.minecraft.network.PacketByteBuf rb = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        com.portable.storage.net.payload.SyncControlC2SPayload.write(rb, new com.portable.storage.net.payload.SyncControlC2SPayload(
+            com.portable.storage.net.payload.SyncControlC2SPayload.Op.REQUEST,
             0L,
             false
         ));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.SyncControlC2SPayload.ID, rb);
     }
 
     @Inject(method = "render", at = @At("TAIL"))
@@ -139,14 +141,14 @@ public abstract class CraftingScreenMixin {
 
 
 
-    @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true, require = 0)
     private void portableStorage$keyPressed(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
         if (ClientStorageState.isStorageEnabled() && portableStorage$uiComponent.keyPressed(keyCode, scanCode, modifiers)) {
             cir.setReturnValue(true);
         }
     }
 
-    @Inject(method = "charTyped", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "charTyped", at = @At("HEAD"), cancellable = true, require = 0)
     private void portableStorage$charTyped(char chr, int modifiers, CallbackInfoReturnable<Boolean> cir) {
         if (ClientStorageState.isStorageEnabled() && portableStorage$uiComponent.charTyped(chr, modifiers)) {
             cir.setReturnValue(true);
@@ -193,7 +195,7 @@ public abstract class CraftingScreenMixin {
             // 如果输出槽位变空或数量减少，说明发生了合成
             if (!portableStorage$lastCraftingOutput.isEmpty()) {
                 if (currentOutput.isEmpty() || 
-                    (!ItemStack.areItemsAndComponentsEqual(currentOutput, portableStorage$lastCraftingOutput)) ||
+                    (!com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(currentOutput, portableStorage$lastCraftingOutput)) ||
                     (currentOutput.getCount() < portableStorage$lastCraftingOutput.getCount())) {
                     craftOccurred = true;
                 }
@@ -224,7 +226,7 @@ public abstract class CraftingScreenMixin {
                             targetStack.setCount(targetStack.getMaxCount());
                             portableStorage$refillFromStorage(i, targetStack);
                         }
-                    } else if (ItemStack.areItemsAndComponentsEqual(currentStack, lastStack) && 
+                    } else if (com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(currentStack, lastStack) && 
                                currentStack.getCount() < lastStack.getCount()) {
                         // 物品部分消耗，需要补充
                         if (!recentClick) {
@@ -256,14 +258,16 @@ public abstract class CraftingScreenMixin {
         }
         
         // 发送补充请求到服务器
-        ClientPlayNetworking.send(new CraftingOverlayActionC2SPayload(
-            CraftingOverlayActionC2SPayload.Action.REFILL,
+        net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.write(b, new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
+            com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.REFILL,
             slotIndex, 0, false,
             targetStack,
             "",
             null,
             null
         ));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.ID, b);
     }
     
     /**

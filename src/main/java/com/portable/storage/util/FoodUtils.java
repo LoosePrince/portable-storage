@@ -2,8 +2,7 @@ package com.portable.storage.util;
 
 import com.portable.storage.storage.StorageInventory;
 
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.FoodComponent;
+import net.minecraft.item.FoodComponent;
 import net.minecraft.entity.player.HungerManager;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -22,8 +21,7 @@ public class FoodUtils {
             return false;
         }
         
-        // 检查物品是否有食物组件
-        return stack.get(DataComponentTypes.FOOD) != null;
+        return stack.getItem().isFood();
     }
     
     /**
@@ -34,8 +32,7 @@ public class FoodUtils {
             return false;
         }
         
-        // 检查物品是否有食物组件
-        return stack.get(DataComponentTypes.FOOD) != null;
+        return stack.getItem().isFood();
     }
     
     /**
@@ -46,16 +43,14 @@ public class FoodUtils {
             return null;
         }
         
-        FoodComponent foodComponent = stack.get(DataComponentTypes.FOOD);
-        if (foodComponent == null) {
-            return null;
-        }
+        FoodComponent foodComponent = stack.getItem().getFoodComponent();
+        if (foodComponent == null) return null;
         
         return new FoodInfo(
-            foodComponent.nutrition(),           // 饥饿值
-            foodComponent.saturation(),          // 饱和度
-            foodComponent.canAlwaysEat(),        // 是否总是可以吃（通常是肉类）
-            foodComponent.eatSeconds() < 1.0f    // 是否为快餐
+            foodComponent.getHunger(),
+            foodComponent.getSaturationModifier(),
+            foodComponent.isMeat(),
+            false
         );
     }
     
@@ -91,10 +86,8 @@ public class FoodUtils {
             return false;
         }
         
-        FoodComponent foodComponent = foodStack.get(DataComponentTypes.FOOD);
-        if (foodComponent == null) {
-            return false;
-        }
+        FoodComponent foodComponent = foodStack.getItem().getFoodComponent();
+        if (foodComponent == null) return false;
         
         // 检查玩家是否可以吃这个食物
         if (!player.canConsume(false)) {
@@ -102,8 +95,8 @@ public class FoodUtils {
         }
         
         // 获取食物信息
-        int nutrition = foodComponent.nutrition();
-        float saturation = foodComponent.saturation();
+        int nutrition = foodComponent.getHunger();
+        float saturation = foodComponent.getSaturationModifier();
         
         // 恢复饥饿值
         HungerManager hungerManager = player.getHungerManager();

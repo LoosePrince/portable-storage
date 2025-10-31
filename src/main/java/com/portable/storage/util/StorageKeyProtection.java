@@ -160,12 +160,9 @@ public class StorageKeyProtection {
         }
         
         try {
-            var customData = stack.get(net.minecraft.component.DataComponentTypes.CUSTOM_DATA);
-            if (customData != null) {
-                var nbtCompound = customData.copyNbt();
-                if (nbtCompound.contains("storage_key_owner_name")) {
-                    return nbtCompound.getString("storage_key_owner_name");
-                }
+            net.minecraft.nbt.NbtCompound nbt = stack.getNbt();
+            if (nbt != null && nbt.contains("storage_key_owner_name")) {
+                return nbt.getString("storage_key_owner_name");
             }
         } catch (Exception ignored) {
         }

@@ -6,8 +6,6 @@ import com.mojang.brigadier.context.CommandContext;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.command.CommandRegistryAccess;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
@@ -71,13 +69,10 @@ public final class BarrelCommands {
         customData.putString("ps_owner_name", playerName);
         
         // 设置物品的自定义数据
-        barrel.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(customData));
-        
-        // 设置附魔光效以区分绑定木桶
-        barrel.set(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
+        barrel.getOrCreateNbt().copyFrom(customData);
         
         // 设置自定义名称
-        barrel.set(DataComponentTypes.CUSTOM_NAME, Text.translatable("item.portable-storage.bound_barrel", playerName));
+        barrel.setCustomName(Text.translatable("item.portable-storage.bound_barrel", playerName));
         
         return barrel;
     }

@@ -4,7 +4,6 @@ import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
 
-import com.mojang.serialization.MapCodec;
 import com.portable.storage.blockentity.BoundBarrelBlockEntity;
 import com.portable.storage.player.PlayerStorageAccess;
 import com.portable.storage.storage.StorageType;
@@ -32,16 +31,12 @@ import net.minecraft.world.World;
  * 破坏后掉落普通木桶（带有绑定信息）
  */
 public class BoundBarrelBlock extends BlockWithEntity {
-    public static final MapCodec<BoundBarrelBlock> CODEC = createCodec(BoundBarrelBlock::new);
     
     public BoundBarrelBlock(Settings settings) {
         super(settings);
     }
 
-    @Override
-    protected MapCodec<? extends BlockWithEntity> getCodec() {
-        return CODEC;
-    }
+    // 1.20.1 无需编解码 CODEC 覆盖
 
     @Override
     public BlockRenderType getRenderType(BlockState state) {
@@ -62,7 +57,7 @@ public class BoundBarrelBlock extends BlockWithEntity {
     }
 
     @Override
-    protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
+    public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, net.minecraft.util.Hand hand, BlockHitResult hit) {
         if (world.isClient) {
             return ActionResult.SUCCESS;
         }
@@ -88,9 +83,12 @@ public class BoundBarrelBlock extends BlockWithEntity {
             // 检查是否是Shift+右键（打开筛选配置）
             if (player.isSneaking()) {
                 // 发送打开筛选界面的网络包
+                net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+                com.portable.storage.net.payload.OpenBarrelFilterS2CPayload.write(b, new com.portable.storage.net.payload.OpenBarrelFilterS2CPayload(pos));
                 net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(
                     (net.minecraft.server.network.ServerPlayerEntity) player,
-                    new com.portable.storage.net.payload.OpenBarrelFilterS2CPayload(pos)
+                    com.portable.storage.net.payload.OpenBarrelFilterS2CPayload.ID,
+                    b
                 );
             } else {
                 // 普通右键打开木桶界面
@@ -104,7 +102,7 @@ public class BoundBarrelBlock extends BlockWithEntity {
     }
 
     @Override
-    protected void onStateReplaced(BlockState state, World world, BlockPos pos, BlockState newState, boolean moved) {
+    public void onStateReplaced(BlockState state, World world, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.isOf(newState.getBlock())) {
             BlockEntity blockEntity = world.getBlockEntity(pos);
             if (blockEntity instanceof BoundBarrelBlockEntity boundBarrel) {

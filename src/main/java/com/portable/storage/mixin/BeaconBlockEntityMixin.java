@@ -21,7 +21,7 @@ import net.minecraft.world.World;
 public abstract class BeaconBlockEntityMixin {
 
     @Inject(method = "applyPlayerEffects", at = @At("TAIL"))
-    private static void portableStorage$applyAvatarEffects(World world, BlockPos pos, int level, net.minecraft.registry.entry.RegistryEntry<net.minecraft.entity.effect.StatusEffect> primary, net.minecraft.registry.entry.RegistryEntry<net.minecraft.entity.effect.StatusEffect> secondary, CallbackInfo ci) {
+    private static void portableStorage$applyAvatarEffects(World world, BlockPos pos, int level, net.minecraft.entity.effect.StatusEffect primary, net.minecraft.entity.effect.StatusEffect secondary, CallbackInfo ci) {
         if (world == null || world.isClient) return;
         // 半径计算与原版一致：level * 10 + 10
         int range = level * 10 + 10;

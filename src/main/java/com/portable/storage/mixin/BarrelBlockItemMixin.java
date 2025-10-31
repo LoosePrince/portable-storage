@@ -11,8 +11,6 @@ import com.portable.storage.block.ModBlocks;
 import com.portable.storage.blockentity.BoundBarrelBlockEntity;
 
 import net.minecraft.block.BlockState;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.ItemStack;
@@ -29,10 +27,8 @@ public abstract class BarrelBlockItemMixin {
             if (stack.getItem() != Items.BARREL) return;
             
             // 检查是否是绑定木桶
-            NbtComponent customData = stack.get(DataComponentTypes.CUSTOM_DATA);
-            if (customData == null) return;
-            
-            NbtCompound nbt = customData.copyNbt();
+            NbtCompound nbt = stack.getNbt();
+            if (nbt == null) return;
             UUID uuid = null;
             String name = null;
             

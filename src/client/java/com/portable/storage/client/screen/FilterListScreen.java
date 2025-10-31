@@ -147,25 +147,25 @@ public class FilterListScreen extends Screen {
         this.addDrawableChild(filterInput);
         
         // 创建模式选择（单选框）
-        this.whitelistMode = CheckboxWidget.builder(
+        this.whitelistMode = new CheckboxWidget(
+            centerX + (int)(240 * scale),
+            centerY + (int)(20 * scale),
+            (int)(18 * scale),
+            (int)(18 * scale),
             Text.translatable("portable-storage.filter.list.whitelist"),
-            this.textRenderer
-        ).pos(centerX + (int)(240 * scale), centerY + (int)(20 * scale)).checked(isWhitelistMode).callback((checkbox, checked) -> {
-            if (checked) {
-                isWhitelistMode = true;
-                updateModeSelection();
-            }
-        }).build();
+            isWhitelistMode
+        );
+        // 保持初始状态，由点击时切换
         
-        this.blacklistMode = CheckboxWidget.builder(
+        this.blacklistMode = new CheckboxWidget(
+            centerX + (int)(320 * scale),
+            centerY + (int)(20 * scale),
+            (int)(18 * scale),
+            (int)(18 * scale),
             Text.translatable("portable-storage.filter.list.blacklist"),
-            this.textRenderer
-        ).pos(centerX + (int)(320 * scale), centerY + (int)(20 * scale)).checked(!isWhitelistMode).callback((checkbox, checked) -> {
-            if (checked) {
-                isWhitelistMode = false;
-                updateModeSelection();
-            }
-        }).build();
+            !isWhitelistMode
+        );
+        // 保持初始状态，由点击时切换
         
         // 创建按钮
         this.addButton = ButtonWidget.builder(
@@ -382,9 +382,10 @@ public class FilterListScreen extends Screen {
         }
         
         // 发送网络包到服务器
-        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
-            new com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload(barrelPos, filterRules)
-        );
+        net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload.write(b,
+            new com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload(barrelPos, filterRules));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload.ID, b);
         
         // 同时更新客户端的方块实体，确保界面切换时规则不会丢失
         if (client.world != null) {
@@ -394,7 +395,7 @@ public class FilterListScreen extends Screen {
                 java.util.List<com.portable.storage.blockentity.BoundBarrelBlockEntity.FilterRule> clientFilterRules = new java.util.ArrayList<>();
                 for (com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload.FilterRule rule : filterRules) {
                     clientFilterRules.add(new com.portable.storage.blockentity.BoundBarrelBlockEntity.FilterRule(
-                        rule.matchRule(), rule.isWhitelist(), rule.enabled()
+                        rule.matchRule, rule.isWhitelist, rule.enabled
                     ));
                 }
                 
@@ -461,25 +462,23 @@ public class FilterListScreen extends Screen {
         remove(blacklistMode);
         
         // 重新创建复选框，确保状态同步
-        this.whitelistMode = CheckboxWidget.builder(
+        this.whitelistMode = new CheckboxWidget(
+            centerX + (int)(240 * scale),
+            centerY + (int)(20 * scale),
+            (int)(18 * scale),
+            (int)(18 * scale),
             Text.translatable("portable-storage.filter.list.whitelist"),
-            this.textRenderer
-        ).pos(centerX + (int)(240 * scale), centerY + (int)(20 * scale)).checked(isWhitelistMode).callback((checkbox, checked) -> {
-            if (checked) {
-                isWhitelistMode = true;
-                updateModeSelection();
-            }
-        }).build();
+            isWhitelistMode
+        );
         
-        this.blacklistMode = CheckboxWidget.builder(
+        this.blacklistMode = new CheckboxWidget(
+            centerX + (int)(320 * scale),
+            centerY + (int)(20 * scale),
+            (int)(18 * scale),
+            (int)(18 * scale),
             Text.translatable("portable-storage.filter.list.blacklist"),
-            this.textRenderer
-        ).pos(centerX + (int)(320 * scale), centerY + (int)(20 * scale)).checked(!isWhitelistMode).callback((checkbox, checked) -> {
-            if (checked) {
-                isWhitelistMode = false;
-                updateModeSelection();
-            }
-        }).build();
+            !isWhitelistMode
+        );
         
         // 重新添加到界面
         addDrawableChild(whitelistMode);
@@ -509,22 +508,23 @@ public class FilterListScreen extends Screen {
         }
         
         // 发送到服务器
-        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
-            new com.portable.storage.net.payload.SyncFilterRulesC2SPayload(serverFilterRules, serverDestroyRules)
-        );
+        net.minecraft.network.PacketByteBuf b2 = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        com.portable.storage.net.payload.SyncFilterRulesC2SPayload.write(b2,
+            new com.portable.storage.net.payload.SyncFilterRulesC2SPayload(serverFilterRules, serverDestroyRules));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.SyncFilterRulesC2SPayload.ID, b2);
     }
     
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
         // 检查是否在规则列表区域
         if (isOverRuleListArea(mouseX, mouseY)) {
             if (maxScrollRows > 0) {
-                float delta = (float)verticalAmount * -0.1f;
+                float delta = (float)amount * -0.1f;
                 scroll = Math.max(0.0f, Math.min(1.0f, scroll + delta));
                 return true;
             }
         }
-        return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+        return super.mouseScrolled(mouseX, mouseY, amount);
     }
     
     /**
@@ -547,6 +547,34 @@ public class FilterListScreen extends Screen {
         int centerX = (this.width - actualWidth) / 2;
         int centerY = (this.height - actualHeight) / 2;
         
+        // 先处理白/黑名单模式单选点击
+        if (whitelistMode != null) {
+            int wx = whitelistMode.getX();
+            int wy = whitelistMode.getY();
+            int ww = whitelistMode.getWidth();
+            int wh = whitelistMode.getHeight();
+            if (mouseX >= wx && mouseX <= wx + ww && mouseY >= wy && mouseY <= wy + wh) {
+                if (!isWhitelistMode) {
+                    isWhitelistMode = true;
+                    updateModeSelection();
+                }
+                return true;
+            }
+        }
+        if (blacklistMode != null) {
+            int bx = blacklistMode.getX();
+            int by = blacklistMode.getY();
+            int bw = blacklistMode.getWidth();
+            int bh = blacklistMode.getHeight();
+            if (mouseX >= bx && mouseX <= bx + bw && mouseY >= by && mouseY <= by + bh) {
+                if (isWhitelistMode) {
+                    isWhitelistMode = false;
+                    updateModeSelection();
+                }
+                return true;
+            }
+        }
+
         // 处理规则列表的点击事件
         int startY = centerY + (int)(76 * scale);
         int itemHeight = (int)(RULE_LIST_ITEM_HEIGHT * scale);

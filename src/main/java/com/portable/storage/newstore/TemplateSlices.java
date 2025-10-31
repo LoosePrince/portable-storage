@@ -8,7 +8,6 @@ import java.util.Optional;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.MinecraftServer;
 
@@ -30,7 +29,7 @@ public final class TemplateSlices {
         if (!Files.exists(sliceFile)) return ItemStack.EMPTY;
         
         try {
-            NbtCompound root = SafeNbtIo.readCompressed(sliceFile, NbtSizeTracker.ofUnlimitedBytes());
+        NbtCompound root = SafeNbtIo.readCompressed(sliceFile);
             if (root == null || !root.contains("templates")) return ItemStack.EMPTY;
             NbtCompound templates = root.getCompound("templates");
             if (!templates.contains(key)) return ItemStack.EMPTY;
@@ -57,7 +56,7 @@ public final class TemplateSlices {
         NbtCompound root;
         try {
             if (Files.exists(sliceFile)) {
-                root = SafeNbtIo.readCompressed(sliceFile, NbtSizeTracker.ofUnlimitedBytes());
+            root = SafeNbtIo.readCompressed(sliceFile);
                 if (root == null) root = new NbtCompound();
             } else {
                 root = new NbtCompound();
@@ -82,7 +81,7 @@ public final class TemplateSlices {
         Path sliceFile = StoragePaths.getSliceFile(server.getServer(), e.slice);
         if (!Files.exists(sliceFile)) return;
         try {
-            NbtCompound root = SafeNbtIo.readCompressed(sliceFile, NbtSizeTracker.ofUnlimitedBytes());
+        NbtCompound root = SafeNbtIo.readCompressed(sliceFile);
             if (root == null) return;
             if (root.contains("templates")) {
                 NbtCompound templates = root.getCompound("templates");

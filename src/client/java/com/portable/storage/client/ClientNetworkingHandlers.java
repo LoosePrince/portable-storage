@@ -20,36 +20,36 @@ public final class ClientNetworkingHandlers {
 	public static void register() {
 		// 增量同步通道已移除
 		// 注册新的增量同步接收器
-		net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-			IncrementalStorageSyncS2CPayload.ID,
-			(payload, context) -> context.client().execute(() -> {
-				if (context.client().player == null) return;
-				ClientStorageState.applyDiff(payload.sessionId(), payload.seq(), payload.diff());
-				// 增量应用后立即ACK当前序号（无需阻塞UI）
-				try {
-					net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
-						new SyncControlC2SPayload(
-							SyncControlC2SPayload.Op.ACK,
-							payload.seq(),
-							true
-						)
-					);
-				} catch (Throwable ignored) {}
-			})
-		);
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            IncrementalStorageSyncS2CPayload.ID,
+            (client, handler, buf, responseSender) -> {
+                final IncrementalStorageSyncS2CPayload payload = IncrementalStorageSyncS2CPayload.read(buf);
+                client.execute(() -> {
+                    if (client.player == null) return;
+                    ClientStorageState.applyDiff(payload.sessionId(), payload.seq(), payload.diff());
+                    try {
+                        net.minecraft.network.PacketByteBuf ab = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+                        SyncControlC2SPayload.write(ab, new SyncControlC2SPayload(SyncControlC2SPayload.Op.ACK, payload.seq(), true));
+                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(SyncControlC2SPayload.ID, ab);
+                    } catch (Throwable ignored) {}
+                });
+            }
+        );
 
 		// 保留原有的全量同步处理器作为后备
-		ClientPlayNetworking.registerGlobalReceiver(StorageSyncS2CPayload.ID, (payload, context) -> {
-			context.client().execute(() -> {
-				if (context.client().player == null) return;
-				ClientStorageState.updateFromNbt(payload.nbt(), context.client().player.getRegistryManager());
-			});
-		});
+        ClientPlayNetworking.registerGlobalReceiver(StorageSyncS2CPayload.ID, (client, handler, buf, responseSender) -> {
+            final StorageSyncS2CPayload payload = StorageSyncS2CPayload.read(buf);
+            client.execute(() -> {
+                if (client.player == null) return;
+                ClientStorageState.updateFromNbt(payload.nbt(), client.player.getWorld().getRegistryManager());
+            });
+        });
 		
         // 统一配置/状态同步
-        ClientPlayNetworking.registerGlobalReceiver(ConfigSyncS2CPayload.ID, (payload, context) -> {
-            context.client().execute(() -> {
-                if (context.client().player == null) return;
+        ClientPlayNetworking.registerGlobalReceiver(ConfigSyncS2CPayload.ID, (client, handler, buf, responseSender) -> {
+            final ConfigSyncS2CPayload payload = ConfigSyncS2CPayload.read(buf);
+            client.execute(() -> {
+                if (client.player == null) return;
                 switch (payload.topic()) {
                     case UPGRADE -> {
                         var nbt = payload.data();
@@ -155,24 +155,26 @@ public final class ClientNetworkingHandlers {
         });
 
 		// 覆盖层虚拟合成同步
-		ClientPlayNetworking.registerGlobalReceiver(OverlayCraftingSyncS2CPayload.ID, (payload, context) -> {
-			context.client().execute(() -> {
+        ClientPlayNetworking.registerGlobalReceiver(OverlayCraftingSyncS2CPayload.ID, (client, handler, buf, responseSender) -> {
+            final OverlayCraftingSyncS2CPayload payload = OverlayCraftingSyncS2CPayload.read(buf);
+            client.execute(() -> {
 				try {
 					// 将最新的虚拟槽位状态交给 UI 组件缓存（如需渲染数量/图标）
 					VirtualCraftingOverlayState.update(payload.slots());
 				} catch (Throwable ignored) {}
-			});
+            });
 		});
 		
         // 旧 XP_STEP / DISPLAY_CONFIG / UPGRADE / ENABLEMENT 的接收器已由 ConfigSyncS2CPayload 统一替代
         
         // 筛选界面不需要服务器端处理，直接由客户端管理
         // 但绑定木桶筛选需要特殊处理
-        ClientPlayNetworking.registerGlobalReceiver(OpenBarrelFilterS2CPayload.ID, (payload, context) -> {
-            context.client().execute(() -> {
+        ClientPlayNetworking.registerGlobalReceiver(OpenBarrelFilterS2CPayload.ID, (client, handler, buf, responseSender) -> {
+            final OpenBarrelFilterS2CPayload payload = OpenBarrelFilterS2CPayload.read(buf);
+            client.execute(() -> {
                 // 直接打开绑定木桶筛选界面
-                context.client().setScreen(new com.portable.storage.client.screen.FilterListScreen(
-                    context.client().currentScreen, 
+                client.setScreen(new com.portable.storage.client.screen.FilterListScreen(
+                    client.currentScreen, 
                     com.portable.storage.client.screen.FilterListScreen.Mode.FILTER, 
                     payload.barrelPos()
                 ));
@@ -180,28 +182,33 @@ public final class ClientNetworkingHandlers {
         });
         
         // 处理服务器请求同步筛选规则
-        ClientPlayNetworking.registerGlobalReceiver(RequestFilterRulesSyncS2CPayload.ID, (payload, context) -> {
-            context.client().execute(() -> {
-                if (context.client().player == null) return;
+        ClientPlayNetworking.registerGlobalReceiver(RequestFilterRulesSyncS2CPayload.ID, (client, handler, buf, responseSender) -> {
+            final RequestFilterRulesSyncS2CPayload payload = RequestFilterRulesSyncS2CPayload.read(buf);
+            client.execute(() -> {
+                if (client.player == null) return;
                 // 主动同步筛选规则到服务器
                 syncFilterRulesToServer();
             });
         });
 	}
 	
-	public static void sendXpBottleMaintenanceToggle() {
-		ClientPlayNetworking.send(new XpBottleMaintenanceToggleC2SPayload());
-	}
+    public static void sendXpBottleMaintenanceToggle() {
+        net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        XpBottleMaintenanceToggleC2SPayload.write(b, new XpBottleMaintenanceToggleC2SPayload());
+        ClientPlayNetworking.send(XpBottleMaintenanceToggleC2SPayload.ID, b);
+    }
 	
 	public static void sendRefundCraftingSlots() {
-		ClientPlayNetworking.send(new CraftingOverlayActionC2SPayload(
-			CraftingOverlayActionC2SPayload.Action.REFUND,
-			0, 0, false,
-			net.minecraft.item.ItemStack.EMPTY,
-			"",
-			null,
-			null
-		));
+        net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        CraftingOverlayActionC2SPayload.write(b, new CraftingOverlayActionC2SPayload(
+            CraftingOverlayActionC2SPayload.Action.REFUND,
+            0, 0, false,
+            net.minecraft.item.ItemStack.EMPTY,
+            "",
+            null,
+            null
+        ));
+        ClientPlayNetworking.send(CraftingOverlayActionC2SPayload.ID, b);
 	}
 	
 	/**
@@ -225,9 +232,10 @@ public final class ClientNetworkingHandlers {
 		}
 		
 		// 发送到服务器
-		ClientPlayNetworking.send(
-			new com.portable.storage.net.payload.SyncFilterRulesC2SPayload(serverFilterRules, serverDestroyRules)
-		);
+        net.minecraft.network.PacketByteBuf sb = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        com.portable.storage.net.payload.SyncFilterRulesC2SPayload.write(sb,
+            new com.portable.storage.net.payload.SyncFilterRulesC2SPayload(serverFilterRules, serverDestroyRules));
+        ClientPlayNetworking.send(com.portable.storage.net.payload.SyncFilterRulesC2SPayload.ID, sb);
 	}
 }
 

@@ -10,7 +10,6 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.server.MinecraftServer;
 
 /**
@@ -29,7 +28,7 @@ public final class RefCountRebuilder {
         try (var stream = Files.list(playersDir)) {
             stream.filter(p -> p.getFileName().toString().endsWith(".nbt")).forEach(file -> {
                 try {
-                    NbtCompound root = NbtIo.readCompressed(file, NbtSizeTracker.ofUnlimitedBytes());
+                NbtCompound root = NbtIo.readCompressed(file.toFile());
                     if (root == null) return;
                     if (!root.contains(PlayerStore.ENTRIES, NbtElement.LIST_TYPE)) return;
                     NbtList list = root.getList(PlayerStore.ENTRIES, NbtElement.COMPOUND_TYPE);

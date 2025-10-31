@@ -37,7 +37,8 @@ public abstract class RemoveRecipeBookButtonMixin {
         
         // 尝试通过类名精确匹配
         for (Element child : self.children()) {
-            if (child instanceof ClickableWidget widget && widget instanceof net.minecraft.client.gui.widget.TexturedButtonWidget) {
+            if (child instanceof ClickableWidget && child instanceof net.minecraft.client.gui.widget.TexturedButtonWidget) {
+                ClickableWidget widget = (ClickableWidget) child;
                 recipeBookButton = widget;
                 PortableStorage.LOGGER.debug("找到配方书按钮: 类名={}, 大小={}x{}", 
                     widget.getClass().getSimpleName(), widget.getWidth(), widget.getHeight());
@@ -48,7 +49,8 @@ public abstract class RemoveRecipeBookButtonMixin {
         if (recipeBookButton != null) {
             // 直接隐藏按钮
             try {
-                if (recipeBookButton instanceof net.minecraft.client.gui.widget.ClickableWidget widget) {
+                if (recipeBookButton instanceof net.minecraft.client.gui.widget.ClickableWidget) {
+                    net.minecraft.client.gui.widget.ClickableWidget widget = (net.minecraft.client.gui.widget.ClickableWidget) recipeBookButton;
                     widget.visible = false;
                     widget.active = false;
                     PortableStorage.LOGGER.debug("成功隐藏配方书按钮: 类名={}", recipeBookButton.getClass().getSimpleName());

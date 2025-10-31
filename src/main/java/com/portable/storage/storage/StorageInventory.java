@@ -31,7 +31,7 @@ public class StorageInventory {
     public StorageInventory(int ignoredCapacity) { }
 
     private static boolean stacksEqual(ItemStack a, ItemStack b) {
-        return ItemStack.areItemsAndComponentsEqual(a, b);
+        return com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(a, b);
     }
 
     private void markDirty() { sortedIndices = null; }
@@ -200,17 +200,8 @@ public class StorageInventory {
             {
                 NbtCompound itemTag = new NbtCompound();
                 itemTag.putString("id", Registries.ITEM.getId(e.template.getItem()).toString());
-                var custom = e.template.get(net.minecraft.component.DataComponentTypes.CUSTOM_DATA);
-                if (custom != null) {
-                    itemTag.put("custom", custom.copyNbt());
-                }
-                var be = e.template.get(net.minecraft.component.DataComponentTypes.BLOCK_ENTITY_DATA);
-                if (be != null) {
-                    itemTag.put("block_entity", be.copyNbt());
-                }
-                Boolean glint = e.template.get(net.minecraft.component.DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE);
-                if (glint != null && glint) {
-                    itemTag.putBoolean("glint", true);
+                if (e.template.getNbt() != null) {
+                    itemTag.put("custom", e.template.getNbt().copy());
                 }
                 c.put("item", itemTag);
             }
@@ -251,13 +242,7 @@ public class StorageInventory {
                     if (item != null && item != net.minecraft.item.Items.AIR) {
                         template = new ItemStack(item);
                         if (itemTag.contains("custom", NbtElement.COMPOUND_TYPE)) {
-                            template.set(net.minecraft.component.DataComponentTypes.CUSTOM_DATA, net.minecraft.component.type.NbtComponent.of(itemTag.getCompound("custom")));
-                        }
-                        if (itemTag.contains("block_entity", NbtElement.COMPOUND_TYPE)) {
-                            template.set(net.minecraft.component.DataComponentTypes.BLOCK_ENTITY_DATA, net.minecraft.component.type.NbtComponent.of(itemTag.getCompound("block_entity")));
-                        }
-                        if (itemTag.contains("glint", NbtElement.BYTE_TYPE) && itemTag.getBoolean("glint")) {
-                            template.set(net.minecraft.component.DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
+                            template.setNbt(itemTag.getCompound("custom"));
                         }
                     }
                 }

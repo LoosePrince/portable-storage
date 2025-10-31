@@ -17,10 +17,9 @@ public class TempBedBlock extends BedBlock {
     }
     
     @Override
-    public BlockState onBreak(World world, BlockPos pos, BlockState state, PlayerEntity player) {
+    public void onBreak(World world, BlockPos pos, BlockState state, PlayerEntity player) {
         // 不调用父类的onBreak方法，这样就不会掉落物品
-        // 只移除方块状态并返回null
+        // 只移除方块状态
         world.removeBlock(pos, false);
-        return null;
     }
 }

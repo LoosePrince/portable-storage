@@ -2,41 +2,48 @@ package com.portable.storage.net.payload;
 
 import static com.portable.storage.PortableStorage.MOD_ID;
 
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
+import net.minecraft.network.PacketByteBuf;
 import net.minecraft.util.Identifier;
 
 /**
  * 统一的同步控制（C2S）：REQUEST / ACK。
- * 为简化，ACK 使用 seq 字段承载（当前会话内的序号）。
  */
-public record SyncControlC2SPayload(Op op, long syncId, boolean success) implements CustomPayload {
-    public static final CustomPayload.Id<SyncControlC2SPayload> ID = new CustomPayload.Id<>(Identifier.of(MOD_ID, "sync_control"));
-
-    public static final PacketCodec<RegistryByteBuf, SyncControlC2SPayload> CODEC = PacketCodec.of(
-        (v, buf) -> {
-            buf.writeVarInt(v.op.ordinal());
-            if (v.op == Op.ACK) {
-                buf.writeVarLong(v.syncId);
-                buf.writeBoolean(v.success);
-            }
-        },
-        buf -> {
-            Op op = Op.values()[buf.readVarInt()];
-            if (op == Op.ACK) {
-                long id = buf.readVarLong();
-                boolean ok = buf.readBoolean();
-                return new SyncControlC2SPayload(op, id, ok);
-            }
-            return new SyncControlC2SPayload(op, 0L, false);
-        }
-    );
-
-    @Override
-    public Id<? extends CustomPayload> getId() { return ID; }
+public final class SyncControlC2SPayload {
+    public static final Identifier ID = new Identifier(MOD_ID, "sync_control");
 
     public enum Op { REQUEST, ACK }
+
+    private final Op op;
+    private final long syncId;
+    private final boolean success;
+
+    public SyncControlC2SPayload(Op op, long syncId, boolean success) {
+        this.op = op;
+        this.syncId = syncId;
+        this.success = success;
+    }
+
+    public Op op() { return op; }
+    public long syncId() { return syncId; }
+    public boolean success() { return success; }
+
+    public static void write(PacketByteBuf buf, SyncControlC2SPayload v) {
+        buf.writeVarInt(v.op.ordinal());
+        if (v.op == Op.ACK) {
+            buf.writeVarLong(v.syncId);
+            buf.writeBoolean(v.success);
+        }
+    }
+
+    public static SyncControlC2SPayload read(PacketByteBuf buf) {
+        Op op = Op.values()[buf.readVarInt()];
+        if (op == Op.ACK) {
+            long id = buf.readVarLong();
+            boolean ok = buf.readBoolean();
+            return new SyncControlC2SPayload(op, id, ok);
+        }
+        return new SyncControlC2SPayload(op, 0L, false);
+    }
 }
 
 

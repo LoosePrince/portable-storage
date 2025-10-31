@@ -2,27 +2,32 @@ package com.portable.storage.net.payload;
 
 import static com.portable.storage.PortableStorage.MOD_ID;
 
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
+import net.minecraft.network.PacketByteBuf;
 import net.minecraft.util.Identifier;
 
 /**
  * 虚拟流体点击载荷
  */
-public record FluidClickC2SPayload(String fluidType, int button) implements CustomPayload {
-    public static final CustomPayload.Id<FluidClickC2SPayload> ID = new CustomPayload.Id<>(Identifier.of(MOD_ID, "fluid_click"));
+public final class FluidClickC2SPayload {
+    public static final Identifier ID = new Identifier(MOD_ID, "fluid_click");
 
-    public static final PacketCodec<RegistryByteBuf, FluidClickC2SPayload> CODEC = PacketCodec.of(
-            (value, buf) -> {
-                buf.writeString(value.fluidType);
-                buf.writeVarInt(value.button);
-            },
-            buf -> new FluidClickC2SPayload(buf.readString(), buf.readVarInt())
-    );
+    private final String fluidType;
+    private final int button;
 
-    @Override
-    public Id<? extends CustomPayload> getId() {
-        return ID;
+    public FluidClickC2SPayload(String fluidType, int button) {
+        this.fluidType = fluidType;
+        this.button = button;
+    }
+
+    public String fluidType() { return fluidType; }
+    public int button() { return button; }
+
+    public static void write(PacketByteBuf buf, FluidClickC2SPayload v) {
+        buf.writeString(v.fluidType);
+        buf.writeVarInt(v.button);
+    }
+
+    public static FluidClickC2SPayload read(PacketByteBuf buf) {
+        return new FluidClickC2SPayload(buf.readString(), buf.readVarInt());
     }
 }

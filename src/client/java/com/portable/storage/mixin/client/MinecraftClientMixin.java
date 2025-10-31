@@ -21,16 +21,16 @@ public abstract class MinecraftClientMixin {
         Screen old = ((MinecraftClient)(Object)this).currentScreen;
         if (old instanceof InventoryScreen && !(newScreen instanceof InventoryScreen)) {
             if (ClientStorageState.isStorageEnabled()) {
-                net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
-                    new CraftingOverlayActionC2SPayload(
-                        CraftingOverlayActionC2SPayload.Action.CLICK,
-                        -1, 0, false,
-                        net.minecraft.item.ItemStack.EMPTY,
-                        "",
-                        null,
-                        null
-                    )
-                );
+                net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+                com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.write(b, new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
+                    com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.CLICK,
+                    -1, 0, false,
+                    net.minecraft.item.ItemStack.EMPTY,
+                    "",
+                    null,
+                    null
+                ));
+                net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.ID, b);
             }
         }
     }

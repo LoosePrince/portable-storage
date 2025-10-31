@@ -212,9 +212,12 @@ public class FilterRuleManager {
         }
         
         // 发送请求同步的网络包
+        net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        com.portable.storage.net.payload.RequestFilterRulesSyncS2CPayload.write(b, new com.portable.storage.net.payload.RequestFilterRulesSyncS2CPayload());
         net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(
-            player, 
-            new com.portable.storage.net.payload.RequestFilterRulesSyncS2CPayload()
+            player,
+            com.portable.storage.net.payload.RequestFilterRulesSyncS2CPayload.ID,
+            b
         );
         
         PortableStorage.LOGGER.debug("Requested filter rules sync for player {}", player.getName().getString());

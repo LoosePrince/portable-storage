@@ -4,6 +4,8 @@ import com.portable.storage.PortableStorage;
 
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.minecraft.entity.EntityType;
+import net.fabricmc.fabric.api.object.builder.v1.entity.FabricEntityTypeBuilder;
+import net.minecraft.entity.EntityDimensions;
 import net.minecraft.entity.SpawnGroup;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
@@ -15,10 +17,8 @@ public final class ModEntities {
     public static final EntityType<RiftAvatarEntity> RIFT_AVATAR = Registry.register(
             Registries.ENTITY_TYPE,
             Identifier.of(PortableStorage.MOD_ID, "rift_avatar"),
-            EntityType.Builder.<RiftAvatarEntity>create(RiftAvatarEntity::new, SpawnGroup.MISC)
-                    .disableSaving()
-                    .disableSummon()
-                    .dimensions(0.6F, 1.8F)
+            FabricEntityTypeBuilder.create(SpawnGroup.MISC, RiftAvatarEntity::new)
+                    .dimensions(EntityDimensions.fixed(0.6F, 1.8F))
                     .build()
     );
 

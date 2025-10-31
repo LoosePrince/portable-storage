@@ -6,8 +6,6 @@ import com.portable.storage.PortableStorage;
 import com.portable.storage.player.PlayerStorageAccess;
 import com.portable.storage.storage.StorageType;
 
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -89,8 +87,8 @@ public class StorageKeyItem extends Item {
      */
     public static ItemStack createStorageKey(ServerPlayerEntity player) {
         ItemStack key = new ItemStack(PortableStorage.STORAGE_KEY_ITEM);
-        // 设置自定义物品
-        key.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(new net.minecraft.nbt.NbtCompound()));
+        // 初始化自定义NBT
+        key.getOrCreateNbt();
         
         // 写入拥有者信息
         net.minecraft.nbt.NbtCompound nbt = getCustomData(key);
@@ -102,12 +100,8 @@ public class StorageKeyItem extends Item {
         setCustomData(key, nbt);
         
         // 设置显示名称
-        key.set(DataComponentTypes.CUSTOM_NAME, Text.translatable("item." + PortableStorage.MOD_ID + ".storage_key")
+        key.setCustomName(Text.translatable("item." + PortableStorage.MOD_ID + ".storage_key")
                 .formatted(Formatting.GOLD));
-        
-        // 添加附魔效果（视觉上看起来像附魔的物品）
-        key.set(DataComponentTypes.ENCHANTMENTS, 
-                net.minecraft.component.type.ItemEnchantmentsComponent.DEFAULT);
         
         return key;
     }
@@ -176,18 +170,11 @@ public class StorageKeyItem extends Item {
     }
     
     private static net.minecraft.nbt.NbtCompound getCustomData(ItemStack stack) {
-        try {
-            NbtComponent comp = stack.get(DataComponentTypes.CUSTOM_DATA);
-            return comp != null ? comp.copyNbt() : new net.minecraft.nbt.NbtCompound();
-        } catch (Exception e) {
-            return new net.minecraft.nbt.NbtCompound();
-        }
+        return stack.getOrCreateNbt();
     }
     
     private static void setCustomData(ItemStack stack, net.minecraft.nbt.NbtCompound nbt) {
-        try {
-            stack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt));
-        } catch (Exception ignored) {
-        }
+        // 直接写回 NBT（getOrCreateNbt 已返回同一个引用）
+        stack.setNbt(nbt);
     }
 }

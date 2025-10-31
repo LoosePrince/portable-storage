@@ -1,7 +1,5 @@
 package com.portable.storage.storage;
 
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
@@ -303,11 +301,11 @@ public class UnifiedUpgradeManager {
         // 特殊处理：木桶绑定逻辑（槽位3是木桶）
         if (slotIndex == 3 && toInsert.isOf(Items.BARREL)) {
             // 检查是否已经绑定
-            NbtComponent customData = toInsert.get(DataComponentTypes.CUSTOM_DATA);
+            net.minecraft.nbt.NbtCompound customData = toInsert.getNbt();
             boolean alreadyBound = false;
             
             if (customData != null) {
-                NbtCompound nbt = customData.copyNbt();
+                NbtCompound nbt = customData.copy();
                 if (nbt.containsUuid("ps_owner_uuid") || 
                     (nbt.contains("ps_owner_uuid_most") && nbt.contains("ps_owner_uuid_least"))) {
                     alreadyBound = true;
@@ -325,10 +323,9 @@ public class UnifiedUpgradeManager {
                     customNbt.putString("ps_owner_name", playerName);
                 }
                 
-                // 只设置 CUSTOM_DATA，不设置 BLOCK_ENTITY_DATA
-                // BLOCK_ENTITY_DATA 需要实体ID，会导致序列化错误
-                toInsert.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(customNbt));
-                toInsert.set(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
+                // 将绑定信息直接写入物品 NBT（1.20.1 无 Data Components）
+                net.minecraft.nbt.NbtCompound base = toInsert.getOrCreateNbt();
+                base.copyFrom(customNbt);
             }
         }
         
@@ -486,17 +483,7 @@ public class UnifiedUpgradeManager {
             if (!baseSlots[i].isEmpty()) {
                 NbtCompound slotNbt = new NbtCompound();
                 slotNbt.putByte("Slot", (byte) i);
-                slotNbt.putString("id", Registries.ITEM.getId(baseSlots[i].getItem()).toString());
-                slotNbt.putByte("Count", (byte) baseSlots[i].getCount());
-                // 写入自定义数据
-                NbtComponent custom = baseSlots[i].get(DataComponentTypes.CUSTOM_DATA);
-                if (custom != null) {
-                    slotNbt.put("CustomData", custom.copyNbt());
-                }
-                NbtComponent be = baseSlots[i].get(DataComponentTypes.BLOCK_ENTITY_DATA);
-                if (be != null) {
-                    slotNbt.put("BlockEntityData", be.copyNbt());
-                }
+                baseSlots[i].writeNbt(slotNbt);
                 baseList.add(slotNbt);
             }
         }
@@ -515,17 +502,7 @@ public class UnifiedUpgradeManager {
             if (!extendedSlots[i].isEmpty()) {
                 NbtCompound slotNbt = new NbtCompound();
                 slotNbt.putByte("Slot", (byte) i);
-                slotNbt.putString("id", Registries.ITEM.getId(extendedSlots[i].getItem()).toString());
-                slotNbt.putByte("Count", (byte) extendedSlots[i].getCount());
-                // 写入自定义数据
-                NbtComponent custom = extendedSlots[i].get(DataComponentTypes.CUSTOM_DATA);
-                if (custom != null) {
-                    slotNbt.put("CustomData", custom.copyNbt());
-                }
-                NbtComponent be = extendedSlots[i].get(DataComponentTypes.BLOCK_ENTITY_DATA);
-                if (be != null) {
-                    slotNbt.put("BlockEntityData", be.copyNbt());
-                }
+                extendedSlots[i].writeNbt(slotNbt);
                 extendedList.add(slotNbt);
             }
         }
@@ -541,12 +518,7 @@ public class UnifiedUpgradeManager {
         // 保存垃圾桶槽位
         if (!trashSlot.isEmpty()) {
             NbtCompound trashNbt = new NbtCompound();
-            trashNbt.putString("id", Registries.ITEM.getId(trashSlot.getItem()).toString());
-            trashNbt.putByte("Count", (byte) trashSlot.getCount());
-            NbtComponent custom = trashSlot.get(DataComponentTypes.CUSTOM_DATA);
-            if (custom != null) {
-                trashNbt.put("CustomData", custom.copyNbt());
-            }
+            trashSlot.writeNbt(trashNbt);
             nbt.put("TrashSlot", trashNbt);
         }
         nbt.putBoolean("TrashSlotDisabled", trashSlotDisabled);
@@ -554,12 +526,7 @@ public class UnifiedUpgradeManager {
         // 保存流体槽位
         if (!fluidSlot.isEmpty()) {
             NbtCompound fluidNbt = new NbtCompound();
-            fluidNbt.putString("id", Registries.ITEM.getId(fluidSlot.getItem()).toString());
-            fluidNbt.putByte("Count", (byte) fluidSlot.getCount());
-            NbtComponent custom = fluidSlot.get(DataComponentTypes.CUSTOM_DATA);
-            if (custom != null) {
-                fluidNbt.put("CustomData", custom.copyNbt());
-            }
+            fluidSlot.writeNbt(fluidNbt);
             nbt.put("FluidSlot", fluidNbt);
         }
         
@@ -585,24 +552,9 @@ public class UnifiedUpgradeManager {
         for (int i = 0; i < baseList.size(); i++) {
             NbtCompound slotNbt = baseList.getCompound(i);
             int slot = slotNbt.getByte("Slot") & 255;
-            if (slot >= 0 && slot < BASE_SLOT_COUNT && slotNbt.contains("id")) {
-                net.minecraft.util.Identifier id = net.minecraft.util.Identifier.tryParse(slotNbt.getString("id"));
-                if (id != null) {
-                    net.minecraft.item.Item item = Registries.ITEM.get(id);
-                    if (item != null && item != Items.AIR) {
-                        ItemStack stack = new ItemStack(item);
-                        stack.setCount(slotNbt.getByte("Count"));
-                        if (slotNbt.contains("CustomData", NbtElement.COMPOUND_TYPE)) {
-                            NbtCompound custom = slotNbt.getCompound("CustomData");
-                            stack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(custom));
-                        }
-                        if (slotNbt.contains("BlockEntityData", NbtElement.COMPOUND_TYPE)) {
-                            NbtCompound be = slotNbt.getCompound("BlockEntityData");
-                            stack.set(DataComponentTypes.BLOCK_ENTITY_DATA, NbtComponent.of(be));
-                        }
-                        baseSlots[slot] = stack;
-                    }
-                }
+            if (slot >= 0 && slot < BASE_SLOT_COUNT) {
+                ItemStack stack = ItemStack.fromNbt(slotNbt);
+                baseSlots[slot] = stack == null ? ItemStack.EMPTY : stack;
             }
         }
         
@@ -626,24 +578,9 @@ public class UnifiedUpgradeManager {
         for (int i = 0; i < extendedList.size(); i++) {
             NbtCompound slotNbt = extendedList.getCompound(i);
             int slot = slotNbt.getByte("Slot") & 255;
-            if (slot >= 0 && slot < EXTENDED_SLOT_COUNT && slotNbt.contains("id")) {
-                net.minecraft.util.Identifier id = net.minecraft.util.Identifier.tryParse(slotNbt.getString("id"));
-                if (id != null) {
-                    net.minecraft.item.Item item = Registries.ITEM.get(id);
-                    if (item != null && item != Items.AIR) {
-                        ItemStack stack = new ItemStack(item);
-                        stack.setCount(slotNbt.getByte("Count"));
-                        if (slotNbt.contains("CustomData", NbtElement.COMPOUND_TYPE)) {
-                            NbtCompound custom = slotNbt.getCompound("CustomData");
-                            stack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(custom));
-                        }
-                        if (slotNbt.contains("BlockEntityData", NbtElement.COMPOUND_TYPE)) {
-                            NbtCompound be = slotNbt.getCompound("BlockEntityData");
-                            stack.set(DataComponentTypes.BLOCK_ENTITY_DATA, NbtComponent.of(be));
-                        }
-                        extendedSlots[slot] = stack;
-                    }
-                }
+            if (slot >= 0 && slot < EXTENDED_SLOT_COUNT) {
+                ItemStack stack = ItemStack.fromNbt(slotNbt);
+                extendedSlots[slot] = stack == null ? ItemStack.EMPTY : stack;
             }
         }
         
@@ -662,21 +599,8 @@ public class UnifiedUpgradeManager {
         // 读取垃圾桶槽位
         if (nbt.contains("TrashSlot", NbtElement.COMPOUND_TYPE)) {
             NbtCompound trashNbt = nbt.getCompound("TrashSlot");
-            if (trashNbt.contains("id")) {
-                net.minecraft.util.Identifier id = net.minecraft.util.Identifier.tryParse(trashNbt.getString("id"));
-                if (id != null) {
-                    net.minecraft.item.Item item = Registries.ITEM.get(id);
-                    if (item != null && item != Items.AIR) {
-                        ItemStack stack = new ItemStack(item);
-                        stack.setCount(trashNbt.getByte("Count"));
-                        if (trashNbt.contains("CustomData", NbtElement.COMPOUND_TYPE)) {
-                            NbtCompound custom = trashNbt.getCompound("CustomData");
-                            stack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(custom));
-                        }
-                        trashSlot = stack;
-                    }
-                }
-            }
+            ItemStack stack = ItemStack.fromNbt(trashNbt);
+            trashSlot = stack == null ? ItemStack.EMPTY : stack;
         } else {
             trashSlot = ItemStack.EMPTY;
         }
@@ -685,21 +609,8 @@ public class UnifiedUpgradeManager {
         // 读取流体槽位
         if (nbt.contains("FluidSlot", NbtElement.COMPOUND_TYPE)) {
             NbtCompound fluidNbt = nbt.getCompound("FluidSlot");
-            if (fluidNbt.contains("id")) {
-                net.minecraft.util.Identifier id = net.minecraft.util.Identifier.tryParse(fluidNbt.getString("id"));
-                if (id != null) {
-                    net.minecraft.item.Item item = Registries.ITEM.get(id);
-                    if (item != null && item != Items.AIR) {
-                        ItemStack stack = new ItemStack(item);
-                        stack.setCount(fluidNbt.getByte("Count"));
-                        if (fluidNbt.contains("CustomData", NbtElement.COMPOUND_TYPE)) {
-                            NbtCompound custom = fluidNbt.getCompound("CustomData");
-                            stack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(custom));
-                        }
-                        fluidSlot = stack;
-                    }
-                }
-            }
+            ItemStack stack = ItemStack.fromNbt(fluidNbt);
+            fluidSlot = stack == null ? ItemStack.EMPTY : stack;
         } else {
             fluidSlot = ItemStack.EMPTY;
         }

@@ -14,8 +14,6 @@ import com.portable.storage.storage.StorageType;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.LootableContainerBlockEntity;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.Inventories;
 import net.minecraft.inventory.SidedInventory;
@@ -118,12 +116,12 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
     }
 
     @Override
-    protected DefaultedList<ItemStack> getHeldStacks() {
+    protected DefaultedList<ItemStack> getInvStackList() {
         return inventory;
     }
 
     @Override
-    protected void setHeldStacks(DefaultedList<ItemStack> inventory) {
+    protected void setInvStackList(DefaultedList<ItemStack> inventory) {
         this.inventory = inventory;
     }
 
@@ -239,7 +237,7 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
                     for (StorageInventory storage : storages) {
                         for (int i = 0; i < storage.getCapacity(); i++) {
                             ItemStack disp = storage.getDisplayStack(i);
-                            if (!disp.isEmpty() && ItemStack.areItemsAndComponentsEqual(disp, marker)) {
+                if (!disp.isEmpty() && com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(disp, marker)) {
                                 return true; // 旧版仓库中有对应物品，允许提取
                             }
                         }
@@ -250,7 +248,7 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
                 return false; // 仓库中没有对应物品，不允许提取
             } else {
                 // 玩家操作：允许取出标记物品本身
-                return ItemStack.areItemsAndComponentsEqual(stack, marker);
+                    return com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(stack, marker);
             }
         }
         // 隐藏输入槽位5及其他：不允许被提取
@@ -303,7 +301,7 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
             long nowTick = world.getTime();
             BlockPos sourcePos = THREAD_INSERT_SOURCE.get();
             if (nowTick == lastSlot5ProcessTick && !lastSlot5Processed.isEmpty()
-                && ItemStack.areItemsAndComponentsEqual(stack, lastSlot5Processed)
+                && com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(stack, lastSlot5Processed)
                 && stack.getCount() == lastSlot5Processed.getCount()
                 && ((sourcePos == null && lastSlot5SourcePos == null) || (sourcePos != null && sourcePos.equals(lastSlot5SourcePos)))) {
                 // 忽略重复调用，保持槽位不被写入，避免翻倍
@@ -342,7 +340,7 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         if (itemStack.isEmpty()) return null;
         
         // 检查缓存是否有效
-        if (ItemStack.areItemsAndComponentsEqual(itemStack, lastItemForKey)) {
+            if (com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(itemStack, lastItemForKey)) {
             return lastItemKey;
         }
         
@@ -461,18 +459,13 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
     public void copyDataToItem(ItemStack stack) {
         if (ownerUuid == null) return;
 
-        NbtCompound customData = new NbtCompound();
-        customData.putUuid("ps_owner_uuid", ownerUuid);
-        customData.putLong("ps_owner_uuid_most", ownerUuid.getMostSignificantBits());
-        customData.putLong("ps_owner_uuid_least", ownerUuid.getLeastSignificantBits());
-        
+        NbtCompound nbt = stack.getOrCreateNbt();
+        nbt.putUuid("ps_owner_uuid", ownerUuid);
+        nbt.putLong("ps_owner_uuid_most", ownerUuid.getMostSignificantBits());
+        nbt.putLong("ps_owner_uuid_least", ownerUuid.getLeastSignificantBits());
         if (ownerName != null) {
-            customData.putString("ps_owner_name", ownerName);
+            nbt.putString("ps_owner_name", ownerName);
         }
-
-        // 只设置自定义数据，不设置方块实体数据
-        stack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(customData));
-        stack.set(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
     }
 
     @Override
@@ -481,13 +474,13 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
     }
 
     @Override
-    public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registryLookup) {
-        return createNbt(registryLookup);
+    public NbtCompound toInitialChunkDataNbt() {
+        return createNbt();
     }
 
     @Override
-    protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-        super.writeNbt(nbt, registryLookup);
+    protected void writeNbt(NbtCompound nbt) {
+        super.writeNbt(nbt);
         if (ownerUuid != null) {
             nbt.putUuid("ps_owner_uuid", ownerUuid);
         }
@@ -503,12 +496,12 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         filterRulesNbt.putInt("count", filterRules.size());
         nbt.put("filter_rules", filterRulesNbt);
         
-        Inventories.writeNbt(nbt, inventory, registryLookup);
+        Inventories.writeNbt(nbt, inventory);
     }
 
     @Override
-    protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-        super.readNbt(nbt, registryLookup);
+    public void readNbt(NbtCompound nbt) {
+        super.readNbt(nbt);
         if (nbt.containsUuid("ps_owner_uuid")) {
             ownerUuid = nbt.getUuid("ps_owner_uuid");
         }
@@ -529,7 +522,7 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         }
         
         inventory = DefaultedList.ofSize(size(), ItemStack.EMPTY);
-        Inventories.readNbt(nbt, inventory, registryLookup);
+        Inventories.readNbt(nbt, inventory);
     }
 }
 

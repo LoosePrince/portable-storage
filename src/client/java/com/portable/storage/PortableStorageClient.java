@@ -17,8 +17,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.minecraft.client.gui.screen.ingame.HandledScreens;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.EntityRendererFactory;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
+// 1.20.1 无 Data Components
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.text.Text;
@@ -52,12 +51,11 @@ public class PortableStorageClient implements ClientModInitializer {
 		}
 
         // 绑定木桶：在物品提示中显示绑定信息
-        ItemTooltipCallback.EVENT.register((stack, context, type, lines) -> {
+        ItemTooltipCallback.EVENT.register((stack, context, lines) -> {
             try {
                 if (stack != null && stack.getItem() == Items.BARREL) {
-                    NbtComponent comp = stack.get(DataComponentTypes.CUSTOM_DATA);
-                    if (comp != null) {
-                        NbtCompound nbt = comp.copyNbt();
+                    NbtCompound nbt = stack.getNbt();
+                    if (nbt != null) {
                         if (nbt.contains("ps_owner_uuid_most") && nbt.contains("ps_owner_uuid_least")) {
                             String name = nbt.contains("ps_owner_name") ? nbt.getString("ps_owner_name") : "?";
                             java.util.UUID uuid = new java.util.UUID(nbt.getLong("ps_owner_uuid_most"), nbt.getLong("ps_owner_uuid_least"));
@@ -69,7 +67,7 @@ public class PortableStorageClient implements ClientModInitializer {
         });
 
         // 仓库钥匙：在物品提示中显示绑定信息
-        ItemTooltipCallback.EVENT.register((stack, context, type, lines) -> {
+        ItemTooltipCallback.EVENT.register((stack, context, lines) -> {
             try {
                 if (stack != null && stack.getItem() == PortableStorage.STORAGE_KEY_ITEM) {
                     // 显示绑定信息
@@ -86,7 +84,7 @@ public class PortableStorageClient implements ClientModInitializer {
         });
 
         // 启用物品：为配置的启用物品添加提示消息
-        ItemTooltipCallback.EVENT.register((stack, context, type, lines) -> {
+        ItemTooltipCallback.EVENT.register((stack, context, lines) -> {
             try {
                 if (stack != null) {
                     // 获取配置的启用物品

@@ -6,9 +6,8 @@ import net.minecraft.inventory.CraftingInventory;
 import net.minecraft.inventory.CraftingResultInventory;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
-import net.minecraft.recipe.RecipeEntry;
+import net.minecraft.recipe.Recipe;
 import net.minecraft.recipe.RecipeType;
-import net.minecraft.recipe.input.CraftingRecipeInput;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.ScreenHandlerContext;
 import net.minecraft.screen.slot.CraftingResultSlot;
@@ -65,10 +64,9 @@ public class PortableCraftingScreenHandler extends ScreenHandler {
         for (int i = 0; i < this.input.size(); i++) {
             stacks.add(this.input.getStack(i).copy());
         }
-        CraftingRecipeInput inputWrapper = CraftingRecipeInput.create(3, 3, stacks);
-        RecipeEntry<?> recipeEntry = world.getRecipeManager().getFirstMatch(RecipeType.CRAFTING, inputWrapper, world).orElse(null);
-        if (recipeEntry != null && recipeEntry.value() instanceof net.minecraft.recipe.CraftingRecipe recipe) {
-            ItemStack out = recipe.craft(inputWrapper, world.getRegistryManager());
+        Recipe<?> recipeEntry = world.getRecipeManager().getFirstMatch(RecipeType.CRAFTING, this.input, world).orElse(null);
+        if (recipeEntry instanceof net.minecraft.recipe.CraftingRecipe recipe) {
+            ItemStack out = recipe.craft(this.input, world.getRegistryManager());
             this.result.setStack(0, out);
         } else {
             this.result.setStack(0, ItemStack.EMPTY);

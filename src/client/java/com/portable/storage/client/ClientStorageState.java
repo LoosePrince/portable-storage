@@ -85,13 +85,13 @@ public final class ClientStorageState {
                         if (it != null && it != net.minecraft.item.Items.AIR) {
                             stack = new ItemStack(it);
                             if (itemTag.contains("custom", NbtElement.COMPOUND_TYPE)) {
-                                stack.set(net.minecraft.component.DataComponentTypes.CUSTOM_DATA, net.minecraft.component.type.NbtComponent.of(itemTag.getCompound("custom")));
+                                stack.getOrCreateNbt().put("custom", itemTag.getCompound("custom"));
                             }
                             if (itemTag.contains("block_entity", NbtElement.COMPOUND_TYPE)) {
-                                stack.set(net.minecraft.component.DataComponentTypes.BLOCK_ENTITY_DATA, net.minecraft.component.type.NbtComponent.of(itemTag.getCompound("block_entity")));
+                                stack.getOrCreateNbt().put("block_entity", itemTag.getCompound("block_entity"));
                             }
                             if (itemTag.contains("glint", NbtElement.BYTE_TYPE) && itemTag.getBoolean("glint")) {
-                                stack.set(net.minecraft.component.DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
+                                // 1.20.1 无 ENCHANTMENT_GLINT_OVERRIDE
                             }
                         }
                     }
@@ -111,15 +111,15 @@ public final class ClientStorageState {
     public static void applyDiff(long sessionId, int seq, NbtCompound diff) {
         if (sessionId != clientSessionId || seq != expectedSeq) {
             // 会话或序号不匹配：请求全量回退
-            try {
-                net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
-                    new SyncControlC2SPayload(
-                        SyncControlC2SPayload.Op.REQUEST,
-                        0L,
-                        false
-                    )
-                );
-            } catch (Throwable ignored) {}
+        try {
+            net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+            com.portable.storage.net.payload.SyncControlC2SPayload.write(b, new com.portable.storage.net.payload.SyncControlC2SPayload(
+                com.portable.storage.net.payload.SyncControlC2SPayload.Op.REQUEST,
+                0L,
+                false
+            ));
+            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.SyncControlC2SPayload.ID, b);
+        } catch (Throwable ignored) {}
             return;
         }
         if (diff == null) {
@@ -206,7 +206,7 @@ public final class ClientStorageState {
 
     private static net.minecraft.registry.RegistryWrapper.WrapperLookup lookupForClient() {
         var mc = net.minecraft.client.MinecraftClient.getInstance();
-        return (mc != null && mc.player != null) ? mc.player.getRegistryManager() : null;
+        return (mc != null && mc.player != null) ? mc.player.getWorld().getRegistryManager() : null;
     }
 }
 

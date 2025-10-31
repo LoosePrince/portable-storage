@@ -2,16 +2,11 @@ package com.portable.storage.net.payload;
 
 import com.portable.storage.PortableStorage;
 
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
+import net.minecraft.network.PacketByteBuf;
+import net.minecraft.util.Identifier;
 
-public record XpBottleMaintenanceToggleC2SPayload() implements CustomPayload {
-    public static final Id<XpBottleMaintenanceToggleC2SPayload> ID = new Id<>(net.minecraft.util.Identifier.of(PortableStorage.MOD_ID, "xp_bottle_maintenance_toggle"));
-    public static final PacketCodec<RegistryByteBuf, XpBottleMaintenanceToggleC2SPayload> CODEC = PacketCodec.unit(new XpBottleMaintenanceToggleC2SPayload());
-
-    @Override
-    public Id<? extends CustomPayload> getId() {
-        return ID;
-    }
+public final class XpBottleMaintenanceToggleC2SPayload {
+    public static final Identifier ID = new Identifier(PortableStorage.MOD_ID, "xp_bottle_maintenance_toggle");
+    public static void write(PacketByteBuf buf, XpBottleMaintenanceToggleC2SPayload v) { }
+    public static XpBottleMaintenanceToggleC2SPayload read(PacketByteBuf buf) { return new XpBottleMaintenanceToggleC2SPayload(); }
 }

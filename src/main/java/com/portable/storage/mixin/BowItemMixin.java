@@ -44,8 +44,8 @@ public abstract class BowItemMixin {
         try {
             var reg = world.getRegistryManager().get(RegistryKeys.ENCHANTMENT);
             var opt = reg.getEntry(Enchantments.INFINITY);
-            if (opt.isPresent()) {
-                hasInfinity = EnchantmentHelper.getLevel(opt.get(), bowStack) > 0;
+            if (opt != null) {
+                hasInfinity = EnchantmentHelper.getLevel(opt.value(), bowStack) > 0;
             }
         } catch (Throwable ignored) {}
 

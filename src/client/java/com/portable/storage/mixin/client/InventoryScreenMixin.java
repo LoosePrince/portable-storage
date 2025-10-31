@@ -76,11 +76,13 @@ public abstract class InventoryScreenMixin {
         PlayerViewState.startViewing(MinecraftClient.getInstance().player.getUuid());
         
         // 打开界面时请求同步
-        ClientPlayNetworking.send(new SyncControlC2SPayload(
-            SyncControlC2SPayload.Op.REQUEST,
+        net.minecraft.network.PacketByteBuf rb = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        com.portable.storage.net.payload.SyncControlC2SPayload.write(rb, new com.portable.storage.net.payload.SyncControlC2SPayload(
+            com.portable.storage.net.payload.SyncControlC2SPayload.Op.REQUEST,
             0L,
             false
         ));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.SyncControlC2SPayload.ID, rb);
     }
 
     @Inject(method = "render", at = @At("TAIL"))
@@ -233,14 +235,16 @@ public abstract class InventoryScreenMixin {
                     if (mouseX >= overlayLeft && mouseX < overlayRight && mouseY >= overlayTop && mouseY < overlayBottom) {
                         // 双击合并到光标
                         if (isDoubleClick) {
-                            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new CraftingOverlayActionC2SPayload(
-                                CraftingOverlayActionC2SPayload.Action.DOUBLE_CLICK,
+                            net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+                            com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.write(b, new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
+                                com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.DOUBLE_CLICK,
                                 0, 0, false,
                                 net.minecraft.item.ItemStack.EMPTY,
                                 "",
                                 null,
                                 null
                             ));
+                            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.ID, b);
                             cir.setReturnValue(true);
                             return;
                         }
@@ -249,14 +253,16 @@ public abstract class InventoryScreenMixin {
                         int col = Math.min(2, Math.max(0, relX / slotSize));
                         int row = Math.min(2, Math.max(0, relY / slotSize));
                         int slotIndex = 1 + row * 3 + col; // 1..9
-                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new CraftingOverlayActionC2SPayload(
-                            CraftingOverlayActionC2SPayload.Action.CLICK,
+                        net.minecraft.network.PacketByteBuf b2 = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+                        com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.write(b2, new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
+                            com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.CLICK,
                             slotIndex, button, shift,
                             net.minecraft.item.ItemStack.EMPTY,
                             "",
                             null,
                             null
                         ));
+                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.ID, b2);
                         cir.setReturnValue(true);
                         return;
                     }
@@ -267,14 +273,16 @@ public abstract class InventoryScreenMixin {
                     if (mouseX >= outX && mouseX < outX + 18 && mouseY >= outY && mouseY < outY + 18) {
                         // 双击合并到光标
                         if (isDoubleClick) {
-                            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new CraftingOverlayActionC2SPayload(
-                                CraftingOverlayActionC2SPayload.Action.DOUBLE_CLICK,
+                            net.minecraft.network.PacketByteBuf b3 = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+                            com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.write(b3, new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
+                                com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.DOUBLE_CLICK,
                                 0, 0, false,
                                 net.minecraft.item.ItemStack.EMPTY,
                                 "",
                                 null,
                                 null
                             ));
+                            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.ID, b3);
                             cir.setReturnValue(true);
                             return;
                         }
@@ -282,12 +290,12 @@ public abstract class InventoryScreenMixin {
                         ItemStack resultVis = VirtualCraftingOverlayState.get(0);
                         if (!resultVis.isEmpty()) {
                             ItemStack cursor = mc2.player.currentScreenHandler.getCursorStack();
-                            if (!cursor.isEmpty() && !ItemStack.areItemsAndComponentsEqual(cursor, resultVis)) {
+                            if (!cursor.isEmpty() && !com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(cursor, resultVis)) {
                                 // 光标物品与合成结果不同，不取出
                                 cir.setReturnValue(true);
                                 return;
                             }
-                            if (!cursor.isEmpty() && ItemStack.areItemsAndComponentsEqual(cursor, resultVis)) {
+                            if (!cursor.isEmpty() && com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(cursor, resultVis)) {
                                 int maxPerStack = Math.min(resultVis.getMaxCount(), mc2.player.getInventory().getMaxCountPerStack());
                                 int would = cursor.getCount() + resultVis.getCount();
                                 if (cursor.getCount() >= maxPerStack || would > maxPerStack) {
@@ -297,14 +305,16 @@ public abstract class InventoryScreenMixin {
                                 }
                             }
                         }
-                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new CraftingOverlayActionC2SPayload(
-                            CraftingOverlayActionC2SPayload.Action.CLICK,
+                        net.minecraft.network.PacketByteBuf b4 = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+                        com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.write(b4, new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
+                            com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.CLICK,
                             0, button, shift,
                             net.minecraft.item.ItemStack.EMPTY,
                             "",
                             null,
                             null
                         ));
+                        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.ID, b4);
                         cir.setReturnValue(true);
                         return;
                     }
@@ -402,14 +412,14 @@ public abstract class InventoryScreenMixin {
 
     // 注意：InventoryScreen 可能没有 mouseScrolled 方法，我们通过其他方式处理滚轮事件
 
-    @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true, require = 0)
     private void portableStorage$keyPressed(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
         if (ClientStorageState.isStorageEnabled() && portableStorage$uiComponent.keyPressed(keyCode, scanCode, modifiers)) {
             cir.setReturnValue(true);
         }
     }
 
-    @Inject(method = "charTyped", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "charTyped", at = @At("HEAD"), cancellable = true, require = 0)
     private void portableStorage$charTyped(char chr, int modifiers, CallbackInfoReturnable<Boolean> cir) {
         if (ClientStorageState.isStorageEnabled() && portableStorage$uiComponent.charTyped(chr, modifiers)) {
             cir.setReturnValue(true);
@@ -454,7 +464,7 @@ public abstract class InventoryScreenMixin {
             // 如果输出槽位变空或数量减少，说明发生了合成
             if (!portableStorage$lastCraftingOutput.isEmpty()) {
                 if (currentOutput.isEmpty() || 
-                    (!ItemStack.areItemsAndComponentsEqual(currentOutput, portableStorage$lastCraftingOutput)) ||
+                    (!com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(currentOutput, portableStorage$lastCraftingOutput)) ||
                     (currentOutput.getCount() < portableStorage$lastCraftingOutput.getCount())) {
                     craftOccurred = true;
                 }
@@ -485,7 +495,7 @@ public abstract class InventoryScreenMixin {
                             targetStack.setCount(targetStack.getMaxCount());
                             portableStorage$refillFromStorage(i, targetStack);
                         }
-                    } else if (ItemStack.areItemsAndComponentsEqual(currentStack, lastStack) && 
+                    } else if (com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(currentStack, lastStack) && 
                                currentStack.getCount() < lastStack.getCount()) {
                         // 物品部分消耗，需要补充
                         if (!recentClick) {
@@ -517,14 +527,16 @@ public abstract class InventoryScreenMixin {
         }
         
         // 发送补充请求到服务器
-        ClientPlayNetworking.send(new CraftingOverlayActionC2SPayload(
-            CraftingOverlayActionC2SPayload.Action.REFILL,
+        net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.write(b, new com.portable.storage.net.payload.CraftingOverlayActionC2SPayload(
+            com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.Action.REFILL,
             slotIndex, 0, false,
             targetStack,
             "",
             null,
             null
         ));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.CraftingOverlayActionC2SPayload.ID, b);
     }
 
     @Unique

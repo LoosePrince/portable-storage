@@ -218,6 +218,22 @@ public final class SpaceRiftManager {
     public static void removeAvatar(ServerPlayerEntity player) {
         net.minecraft.entity.Entity e = avatars.remove(player.getUuid());
         if (e != null) e.discard();
+        // 兜底：服务器重启等情况下，内存映射可能丢失，扫描裂隙维度移除残留复制体
+        ServerWorld rift = getWorld(player.getServer());
+        if (rift != null) {
+            net.minecraft.util.math.Box whole = new net.minecraft.util.math.Box(
+                -3.0e7, rift.getBottomY(), -3.0e7,
+                 3.0e7, rift.getTopY(),  3.0e7
+            );
+            java.util.List<com.portable.storage.entity.RiftAvatarEntity> list = rift.getEntitiesByClass(
+                com.portable.storage.entity.RiftAvatarEntity.class,
+                whole,
+                ent -> player.getUuid().equals(ent.getOwner())
+            );
+            for (var av : list) {
+                av.discard();
+            }
+        }
     }
 
     /**
@@ -243,9 +259,9 @@ public final class SpaceRiftManager {
             setPlayerPlotForced(player.getServer(), id, false);
             
             if (returnPoint != null) {
-                net.minecraft.server.world.ServerWorld targetWorld = player.getServer().getWorld(returnPoint.dimension());
+                net.minecraft.server.world.ServerWorld targetWorld = player.getServer().getWorld(returnPoint.getDimension());
                 if (targetWorld != null) {
-                    net.minecraft.util.math.BlockPos pos = returnPoint.pos();
+                    net.minecraft.util.math.BlockPos pos = returnPoint.getPos();
                     player.teleport(targetWorld, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, player.getYaw(), player.getPitch());
                     player.sendMessage(net.minecraft.text.Text.translatable(PortableStorage.MOD_ID + ".rift_feature_disabled_returned"), true);
                     clearReturnPoint(id);
@@ -285,7 +301,12 @@ public final class SpaceRiftManager {
         if (rift == null) return;
         ChunkPos origin = ensureAllocatedPlot(server, playerId);
         try {
-            rift.setChunkForced(origin.x, origin.z, forced);
+            int size = getPlotChunkSize();
+            for (int dx = 0; dx < size; dx++) {
+                for (int dz = 0; dz < size; dz++) {
+                    rift.setChunkForced(origin.x + dx, origin.z + dz, forced);
+                }
+            }
         } catch (Throwable ignored) {}
     }
 }

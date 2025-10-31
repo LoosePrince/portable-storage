@@ -115,10 +115,10 @@ public class PlayerDeathEventHandler {
             
             if (returnPoint != null) {
                 // 获取返回点所在的世界
-                net.minecraft.server.world.ServerWorld returnWorld = player.getServer().getWorld(returnPoint.dimension());
+        net.minecraft.server.world.ServerWorld returnWorld = player.getServer().getWorld(returnPoint.getDimension());
                 if (returnWorld != null) {
                     // 在返回点位置掉落钥匙
-                    net.minecraft.util.math.Vec3d returnPos = net.minecraft.util.math.Vec3d.ofCenter(returnPoint.pos());
+        net.minecraft.util.math.Vec3d returnPos = net.minecraft.util.math.Vec3d.ofCenter(returnPoint.getPos());
                     dropStorageKeyAtPosition(player, returnWorld, returnPos);
                     
                     PortableStorage.LOGGER.info("Dropped storage key for player {} at return point {}", 

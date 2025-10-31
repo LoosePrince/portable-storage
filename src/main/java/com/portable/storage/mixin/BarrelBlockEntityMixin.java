@@ -12,7 +12,7 @@ import com.portable.storage.blockentity.BarrelOwnerAccess;
 
 import net.minecraft.block.entity.BarrelBlockEntity;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.RegistryWrapper;
+// 1.20.1: writeNbt/readNbt 不含 WrapperLookup 参数
 
 /**
  * Mixin to BarrelBlockEntity to add owner tracking for bound barrels.
@@ -39,7 +39,7 @@ public abstract class BarrelBlockEntityMixin implements BarrelOwnerAccess {
     }
 
     @Inject(method = "writeNbt", at = @At("TAIL"))
-    private void portableStorage$writeOwner(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup, CallbackInfo ci) {
+    private void portableStorage$writeOwner(NbtCompound nbt, CallbackInfo ci) {
         if (portableStorage$ownerUuid != null) {
             nbt.putUuid("ps_owner_uuid", portableStorage$ownerUuid);
         }
@@ -49,7 +49,7 @@ public abstract class BarrelBlockEntityMixin implements BarrelOwnerAccess {
     }
 
     @Inject(method = "readNbt", at = @At("TAIL"))
-    private void portableStorage$readOwner(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup, CallbackInfo ci) {
+    private void portableStorage$readOwner(NbtCompound nbt, CallbackInfo ci) {
         if (nbt.containsUuid("ps_owner_uuid")) {
             portableStorage$ownerUuid = nbt.getUuid("ps_owner_uuid");
         }

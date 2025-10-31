@@ -64,15 +64,17 @@ public abstract class HandledScreenMixin {
 		}
 		
 		// 发送传入仓库请求（统一动作包）
-		ClientPlayNetworking.send(new StorageActionC2SPayload(
-			StorageActionC2SPayload.Action.DEPOSIT_SLOT,
-			StorageActionC2SPayload.Target.SLOT,
+		net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+		com.portable.storage.net.payload.StorageActionC2SPayload.write(b, new com.portable.storage.net.payload.StorageActionC2SPayload(
+			com.portable.storage.net.payload.StorageActionC2SPayload.Action.DEPOSIT_SLOT,
+			com.portable.storage.net.payload.StorageActionC2SPayload.Target.SLOT,
 			0,
 			0,
 			slotId,
 			"",
 			0
 		));
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.StorageActionC2SPayload.ID, b);
 		ci.cancel();
 	}
 

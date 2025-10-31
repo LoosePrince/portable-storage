@@ -229,7 +229,7 @@ public final class StorageMemoryCache {
             Map<String, PlayerStore.Entry> entries = new LinkedHashMap<>();
             if (!Files.exists(file)) return new PlayerCacheEntry(null);
             
-            NbtCompound root = net.minecraft.nbt.NbtIo.readCompressed(file, net.minecraft.nbt.NbtSizeTracker.ofUnlimitedBytes());
+        NbtCompound root = net.minecraft.nbt.NbtIo.readCompressed(file.toFile());
             if (root == null) return new PlayerCacheEntry(null);
             
             if (root.contains(PlayerStore.ENTRIES, net.minecraft.nbt.NbtElement.LIST_TYPE)) {

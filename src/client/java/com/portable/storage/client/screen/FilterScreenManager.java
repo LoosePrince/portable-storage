@@ -45,43 +45,51 @@ public class FilterScreenManager {
      * 请求服务器打开筛选系统主界面
      */
     public static void requestFilterMainScreen() {
-        ClientPlayNetworking.send(new RequestOpenScreenC2SPayload(
+        net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        RequestOpenScreenC2SPayload.write(b, new RequestOpenScreenC2SPayload(
             RequestOpenScreenC2SPayload.Screen.FILTER_MAIN,
             null,
             ""
         ));
+        ClientPlayNetworking.send(RequestOpenScreenC2SPayload.ID, b);
     }
     
     /**
      * 请求服务器打开筛选界面
      */
     public static void requestFilterScreen() {
-        ClientPlayNetworking.send(new RequestOpenScreenC2SPayload(
+        net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        RequestOpenScreenC2SPayload.write(b, new RequestOpenScreenC2SPayload(
             RequestOpenScreenC2SPayload.Screen.FILTER_SCREEN,
             null,
             ""
         ));
+        ClientPlayNetworking.send(RequestOpenScreenC2SPayload.ID, b);
     }
     
     /**
      * 请求服务器打开销毁界面
      */
     public static void requestDestroyScreen() {
-        ClientPlayNetworking.send(new RequestOpenScreenC2SPayload(
+        net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        RequestOpenScreenC2SPayload.write(b, new RequestOpenScreenC2SPayload(
             RequestOpenScreenC2SPayload.Screen.DESTROY_SCREEN,
             null,
             ""
         ));
+        ClientPlayNetworking.send(RequestOpenScreenC2SPayload.ID, b);
     }
     
     /**
      * 请求服务器打开绑定木桶筛选界面
      */
     public static void requestBarrelFilterScreen(net.minecraft.util.math.BlockPos barrelPos) {
-        ClientPlayNetworking.send(new RequestOpenScreenC2SPayload(
+        net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+        RequestOpenScreenC2SPayload.write(b, new RequestOpenScreenC2SPayload(
             RequestOpenScreenC2SPayload.Screen.BARREL_FILTER,
             barrelPos,
             ""
         ));
+        ClientPlayNetworking.send(RequestOpenScreenC2SPayload.ID, b);
     }
 }

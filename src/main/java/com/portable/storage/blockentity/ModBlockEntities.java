@@ -18,7 +18,7 @@ public class ModBlockEntities {
         BlockEntityType.Builder.create(
             BoundBarrelBlockEntity::new,
             ModBlocks.BOUND_BARREL
-        ).build()
+        ).build(null)
     );
 
     public static void register() {

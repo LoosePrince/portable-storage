@@ -21,12 +21,12 @@ public class PlayerEnablementState extends PersistentState {
 
     public static PlayerEnablementState get(MinecraftServer server) {
         PersistentStateManager mgr = server.getOverworld().getPersistentStateManager();
-        return mgr.getOrCreate(new PersistentState.Type<>(PlayerEnablementState::new, PlayerEnablementState::fromNbt, null), NAME);
+        return mgr.getOrCreate(PlayerEnablementState::fromNbt, PlayerEnablementState::new, NAME);
     }
 
     public PlayerEnablementState() {}
 
-    public static PlayerEnablementState fromNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
+    public static PlayerEnablementState fromNbt(NbtCompound nbt) {
         PlayerEnablementState state = new PlayerEnablementState();
         if (nbt != null && nbt.contains("enabled_players")) {
             NbtCompound players = nbt.getCompound("enabled_players");
@@ -38,7 +38,7 @@ public class PlayerEnablementState extends PersistentState {
     }
 
     @Override
-    public NbtCompound writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
+    public NbtCompound writeNbt(NbtCompound nbt) {
         NbtCompound players = new NbtCompound();
         for (Map.Entry<String, Boolean> entry : enabledPlayers.entrySet()) {
             players.putBoolean(entry.getKey(), entry.getValue());

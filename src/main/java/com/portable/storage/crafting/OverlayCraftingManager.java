@@ -5,9 +5,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import net.minecraft.item.ItemStack;
-import net.minecraft.recipe.RecipeEntry;
+import net.minecraft.inventory.Inventory;
+import net.minecraft.inventory.RecipeInputInventory;
+import net.minecraft.recipe.Recipe;
 import net.minecraft.recipe.RecipeType;
-import net.minecraft.recipe.input.CraftingRecipeInput;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.world.World;
 
@@ -68,12 +69,10 @@ public final class OverlayCraftingManager {
 
     private static void updateResult(ServerPlayerEntity player, State st) {
         World world = player.getWorld();
-        java.util.ArrayList<ItemStack> list = new java.util.ArrayList<>(9);
-        for (int i = 1; i <= 9; i++) list.add(st.slots[i].copy());
-        CraftingRecipeInput input = CraftingRecipeInput.create(3, 3, list);
-        RecipeEntry<?> match = world.getRecipeManager().getFirstMatch(RecipeType.CRAFTING, input, world).orElse(null);
-        if (match != null && match.value() instanceof net.minecraft.recipe.CraftingRecipe recipe) {
-            ItemStack out = recipe.craft(input, world.getRegistryManager());
+        VirtualCraftingInventory inv = new VirtualCraftingInventory(st);
+        Recipe<?> match = world.getRecipeManager().getFirstMatch(RecipeType.CRAFTING, inv, world).orElse(null);
+        if (match instanceof net.minecraft.recipe.CraftingRecipe recipe) {
+            ItemStack out = recipe.craft(inv, world.getRegistryManager());
             st.slots[0] = out;
         } else {
             st.slots[0] = ItemStack.EMPTY;
@@ -128,7 +127,7 @@ public final class OverlayCraftingManager {
                 // 放下全部
                 st.slots[slot] = cursor.copy();
                 player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
-            } else if (ItemStack.areItemsAndComponentsEqual(cursor, slotStack)) {
+            } else if (com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(cursor, slotStack)) {
                 // 合并
                 int max = Math.min(slotStack.getMaxCount(), player.getInventory().getMaxCountPerStack());
                 int can = Math.min(cursor.getCount(), Math.max(0, max - slotStack.getCount()));
@@ -163,7 +162,7 @@ public final class OverlayCraftingManager {
                     st.slots[slot] = put;
                     cursor.decrement(1);
                     player.currentScreenHandler.setCursorStack(cursor);
-                } else if (ItemStack.areItemsAndComponentsEqual(cursor, slotStack)) {
+                } else if (com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(cursor, slotStack)) {
                     int max = Math.min(slotStack.getMaxCount(), player.getInventory().getMaxCountPerStack());
                     if (slotStack.getCount() < max && cursor.getCount() > 0) {
                         slotStack.increment(1);
@@ -215,7 +214,7 @@ public final class OverlayCraftingManager {
         if (cursor.isEmpty()) {
             player.currentScreenHandler.setCursorStack(out);
             placed = true;
-        } else if (ItemStack.areItemsAndComponentsEqual(cursor, out)) {
+        } else if (com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(cursor, out)) {
             int max = Math.min(out.getMaxCount(), player.getInventory().getMaxCountPerStack());
             int can = Math.min(out.getCount(), Math.max(0, max - cursor.getCount()));
             if (can > 0) {
@@ -235,11 +234,9 @@ public final class OverlayCraftingManager {
 
     private static int maxCraftableTimes(World world, State st) {
         // 根据当前配方需求与材料计算最多次数（简化：仅按每格需要>=1 来估计）
-        java.util.ArrayList<ItemStack> list = new java.util.ArrayList<>(9);
-        for (int i = 1; i <= 9; i++) list.add(st.slots[i].copy());
-        CraftingRecipeInput input = CraftingRecipeInput.create(3, 3, list);
-        RecipeEntry<?> match = world.getRecipeManager().getFirstMatch(RecipeType.CRAFTING, input, world).orElse(null);
-        if (match == null || !(match.value() instanceof net.minecraft.recipe.CraftingRecipe)) return 0;
+        VirtualCraftingInventory inv = new VirtualCraftingInventory(st);
+        Recipe<?> match = world.getRecipeManager().getFirstMatch(RecipeType.CRAFTING, inv, world).orElse(null);
+        if (!(match instanceof net.minecraft.recipe.CraftingRecipe)) return 0;
         // 粗略算法：按非空输入格的最小计数
         int min = Integer.MAX_VALUE;
         for (int i = 1; i <= 9; i++) {
@@ -274,6 +271,86 @@ public final class OverlayCraftingManager {
             } else if (s.isEmpty()) {
                 st.slots[i] = ItemStack.EMPTY;
             }
+        }
+    }
+}
+
+// 适配 1.20.1：使用虚拟 3x3 合成背包提供 RecipeInputInventory 能力
+final class VirtualCraftingInventory implements RecipeInputInventory, Inventory {
+    private final OverlayCraftingManager.State state;
+
+    VirtualCraftingInventory(OverlayCraftingManager.State state) {
+        this.state = state;
+    }
+
+    @Override
+    public int getWidth() { return 3; }
+
+    @Override
+    public int getHeight() { return 3; }
+
+    @Override
+    public int size() { return 9; }
+
+    @Override
+    public boolean isEmpty() {
+        for (int i = 1; i <= 9; i++) if (!state.slots[i].isEmpty()) return false;
+        return true;
+    }
+
+    @Override
+    public ItemStack getStack(int slot) {
+        if (slot < 0 || slot >= 9) return ItemStack.EMPTY;
+        return state.slots[1 + slot];
+    }
+
+    @Override
+    public ItemStack removeStack(int slot, int amount) {
+        if (slot < 0 || slot >= 9 || amount <= 0) return ItemStack.EMPTY;
+        ItemStack cur = state.slots[1 + slot];
+        if (cur.isEmpty()) return ItemStack.EMPTY;
+        ItemStack ret = cur.split(amount);
+        if (cur.isEmpty()) state.slots[1 + slot] = ItemStack.EMPTY;
+        return ret;
+    }
+
+    @Override
+    public ItemStack removeStack(int slot) {
+        if (slot < 0 || slot >= 9) return ItemStack.EMPTY;
+        ItemStack cur = state.slots[1 + slot];
+        state.slots[1 + slot] = ItemStack.EMPTY;
+        return cur;
+    }
+
+    @Override
+    public void setStack(int slot, ItemStack stack) {
+        if (slot < 0 || slot >= 9) return;
+        state.slots[1 + slot] = stack;
+    }
+
+    @Override
+    public void markDirty() { }
+
+    @Override
+    public boolean canPlayerUse(net.minecraft.entity.player.PlayerEntity player) { return true; }
+
+    @Override
+    public void clear() {
+        for (int i = 1; i <= 9; i++) state.slots[i] = ItemStack.EMPTY;
+    }
+
+    @Override
+    public java.util.List<ItemStack> getInputStacks() {
+        java.util.ArrayList<ItemStack> list = new java.util.ArrayList<>(9);
+        for (int i = 1; i <= 9; i++) list.add(state.slots[i]);
+        return list;
+    }
+
+    @Override
+    public void provideRecipeInputs(net.minecraft.recipe.RecipeMatcher matcher) {
+        for (int i = 0; i < 9; i++) {
+            ItemStack s = getStack(i);
+            if (!s.isEmpty()) matcher.addInput(s);
         }
     }
 }

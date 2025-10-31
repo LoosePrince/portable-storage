@@ -3,23 +3,24 @@ package com.portable.storage.net.payload;
 import com.portable.storage.PortableStorage;
 
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketCodecs;
-import net.minecraft.network.packet.CustomPayload;
+import net.minecraft.network.PacketByteBuf;
 import net.minecraft.util.Identifier;
 
-public record StorageSyncS2CPayload(NbtCompound nbt) implements CustomPayload {
-	public static final Id<StorageSyncS2CPayload> ID = new Id<>(Identifier.of(PortableStorage.MOD_ID, "storage_sync"));
-	public static final PacketCodec<RegistryByteBuf, StorageSyncS2CPayload> CODEC = PacketCodec.tuple(
-		PacketCodecs.NBT_COMPOUND, StorageSyncS2CPayload::nbt,
-		StorageSyncS2CPayload::new
-	);
+public final class StorageSyncS2CPayload {
+    public static final Identifier ID = new Identifier(PortableStorage.MOD_ID, "storage_sync");
 
-	@Override
-	public Id<? extends CustomPayload> getId() {
-		return ID;
-	}
+    private final NbtCompound nbt;
+
+    public StorageSyncS2CPayload(NbtCompound nbt) { this.nbt = nbt; }
+    public NbtCompound nbt() { return nbt; }
+
+    public static void write(PacketByteBuf buf, StorageSyncS2CPayload value) {
+        buf.writeNbt(value.nbt);
+    }
+
+    public static StorageSyncS2CPayload read(PacketByteBuf buf) {
+        return new StorageSyncS2CPayload(buf.readNbt());
+    }
 }
 
 

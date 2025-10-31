@@ -16,6 +16,7 @@ import net.minecraft.screen.ScreenHandlerContext;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
@@ -23,7 +24,7 @@ import net.minecraft.world.World;
 public abstract class CraftingTableBlockMixin {
 
     @Inject(method = "onUse", at = @At("HEAD"), cancellable = true)
-    private void portableStorage$openPortableHandler(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit, CallbackInfoReturnable<ActionResult> cir) {
+    private void portableStorage$openPortableHandler(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit, CallbackInfoReturnable<ActionResult> cir) {
         if (world.isClient) return;
         if (!(player instanceof ServerPlayerEntity sp)) return;
 

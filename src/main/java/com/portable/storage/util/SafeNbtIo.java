@@ -9,7 +9,7 @@ import java.util.Set;
 
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtIo;
-import net.minecraft.nbt.NbtSizeTracker;
+// NbtSizeTracker 不存在于 1.20.1 API，改为使用无追踪的读取
 
 import com.portable.storage.PortableStorage;
 
@@ -29,7 +29,7 @@ public final class SafeNbtIo {
     /**
      * 安全读取压缩NBT文件，损坏时自动隔离
      */
-    public static NbtCompound readCompressed(Path file, NbtSizeTracker tracker) throws IOException {
+    public static NbtCompound readCompressed(Path file) throws IOException {
         if (!Files.exists(file)) {
             return null;
         }
@@ -40,14 +40,14 @@ public final class SafeNbtIo {
         }
         
         try {
-            return NbtIo.readCompressed(file, tracker);
+            return NbtIo.readCompressed(file.toFile());
         } catch (IOException e) {
             // 尝试从备份恢复
             Path backupFile = file.resolveSibling(file.getFileName() + BACKUP_SUFFIX);
             if (Files.exists(backupFile)) {
                 try {
                     PortableStorage.LOGGER.warn("主文件损坏，尝试从备份恢复: {}", file);
-                    NbtCompound backup = NbtIo.readCompressed(backupFile, tracker);
+                    NbtCompound backup = NbtIo.readCompressed(backupFile.toFile());
                     if (backup != null) {
                         // 恢复成功，替换损坏文件
                         Files.move(backupFile, file, StandardCopyOption.REPLACE_EXISTING);
@@ -87,7 +87,7 @@ public final class SafeNbtIo {
             }
             
             // 写入到临时文件
-            NbtIo.writeCompressed(nbt, tempFile);
+            NbtIo.writeCompressed(nbt, tempFile.toFile());
             
             // 确保数据写入磁盘
             try {
@@ -106,7 +106,7 @@ public final class SafeNbtIo {
             
             // 验证写入的文件
             try {
-                NbtCompound verify = NbtIo.readCompressed(file, NbtSizeTracker.ofUnlimitedBytes());
+                NbtCompound verify = NbtIo.readCompressed(file.toFile());
                 if (verify == null || !verify.equals(nbt)) {
                     throw new IOException("写入验证失败");
                 }
@@ -186,7 +186,7 @@ public final class SafeNbtIo {
             for (Path file : stream.toList()) {
                 if (file.getFileName().toString().endsWith(".nbt") && !isCorrupt(file)) {
                     try {
-                        NbtIo.readCompressed(file, NbtSizeTracker.ofUnlimitedBytes());
+                        NbtIo.readCompressed(file.toFile());
                     } catch (IOException e) {
                         isolateCorruptFile(file, e);
                         corruptCount++;

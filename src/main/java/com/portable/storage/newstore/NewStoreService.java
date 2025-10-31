@@ -43,7 +43,7 @@ public final class NewStoreService {
         // 检查单个物品大小限制
         ServerConfig config = ServerConfig.getInstance();
         if (config.isEnableSizeLimit()) {
-            long itemSize = calculateItemSize(stack, player.getRegistryManager());
+        long itemSize = calculateItemSize(stack, null);
             long maxSize = config.getMaxStorageSizeBytes();
             
             if (itemSize > maxSize) {
@@ -52,7 +52,7 @@ public final class NewStoreService {
         }
         
         TemplateIndex index = StorageMemoryCache.getTemplateIndex();
-        String key = ItemKeyHasher.hash(stack, player.getRegistryManager());
+        String key = ItemKeyHasher.hash(stack, null);
         if (key == null || key.isEmpty()) return 0;
         
         // 单种物品堆叠上限检查（-1 表示不限制）
@@ -161,7 +161,7 @@ public final class NewStoreService {
         if (player == null || variant == null || variant.isEmpty() || want <= 0) return 0;
         MinecraftServer server = player.getServer();
         if (server == null) return 0;
-        String key = ItemKeyHasher.hash(variant, player.getRegistryManager());
+        String key = ItemKeyHasher.hash(variant, null);
         if (key == null || key.isEmpty()) return 0;
         
         // 减少玩家物品数量
@@ -321,7 +321,7 @@ public final class NewStoreService {
             for (int i = 0; i < legacy.getCapacity() && remaining > 0; i++) {
                 ItemStack disp = legacy.getDisplayStack(i);
                 if (disp.isEmpty()) continue;
-                if (net.minecraft.item.ItemStack.areItemsAndComponentsEqual(disp, variant)) {
+            if (com.portable.storage.util.StackUtils.areItemsAndComponentsEqual(disp, variant)) {
                     long can = Math.min(remaining, legacy.getCountByIndex(i));
                     if (can > 0) {
                         long t = legacy.takeByIndex(i, can, System.currentTimeMillis());
@@ -393,7 +393,7 @@ public final class NewStoreService {
             return baos.size();
         } catch (Exception e) {
             // 估算大小
-            return 64 + (stack.getComponents().isEmpty() ? 0 : 100);
+        return 64 + ((stack.getNbt() == null || stack.getNbt().isEmpty()) ? 0 : 100);
         }
     }
     
@@ -444,7 +444,7 @@ public final class NewStoreService {
         int currentTypeCount = entries.size();
         
         // 检查要添加的物品是否已经存在
-        String key = ItemKeyHasher.hash(stack, player.getRegistryManager());
+        String key = ItemKeyHasher.hash(stack, null);
         if (key != null && !key.isEmpty() && entries.containsKey(key)) {
             // 物品已存在，可以添加（只是增加数量）
             return true;
