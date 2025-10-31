@@ -26,6 +26,13 @@ public class XpMaintenanceHandler {
     private static void checkAndMaintainLevel(ServerPlayerEntity player) {
         UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
         
+        // 检查仓库是否启用
+        com.portable.storage.player.PlayerStorageAccess access = (com.portable.storage.player.PlayerStorageAccess) player;
+        if (!access.portableStorage$isStorageEnabled()) {
+            lastPlayerLevels.remove(player.getUuid());
+            return;
+        }
+        
         // 检查是否有附魔之瓶升级且启用等级维持
         if (!upgrades.isXpBottleUpgradeActive() || !upgrades.isLevelMaintenanceEnabled()) {
             lastPlayerLevels.remove(player.getUuid());

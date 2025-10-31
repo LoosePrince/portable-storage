@@ -53,6 +53,12 @@ public abstract class BowItemMixin {
             ServerPlayerEntity serverPlayer = (ServerPlayerEntity) player;
             UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
 
+            // 检查仓库是否启用
+            com.portable.storage.player.PlayerStorageAccess access = (com.portable.storage.player.PlayerStorageAccess) player;
+            if (!access.portableStorage$isStorageEnabled()) {
+                return;
+            }
+
             // 检查是否有光灵箭升级
             boolean hasSpectralArrowUpgrade = upgrades.isSpectralArrowUpgradeActive();
 

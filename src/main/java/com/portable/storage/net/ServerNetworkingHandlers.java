@@ -18,13 +18,17 @@ import com.portable.storage.net.payload.SyncControlC2SPayload;
 import com.portable.storage.net.payload.XpBottleClickC2SPayload;
 import com.portable.storage.net.payload.XpBottleConversionC2SPayload;
 import com.portable.storage.net.payload.XpBottleMaintenanceToggleC2SPayload;
+import com.portable.storage.net.payload.SyncFilterRulesC2SPayload;
+import com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload;
 import com.portable.storage.newstore.NewStoreService;
 import com.portable.storage.player.PlayerStorageAccess;
 import com.portable.storage.player.PlayerStorageService;
 import com.portable.storage.player.StoragePersistence;
 import com.portable.storage.screen.PortableCraftingScreenHandler;
 import com.portable.storage.storage.StorageInventory;
+import com.portable.storage.storage.StorageType;
 import com.portable.storage.storage.UpgradeInventory;
+import com.portable.storage.storage.AutoEatMode;
 import com.portable.storage.sync.PlayerViewState;
 import com.portable.storage.sync.StorageSyncManager;
 import com.portable.storage.world.SpaceRiftManager;
@@ -44,6 +48,16 @@ public final class ServerNetworkingHandlers {
     // 附魔之瓶升级：循环的存取等级索引，简单存内存，不做持久化
     private static final java.util.Map<java.util.UUID, Integer> xpStepIndexByPlayer = new java.util.concurrent.ConcurrentHashMap<>();
     private static final int[] XP_STEPS = new int[] {1, 5, 10, 100};
+    
+    // 附魔金苹果升级：自动进食模式，简单存内存，不做持久化
+    private static final java.util.Map<java.util.UUID, AutoEatMode> autoEatModeByPlayer = new java.util.concurrent.ConcurrentHashMap<>();
+    
+    /**
+     * 获取玩家的当前自动进食模式
+     */
+    public static AutoEatMode getPlayerAutoEatMode(ServerPlayerEntity player) {
+        return autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DEFAULT);
+    }
 	
 	/**
 	 * 检查玩家是否已启用随身仓库功能
@@ -384,6 +398,40 @@ public final class ServerNetworkingHandlers {
 		
         // 旧 EmiRecipeFillC2SPayload 接收器已移除（使用统一 CraftingOverlayActionC2SPayload）
 		
+		// 筛选规则同步
+		ServerPlayNetworking.registerGlobalReceiver(SyncFilterRulesC2SPayload.ID, (payload, context) -> {
+			context.server().execute(() -> {
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				com.portable.storage.storage.FilterRuleManager.syncPlayerRules(player, payload.filterRules(), payload.destroyRules());
+			});
+		});
+		
+		// 处理绑定木桶筛选规则同步
+		ServerPlayNetworking.registerGlobalReceiver(SyncBarrelFilterRulesC2SPayload.ID, (payload, context) -> {
+			context.server().execute(() -> {
+				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
+				net.minecraft.world.World world = player.getWorld();
+				net.minecraft.block.entity.BlockEntity blockEntity = world.getBlockEntity(payload.barrelPos());
+				
+				if (blockEntity instanceof com.portable.storage.blockentity.BoundBarrelBlockEntity barrel) {
+					// 转换规则格式
+					java.util.List<com.portable.storage.blockentity.BoundBarrelBlockEntity.FilterRule> filterRules = new java.util.ArrayList<>();
+					for (com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload.FilterRule rule : payload.filterRules()) {
+						filterRules.add(new com.portable.storage.blockentity.BoundBarrelBlockEntity.FilterRule(
+							rule.matchRule(), rule.isWhitelist(), rule.enabled()
+						));
+					}
+					
+					// 更新绑定木桶的规则
+					barrel.setFilterRules(filterRules);
+					barrel.markDirty();
+					
+					// 调试信息
+					System.out.println("服务器更新绑定木桶规则: 筛选=" + filterRules.size());
+				}
+			});
+		});
+
 		// 玩家加入时发送容器显示配置同步（统一配置同步）
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			ServerPlayerEntity player = handler.player;
@@ -444,7 +492,7 @@ public final class ServerNetworkingHandlers {
 				if (checkAndRejectIfNotEnabled(player)) return;
 				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
 				// 必须有附魔之瓶升级且未禁用
-				if (upgrades.isSlotDisabled(7) || upgrades.getStack(7).isEmpty()) return;
+				if (upgrades.isSlotDisabled(7, player) || upgrades.getStack(7).isEmpty()) return;
 				
 				// 检查是否启用了等级维持，如果启用则拒绝手动存取
 				if (upgrades.isLevelMaintenanceEnabled()) {
@@ -497,7 +545,7 @@ public final class ServerNetworkingHandlers {
 				if (checkAndRejectIfNotEnabled(player)) return;
 				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
 				// 必须有附魔之瓶升级且未禁用
-				if (upgrades.isSlotDisabled(7) || upgrades.getStack(7).isEmpty()) return;
+				if (upgrades.isSlotDisabled(7, player) || upgrades.getStack(7).isEmpty()) return;
 				
 				// 切换等级维持状态
 				upgrades.toggleLevelMaintenance();
@@ -517,7 +565,7 @@ public final class ServerNetworkingHandlers {
 				if (checkAndRejectIfNotEnabled(player)) return;
 				UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
 				// 必须有附魔之瓶升级且未禁用
-				if (upgrades.isSlotDisabled(7) || upgrades.getStack(7).isEmpty()) return;
+				if (upgrades.isSlotDisabled(7, player) || upgrades.getStack(7).isEmpty()) return;
 				
 				// 检查玩家是否拿着玻璃瓶
 				ItemStack cursorStack = player.currentScreenHandler.getCursorStack();
@@ -571,8 +619,9 @@ public final class ServerNetworkingHandlers {
                 ServerPlayerEntity player = (ServerPlayerEntity) context.player();
                 if (payload.screen() == RequestOpenScreenC2SPayload.Screen.VANILLA_CRAFTING) {
                     // 切回原版工作台
+                    final net.minecraft.util.math.BlockPos[] openPosHolder = new net.minecraft.util.math.BlockPos[1];
+                    final net.minecraft.world.World[] openWorldHolder = new net.minecraft.world.World[1];
                     if (player.currentScreenHandler instanceof PortableCraftingScreenHandler pch) {
-                        // 先保存合成槽中的物品到玩家背包
                         for (int i = 1; i <= 9 && i < pch.slots.size(); i++) {
                             net.minecraft.screen.slot.Slot slot = pch.getSlot(i);
                             ItemStack st = slot.getStack();
@@ -582,10 +631,12 @@ public final class ServerNetworkingHandlers {
                                 insertIntoPlayerInventory(player, copy);
                             }
                         }
+                        pch.getContext().run((w, pos) -> {
+                            openWorldHolder[0] = w;
+                            openPosHolder[0] = pos;
+                        });
                     }
                     player.closeHandledScreen();
-                    
-                    // 使用空的上下文创建原版工作台界面，不需要真实的工作台位置
                     player.openHandledScreen(new net.minecraft.screen.NamedScreenHandlerFactory() {
                         @Override
                         public net.minecraft.text.Text getDisplayName() {
@@ -593,7 +644,9 @@ public final class ServerNetworkingHandlers {
                         }
                         @Override
                         public net.minecraft.screen.ScreenHandler createMenu(int syncId, net.minecraft.entity.player.PlayerInventory inv, net.minecraft.entity.player.PlayerEntity playerEntity) {
-                            return new net.minecraft.screen.CraftingScreenHandler(syncId, inv, net.minecraft.screen.ScreenHandlerContext.EMPTY);
+                            net.minecraft.world.World w = openWorldHolder[0] != null ? openWorldHolder[0] : player.getWorld();
+                            net.minecraft.util.math.BlockPos p = openPosHolder[0] != null ? openPosHolder[0] : player.getBlockPos();
+                            return new net.minecraft.screen.CraftingScreenHandler(syncId, inv, net.minecraft.screen.ScreenHandlerContext.create(w, p));
                         }
                     });
                 } else if (payload.screen() == RequestOpenScreenC2SPayload.Screen.PORTABLE_CRAFTING) {
@@ -602,7 +655,7 @@ public final class ServerNetworkingHandlers {
                     boolean hasCraftingUpgrade = false;
                     for (int i = 0; i < upgrades.getSlotCount(); i++) {
                         ItemStack st = upgrades.getStack(i);
-                        if (!st.isEmpty() && st.getItem() == net.minecraft.item.Items.CRAFTING_TABLE && !upgrades.isSlotDisabled(i)) {
+                        if (!st.isEmpty() && st.getItem() == net.minecraft.item.Items.CRAFTING_TABLE && !upgrades.isSlotDisabled(i, player)) {
                             hasCraftingUpgrade = true;
                             break;
                         }
@@ -619,6 +672,18 @@ public final class ServerNetworkingHandlers {
                             return new PortableCraftingScreenHandler(syncId, inv, net.minecraft.screen.ScreenHandlerContext.create(player.getWorld(), player.getBlockPos()));
                         }
                     });
+                } else if (payload.screen() == RequestOpenScreenC2SPayload.Screen.FILTER_MAIN) {
+                    // 筛选系统主界面 - 客户端处理，服务器端无需特殊处理
+                    // 客户端会直接打开FilterMainScreen
+                } else if (payload.screen() == RequestOpenScreenC2SPayload.Screen.FILTER_SCREEN) {
+                    // 筛选界面 - 客户端处理，服务器端无需特殊处理
+                    // 客户端会直接打开FilterScreen
+                } else if (payload.screen() == RequestOpenScreenC2SPayload.Screen.DESTROY_SCREEN) {
+                    // 销毁界面 - 客户端处理，服务器端无需特殊处理
+                    // 客户端会直接打开DestroyScreen
+                } else if (payload.screen() == RequestOpenScreenC2SPayload.Screen.BARREL_FILTER) {
+                    // 绑定木桶筛选界面 - 客户端处理，服务器端无需特殊处理
+                    // 客户端会直接打开FilterMainScreen，但数据来源是绑定木桶
                 }
             });
         });
@@ -764,9 +829,28 @@ public final class ServerNetworkingHandlers {
         var server = player.getServer();
         if (server == null) return stack;
         
-        // 直接调用 NewStoreService 确保使用统一逻辑
-        NewStoreService.insertForOnlinePlayer(player, stack);
-        return ItemStack.EMPTY;
+        // 检查容量限制
+        PlayerStorageAccess access = (PlayerStorageAccess) player;
+        StorageType storageType = access.portableStorage$getStorageType();
+        if (storageType.hasCapacityLimit()) {
+            // 检查是否已达到容量限制
+            if (!NewStoreService.canAddNewItemType(player, stack)) {
+                // 容量限制，返回原物品
+                return stack;
+            }
+        }
+        
+        long accepted = NewStoreService.insertCountForOnlinePlayer(player, stack);
+        int original = stack.getCount();
+        if (accepted <= 0) {
+            return stack;
+        } else if (accepted >= original) {
+            return ItemStack.EMPTY;
+        } else {
+            ItemStack remainder = stack.copy();
+            remainder.setCount(original - (int)Math.min(Integer.MAX_VALUE, accepted));
+            return remainder;
+        }
     }
 
     public static void sendSync(ServerPlayerEntity player) {
@@ -784,6 +868,9 @@ public final class ServerNetworkingHandlers {
         sendUpgradeSync(player);
         sendEnablementSync(player);
         sendInfiniteFluidConfigSync(player);
+        sendRiftConfigSync(player);
+        sendVirtualCraftingConfigSync(player);
+        sendContainerDisplayConfigSync(player);
     }
 
     private static void sendIncrementalAll(ServerPlayerEntity player) {
@@ -884,12 +971,8 @@ public final class ServerNetworkingHandlers {
     }
 
 	private static String makeKeyForStack(ItemStack s) {
-		// 使用完整的 ItemStack 编码生成唯一键，确保所有组件都被考虑
-		var id = net.minecraft.registry.Registries.ITEM.getId(s.getItem());
-		var ops = net.minecraft.nbt.NbtOps.INSTANCE;
-		var encoded = ItemStack.CODEC.encodeStart(ops, s);
-		String signature = encoded.result().map(net.minecraft.nbt.NbtElement::toString).orElse("");
-		return id + "#" + Integer.toHexString(signature.hashCode());
+		// 直接使用 ItemKeyHasher 生成键，确保与新版储存系统完全一致
+		return com.portable.storage.newstore.ItemKeyHasher.hash(s, null);
 	}
 	
 	/**
@@ -951,13 +1034,24 @@ public final class ServerNetworkingHandlers {
 				ConfigSyncS2CPayload.Topic.XP_STEP, data
 			));
 		}
+		// 同步自动进食模式
+		{
+			AutoEatMode mode = autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DEFAULT);
+			NbtCompound data = new NbtCompound();
+			data.putInt("modeIndex", mode.getIndex());
+			ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
+				ConfigSyncS2CPayload.Topic.AUTO_EAT_MODE, data
+			));
+		}
 	}
 	
 	public static void sendEnablementSync(ServerPlayerEntity player) {
 		PlayerStorageAccess access = (PlayerStorageAccess) player;
 		boolean enabled = access.portableStorage$isStorageEnabled();
+		StorageType storageType = access.portableStorage$getStorageType();
 		NbtCompound data = new NbtCompound();
 		data.putBoolean("enabled", enabled);
+		data.putString("storageType", storageType.getKey());
 		ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
 			ConfigSyncS2CPayload.Topic.STORAGE_ENABLEMENT, data
 		));
@@ -972,6 +1066,58 @@ public final class ServerNetworkingHandlers {
 		data.putInt("infiniteWaterThreshold", config.getInfiniteWaterThreshold());
 		ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
 			ConfigSyncS2CPayload.Topic.INFINITE_FLUID_CONFIG, data
+		));
+	}
+	
+	public static void sendRiftConfigSync(ServerPlayerEntity player) {
+		ServerConfig config = ServerConfig.getInstance();
+		NbtCompound data = new NbtCompound();
+		data.putString("riftUpgradeItem", config.getRiftUpgradeItem());
+		data.putInt("riftSize", config.getRiftSize());
+		ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
+			ConfigSyncS2CPayload.Topic.RIFT_CONFIG, data
+		));
+	}
+	
+	public static void sendVirtualCraftingConfigSync(ServerPlayerEntity player) {
+		ServerConfig config = ServerConfig.getInstance();
+		NbtCompound data = new NbtCompound();
+		data.putBoolean("enableVirtualCrafting", config.isEnableVirtualCrafting());
+		ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
+			ConfigSyncS2CPayload.Topic.VIRTUAL_CRAFTING_CONFIG, data
+		));
+	}
+	
+	public static void sendContainerDisplayConfigSync(ServerPlayerEntity player) {
+		ServerConfig config = ServerConfig.getInstance();
+		NbtCompound data = new NbtCompound();
+		data.putBoolean("stonecutter", config.isStonecutter());
+		data.putBoolean("cartographyTable", config.isCartographyTable());
+		data.putBoolean("smithingTable", config.isSmithingTable());
+		data.putBoolean("grindstone", config.isGrindstone());
+		data.putBoolean("loom", config.isLoom());
+		data.putBoolean("furnace", config.isFurnace());
+		data.putBoolean("smoker", config.isSmoker());
+		data.putBoolean("blastFurnace", config.isBlastFurnace());
+		data.putBoolean("anvil", config.isAnvil());
+		data.putBoolean("enchantingTable", config.isEnchantingTable());
+		data.putBoolean("brewingStand", config.isBrewingStand());
+		data.putBoolean("beacon", config.isBeacon());
+		data.putBoolean("chest", config.isChest());
+		data.putBoolean("barrel", config.isBarrel());
+		data.putBoolean("enderChest", config.isEnderChest());
+		data.putBoolean("shulkerBox", config.isShulkerBox());
+		data.putBoolean("dispenser", config.isDispenser());
+		data.putBoolean("dropper", config.isDropper());
+		data.putBoolean("crafter", config.isCrafter());
+		data.putBoolean("hopper", config.isHopper());
+		data.putBoolean("trappedChest", config.isTrappedChest());
+		data.putBoolean("hopperMinecart", config.isHopperMinecart());
+		data.putBoolean("chestMinecart", config.isChestMinecart());
+		data.putBoolean("chestBoat", config.isChestBoat());
+		data.putBoolean("bambooChestRaft", config.isBambooChestRaft());
+		ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
+			ConfigSyncS2CPayload.Topic.DISPLAY_CONFIG, data
 		));
 	}
 
@@ -1050,23 +1196,21 @@ public final class ServerNetworkingHandlers {
         // 直接复用原 UpgradeSlotClick 逻辑主体
         UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
         if (slot < 0 || slot >= upgrades.getSlotCount()) return;
-        if (UpgradeInventory.isExtendedSlot(slot)) {
-            // 扩展槽位5-9（映射到统一管理器的0-4）可以接受操作
-            if (slot != 5 && slot != 6 && slot != 7 && slot != 8) {
-                return;
-            }
-        }
         if (button == 1) {
-            if (slot == 4 && !upgrades.isSlotDisabled(4) && !upgrades.getStack(4).isEmpty()) {
+            if (slot == 4 && !upgrades.isSlotDisabled(4, player) && !upgrades.getStack(4).isEmpty()) {
                 // 裂隙升级槽：右键在维度间来回切换
                 handleRiftTeleport(player);
                 return;
             }
             if (slot == 6 && upgrades.isBedUpgradeActive()) {
-                handleBedUpgradeSleep(player);
+                // 检查仓库是否启用
+                com.portable.storage.player.PlayerStorageAccess access = (com.portable.storage.player.PlayerStorageAccess) player;
+                if (access.portableStorage$isStorageEnabled()) {
+                    handleBedUpgradeSleep(player);
+                }
                 return;
             }
-            if (slot == 7 && !upgrades.isSlotDisabled(7) && !upgrades.getStack(7).isEmpty()) {
+            if (slot == 7 && !upgrades.isSlotDisabled(7, player) && !upgrades.getStack(7).isEmpty()) {
                 int idx = xpStepIndexByPlayer.getOrDefault(player.getUuid(), 0);
                 idx = (idx + 1) % XP_STEPS.length;
                 xpStepIndexByPlayer.put(player.getUuid(), idx);
@@ -1079,7 +1223,31 @@ public final class ServerNetworkingHandlers {
                 ));
                 return;
             }
-            // 垃圾桶槽位已改为独立 Target.TRASH 处理，移除旧 slot==10 分支
+            upgrades.toggleSlotDisabled(slot);
+            sendUpgradeSync(player);
+            return;
+        }
+        
+        if (button == 2) { // 中键点击
+            if (slot == 9 && !upgrades.isSlotDisabled(9, player) && !upgrades.getStack(9).isEmpty()) {
+                // 附魔金苹果升级槽：中键切换自动进食模式
+                AutoEatMode currentMode = autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DEFAULT);
+                AutoEatMode nextMode = currentMode.next();
+                autoEatModeByPlayer.put(player.getUuid(), nextMode);
+                
+                // 发送消息给玩家
+                String modeName = Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.mode." + nextMode.getKey()).getString();
+                player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.mode_switched", modeName), true);
+                
+                // 同步模式到客户端
+                net.minecraft.nbt.NbtCompound data = new net.minecraft.nbt.NbtCompound();
+                data.putInt("modeIndex", nextMode.getIndex());
+                ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
+                    ConfigSyncS2CPayload.Topic.AUTO_EAT_MODE, data
+                ));
+                return;
+            }
+            // 其他槽位中键：切换禁用状态
             upgrades.toggleSlotDisabled(slot);
             sendUpgradeSync(player);
             return;
@@ -1102,7 +1270,7 @@ public final class ServerNetworkingHandlers {
                 if (!cursor.isEmpty()) {
                     ItemStack one = cursor.copy();
                     one.setCount(1);
-                    if (upgrades.tryInsert(slot, one, player.getUuid(), player.getName().getString())) {
+                    if (upgrades.tryInsert(slot, one, player, null, null)) {
                         // 成功放入一个，减少手中物品1个
                         cursor.decrement(1);
                         if (cursor.isEmpty()) {
@@ -1117,7 +1285,7 @@ public final class ServerNetworkingHandlers {
             } else {
                 if (cursor.getCount() == 1) {
                     ItemStack taken = upgrades.takeStack(slot);
-                    if (upgrades.tryInsert(slot, cursor, player.getUuid(), player.getName().getString())) {
+                    if (upgrades.tryInsert(slot, cursor, player, null, null)) {
                         player.currentScreenHandler.setCursorStack(taken);
                         player.currentScreenHandler.sendContentUpdates();
                             sendSync(player);
@@ -1194,13 +1362,24 @@ public final class ServerNetworkingHandlers {
         UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
         
         if (button == 0) {
-            // 左键：放入物品到垃圾桶槽位
+            // 左键：如果鼠标有物品则放入，如果鼠标没有物品则取出
             ItemStack cursor = player.currentScreenHandler.getCursorStack();
             if (!cursor.isEmpty()) {
+                // 鼠标有物品：放入到垃圾桶槽位
                 if (upgrades.tryInsertTrashSlot(cursor)) {
                     player.currentScreenHandler.setCursorStack(ItemStack.EMPTY);
                     player.currentScreenHandler.sendContentUpdates();
                     sendUpgradeSync(player);
+                }
+            } else {
+                // 鼠标没有物品：从垃圾桶槽位取出
+                if (upgrades.isTrashSlotActive()) {
+                    ItemStack trashItem = upgrades.takeTrashSlot();
+                    if (!trashItem.isEmpty()) {
+                        player.currentScreenHandler.setCursorStack(trashItem);
+                        player.currentScreenHandler.sendContentUpdates();
+                        sendUpgradeSync(player);
+                    }
                 }
             }
         } else if (button == 1) {
@@ -1303,7 +1482,7 @@ public final class ServerNetworkingHandlers {
     private static void handleXpBottleAction(ServerPlayerEntity player, StorageActionC2SPayload p) {
         int button = p.button();
         UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
-        if (upgrades.isSlotDisabled(7) || upgrades.getStack(7).isEmpty()) return;
+        if (upgrades.isSlotDisabled(7, player) || upgrades.getStack(7).isEmpty()) return;
         if (upgrades.isLevelMaintenanceEnabled()) {
             player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".exp_bottle.maintenance_blocked"), true);
             return;
@@ -1652,13 +1831,13 @@ public final class ServerNetworkingHandlers {
             return 0;
         }
         
+        // 使用合并的视图，确保与 takeFromStorage 一致
+        StorageInventory merged = buildMergedSnapshot(player);
         long totalCount = 0;
-        for (StorageInventory s : getViewStorages(player)) {
-            for (int i = 0; i < s.getCapacity(); i++) {
-                ItemStack disp = s.getDisplayStack(i);
-                if (!disp.isEmpty() && ItemStack.areItemsAndComponentsEqual(disp, variant)) {
-                    totalCount += s.getCountByIndex(i);
-                }
+        for (int i = 0; i < merged.getCapacity(); i++) {
+            ItemStack disp = merged.getDisplayStack(i);
+            if (!disp.isEmpty() && ItemStack.areItemsAndComponentsEqual(disp, variant)) {
+                totalCount += merged.getCountByIndex(i);
             }
         }
         return totalCount;
@@ -1741,10 +1920,12 @@ public final class ServerNetworkingHandlers {
     }
 
     private static ItemStack findFirstMatchingInMerged(ServerPlayerEntity viewer, net.minecraft.recipe.Ingredient ing) {
-        for (StorageInventory s : getViewStorages(viewer)) {
-            for (int i = 0; i < s.getCapacity(); i++) {
-                ItemStack disp = s.getDisplayStack(i);
-                if (!disp.isEmpty() && ing.test(disp)) return disp;
+        // 使用合并快照而不是单独的存储视图，确保包含新版仓库物品
+        StorageInventory merged = buildMergedSnapshot(viewer);
+        for (int i = 0; i < merged.getCapacity(); i++) {
+            ItemStack disp = merged.getDisplayStack(i);
+            if (!disp.isEmpty() && ing.test(disp)) {
+                return disp;
             }
         }
         return ItemStack.EMPTY;
@@ -1772,6 +1953,12 @@ public final class ServerNetworkingHandlers {
      * 检查玩家是否有工作台升级且未禁用
      */
     private static boolean portableStorage$hasCraftingTableUpgrade(ServerPlayerEntity player) {
+        // 检查仓库是否启用
+        com.portable.storage.player.PlayerStorageAccess access = (com.portable.storage.player.PlayerStorageAccess) player;
+        if (!access.portableStorage$isStorageEnabled()) {
+            return false;
+        }
+
         UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
         ScreenHandler handler = player.currentScreenHandler;
 
@@ -1781,7 +1968,7 @@ public final class ServerNetworkingHandlers {
         // 检查所有升级槽位是否有工作台且未禁用
         for (int i = 0; i < upgrades.getSlotCount(); i++) {
             ItemStack stack = upgrades.getStack(i);
-            if (!stack.isEmpty() && stack.getItem() == net.minecraft.item.Items.CRAFTING_TABLE && !upgrades.isSlotDisabled(i)) {
+            if (!stack.isEmpty() && stack.getItem() == net.minecraft.item.Items.CRAFTING_TABLE && !upgrades.isSlotDisabled(i, player)) {
                 return true;
             }
         }
@@ -1832,6 +2019,11 @@ public final class ServerNetworkingHandlers {
 	}
 	
 	private static void handleBedUpgradeSleep(ServerPlayerEntity player) {
+        // 裂隙内禁止使用床升级原地睡觉
+        if (player.getWorld().getRegistryKey() == com.portable.storage.world.SpaceRiftManager.DIMENSION_KEY) {
+            player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".bed.no_sleep_in_rift"), true);
+            return;
+        }
 		// 检查是否在白天
 		if (player.getWorld().isDay()) {
 			// 白天不能睡觉，发送消息

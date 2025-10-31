@@ -4,8 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
+import com.portable.storage.PortableStorage;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtOps;
@@ -35,10 +34,13 @@ public final class ItemKeyHasher {
             }
 
             // 2) DataComponent 完整稳定序列化
-            // 使用 ItemStack.CODEC，仅序列化“无数量影响”的物品属性（按 Mojang 定义）
+            // 使用 ItemStack.CODEC，序列化完整的物品属性（包括所有组件）
             // 通过 RegistryOps 确保跨世界/数据包环境一致
             var ops = (lookup != null) ? net.minecraft.registry.RegistryOps.of(NbtOps.INSTANCE, lookup) : NbtOps.INSTANCE;
-            var enc = ItemStack.CODEC.encodeStart(ops, normalizeCount(stack));
+            // 使用完整的ItemStack进行序列化，确保所有组件都被包含
+            ItemStack normalizedStack = stack.copy();
+            normalizedStack.setCount(1); // 只归一化数量，保留所有其他组件
+            var enc = ItemStack.CODEC.encodeStart(ops, normalizedStack);
             enc.result().ifPresent(nbt -> {
                 // 直接以 NBT 的规范字节序列做哈希；这里转回字符串再入哈希，足够稳定
                 String canonical = nbt.toString();
@@ -47,27 +49,11 @@ public final class ItemKeyHasher {
 
             return HexFormat.of().formatHex(sha.digest());
         } catch (Exception e) {
+            PortableStorage.LOGGER.error("Failed to hash ItemStack", e);
             return "";
         }
     }
 
-    /**
-     * 归一化计数为1，避免数量进入哈希；附带把空/默认组件统一去除差异。
-     */
-    private static ItemStack normalizeCount(ItemStack in) {
-        ItemStack copy = in.copy();
-        copy.setCount(1);
-        // 对部分常见组件做轻度归一（若为空则移除）
-        NbtComponent custom = copy.get(DataComponentTypes.CUSTOM_DATA);
-        if (custom != null && (custom.copyNbt() == null || custom.copyNbt().isEmpty())) {
-            copy.remove(DataComponentTypes.CUSTOM_DATA);
-        }
-        NbtComponent be = copy.get(DataComponentTypes.BLOCK_ENTITY_DATA);
-        if (be != null && (be.copyNbt() == null || be.copyNbt().isEmpty())) {
-            copy.remove(DataComponentTypes.BLOCK_ENTITY_DATA);
-        }
-        return copy;
-    }
 }
 
 

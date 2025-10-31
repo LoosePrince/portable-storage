@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import com.portable.storage.PortableStorage;
 import com.portable.storage.player.PlayerStorageAccess;
+import com.portable.storage.storage.StorageType;
 
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.NbtComponent;
@@ -57,8 +58,9 @@ public class StorageKeyItem extends Item {
             return TypedActionResult.fail(stack);
         }
         
-        // 重新激活仓库
+        // 重新激活仓库（死亡掉落的钥匙激活初级仓库）
         access.portableStorage$setStorageEnabled(true);
+        access.portableStorage$setStorageType(StorageType.PRIMARY);
         
         // 消耗钥匙
         if (stack.getCount() > 1) {
@@ -68,7 +70,7 @@ public class StorageKeyItem extends Item {
         }
         
         // 发送成功消息
-        user.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.storage_reactivated")
+        user.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.primary_storage_reactivated")
                 .formatted(Formatting.GREEN), false);
         
         PortableStorage.LOGGER.info("Player {} reactivated storage using storage key", serverPlayer.getName().getString());

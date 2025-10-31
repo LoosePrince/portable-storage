@@ -7,8 +7,10 @@ import org.jetbrains.annotations.Nullable;
 
 import com.portable.storage.PortableStorage;
 import com.portable.storage.newstore.NewStoreService;
+import com.portable.storage.player.PlayerStorageAccess;
 import com.portable.storage.player.StorageGroupService;
 import com.portable.storage.storage.StorageInventory;
+import com.portable.storage.storage.StorageType;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.LootableContainerBlockEntity;
@@ -42,6 +44,71 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
     private long lastSlot5ProcessTick = -1L;
     private ItemStack lastSlot5Processed = ItemStack.EMPTY;
     private BlockPos lastSlot5SourcePos = null;
+    
+    // 筛选规则存储
+    private java.util.List<FilterRule> filterRules = new java.util.ArrayList<>();
+    
+    // 筛选规则缓存，避免重复计算
+    private volatile boolean filterRulesEmpty = true;
+    private volatile long lastFilterRulesCheckTick = -1;
+    
+    // 物品键缓存，避免重复计算 SHA-256
+    private volatile String lastItemKey = null;
+    private volatile ItemStack lastItemForKey = ItemStack.EMPTY;
+    
+    /**
+     * 筛选规则类
+     */
+    public static class FilterRule {
+        public String matchRule;
+        public boolean isWhitelist;
+        public boolean enabled;
+        
+        public FilterRule() {
+            this("", true, true);
+        }
+        
+        public FilterRule(String matchRule, boolean isWhitelist, boolean enabled) {
+            this.matchRule = matchRule;
+            this.isWhitelist = isWhitelist;
+            this.enabled = enabled;
+        }
+        
+        public NbtCompound toNbt() {
+            NbtCompound nbt = new NbtCompound();
+            nbt.putString("matchRule", matchRule);
+            nbt.putBoolean("isWhitelist", isWhitelist);
+            nbt.putBoolean("enabled", enabled);
+            return nbt;
+        }
+        
+        public static FilterRule fromNbt(NbtCompound nbt) {
+            return new FilterRule(
+                nbt.getString("matchRule"),
+                nbt.getBoolean("isWhitelist"),
+                nbt.getBoolean("enabled")
+            );
+        }
+    }
+    
+    /**
+     * 获取筛选规则
+     */
+    public java.util.List<FilterRule> getFilterRules() {
+        return new java.util.ArrayList<>(filterRules);
+    }
+    
+    /**
+     * 设置筛选规则
+     */
+    public void setFilterRules(java.util.List<FilterRule> rules) {
+        this.filterRules = new java.util.ArrayList<>(rules);
+        markDirty();
+        // 通知客户端更新
+        if (world != null && !world.isClient) {
+            world.updateListeners(pos, getCachedState(), getCachedState(), net.minecraft.block.Block.NOTIFY_LISTENERS);
+        }
+    }
 
     public BoundBarrelBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.BOUND_BARREL, pos, state);
@@ -128,6 +195,12 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         // 仅允许自动化（存在方向）向隐藏输入槽位5插入；标记槽位0-4不可插入
         if (ownerUuid == null || stack.isEmpty()) return false;
         if (slot != 5) return false;
+        
+        // 检查所有者是否使用初级仓库
+        if (isOwnerUsingPrimaryStorage()) {
+            return false; // 初级仓库禁用绑定木桶的自动化插入
+        }
+        
         // dir != null 表示来自自动化方块（如漏斗/投掷器）
         if (dir != null) {
             // 记录来源位置：从本方块位置沿交互方向的相邻方块
@@ -143,18 +216,31 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         if (slot >= 0 && slot <= 4 && ownerUuid != null) {
             ItemStack marker = getStack(slot);
             if (marker.isEmpty()) return false;
+            
+            // 检查所有者是否使用初级仓库
+            if (isOwnerUsingPrimaryStorage()) {
+                return false; // 初级仓库禁用绑定木桶的自动化提取
+            }
+            
             if (dir != null) {
                 // 漏斗操作：检查仓库中是否有对应物品
                 if (world != null && world.getServer() != null) {
                     // 标记后续同线程 removeStack 为自动化提取
                     THREAD_AUTOMATION_EXTRACT.set(true);
-                    // 检查仓库中是否有标记物品对应的物品
+                    
+                    // 使用快速检查方法（只检查物品数量，不构建完整视图）
+                    boolean hasItem = NewStoreService.hasItemInStorage(world.getServer(), ownerUuid, marker);
+                    if (hasItem) {
+                        return true; // 新版仓库中有对应物品，允许提取
+                    }
+                    
+                    // 如果新版储存没有，再检查旧版储存系统
                     List<StorageInventory> storages = StorageGroupService.getStoragesByOwner(world.getServer(), ownerUuid);
                     for (StorageInventory storage : storages) {
                         for (int i = 0; i < storage.getCapacity(); i++) {
                             ItemStack disp = storage.getDisplayStack(i);
                             if (!disp.isEmpty() && ItemStack.areItemsAndComponentsEqual(disp, marker)) {
-                                return true; // 仓库中有对应物品，允许提取
+                                return true; // 旧版仓库中有对应物品，允许提取
                             }
                         }
                     }
@@ -225,6 +311,13 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
                 return;
             }
 
+            // 检查筛选规则：如果物品不匹配筛选规则，不插入
+            if (!shouldPickupItemFast(stack)) {
+                // 物品不匹配筛选规则，不插入
+                THREAD_INSERT_SOURCE.remove();
+                return;
+            }
+
             ItemStack toInsert = stack.copy();
             insertIntoOwnerStorage(toInsert);
             // 置空插入槽位（物品已被存入仓库）
@@ -243,22 +336,94 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
     }
 
     /**
-     * 将物品存入所有者的仓库（新版存储）
+     * 快速获取物品键（带缓存优化）
+     */
+    private String getItemKeyFast(ItemStack itemStack) {
+        if (itemStack.isEmpty()) return null;
+        
+        // 检查缓存是否有效
+        if (ItemStack.areItemsAndComponentsEqual(itemStack, lastItemForKey)) {
+            return lastItemKey;
+        }
+        
+        // 计算新的物品键
+        if (world != null && world.getServer() != null) {
+            String key = com.portable.storage.newstore.ItemKeyHasher.hash(itemStack, world.getServer().getRegistryManager());
+            
+            // 更新缓存
+            lastItemKey = key;
+            lastItemForKey = itemStack.copy();
+            
+            return key;
+        }
+        
+        return null;
+    }
+    
+    /**
+     * 快速筛选检查（带缓存优化）
+     */
+    private boolean shouldPickupItemFast(ItemStack itemStack) {
+        if (itemStack.isEmpty()) return false;
+        
+        // 检查缓存是否有效
+        long currentTick = world != null ? world.getTime() : 0;
+        if (lastFilterRulesCheckTick != currentTick) {
+            // 更新缓存
+            filterRulesEmpty = filterRules.isEmpty();
+            lastFilterRulesCheckTick = currentTick;
+        }
+        
+        // 如果没有筛选规则，拾取所有物品
+        if (filterRulesEmpty) {
+            return true;
+        }
+        
+        // 有筛选规则时，使用完整的筛选逻辑
+        return com.portable.storage.storage.BarrelFilterRuleManager.shouldPickupItem(this, itemStack);
+    }
+    
+    /**
+     * 将物品存入所有者的仓库（新版存储）- 优化版本，与输出流程一致
      */
     private void insertIntoOwnerStorage(ItemStack stack) {
         if (world == null || world.getServer() == null || ownerUuid == null) return;
+        
         try {
             var server = world.getServer();
-            var owner = server.getPlayerManager().getPlayer(ownerUuid);
-            if (owner != null) {
-                NewStoreService.insertForOnlinePlayer(owner, stack);
-            } else {
-                NewStoreService.insertForOfflineUuid(server, ownerUuid, stack, null);
+            
+            // 使用缓存的物品键，避免重复计算 SHA-256
+            String key = getItemKeyFast(stack);
+            if (key == null || key.isEmpty()) return;
+            
+            // 纯内存操作：不进行文件IO
+            com.portable.storage.newstore.TemplateIndex index = com.portable.storage.newstore.StorageMemoryCache.getTemplateIndex();
+            
+            // 如果模板不存在，只在内存中创建
+            if (index.find(key) == null) {
+                // 分配切片ID
+                int slice = index.getOrAllocateSlice();
+                
+                // 创建新模板条目（仅内存）
+                index.put(key, slice, 0);
+                
+                // 将模板添加到内存缓存
+                com.portable.storage.newstore.StorageMemoryCache.addTemplate(key, stack.copy());
             }
+            
+            // 纯内存操作：更新玩家数据和引用计数
+            long now = System.currentTimeMillis();
+            com.portable.storage.newstore.PlayerStore.add(server, ownerUuid, key, stack.getCount(), now);
+            index.incRef(key, stack.getCount());
+            
+            // 标记为脏，由定时任务处理文件IO
+            com.portable.storage.newstore.StorageMemoryCache.markTemplateIndexDirty();
+            
         } catch (Throwable e) {
             PortableStorage.LOGGER.error("Failed to insert item into owner's storage", e);
         }
     }
+
 
     // ==== 绑定信息管理 ====
 
@@ -275,22 +440,49 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
     public String getOwnerName() {
         return ownerName;
     }
+    
+    /**
+     * 检查所有者是否使用初级仓库
+     */
+    private boolean isOwnerUsingPrimaryStorage() {
+        if (ownerUuid == null || world == null || world.getServer() == null) {
+            return false;
+        }
+        
+        net.minecraft.server.network.ServerPlayerEntity ownerPlayer = world.getServer().getPlayerManager().getPlayer(ownerUuid);
+        if (ownerPlayer != null) {
+            PlayerStorageAccess access = (PlayerStorageAccess) ownerPlayer;
+            return access.portableStorage$getStorageType() == StorageType.PRIMARY;
+        }
+        
+        return false;
+    }
 
     public void copyDataToItem(ItemStack stack) {
         if (ownerUuid == null) return;
 
-        NbtCompound nbt = new NbtCompound();
-        nbt.putUuid("ps_owner_uuid", ownerUuid);
-        nbt.putLong("ps_owner_uuid_most", ownerUuid.getMostSignificantBits());
-        nbt.putLong("ps_owner_uuid_least", ownerUuid.getLeastSignificantBits());
+        NbtCompound customData = new NbtCompound();
+        customData.putUuid("ps_owner_uuid", ownerUuid);
+        customData.putLong("ps_owner_uuid_most", ownerUuid.getMostSignificantBits());
+        customData.putLong("ps_owner_uuid_least", ownerUuid.getLeastSignificantBits());
         
         if (ownerName != null) {
-            nbt.putString("ps_owner_name", ownerName);
+            customData.putString("ps_owner_name", ownerName);
         }
 
-        stack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt));
-        stack.set(DataComponentTypes.BLOCK_ENTITY_DATA, NbtComponent.of(nbt));
+        // 只设置自定义数据，不设置方块实体数据
+        stack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(customData));
         stack.set(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
+    }
+
+    @Override
+    public net.minecraft.network.packet.Packet<net.minecraft.network.listener.ClientPlayPacketListener> toUpdatePacket() {
+        return net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket.create(this);
+    }
+
+    @Override
+    public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registryLookup) {
+        return createNbt(registryLookup);
     }
 
     @Override
@@ -302,6 +494,15 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         if (ownerName != null) {
             nbt.putString("ps_owner_name", ownerName);
         }
+        
+        // 保存筛选规则
+        NbtCompound filterRulesNbt = new NbtCompound();
+        for (int i = 0; i < filterRules.size(); i++) {
+            filterRulesNbt.put("rule_" + i, filterRules.get(i).toNbt());
+        }
+        filterRulesNbt.putInt("count", filterRules.size());
+        nbt.put("filter_rules", filterRulesNbt);
+        
         Inventories.writeNbt(nbt, inventory, registryLookup);
     }
 
@@ -314,8 +515,22 @@ public class BoundBarrelBlockEntity extends LootableContainerBlockEntity impleme
         if (nbt.contains("ps_owner_name")) {
             ownerName = nbt.getString("ps_owner_name");
         }
+        
+        // 读取筛选规则
+        filterRules.clear();
+        if (nbt.contains("filter_rules")) {
+            NbtCompound filterRulesNbt = nbt.getCompound("filter_rules");
+            int count = filterRulesNbt.getInt("count");
+            for (int i = 0; i < count; i++) {
+                if (filterRulesNbt.contains("rule_" + i)) {
+                    filterRules.add(FilterRule.fromNbt(filterRulesNbt.getCompound("rule_" + i)));
+                }
+            }
+        }
+        
         inventory = DefaultedList.ofSize(size(), ItemStack.EMPTY);
         Inventories.readNbt(nbt, inventory, registryLookup);
     }
 }
+
 

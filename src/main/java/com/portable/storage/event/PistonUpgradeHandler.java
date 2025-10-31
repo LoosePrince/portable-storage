@@ -53,6 +53,14 @@ public class PistonUpgradeHandler {
         UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(player);
         UUID playerId = player.getUuid();
         
+        // 检查仓库是否启用
+        com.portable.storage.player.PlayerStorageAccess access = (com.portable.storage.player.PlayerStorageAccess) player;
+        if (!access.portableStorage$isStorageEnabled()) {
+            // 如果仓库被禁用，清除该玩家的补充记录
+            cleanupPlayer(playerId);
+            return;
+        }
+        
         // 检查活塞升级是否激活
         if (!upgrades.isPistonUpgradeActive()) {
             // 如果升级被禁用，清除该玩家的补充记录

@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.util.UUID;
 
 import com.portable.storage.storage.StorageInventory;
+import com.portable.storage.util.SafeNbtIo;
 
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtIo;
@@ -25,7 +26,7 @@ public final class StoragePersistence {
             Path dir = server.getSavePath(WorldSavePath.PLAYERDATA);
             Path file = dir.resolve(uuid.toString() + ".dat");
             if (!Files.exists(file)) return inv; // 空
-            NbtCompound root = NbtIo.readCompressed(file, NbtSizeTracker.ofUnlimitedBytes());
+            NbtCompound root = SafeNbtIo.readCompressed(file, NbtSizeTracker.ofUnlimitedBytes());
             if (root != null && root.contains("portable_storage")) {
                 inv.readNbt(root.getCompound("portable_storage"));
             }
@@ -40,7 +41,7 @@ public final class StoragePersistence {
             Path file = dir.resolve(uuid.toString() + ".dat");
             NbtCompound root;
             if (Files.exists(file)) {
-                root = NbtIo.readCompressed(file, NbtSizeTracker.ofUnlimitedBytes());
+                root = SafeNbtIo.readCompressed(file, NbtSizeTracker.ofUnlimitedBytes());
                 if (root == null) root = new NbtCompound();
             } else {
                 root = new NbtCompound();
@@ -48,7 +49,7 @@ public final class StoragePersistence {
             NbtCompound out = new NbtCompound();
             inv.writeNbt(out);
             root.put("portable_storage", out);
-            NbtIo.writeCompressed(root, file);
+            SafeNbtIo.writeCompressed(root, file);
         } catch (IOException ignored) {}
     }
 }

@@ -47,6 +47,12 @@ public class ServerConfig {
     // 存储大小限制配置
     private boolean enableSizeLimit = true;
     private long maxStorageSizeBytes = 100 * 1024; // 100KB
+    private long singleItemStackLimit = -1; // -1 表示不限制
+    
+    // 初级仓库功能配置
+    private boolean enablePrimaryStorage = true;
+    private String primaryStorageItem = "minecraft:heart_of_the_sea";
+    private boolean consumePrimaryStorageItem = true;
     
     // 工作台升级容器界面显示配置
     private boolean stonecutter = false;
@@ -200,6 +206,22 @@ public class ServerConfig {
             # 默认值: true
             clear_storage_on_enable = true
             
+            # 是否启用初级仓库功能
+            # 启用后玩家可以使用海洋之心激活初级仓库
+            # 默认值: true
+            enable_primary_storage = true
+            
+            # 初级仓库激活物品
+            # 用于激活初级仓库的物品，默认海洋之心
+            # 格式: "命名空间:物品ID"
+            # 默认值: "minecraft:heart_of_the_sea"
+            primary_storage_item = "minecraft:heart_of_the_sea"
+            
+            # 初级仓库激活物品是否消耗
+            # 开启后激活初级仓库时会消耗该物品一个
+            # 默认值: true
+            consume_primary_storage_item = true
+            
             # 是否启用裂隙功能
             # 启用后玩家可以通过裂隙升级槽进入私人裂隙空间
             # 禁用后无法进入裂隙，处于裂隙的玩家会在上线时被送回原位置
@@ -271,6 +293,12 @@ public class ServerConfig {
             # 单个物品的大小不能超过此值
             # 默认值: 102400 (100KB)
             max_storage_size_bytes = 102400
+            
+            # 单种物品的堆叠上限
+            # -1 表示不限制（等效于 Long.MAX_VALUE）
+            # 注意：该限制针对同一种物品的总数量，而非物品堆叠的 NBT/组件变化
+            # 默认值: -1
+            single_item_stack_limit = -1
             
             [container_display]
             # 工作台升级在容器界面显示仓库的配置
@@ -357,7 +385,25 @@ public class ServerConfig {
             infiniteLavaThreshold = storageConfig.getOrElse("infinite_lava_threshold", 10000);
             infiniteWaterThreshold = storageConfig.getOrElse("infinite_water_threshold", 2);
             enableSizeLimit = storageConfig.getOrElse("enable_size_limit", true);
-            maxStorageSizeBytes = storageConfig.getOrElse("max_storage_size_bytes", 102400L);
+            Object sizeValue = storageConfig.get("max_storage_size_bytes");
+            if (sizeValue instanceof Integer) {
+                maxStorageSizeBytes = ((Integer) sizeValue).longValue();
+            } else if (sizeValue instanceof Long) {
+                maxStorageSizeBytes = (Long) sizeValue;
+            } else {
+                maxStorageSizeBytes = 102400L;
+            }
+            Object perItemLimit = storageConfig.get("single_item_stack_limit");
+            if (perItemLimit instanceof Integer) {
+                singleItemStackLimit = ((Integer) perItemLimit).longValue();
+            } else if (perItemLimit instanceof Long) {
+                singleItemStackLimit = (Long) perItemLimit;
+            } else {
+                singleItemStackLimit = -1L;
+            }
+            enablePrimaryStorage = storageConfig.getOrElse("enable_primary_storage", true);
+            primaryStorageItem = storageConfig.getOrElse("primary_storage_item", "minecraft:heart_of_the_sea");
+            consumePrimaryStorageItem = storageConfig.getOrElse("consume_primary_storage_item", true);
         } else {
             PortableStorage.LOGGER.warn("配置文件中未找到 [storage] 部分，使用默认值");
         }
@@ -422,6 +468,10 @@ public class ServerConfig {
         storageConfig.set("infinite_water_threshold", infiniteWaterThreshold);
         storageConfig.set("enable_size_limit", enableSizeLimit);
         storageConfig.set("max_storage_size_bytes", maxStorageSizeBytes);
+        storageConfig.set("single_item_stack_limit", singleItemStackLimit);
+        storageConfig.set("enable_primary_storage", enablePrimaryStorage);
+        storageConfig.set("primary_storage_item", primaryStorageItem);
+        storageConfig.set("consume_primary_storage_item", consumePrimaryStorageItem);
         
         Config containerConfig = config.get("container_display");
         if (containerConfig == null) {
@@ -494,6 +544,10 @@ public class ServerConfig {
             storageConfig.set("incremental_sync_max_entries", 512);
             changed = true;
         }
+        if (storageConfig == null || !storageConfig.contains("single_item_stack_limit")) {
+            storageConfig.set("single_item_stack_limit", -1);
+            changed = true;
+        }
 
         Config containerConfig = config.get("container_display");
         if (containerConfig == null) {
@@ -556,6 +610,9 @@ public class ServerConfig {
             }
             if (!containsKey(section, "enable_on_demand_sync")) {
                 toAppend.append(buildOnDemandSyncBlock());
+            }
+            if (!containsKey(section, "single_item_stack_limit")) {
+                toAppend.append(buildSingleItemStackLimitBlock());
             }
             
             // 检查容器配置部分
@@ -631,6 +688,7 @@ public class ServerConfig {
         sb.append(buildConsumeEnableBlock());
         sb.append(buildIncrementalSyncBlock());
         sb.append(buildOnDemandSyncBlock());
+        sb.append(buildSingleItemStackLimitBlock());
         sb.append(ls).append(buildFullContainerDisplaySection());
         return sb.toString();
     }
@@ -676,6 +734,15 @@ public class ServerConfig {
             + "# 可以显著减少服务器负载，但可能导致数据延迟" + ls
             + "# 默认值: false" + ls
             + "enable_on_demand_sync = false" + ls + ls;
+    }
+
+    private static String buildSingleItemStackLimitBlock() {
+        String ls = System.lineSeparator();
+        return "# 单种物品的堆叠上限" + ls
+            + "# -1 表示不限制（等效于 Long.MAX_VALUE）" + ls
+            + "# 注意：该限制针对同一种物品的总数量，而非物品堆叠的 NBT/组件变化" + ls
+            + "# 默认值: -1" + ls
+            + "single_item_stack_limit = -1" + ls + ls;
     }
 
     private static String buildFullContainerDisplaySection() {
@@ -776,6 +843,12 @@ public class ServerConfig {
         infiniteWaterThreshold = 2;
         enableSizeLimit = true;
         maxStorageSizeBytes = 102400;
+        singleItemStackLimit = -1;
+        
+        // 初级仓库配置默认值
+        enablePrimaryStorage = true;
+        primaryStorageItem = "minecraft:heart_of_the_sea";
+        consumePrimaryStorageItem = true;
         
         // 容器配置默认值
         stonecutter = false;
@@ -832,6 +905,18 @@ public class ServerConfig {
         return clearStorageOnEnable;
     }
     
+    public boolean isEnablePrimaryStorage() {
+        return enablePrimaryStorage;
+    }
+    
+    public String getPrimaryStorageItem() {
+        return primaryStorageItem;
+    }
+    
+    public boolean isConsumePrimaryStorageItem() {
+        return consumePrimaryStorageItem;
+    }
+    
     public boolean isEnableRiftFeature() {
         return enableRiftFeature;
     }
@@ -874,6 +959,9 @@ public class ServerConfig {
     
     public long getMaxStorageSizeBytes() {
         return maxStorageSizeBytes;
+    }
+    public long getSingleItemStackLimit() {
+        return singleItemStackLimit;
     }
     
     // Setter 方法（用于运行时修改配置）
@@ -931,6 +1019,9 @@ public class ServerConfig {
     
     public void setMaxStorageSizeBytes(long maxStorageSizeBytes) {
         this.maxStorageSizeBytes = maxStorageSizeBytes;
+    }
+    public void setSingleItemStackLimit(long singleItemStackLimit) {
+        this.singleItemStackLimit = singleItemStackLimit;
     }
     
     // 容器配置 Getter 方法

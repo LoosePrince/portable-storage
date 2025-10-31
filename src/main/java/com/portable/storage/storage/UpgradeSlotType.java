@@ -23,7 +23,7 @@ public enum UpgradeSlotType {
     BED(1, Items.RED_BED, "bed", true),
     EXPERIENCE_BOTTLE(2, Items.EXPERIENCE_BOTTLE, "experience_bottle", true),
     PISTON(3, Items.PISTON, "piston", true),
-    RESERVED(4, Items.BARRIER, "reserved", true);
+    ENCHANTED_GOLDEN_APPLE(4, Items.ENCHANTED_GOLDEN_APPLE, "enchanted_golden_apple", true);
     
     private final int slotIndex;
     private final net.minecraft.item.Item expectedItem;

@@ -11,11 +11,13 @@ import com.portable.storage.net.ServerNetworkingHandlers;
 import com.portable.storage.newstore.ItemKeyHasher;
 import com.portable.storage.newstore.PlayerStore;
 import com.portable.storage.newstore.RefCountRebuilder;
+import com.portable.storage.newstore.StoragePaths;
 import com.portable.storage.newstore.TemplateIndex;
 import com.portable.storage.newstore.TemplateSlices;
 import com.portable.storage.player.PlayerStorageService;
 import com.portable.storage.player.StoragePersistence;
 import com.portable.storage.storage.StorageInventory;
+import com.portable.storage.util.SafeNbtIo;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.command.CommandRegistryAccess;
@@ -25,6 +27,14 @@ import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
+import net.minecraft.util.Language;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 public final class NewStoreCommands {
     private NewStoreCommands() {}
@@ -53,6 +63,21 @@ public final class NewStoreCommands {
                 )
                 .then(CommandManager.literal("verify")
                     .executes(NewStoreCommands::executeVerify)
+                )
+                .then(CommandManager.literal("scan-corrupt")
+                    .executes(NewStoreCommands::executeScanCorrupt)
+                )
+                .then(CommandManager.literal("repair")
+                    .executes(NewStoreCommands::executeRepair)
+                )
+                .then(CommandManager.literal("list")
+                    .executes(NewStoreCommands::executeList)
+                )
+                .then(CommandManager.literal("list-keys")
+                    .executes(NewStoreCommands::executeListKeys)
+                )
+                .then(CommandManager.literal("inspect-unknown")
+                    .executes(NewStoreCommands::executeInspectUnknown)
                 )
                 .then(CommandManager.literal("test-large-item")
                     .executes(NewStoreCommands::executeTestLargeItem)
@@ -229,6 +254,196 @@ public final class NewStoreCommands {
         } catch (Throwable t) {
             return false;
         }
+    }
+    
+    private static int executeScanCorrupt(CommandContext<ServerCommandSource> ctx) {
+        MinecraftServer server = ctx.getSource().getServer();
+        final int[] corruptCount = {0};
+        
+        // 扫描模板切片目录
+        Path templatesDir = StoragePaths.getTemplatesDir(server);
+        corruptCount[0] += SafeNbtIo.scanForCorruptFiles(templatesDir);
+        
+        // 扫描玩家数据目录
+        Path playersDir = StoragePaths.getPlayersDir(server);
+        corruptCount[0] += SafeNbtIo.scanForCorruptFiles(playersDir);
+        
+        if (corruptCount[0] > 0) {
+            ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.scan_corrupt.found", corruptCount[0]), true);
+        } else {
+            ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.scan_corrupt.none"), true);
+        }
+        
+        return corruptCount[0];
+    }
+    
+    private static int executeRepair(CommandContext<ServerCommandSource> ctx) {
+        MinecraftServer server = ctx.getSource().getServer();
+        final int[] repairedCount = {0};
+        
+        // 尝试从备份恢复损坏的模板文件
+        Path templatesDir = StoragePaths.getTemplatesDir(server);
+        if (Files.exists(templatesDir)) {
+            try (var stream = Files.list(templatesDir)) {
+                for (Path file : stream.toList()) {
+                    if (file.getFileName().toString().endsWith(".corrupt")) {
+                        Path originalFile = file.resolveSibling(file.getFileName().toString().replace(".corrupt", ""));
+                        Path backupFile = originalFile.resolveSibling(originalFile.getFileName() + ".bak");
+                        
+                        if (Files.exists(backupFile)) {
+                            try {
+                                // 验证备份文件
+                                net.minecraft.nbt.NbtIo.readCompressed(backupFile, net.minecraft.nbt.NbtSizeTracker.ofUnlimitedBytes());
+                                // 恢复文件
+                                Files.move(backupFile, originalFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                Files.deleteIfExists(file);
+                                SafeNbtIo.clearCorruptMark(originalFile);
+                                repairedCount[0]++;
+                                PortableStorage.LOGGER.info("从备份恢复文件: {} -> {}", backupFile, originalFile);
+                            } catch (Exception e) {
+                                PortableStorage.LOGGER.warn("无法从备份恢复文件: {}", backupFile, e);
+                            }
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                PortableStorage.LOGGER.error("扫描修复文件时出错", e);
+            }
+        }
+        
+        if (repairedCount[0] > 0) {
+            ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.repair.success", repairedCount[0]), true);
+        } else {
+            ctx.getSource().sendFeedback(() -> Text.translatable("command." + PortableStorage.MOD_ID + ".newstore.repair.none"), true);
+        }
+        
+        return repairedCount[0];
+    }
+
+    private static Text trOrLiteral(String key, Object... args) {
+        if (Language.getInstance().hasTranslation(key)) {
+            return Text.translatable(key, args);
+        }
+        // 简单拼接为可读字符串作为兜底
+        StringBuilder sb = new StringBuilder();
+        sb.append('[').append(key).append("] ");
+        for (int i = 0; i < args.length; i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(String.valueOf(args[i]));
+        }
+        return Text.literal(sb.toString());
+    }
+
+    private static int executeList(CommandContext<ServerCommandSource> ctx) {
+        ServerPlayerEntity player = ctx.getSource().getPlayer();
+        if (player == null) {
+            ctx.getSource().sendError(Text.literal("Only players can run this command"));
+            return 0;
+        }
+        MinecraftServer server = player.getServer();
+        if (server == null) return 0;
+
+        Map<String, PlayerStore.Entry> entries = PlayerStore.readAll(server, player.getUuid());
+        int totalEntries = entries.size();
+        long totalCount = entries.values().stream().mapToLong(e -> e.count).sum();
+
+        ctx.getSource().sendFeedback(() -> trOrLiteral("[Player Store] Total Entries: " + totalEntries + ", Total Count: " + totalCount), false);
+
+        var index = com.portable.storage.newstore.StorageMemoryCache.getTemplateIndex();
+        var cache = com.portable.storage.newstore.StorageMemoryCache.getTemplateCache();
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        for (PlayerStore.Entry e : entries.values()) {
+            net.minecraft.item.ItemStack stack = cache.get(e.key);
+            if (stack == null || stack.isEmpty()) {
+                stack = com.portable.storage.newstore.TemplateSlices.getTemplate(() -> server, index, e.key, server.getRegistryManager());
+                if (stack != null && !stack.isEmpty()) {
+                    com.portable.storage.newstore.StorageMemoryCache.addTemplate(e.key, stack);
+                }
+            }
+            String name = (stack != null && !stack.isEmpty()) ? stack.getName().getString() : "unknown";
+            String tsStr = Instant.ofEpochMilli(e.ts).atZone(ZoneId.systemDefault()).format(fmt);
+            ctx.getSource().sendFeedback(() -> trOrLiteral("[Player Store] Item: " + name + ", Key: " + e.key + ", Count: " + e.count + ", Timestamp: " + tsStr), false);
+        }
+        return 1;
+    }
+
+    /**
+     * 扫描玩家条目中在 list 中为 unknown 的键，并直接从磁盘切片读取详细信息。
+     * 输出：key、所在 slice、模板是否存在、反序列化是否成功、物品名称/ID、计数与时间戳。
+     */
+    private static int executeInspectUnknown(CommandContext<ServerCommandSource> ctx) {
+        ServerPlayerEntity player = ctx.getSource().getPlayer();
+        if (player == null) {
+            ctx.getSource().sendError(Text.literal("Only players can run this command"));
+            return 0;
+        }
+        MinecraftServer server = player.getServer();
+        if (server == null) return 0;
+
+        Map<String, PlayerStore.Entry> entries = PlayerStore.readAll(server, player.getUuid());
+        TemplateIndex index = com.portable.storage.newstore.StorageMemoryCache.getTemplateIndex();
+        java.util.Map<String, net.minecraft.item.ItemStack> cache = com.portable.storage.newstore.StorageMemoryCache.getTemplateCache();
+
+        int inspected = 0;
+        int unknownCount = 0;
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        for (PlayerStore.Entry e : entries.values()) {
+            if (e.count <= 0) continue;
+            net.minecraft.item.ItemStack cached = cache.get(e.key);
+            boolean isUnknown = (cached == null || cached.isEmpty());
+            if (!isUnknown) continue;
+
+            unknownCount++;
+            TemplateIndex.Entry ie = index.find(e.key);
+            int slice = (ie != null) ? ie.slice : -1;
+
+            // 直接从文件读取，不依赖缓存
+            net.minecraft.item.ItemStack fromDisk = TemplateSlices.getTemplate(() -> server, index, e.key, server.getRegistryManager());
+            boolean existsOnDisk = !fromDisk.isEmpty();
+            String itemName = existsOnDisk ? fromDisk.getName().getString() : "<parse-failed>";
+            String tsStr = java.time.Instant.ofEpochMilli(e.ts).atZone(ZoneId.systemDefault()).format(fmt);
+
+            ctx.getSource().sendFeedback(() -> trOrLiteral(
+                "[Inspect Unknown] key=" + e.key
+                + ", slice=" + slice
+                + ", onDisk=" + existsOnDisk
+                + ", name=" + itemName
+                + ", count=" + e.count
+                + ", ts=" + tsStr
+            ), false);
+            inspected++;
+        }
+
+        if (inspected == 0) {
+            if (unknownCount == 0) {
+                ctx.getSource().sendFeedback(() -> trOrLiteral("[Inspect Unknown] none"), false);
+            } else {
+                ctx.getSource().sendFeedback(() -> trOrLiteral("[Inspect Unknown] none-parsed"), false);
+            }
+        }
+        return inspected;
+    }
+
+    private static int executeListKeys(CommandContext<ServerCommandSource> ctx) {
+        ServerPlayerEntity player = ctx.getSource().getPlayer();
+        if (player == null) {
+            ctx.getSource().sendError(Text.literal("Only players can run this command"));
+            return 0;
+        }
+        MinecraftServer server = player.getServer();
+        if (server == null) return 0;
+
+        Map<String, PlayerStore.Entry> entries = PlayerStore.readAll(server, player.getUuid());
+        int totalEntries = entries.size();
+        long totalCount = entries.values().stream().mapToLong(e -> e.count).sum();
+
+        ctx.getSource().sendFeedback(() -> trOrLiteral("[Player Store] Total Entries: " + totalEntries + ", Total Count: " + totalCount), false);
+        for (PlayerStore.Entry e : entries.values()) {
+            ctx.getSource().sendFeedback(() -> trOrLiteral("[Player Store] Key: " + e.key + ", Count: " + e.count), false);
+        }
+        return 1;
     }
     
     private static int executeTestLargeItem(CommandContext<ServerCommandSource> ctx) {

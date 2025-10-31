@@ -1,6 +1,8 @@
 package com.portable.storage.client;
 
+import com.portable.storage.storage.StorageType;
 import com.portable.storage.storage.UpgradeInventory;
+import com.portable.storage.storage.AutoEatMode;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
@@ -11,7 +13,8 @@ import net.minecraft.nbt.NbtCompound;
  */
 public final class ClientUpgradeState {
     private static final UpgradeInventory upgradeInventory = new UpgradeInventory();
-    private static final boolean[] disabledSlots = new boolean[10]; // 10个槽位的禁用状态（5个基础+5个扩展）
+    private static final int TOTAL_SLOT_COUNT = 10; // 5个基础槽位 + 5个扩展槽位
+    private static final boolean[] disabledSlots = new boolean[TOTAL_SLOT_COUNT]; // 槽位的禁用状态（5个基础+5个扩展）
     private static ItemStack fluidStack = ItemStack.EMPTY; // 流体槽位物品
     private static ItemStack trashStack = ItemStack.EMPTY; // 垃圾桶槽位物品
     
@@ -90,7 +93,15 @@ public final class ClientUpgradeState {
      * 检查指定槽位是否被禁用
      */
     public static boolean isSlotDisabled(int slot) {
-        if (slot < 0 || slot >= 10) return false;
+        if (slot < 0 || slot >= TOTAL_SLOT_COUNT) return false;
+        
+        // 检查是否为初级仓库限制的槽位
+        if (UpgradeInventory.isPrimaryStorageRestrictedSlot(slot)) {
+            // 只有在使用初级仓库时才禁用这些槽位
+            StorageType currentType = ClientStorageState.getStorageType();
+            return currentType == StorageType.PRIMARY;
+        }
+        
         return disabledSlots[slot];
     }
     
@@ -98,7 +109,7 @@ public final class ClientUpgradeState {
      * 切换指定槽位的禁用状态
      */
     public static void toggleSlotDisabled(int slot) {
-        if (slot < 0 || slot >= 10) return;
+        if (slot < 0 || slot >= TOTAL_SLOT_COUNT) return;
         disabledSlots[slot] = !disabledSlots[slot];
     }
     
@@ -106,7 +117,7 @@ public final class ClientUpgradeState {
      * 设置指定槽位的禁用状态
      */
     public static void setSlotDisabled(int slot, boolean disabled) {
-        if (slot < 0 || slot >= 10) return;
+        if (slot < 0 || slot >= TOTAL_SLOT_COUNT) return;
         disabledSlots[slot] = disabled;
     }
     
@@ -150,7 +161,15 @@ public final class ClientUpgradeState {
      */
     public static boolean isXpBottleUpgradeActive() {
         net.minecraft.item.ItemStack stack = upgradeInventory.getStack(7);
-        return stack != null && !stack.isEmpty() && !upgradeInventory.isSlotDisabled(7);
+        return stack != null && !stack.isEmpty() && !isSlotDisabled(7);
+    }
+    
+    /**
+     * 检查附魔金苹果升级是否激活（槽位9）
+     */
+    public static boolean isEnchantedGoldenAppleUpgradeActive() {
+        net.minecraft.item.ItemStack stack = upgradeInventory.getStack(9);
+        return stack != null && !stack.isEmpty() && !isSlotDisabled(9);
     }
     
     /**
@@ -188,6 +207,18 @@ public final class ClientUpgradeState {
     
     public static void setXpTransferStep(int step) {
         xpTransferStep = Math.max(0, Math.min(3, step)); // 确保在 0-3 范围内
+    }
+    
+    // ===== 自动进食模式管理 =====
+    private static AutoEatMode currentAutoEatMode = AutoEatMode.DEFAULT;
+    public static AutoEatMode getCurrentAutoEatMode() { return currentAutoEatMode; }
+    
+    public static void cycleAutoEatMode() {
+        currentAutoEatMode = currentAutoEatMode.next();
+    }
+    
+    public static void setAutoEatMode(AutoEatMode mode) {
+        currentAutoEatMode = mode != null ? mode : AutoEatMode.DEFAULT;
     }
 }
 

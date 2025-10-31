@@ -33,8 +33,16 @@ public record RequestOpenScreenC2SPayload(Screen screen, BlockPos pos, String di
 
     @Override
     public Id<? extends CustomPayload> getId() { return ID; }
+    
+    /**
+     * 发送打开界面的请求到服务器
+     */
+    public static void sendToServer(Screen screen, BlockPos pos) {
+        // 这个方法应该在客户端代码中实现
+        // 这里只是定义接口，实际实现在客户端
+    }
 
-    public enum Screen { VANILLA_CRAFTING, PORTABLE_CRAFTING }
+    public enum Screen { VANILLA_CRAFTING, PORTABLE_CRAFTING, FILTER_MAIN, FILTER_SCREEN, DESTROY_SCREEN, BARREL_FILTER }
 }
 
 

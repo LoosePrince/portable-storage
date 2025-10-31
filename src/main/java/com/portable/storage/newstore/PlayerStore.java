@@ -1,18 +1,9 @@
 package com.portable.storage.newstore;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtIo;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.server.MinecraftServer;
 
 /**
@@ -20,13 +11,13 @@ import net.minecraft.server.MinecraftServer;
  * 结构：
  * - sessionId: long (optional)
  * - entries: List( { key:string, count:long, ts:long } )
+ * 
+ * 现在使用内存缓存，所有操作都在内存中进行，定时保存到文件
  */
 public final class PlayerStore {
     public static final String SESSION = "sessionId";
     public static final String ENTRIES = "entries";
     
-    // 添加文件锁机制，防止并发访问导致的数据不一致
-    private static final Map<UUID, Object> FILE_LOCKS = new ConcurrentHashMap<>();
 
     public static final class Entry {
         public String key;
@@ -36,84 +27,81 @@ public final class PlayerStore {
 
     private PlayerStore() {}
     
-    private static Object getFileLock(UUID uuid) {
-        return FILE_LOCKS.computeIfAbsent(uuid, k -> new Object());
-    }
 
     public static Map<String, Entry> readAll(MinecraftServer server, UUID uuid) {
-        synchronized (getFileLock(uuid)) {
-            StoragePaths.ensureDirectories(server);
-            Path file = StoragePaths.getPlayerFile(server, uuid);
-            Map<String, Entry> map = new LinkedHashMap<>();
-            if (!Files.exists(file)) return map;
-            try {
-                NbtCompound root = NbtIo.readCompressed(file, NbtSizeTracker.ofUnlimitedBytes());
-                if (root == null) return map;
-                if (root.contains(ENTRIES, NbtElement.LIST_TYPE)) {
-                    NbtList list = root.getList(ENTRIES, NbtElement.COMPOUND_TYPE);
-                    for (int i = 0; i < list.size(); i++) {
-                        NbtCompound c = list.getCompound(i);
-                        Entry e = new Entry();
-                        e.key = c.getString("key");
-                        e.count = c.getLong("count");
-                        e.ts = c.getLong("ts");
-                        if (e.key != null && !e.key.isEmpty() && e.count > 0) {
-                            map.put(e.key, e);
-                        }
-                    }
-                }
-            } catch (IOException ignored) {}
-            return map;
+        // 使用内存缓存，直接从缓存中读取
+        StorageMemoryCache.PlayerCacheEntry cacheEntry = StorageMemoryCache.getPlayerCache(uuid, server);
+        if (cacheEntry == null) {
+            return new LinkedHashMap<>();
         }
+        return new LinkedHashMap<>(cacheEntry.entries);
     }
 
     public static void writeAll(MinecraftServer server, UUID uuid, Map<String, Entry> entries, Long sessionId) {
-        synchronized (getFileLock(uuid)) {
-            StoragePaths.ensureDirectories(server);
-            Path file = StoragePaths.getPlayerFile(server, uuid);
-            NbtCompound root = new NbtCompound();
-            if (sessionId != null) root.putLong(SESSION, sessionId);
-            NbtList list = new NbtList();
-            for (Entry e : entries.values()) {
-                if (e.count <= 0) continue;
-                NbtCompound c = new NbtCompound();
-                c.putString("key", e.key);
-                c.putLong("count", e.count);
-                c.putLong("ts", e.ts);
-                list.add(c);
-            }
-            root.put(ENTRIES, list);
-            try {
-                NbtIo.writeCompressed(root, file);
-            } catch (IOException ignored) {}
+        // 使用内存缓存，更新缓存中的数据
+        StorageMemoryCache.PlayerCacheEntry cacheEntry = StorageMemoryCache.getPlayerCache(uuid, server);
+        if (cacheEntry == null) {
+            cacheEntry = new StorageMemoryCache.PlayerCacheEntry(sessionId);
         }
+        
+        // 更新缓存
+        cacheEntry.entries.clear();
+        cacheEntry.entries.putAll(entries);
+        cacheEntry.sessionId = sessionId;
+        cacheEntry.dirty = true; // 标记为脏数据
+        
+        // 将更新后的缓存条目放回缓存
+        StorageMemoryCache.playerCache.put(uuid, cacheEntry);
     }
 
     public static void add(MinecraftServer server, UUID uuid, String key, long delta, long now) {
         if (delta <= 0) return;
-        synchronized (getFileLock(uuid)) {
-            Map<String, Entry> map = readAll(server, uuid);
-            Entry e = map.computeIfAbsent(key, k -> new Entry());
-            e.key = key;
-            e.count = Math.max(0, e.count + delta);
-            e.ts = now;
-            writeAll(server, uuid, map, null);
+        
+        // 使用内存缓存，直接在缓存中操作
+        StorageMemoryCache.PlayerCacheEntry cacheEntry = StorageMemoryCache.getPlayerCache(uuid, server);
+        if (cacheEntry == null) {
+            cacheEntry = new StorageMemoryCache.PlayerCacheEntry(null);
         }
+        
+        Entry e = cacheEntry.entries.computeIfAbsent(key, k -> new Entry());
+        e.key = key;
+        e.count = Math.max(0, e.count + delta);
+        e.ts = now;
+        
+        // 标记为脏数据
+        cacheEntry.dirty = true;
+        
+        // 将更新后的缓存条目放回缓存
+        StorageMemoryCache.playerCache.put(uuid, cacheEntry);
     }
 
     public static long remove(MinecraftServer server, UUID uuid, String key, long delta, long now) {
         if (delta <= 0) return 0;
-        synchronized (getFileLock(uuid)) {
-            Map<String, Entry> map = readAll(server, uuid);
-            Entry e = map.get(key);
-            if (e == null || e.count <= 0) return 0;
-            long take = Math.min(delta, e.count);
-            e.count -= take;
-            e.ts = now;
-            if (e.count <= 0) map.remove(key);
-            writeAll(server, uuid, map, null);
-            return take;
+        
+        // 使用内存缓存，直接在缓存中操作
+        StorageMemoryCache.PlayerCacheEntry cacheEntry = StorageMemoryCache.getPlayerCache(uuid, server);
+        if (cacheEntry == null) {
+            return 0;
         }
+        
+        Entry e = cacheEntry.entries.get(key);
+        if (e == null || e.count <= 0) return 0;
+        
+        long take = Math.min(delta, e.count);
+        e.count -= take;
+        e.ts = now;
+        
+        if (e.count <= 0) {
+            cacheEntry.entries.remove(key);
+        }
+        
+        // 标记为脏数据
+        cacheEntry.dirty = true;
+        
+        // 将更新后的缓存条目放回缓存
+        StorageMemoryCache.playerCache.put(uuid, cacheEntry);
+        
+        return take;
     }
 }
 

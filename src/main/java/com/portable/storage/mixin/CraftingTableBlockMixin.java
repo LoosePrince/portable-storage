@@ -31,7 +31,7 @@ public abstract class CraftingTableBlockMixin {
         boolean hasUpgrade = false;
         for (int i = 0; i < upgrades.getSlotCount(); i++) {
             var st = upgrades.getStack(i);
-            if (!st.isEmpty() && st.getItem() == net.minecraft.item.Items.CRAFTING_TABLE && !upgrades.isSlotDisabled(i)) {
+            if (!st.isEmpty() && st.getItem() == net.minecraft.item.Items.CRAFTING_TABLE && !upgrades.isSlotDisabled(i, (ServerPlayerEntity) player)) {
                 hasUpgrade = true;
                 break;
             }

@@ -7,11 +7,12 @@ import java.util.Optional;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.MinecraftServer;
+
+import com.portable.storage.util.SafeNbtIo;
 
 /**
  * 模板切片管理：slice_XXX.nbt 中 templates[key] = item_full
@@ -27,15 +28,19 @@ public final class TemplateSlices {
         if (e == null) return ItemStack.EMPTY;
         Path sliceFile = StoragePaths.getSliceFile(server.getServer(), e.slice);
         if (!Files.exists(sliceFile)) return ItemStack.EMPTY;
+        
         try {
-            NbtCompound root = NbtIo.readCompressed(sliceFile, NbtSizeTracker.ofUnlimitedBytes());
+            NbtCompound root = SafeNbtIo.readCompressed(sliceFile, NbtSizeTracker.ofUnlimitedBytes());
             if (root == null || !root.contains("templates")) return ItemStack.EMPTY;
             NbtCompound templates = root.getCompound("templates");
             if (!templates.contains(key)) return ItemStack.EMPTY;
             var ops = (lookup != null) ? net.minecraft.registry.RegistryOps.of(NbtOps.INSTANCE, lookup) : NbtOps.INSTANCE;
             var parse = ItemStack.CODEC.parse(ops, templates.get(key));
             return parse.result().orElse(ItemStack.EMPTY);
-        } catch (IOException ignored) {}
+        } catch (IOException ex) {
+            // SafeNbtIo已经处理了损坏文件隔离，这里只记录日志
+            com.portable.storage.PortableStorage.LOGGER.warn("读取模板切片失败，文件可能已损坏: {}", sliceFile, ex);
+        }
         return ItemStack.EMPTY;
     }
 
@@ -52,7 +57,7 @@ public final class TemplateSlices {
         NbtCompound root;
         try {
             if (Files.exists(sliceFile)) {
-                root = NbtIo.readCompressed(sliceFile, NbtSizeTracker.ofUnlimitedBytes());
+                root = SafeNbtIo.readCompressed(sliceFile, NbtSizeTracker.ofUnlimitedBytes());
                 if (root == null) root = new NbtCompound();
             } else {
                 root = new NbtCompound();
@@ -62,7 +67,7 @@ public final class TemplateSlices {
             var enc = ItemStack.CODEC.encodeStart(ops, stack);
             enc.result().ifPresent(nbt -> templates.put(key, nbt));
             root.put("templates", templates);
-            NbtIo.writeCompressed(root, sliceFile);
+            SafeNbtIo.writeCompressed(root, sliceFile);
 
             int size = estimateSize(stack, lookup);
             index.put(key, targetSlice, size);
@@ -77,14 +82,14 @@ public final class TemplateSlices {
         Path sliceFile = StoragePaths.getSliceFile(server.getServer(), e.slice);
         if (!Files.exists(sliceFile)) return;
         try {
-            NbtCompound root = NbtIo.readCompressed(sliceFile, NbtSizeTracker.ofUnlimitedBytes());
+            NbtCompound root = SafeNbtIo.readCompressed(sliceFile, NbtSizeTracker.ofUnlimitedBytes());
             if (root == null) return;
             if (root.contains("templates")) {
                 NbtCompound templates = root.getCompound("templates");
                 templates.remove(key);
                 root.put("templates", templates);
             }
-            NbtIo.writeCompressed(root, sliceFile);
+            SafeNbtIo.writeCompressed(root, sliceFile);
             index.remove(key);
         } catch (IOException ignored) {}
     }

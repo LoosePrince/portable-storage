@@ -56,6 +56,7 @@ public class ContainerTypeDetector {
             case "minecraft:brewing_stand":
             case "minecraft:beacon":
             case "minecraft:generic_9x3":
+            case "minecraft:generic_9x6":
             case "minecraft:generic_3x3":
             case "minecraft:ender_chest":
             case "minecraft:shulker_box":

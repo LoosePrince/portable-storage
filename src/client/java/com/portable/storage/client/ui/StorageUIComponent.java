@@ -71,6 +71,10 @@ public class StorageUIComponent {
     private int[] visibleIndexMap = new int[0];
     private String query = "";
     private boolean collapsed = false;
+    
+    // 当前渲染参数（用于点击检测）
+    private int currentScreenX = 0;
+    private int currentBackgroundWidth = 176;
     // 智能折叠：代表索引 -> 折叠信息
     private static final class CollapsedInfo {
         ItemStack displayStack; // 无 NBT + 光效 的展示用物品
@@ -123,10 +127,6 @@ public class StorageUIComponent {
     // 切换原版界面点击区域
     private int switchVanillaLeft, switchVanillaTop, switchVanillaRight, switchVanillaBottom;
     
-    
-    public StorageUIComponent() {
-    }
-    
     /**
      * 设置切换原版界面的回调
      */
@@ -150,6 +150,16 @@ public class StorageUIComponent {
         this.searchField.setVisible(true);
         this.searchField.setDrawsBackground(true);
         this.searchField.setEditableColor(0xFFFFFF);
+        this.searchField.setUneditableColor(0xFFFFFF);
+        // 尝试禁用文字阴影
+        try {
+            // 通过反射禁用阴影渲染
+            java.lang.reflect.Field shadowField = TextFieldWidget.class.getDeclaredField("shadow");
+            shadowField.setAccessible(true);
+            shadowField.set(this.searchField, false);
+        } catch (Exception ignored) {
+            // 如果反射失败，忽略错误
+        }
         this.searchField.setChangedListener(text -> {
             this.query = text == null ? "" : text;
             this.scroll = 0.0f;
@@ -168,6 +178,10 @@ public class StorageUIComponent {
         // 记录当前实例，便于全局滚轮注入转发
         currentInstance = this;
         // 排序配置直接从 ClientConfig 读取，无需缓存
+        
+        // 保存当前渲染参数，用于点击检测
+        this.currentScreenX = screenX;
+        this.currentBackgroundWidth = backgroundWidth;
 
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null || client.textRenderer == null) return;
@@ -272,7 +286,8 @@ public class StorageUIComponent {
         // 渲染搜索框
         updateSearchFieldPosition();
         if (this.searchField != null) {
-            this.searchField.render(context, mouseX, mouseY, delta);
+            // 自定义渲染搜索框，避免文字重影问题
+            renderSearchFieldCustom(context, mouseX, mouseY, delta);
         }
     }
     
@@ -660,6 +675,12 @@ public class StorageUIComponent {
                 tooltipLines.add(slotLine);
                 // 第二行：升级名称
                 tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_name", upgradeName));
+                
+                // 如果是初级仓库限制的槽位，且当前为初级仓库，添加特殊说明
+                if (UpgradeInventory.isPrimaryStorageRestrictedSlot(slotIndex)
+                    && com.portable.storage.client.ClientStorageState.getStorageType() == com.portable.storage.storage.StorageType.PRIMARY) {
+                    tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".tooltip.primary_storage_restricted"));
+                }
 
                 // 附加升级说明（末尾追加）
                 switch (slotIndex) {
@@ -675,6 +696,22 @@ public class StorageUIComponent {
                         tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_desc.piston"));
                         tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_piston.auto_refill"));
                         tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_piston.block_rotation"));
+                    }
+                    case 9 -> {
+                        // 附魔金苹果升级：显示当前模式和详细信息
+                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.title"));
+                        
+                        // 当前模式
+                        com.portable.storage.storage.AutoEatMode currentMode = ClientUpgradeState.getCurrentAutoEatMode();
+                        String modeName = Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.mode." + currentMode.getKey()).getString();
+                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.current_mode", modeName));
+                        
+                        // 饱食度阈值
+                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.threshold", currentMode.getThreshold()));
+                        
+                        // 交互提示
+                        tooltipLines.add(Text.empty()); // 空行分隔
+                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.interact.middle_click"));
                     }
                 }
 
@@ -1002,7 +1039,13 @@ public class StorageUIComponent {
                     context.fill(extendedLeft + 1, trashSlotY + 1, extendedLeft + upgradeSlotSize - 1, trashSlotY + upgradeSlotSize - 1, 0x80FFFFFF);
                     context.getMatrices().pop();
                 }
+            } else {
+                // 垃圾桶槽位不可见时，重置点击区域
+                trashSlotLeft = trashSlotTop = trashSlotRight = trashSlotBottom = -1;
             }
+        } else {
+            // 箱子升级未激活时，重置点击区域
+            trashSlotLeft = trashSlotTop = trashSlotRight = trashSlotBottom = -1;
         }
         
         // 渲染流体槽位（在基础升级槽位下面，右侧）
@@ -1032,6 +1075,9 @@ public class StorageUIComponent {
                 context.fill(upgradeLeft + 1, fluidSlotY + 1, upgradeLeft + upgradeSlotSize - 1, fluidSlotY + upgradeSlotSize - 1, 0x80FFFFFF);
                 context.getMatrices().pop();
             }
+        } else {
+            // 流体槽位不可见时，重置点击区域
+            fluidSlotLeft = fluidSlotTop = fluidSlotRight = fluidSlotBottom = -1;
         }
         
         // 渲染升级槽位滚动条（如果需要）
@@ -1765,13 +1811,6 @@ public class StorageUIComponent {
         // 升级槽位点击
         for (int i = 0; i < totalUpgradeCount; i++) {
             if (isIn(mouseX, mouseY, upgradeSlotLefts[i], upgradeSlotTops[i], upgradeSlotRights[i], upgradeSlotBottoms[i])) {
-                // 扩展槽位检查特定操作
-                if (ClientUpgradeState.isExtendedSlot(i)) {
-                    // 槽位5（光灵箭）、槽位6（床）、槽位7（附魔之瓶）、槽位8（活塞）可以接受点击
-                    if (i != 5 && i != 6 && i != 7 && i != 8) {
-                        return true; // 阻止进一步处理
-                    }
-                }
                 
                 if (button == 1) { // 右键点击
                     // 工作台升级槽位右键：打开自定义工作台界面
@@ -1841,9 +1880,34 @@ public class StorageUIComponent {
                             return true;
                         }
                     }
+                    // 漏斗升级槽位中键：打开筛选系统主界面
+                    if (i == 1 && ClientUpgradeState.getStack(1) != null && !ClientUpgradeState.getStack(1).isEmpty() && !ClientUpgradeState.isSlotDisabled(1)) {
+                        // 获取当前屏幕作为父界面，这样返回按钮可以正确回到原界面
+                        net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
+                        if (client.currentScreen != null) {
+                            client.setScreen(new com.portable.storage.client.screen.FilterMainScreen(client.currentScreen));
+                        } else {
+                            com.portable.storage.client.screen.FilterScreenManager.openFilterMainScreen();
+                        }
+                        return true;
+                    }
                     // 附魔之瓶槽位中键：切换等级维持状态
                     if (i == 7 && ClientUpgradeState.isXpBottleUpgradeActive()) {
                         ClientNetworkingHandlers.sendXpBottleMaintenanceToggle();
+                        return true;
+                    }
+                    // 附魔金苹果升级槽位中键：切换自动进食模式
+                    if (i == 9 && ClientUpgradeState.isEnchantedGoldenAppleUpgradeActive()) {
+                        // 发送中键点击到服务端
+                        ClientPlayNetworking.send(new StorageActionC2SPayload(
+                            StorageActionC2SPayload.Action.CLICK,
+                            StorageActionC2SPayload.Target.UPGRADE,
+                            i,
+                            button,
+                            0,
+                            "",
+                            0
+                        ));
                         return true;
                     }
                     // 其他槽位切换禁用状态
@@ -2367,6 +2431,67 @@ public class StorageUIComponent {
         return ItemStack.EMPTY;
     }
     
+    // ========== 自定义搜索框渲染 ==========
+    
+    /**
+     * 自定义渲染搜索框，避免文字重影问题
+     */
+    private void renderSearchFieldCustom(DrawContext context, int mouseX, int mouseY, float delta) {
+        if (this.searchField == null) return;
+        
+        // 获取搜索框的基本信息
+        int x = this.searchField.getX();
+        int y = this.searchField.getY();
+        int width = this.searchField.getWidth();
+        int height = this.searchField.getHeight();
+        
+        // 渲染背景
+        if (this.searchField.isVisible()) {
+            // 绘制搜索框背景
+            context.fill(x, y, x + width, y + height, 0x80000000);
+            // 绘制白色边框，确保边框与搜索框大小完全一致
+            // 使用fill方法绘制边框，确保像素完美对齐
+            context.fill(x, y, x + width, y + 1, 0xFFFFFFFF); // 上边框
+            context.fill(x, y, x + 1, y + height, 0xFFFFFFFF); // 左边框
+            context.fill(x + width - 1, y, x + width, y + height, 0xFFFFFFFF); // 右边框
+            context.fill(x, y + height - 1, x + width, y + height, 0xFFFFFFFF); // 下边框
+        }
+        
+        // 渲染文字内容（无阴影）
+        String text = this.searchField.getText();
+        if (text != null && !text.isEmpty()) {
+            // 直接渲染文字，不使用阴影
+            context.drawText(
+                MinecraftClient.getInstance().textRenderer,
+                text,
+                x + 4, y + (height - 8) / 2,
+                0xFFFFFF,
+                false
+            );
+        } else {
+            // 渲染占位符文字
+            String placeholder = Text.translatable(PortableStorage.MOD_ID + ".search.placeholder").getString();
+            if (placeholder != null && !placeholder.isEmpty()) {
+                context.drawText(
+                    MinecraftClient.getInstance().textRenderer,
+                    placeholder,
+                    x + 4, y + (height - 8) / 2,
+                    0x808080,
+                    false
+                );
+            }
+        }
+        
+        // 处理鼠标交互
+        if (this.searchField.isFocused()) {
+            // 绘制光标
+            int cursorX = x + 4 + MinecraftClient.getInstance().textRenderer.getWidth(text != null ? text : "");
+            int cursorY = y + 2;
+            int cursorHeight = height - 4;
+            context.fill(cursorX, cursorY, cursorX + 1, cursorY + cursorHeight, 0xFFFFFFFF);
+        }
+    }
+    
     // ========== 辅助判断 ==========
     
     private boolean isIn(double x, double y, int left, int top, int right, int bottom) {
@@ -2418,7 +2543,43 @@ public class StorageUIComponent {
     }
     
     public boolean isOverAnyComponent(double mouseX, double mouseY) {
-        return isOverStorageArea(mouseX, mouseY) || isOverScrollbar(mouseX, mouseY) || isOverUpgradeArea(mouseX, mouseY);
+        // 基于整个背景图区域进行点击检测，而不是单个组件
+        return isOverBackgroundArea(mouseX, mouseY);
+    }
+    
+    /**
+     * 检查鼠标是否在仓库背景图区域内
+     */
+    private boolean isOverBackgroundArea(double mouseX, double mouseY) {
+        // 计算背景图的实际绘制区域（与drawExtensionBackground中的计算保持一致）
+        int upgradeLeft = gridLeft - 24;
+        
+        // 计算扩展槽位需要的额外宽度
+        int extendedSlotWidth = 0;
+        if (ClientUpgradeState.isChestUpgradeActive()) {
+            extendedSlotWidth = upgradeSlotSize + upgradeSpacing + 2;
+        }
+        
+        // 使用保存的渲染参数
+        int screenX = this.currentScreenX;
+        int backgroundWidth = this.currentBackgroundWidth;
+        
+        int panelLeft = screenX + backgroundWidth + 8;
+        
+        int extLeft = upgradeLeft - 2 - extendedSlotWidth;
+        int extTop = gridTop - 2;
+        int extRight = panelLeft - 2;
+        int extBottom = gridTop + visibleRows * (slotSize + slotSpacing) + 2;
+        
+        // 背景图绘制区域（包含偏移）
+        final int bgOffsetX = 4;
+        final int bgOffsetY = 4;
+        int bgLeft = extLeft - bgOffsetX;
+        int bgTop = extTop - bgOffsetY;
+        int bgRight = extRight + bgOffsetX;
+        int bgBottom = extBottom + bgOffsetY;
+        
+        return mouseX >= bgLeft && mouseX < bgRight && mouseY >= bgTop && mouseY < bgBottom;
     }
     
     
@@ -2515,8 +2676,7 @@ public class StorageUIComponent {
             case 6: key = "block.minecraft.red_bed"; break; // 床升级
             case 7: key = "item.minecraft.experience_bottle"; break; // 附魔之瓶升级
             case 8: key = "block.minecraft.piston"; break; // 活塞升级
-            case 9: case 10: 
-                key = "portable_storage.upgrade.extended_slot"; break;
+            case 9: key = "item.minecraft.enchanted_golden_apple"; break; // 附魔金苹果升级
             default: key = "portable_storage.upgrade.unknown";
         }
         return Text.translatable(key).getString();

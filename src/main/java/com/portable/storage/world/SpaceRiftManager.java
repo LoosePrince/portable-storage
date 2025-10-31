@@ -35,9 +35,6 @@ public final class SpaceRiftManager {
     private static final Map<UUID, BlockPos> lastRiftPos = new HashMap<>();
 
     // 裂隙大小从配置中获取，默认为1区块
-    private static int getPlotChunkSize() {
-        return ServerConfig.getInstance().getRiftSize();
-    }
     private static final int PLOT_SPACING_CHUNKS = 64; // 相邻玩家相隔64区块
     private static final int PLOT_HEIGHT = 100; // 逻辑高度，仅用于边界判断
     private static final int FLOOR_Y = 64;
@@ -63,8 +60,12 @@ public final class SpaceRiftManager {
     }
 
     public static BlockPos getPlotCenterBlock(ChunkPos origin) {
-        int x = origin.getCenterX();
-        int z = origin.getCenterZ();
+        // 计算裂隙区域的中心点，考虑配置的裂隙直径
+        int chunkSize = getPlotChunkSize();
+        // 对于直径，中心点偏移 = (直径 - 1) * 8，这样确保边界正确对齐
+        int centerOffset = (chunkSize - 1) * 8; // 每个区块8个方块偏移
+        int x = origin.getCenterX() + centerOffset;
+        int z = origin.getCenterZ() + centerOffset;
         return new BlockPos(x, FLOOR_Y + 1, z);
     }
 
@@ -145,7 +146,9 @@ public final class SpaceRiftManager {
         BlockPos center = getPlotCenterBlock(origin);
         WorldBorder border = new WorldBorder();
         border.setCenter(center.getX(), center.getZ());
-        border.setSize(16.0); // 直径16，刚好一块
+        // 使用配置中的裂隙大小，每个区块16x16方块
+        double borderSize = getPlotChunkSize() * 16.0;
+        border.setSize(borderSize);
         border.setWarningBlocks(0);
         border.setWarningTime(0);
         personalBorders.put(player.getUuid(), border);
@@ -215,6 +218,20 @@ public final class SpaceRiftManager {
     public static void removeAvatar(ServerPlayerEntity player) {
         net.minecraft.entity.Entity e = avatars.remove(player.getUuid());
         if (e != null) e.discard();
+    }
+
+    /**
+     * 获取玩家地块原点（用于边界保护）
+     */
+    public static ChunkPos getPlayerPlotOrigin(UUID playerId) {
+        return playerPlotOrigin.get(playerId);
+    }
+
+    /**
+     * 获取地块区块大小（用于边界保护）
+     */
+    public static int getPlotChunkSize() {
+        return ServerConfig.getInstance().getRiftSize();
     }
     
     public static void safelyKickPlayerFromRift(ServerPlayerEntity player) {

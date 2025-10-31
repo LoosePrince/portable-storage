@@ -1,8 +1,10 @@
 package com.portable.storage.storage;
 
+import com.portable.storage.player.PlayerStorageAccess;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.server.network.ServerPlayerEntity;
 
 /**
  * 升级槽位库存，使用统一升级管理器
@@ -19,20 +21,9 @@ public class UpgradeInventory {
     // 使用统一升级管理器
     private final UnifiedUpgradeManager upgradeManager;
     
-    // 兼容性：保留旧的槽位数组用于向后兼容
-    private final ItemStack[] slots;
-    private final boolean[] disabledSlots;
-    
     
     public UpgradeInventory() {
         this.upgradeManager = new UnifiedUpgradeManager();
-        // 兼容性：初始化旧槽位数组
-        this.slots = new ItemStack[TOTAL_SLOT_COUNT];
-        this.disabledSlots = new boolean[TOTAL_SLOT_COUNT];
-        for (int i = 0; i < TOTAL_SLOT_COUNT; i++) {
-            this.slots[i] = ItemStack.EMPTY;
-            this.disabledSlots[i] = false;
-        }
     }
     
     /**
@@ -57,7 +48,7 @@ public class UpgradeInventory {
     }
     
     /**
-     * 获取指定槽位的物品（兼容性方法）
+     * 获取指定槽位的物品
      * 基础槽位：0-4
      * 扩展槽位：5-9（映射到统一管理器的0-4）
      */
@@ -119,7 +110,7 @@ public class UpgradeInventory {
     }
     
     /**
-     * 设置指定槽位的物品（兼容性方法）
+     * 设置指定槽位的物品
      */
     public void setStack(int slot, ItemStack stack) {
         if (slot < 0 || slot >= TOTAL_SLOT_COUNT) {
@@ -137,7 +128,7 @@ public class UpgradeInventory {
     }
     
     /**
-     * 检查物品是否是指定槽位的有效升级物品（兼容性方法）
+     * 检查物品是否是指定槽位的有效升级物品
      */
     public static boolean isValidUpgradeForSlot(int slot, ItemStack stack) {
         if (stack.isEmpty() || slot < 0) {
@@ -201,7 +192,7 @@ public class UpgradeInventory {
     }
 
     /**
-     * 获取指定槽位对应的升级物品（用于UI显示，兼容性方法）
+     * 获取指定槽位对应的升级物品（用于UI显示）
      */
     public static ItemStack getExpectedUpgradeForSlot(int slot) {
         if (slot < 0) {
@@ -230,12 +221,19 @@ public class UpgradeInventory {
     public static ItemStack getExpectedFluidForSlot() {
         return new ItemStack(Items.BUCKET);
     }
-
+    
     /**
-     * 检查指定槽位是否被禁用（兼容性方法）
+     * 检查指定槽位是否被禁用（带玩家参数，考虑仓库类型）
      */
-    public boolean isSlotDisabled(int slot) {
+    public boolean isSlotDisabled(int slot, ServerPlayerEntity player) {
         if (slot < 0 || slot >= TOTAL_SLOT_COUNT) return false;
+        
+        // 检查是否为初级仓库限制的槽位
+        if (isPrimaryStorageRestrictedSlot(slot)) {
+            // 只有在使用初级仓库时才禁用这些槽位
+            PlayerStorageAccess access = (PlayerStorageAccess) player;
+            return access.portableStorage$getStorageType() == StorageType.PRIMARY;
+        }
         
         if (slot < BASE_SLOT_COUNT) {
             // 基础槽位
@@ -248,7 +246,7 @@ public class UpgradeInventory {
     }
 
     /**
-     * 设置指定槽位的禁用状态（兼容性方法）
+     * 设置指定槽位的禁用状态
      */
     public void setSlotDisabled(int slot, boolean disabled) {
         if (slot < 0 || slot >= TOTAL_SLOT_COUNT) return;
@@ -264,7 +262,7 @@ public class UpgradeInventory {
     }
 
     /**
-     * 切换指定槽位的禁用状态（兼容性方法）
+     * 切换指定槽位的禁用状态
      */
     public void toggleSlotDisabled(int slot) {
         if (slot < 0 || slot >= TOTAL_SLOT_COUNT) return;
@@ -284,6 +282,23 @@ public class UpgradeInventory {
      */
     public static boolean isExtendedSlot(int slot) {
         return slot >= BASE_SLOT_COUNT && slot < TOTAL_SLOT_COUNT;
+    }
+    
+    /**
+     * 检查是否为初级仓库限制的槽位
+     * 初级仓库限制以下槽位：木桶升级(3)、裂隙升级(4)、光灵箭升级(5)、附魔之瓶升级(8)、活塞(9)
+     */
+    public static boolean isPrimaryStorageRestrictedSlot(int slot) {
+        return slot == 3 || slot == 4 || slot == 5 || slot == 8 || slot == 9;
+    }
+    
+    /**
+     * 检查玩家是否使用初级仓库
+     */
+    public static boolean isPlayerUsingPrimaryStorage(ServerPlayerEntity player) {
+        if (player == null) return false;
+        PlayerStorageAccess access = (PlayerStorageAccess) player;
+        return access.portableStorage$getStorageType() == StorageType.PRIMARY;
     }
     
     /**
@@ -322,6 +337,13 @@ public class UpgradeInventory {
     }
     
     /**
+     * 检查附魔金苹果升级是否激活（扩展槽位4有附魔金苹果且未被禁用）
+     */
+    public boolean isEnchantedGoldenAppleUpgradeActive() {
+        return upgradeManager.isEnchantedGoldenAppleUpgradeActive();
+    }
+    
+    /**
      * 检查垃圾桶槽位是否激活
      */
     public boolean isTrashSlotActive() {
@@ -329,7 +351,7 @@ public class UpgradeInventory {
     }
     
     /**
-     * 获取扩展槽位的有效状态（仅在箱子升级激活时有效，兼容性方法）
+     * 获取扩展槽位的有效状态（仅在箱子升级激活时有效）
      */
     public boolean isExtendedSlotEnabled(int slot) {
         if (!isExtendedSlot(slot)) return false;
@@ -338,25 +360,40 @@ public class UpgradeInventory {
     }
     
     /**
-     * 尝试放入物品到指定槽位（兼容性方法）
+     * 尝试放入物品到指定槽位
+     * @param slot 槽位索引
+     * @param stack 要放入的物品
+     * @param player 玩家对象（可选，用于检查存储类型和获取玩家信息）
+     * @param playerUuid 玩家UUID（可选，当没有玩家对象时使用）
+     * @param playerName 玩家名称（可选，当没有玩家对象时使用）
      * @return 成功返回 true，失败返回 false
      */
-    public boolean tryInsert(int slot, ItemStack stack) {
-        return tryInsert(slot, stack, null, null);
-    }
-    
-    /**
-     * 尝试放入物品到指定槽位（带玩家信息，用于木桶绑定）
-     * @return 成功返回 true，失败返回 false
-     */
-    public boolean tryInsert(int slot, ItemStack stack, java.util.UUID playerUuid, String playerName) {
+    public boolean tryInsert(int slot, ItemStack stack, ServerPlayerEntity player, java.util.UUID playerUuid, String playerName) {
         if (slot < 0 || slot >= TOTAL_SLOT_COUNT) {
             return false;
         }
 
+        // 检查是否为初级仓库限制的槽位
+        if (isPrimaryStorageRestrictedSlot(slot)) {
+            if (player != null) {
+                // 有玩家对象时，检查存储类型
+                PlayerStorageAccess access = (PlayerStorageAccess) player;
+                if (access.portableStorage$getStorageType() == StorageType.PRIMARY) {
+                    return false; // 初级仓库限制的槽位不允许插入
+                }
+            } else {
+                // 没有玩家对象时，默认禁用这些槽位（向后兼容）
+                return false;
+            }
+        }
+
         if (slot < BASE_SLOT_COUNT) {
             // 基础槽位
-            return upgradeManager.tryInsertBaseSlot(slot, stack, playerUuid, playerName);
+            if (player != null) {
+                return upgradeManager.tryInsertBaseSlot(slot, stack, player.getUuid(), player.getName().getString());
+            } else {
+                return upgradeManager.tryInsertBaseSlot(slot, stack, playerUuid, playerName);
+            }
         } else {
             // 扩展槽位（映射到统一管理器的0-4）
             int extendedSlot = slot - BASE_SLOT_COUNT;
@@ -364,8 +401,9 @@ public class UpgradeInventory {
         }
     }
     
+    
     /**
-     * 从指定槽位取出物品（兼容性方法）
+     * 从指定槽位取出物品
      */
     public ItemStack takeStack(int slot) {
         if (slot < 0 || slot >= TOTAL_SLOT_COUNT) {
@@ -383,7 +421,7 @@ public class UpgradeInventory {
     }
     
     /**
-     * 检查是否有特定升级（兼容性方法）
+     * 检查是否有特定升级
      */
     public boolean hasUpgrade(ItemStack upgradeType) {
         // 检查基础槽位

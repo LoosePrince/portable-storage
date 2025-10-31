@@ -5,10 +5,12 @@ import org.slf4j.LoggerFactory;
 
 import com.portable.storage.block.ModBlocks;
 import com.portable.storage.blockentity.ModBlockEntities;
+import com.portable.storage.command.BarrelCommands;
 import com.portable.storage.command.NewStoreCommands;
 import com.portable.storage.command.SpaceRiftCommands;
 import com.portable.storage.config.ServerConfig;
 import com.portable.storage.entity.ModEntities;
+import com.portable.storage.event.EnchantedGoldenAppleHandler;
 import com.portable.storage.event.IncrementalSyncTickHandler;
 import com.portable.storage.event.PistonBlockRotationHandler;
 import com.portable.storage.event.PistonUpgradeHandler;
@@ -23,9 +25,11 @@ import com.portable.storage.event.XpMaintenanceEventHandler;
 import com.portable.storage.item.ModItems;
 import com.portable.storage.net.NetworkChannels;
 import com.portable.storage.net.ServerNetworkingHandlers;
+import com.portable.storage.newstore.StorageMemoryCache;
 import com.portable.storage.screen.PortableCraftingScreenHandler;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.resource.featuretoggle.FeatureSet;
@@ -94,6 +98,8 @@ public class PortableStorage implements ModInitializer {
 		SpaceRiftCommands.register();
 		// 注册新存储调试/维护指令
 		NewStoreCommands.register();
+		// 注册绑定木桶指令
+		BarrelCommands.register();
 		
 		// 注册增量同步调度器（周期性向正在查看的玩家推送diff）
 		IncrementalSyncTickHandler.register();
@@ -106,6 +112,20 @@ public class PortableStorage implements ModInitializer {
 		
 		// 注册活塞方块朝向处理器
 		PistonBlockRotationHandler.register();
+		
+		// 注册附魔金苹果升级事件处理器
+		EnchantedGoldenAppleHandler.register();
+		
+		// 注册服务器生命周期事件
+		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+			// 服务器启动时初始化内存缓存
+			StorageMemoryCache.initialize(server);
+		});
+		
+		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+			// 服务器关闭时清理内存缓存
+			StorageMemoryCache.shutdown();
+		});
 		
 		LOGGER.info("Portable Storage initialized");
 	}

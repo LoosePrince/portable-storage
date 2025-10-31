@@ -49,18 +49,21 @@ public class PortableStorageEmiTransferHandler implements StandardRecipeHandler<
             }
         }
         
-        // 添加仓库中的物品
+        // 添加仓库中的物品 - 改进版本
         var storageStacks = ClientStorageState.getStacks();
-        int storageAdded = 0;
         for (int i = 0; i < storageStacks.size(); i++) {
             var item = storageStacks.get(i);
             if (!item.isEmpty()) {
                 long count = ClientStorageState.getCount(i);
-                stacks.add(EmiStack.of(item, (int) Math.min(Integer.MAX_VALUE, count)));
-                storageAdded++;
+                if (count > 0) {
+                    // 确保物品数量正确设置
+                    ItemStack stackCopy = item.copy();
+                    stackCopy.setCount((int) Math.min(Integer.MAX_VALUE, count));
+                    stacks.add(EmiStack.of(stackCopy));
+                }
             }
         }
-        LOG.debug("EMI getInventory: playerStacks={}, storageStacks(nonEmpty)={}, totalStacks={}", stacks.size() - storageAdded, storageAdded, stacks.size());
+        
         
         return new EmiPlayerInventory(stacks);
     }
