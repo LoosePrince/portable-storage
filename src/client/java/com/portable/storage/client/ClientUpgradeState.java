@@ -97,9 +97,12 @@ public final class ClientUpgradeState {
         
         // 检查是否为初级仓库限制的槽位
         if (UpgradeInventory.isPrimaryStorageRestrictedSlot(slot)) {
-            // 只有在使用初级仓库时才禁用这些槽位
+            // 只有在使用初级仓库时才强制禁用这些槽位
             StorageType currentType = ClientStorageState.getStorageType();
-            return currentType == StorageType.PRIMARY;
+            if (currentType == StorageType.PRIMARY) {
+                return true; // 初级仓库强制禁用
+            }
+            // 完整仓库时，检查实际的禁用状态
         }
         
         return disabledSlots[slot];

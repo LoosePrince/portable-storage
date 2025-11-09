@@ -151,6 +151,9 @@ public class UnifiedUpgradeManager {
      * 切换扩展槽位禁用状态
      */
     public void toggleExtendedSlotDisabled(int slotIndex) {
+        if (slotIndex < 0 || slotIndex >= EXTENDED_SLOT_COUNT) {
+            return;
+        }
         setExtendedSlotDisabled(slotIndex, !isExtendedSlotDisabled(slotIndex));
     }
     

@@ -190,6 +190,7 @@
   "portable-storage.ui.capacity_unlimited": "容量：无限制",
   "portable-storage.message.primary_storage_slot_restricted": "初级仓库不支持此升级槽位",
   "portable-storage.tooltip.primary_storage_restricted": "初级仓库限制：此槽位不可用",
+  "portable-storage.message.primary_storage_cannot_toggle": "初级仓库限制的槽位无法手动切换禁用状态",
   "portable-storage.message.primary_storage_barrel_restricted": "初级仓库不支持绑定木桶交互",
   "portable-storage.command.barrel.give.success": "已获得绑定到自己的绑定木桶",
   "portable-storage.command.barrel.give.inventory_full": "背包已满，无法获得绑定木桶",

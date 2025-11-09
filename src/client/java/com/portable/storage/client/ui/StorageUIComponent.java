@@ -1823,7 +1823,7 @@ public class StorageUIComponent {
                         return true;
                     }
                     // 床升级槽位右键睡觉
-                    if (i == 6 && ClientUpgradeState.isBedUpgradeActive()) {
+                    if (i == 6 && !ClientUpgradeState.isSlotDisabled(6) && ClientUpgradeState.isBedUpgradeActive()) {
                         // 发送睡觉请求到服务器
                         ClientPlayNetworking.send(new StorageActionC2SPayload(
                             StorageActionC2SPayload.Action.CLICK,
@@ -1837,7 +1837,7 @@ public class StorageUIComponent {
                         return true;
                     }
                     // 附魔之瓶槽位右键：切换存取等级
-                    if (i == 7 && ClientUpgradeState.isXpBottleUpgradeActive()) {
+                    if (i == 7 && !ClientUpgradeState.isSlotDisabled(7) && ClientUpgradeState.isXpBottleUpgradeActive()) {
                         ClientPlayNetworking.send(new StorageActionC2SPayload(
                             StorageActionC2SPayload.Action.CLICK,
                             StorageActionC2SPayload.Target.UPGRADE,

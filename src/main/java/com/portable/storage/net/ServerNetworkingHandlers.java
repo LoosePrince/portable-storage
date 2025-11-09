@@ -1202,7 +1202,8 @@ public final class ServerNetworkingHandlers {
                 handleRiftTeleport(player);
                 return;
             }
-            if (slot == 6 && upgrades.isBedUpgradeActive()) {
+            if (slot == 6 && !upgrades.isSlotDisabled(6, player) && upgrades.isBedUpgradeActive()) {
+                // 床升级槽：右键睡觉（仅在未禁用时）
                 // 检查仓库是否启用
                 com.portable.storage.player.PlayerStorageAccess access = (com.portable.storage.player.PlayerStorageAccess) player;
                 if (access.portableStorage$isStorageEnabled()) {
@@ -1211,6 +1212,7 @@ public final class ServerNetworkingHandlers {
                 return;
             }
             if (slot == 7 && !upgrades.isSlotDisabled(7, player) && !upgrades.getStack(7).isEmpty()) {
+                // 附魔之瓶升级槽：右键切换存取等级（仅在未禁用时）
                 int idx = xpStepIndexByPlayer.getOrDefault(player.getUuid(), 0);
                 idx = (idx + 1) % XP_STEPS.length;
                 xpStepIndexByPlayer.put(player.getUuid(), idx);
@@ -1222,6 +1224,16 @@ public final class ServerNetworkingHandlers {
                     ConfigSyncS2CPayload.Topic.XP_STEP, data
                 ));
                 return;
+            }
+            // 其他槽位右键：切换禁用状态（包括扩展槽位5、8、9）
+            // 检查是否为初级仓库限制的槽位
+            if (UpgradeInventory.isPrimaryStorageRestrictedSlot(slot)) {
+                com.portable.storage.player.PlayerStorageAccess access = (com.portable.storage.player.PlayerStorageAccess) player;
+                if (access.portableStorage$getStorageType() == com.portable.storage.storage.StorageType.PRIMARY) {
+                    // 初级仓库限制的槽位在使用初级仓库时无法手动切换禁用状态
+                    player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.primary_storage_cannot_toggle"), true);
+                    return;
+                }
             }
             upgrades.toggleSlotDisabled(slot);
             sendUpgradeSync(player);
