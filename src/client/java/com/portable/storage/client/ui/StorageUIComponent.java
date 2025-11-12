@@ -698,19 +698,20 @@ public class StorageUIComponent {
                         tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_piston.block_rotation"));
                     }
                     case 9 -> {
-                        // 附魔金苹果升级：显示当前模式和详细信息
+                        // 附魔金苹果升级：显示当前喂食数
                         tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.title"));
                         
-                        // 当前模式
+                        // 当前喂食数
                         com.portable.storage.storage.AutoEatMode currentMode = ClientUpgradeState.getCurrentAutoEatMode();
-                        String modeName = Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.mode." + currentMode.getKey()).getString();
-                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.current_mode", modeName));
-                        
-                        // 饱食度阈值
-                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.threshold", currentMode.getThreshold()));
+                        if (currentMode.isEnabled()) {
+                            tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.feed_count", currentMode.getFeedCount()));
+                        } else {
+                            tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.feed_disabled"));
+                        }
                         
                         // 交互提示
                         tooltipLines.add(Text.empty()); // 空行分隔
+                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.interact.right_click"));
                         tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.interact.middle_click"));
                     }
                 }
@@ -743,7 +744,7 @@ public class StorageUIComponent {
                         tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_virtual_crafting_status", virtualCraftingStatus));
                         tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_virtual_crafting_warning"));
                     }
-                } else {
+                } else if (slotIndex != 9) {
                     tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_right_click_hint"));
                 }
 
@@ -1896,18 +1897,15 @@ public class StorageUIComponent {
                         ClientNetworkingHandlers.sendXpBottleMaintenanceToggle();
                         return true;
                     }
-                    // 附魔金苹果升级槽位中键：切换自动进食模式
+                    // 附魔金苹果升级槽位中键：打开筛选界面
                     if (i == 9 && ClientUpgradeState.isEnchantedGoldenAppleUpgradeActive()) {
-                        // 发送中键点击到服务端
-                        ClientPlayNetworking.send(new StorageActionC2SPayload(
-                            StorageActionC2SPayload.Action.CLICK,
-                            StorageActionC2SPayload.Target.UPGRADE,
-                            i,
-                            button,
-                            0,
-                            "",
-                            0
-                        ));
+                        // 直接打开筛选界面
+                        net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
+                        if (client.currentScreen != null) {
+                            client.setScreen(new com.portable.storage.client.screen.FilterListScreen(client.currentScreen, com.portable.storage.client.screen.FilterListScreen.Mode.FILTER));
+                        } else {
+                            com.portable.storage.client.screen.FilterScreenManager.openFilterScreen();
+                        }
                         return true;
                     }
                     // 其他槽位切换禁用状态

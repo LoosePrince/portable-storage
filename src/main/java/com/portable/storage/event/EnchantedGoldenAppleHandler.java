@@ -60,15 +60,21 @@ public class EnchantedGoldenAppleHandler {
         
         // 获取当前自动进食模式
         AutoEatMode currentMode = ServerNetworkingHandlers.getPlayerAutoEatMode(player);
-        int threshold = currentMode.getThreshold();
         
-        // 检查玩家饱食度是否低于阈值
-        if (!FoodUtils.needsFood(player, threshold)) {
+        // 如果禁用，则不执行自动喂食
+        if (!currentMode.isEnabled()) {
             return;
         }
         
-        // 执行自动进食（使用新版存储系统）
-        var result = FoodUtils.autoEatFromNewStore(player, threshold);
+        int feedCount = currentMode.getFeedCount();
+        
+        // 检查玩家饱食度是否低于喂食数
+        if (!FoodUtils.needsFood(player, feedCount)) {
+            return;
+        }
+        
+        // 执行自动进食（使用新版存储系统，应用筛选逻辑）
+        var result = FoodUtils.autoEatFromNewStore(player, feedCount);
         
         // 发送消息给玩家
         if (result.success) {

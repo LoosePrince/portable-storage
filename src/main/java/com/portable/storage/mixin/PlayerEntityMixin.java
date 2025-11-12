@@ -11,9 +11,13 @@ import com.portable.storage.newstore.NewStoreService;
 import com.portable.storage.player.PlayerEnablementState;
 import com.portable.storage.player.PlayerStorageAccess;
 import com.portable.storage.player.PlayerStorageService;
+import com.portable.storage.storage.AutoEatMode;
+import com.portable.storage.storage.FilterRuleManager;
 import com.portable.storage.storage.StorageInventory;
 import com.portable.storage.storage.StorageType;
 import com.portable.storage.storage.UpgradeInventory;
+import com.portable.storage.net.ServerNetworkingHandlers;
+import com.portable.storage.net.payload.SyncFilterRulesC2SPayload;
 
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -54,6 +58,15 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 	
 	@Unique
 	private static final String PORTABLE_STORAGE_TYPE_NBT = "portable_storage_type";
+	
+	@Unique
+	private static final String PORTABLE_STORAGE_AUTO_EAT_MODE_NBT = "portable_storage_auto_eat_mode";
+	
+	@Unique
+	private static final String PORTABLE_STORAGE_FILTER_RULES_NBT = "portable_storage_filter_rules";
+	
+	@Unique
+	private static final String PORTABLE_STORAGE_DESTROY_RULES_NBT = "portable_storage_destroy_rules";
 	
 	@Unique
 	private long portableStorage$lastHopperCheck = 0;
@@ -124,12 +137,13 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 
     @Inject(method = "readCustomDataFromNbt", at = @At("TAIL"))
     private void portableStorage$read(NbtCompound nbt, CallbackInfo ci) {
+		PlayerEntity self = (PlayerEntity)(Object)this;
+		
 		if (nbt.contains(PORTABLE_STORAGE_NBT)) {
 			StorageInventory inv = new StorageInventory(54);
             // 带注册表上下文的读入（若可用）
             RegistryWrapper.WrapperLookup lookup = null;
             try {
-                PlayerEntity self = (PlayerEntity)(Object)this;
                 if (self != null && self.getRegistryManager() != null) {
                     lookup = self.getRegistryManager();
                 }
@@ -159,6 +173,54 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 		} else {
 			// 新玩家默认为完整仓库
 			this.portableStorage$storageType = StorageType.FULL;
+		}
+		
+		// 读取并恢复进食模式（仅服务端）
+		if (self instanceof ServerPlayerEntity serverPlayer) {
+			if (nbt.contains(PORTABLE_STORAGE_AUTO_EAT_MODE_NBT)) {
+				int modeIndex = nbt.getInt(PORTABLE_STORAGE_AUTO_EAT_MODE_NBT);
+				AutoEatMode mode = AutoEatMode.fromIndex(modeIndex);
+				ServerNetworkingHandlers.setPlayerAutoEatMode(serverPlayer, mode);
+			}
+			
+			// 读取并恢复筛选规则
+			java.util.List<SyncFilterRulesC2SPayload.FilterRule> filterRules = new java.util.ArrayList<>();
+			java.util.List<SyncFilterRulesC2SPayload.FilterRule> destroyRules = new java.util.ArrayList<>();
+			
+			if (nbt.contains(PORTABLE_STORAGE_FILTER_RULES_NBT)) {
+				NbtCompound filterRulesNbt = nbt.getCompound(PORTABLE_STORAGE_FILTER_RULES_NBT);
+				int count = filterRulesNbt.getInt("count");
+				for (int i = 0; i < count; i++) {
+					if (filterRulesNbt.contains("rule_" + i)) {
+						NbtCompound ruleNbt = filterRulesNbt.getCompound("rule_" + i);
+						filterRules.add(new SyncFilterRulesC2SPayload.FilterRule(
+							ruleNbt.getString("matchRule"),
+							ruleNbt.getBoolean("isWhitelist"),
+							ruleNbt.getBoolean("enabled")
+						));
+					}
+				}
+			}
+			
+			if (nbt.contains(PORTABLE_STORAGE_DESTROY_RULES_NBT)) {
+				NbtCompound destroyRulesNbt = nbt.getCompound(PORTABLE_STORAGE_DESTROY_RULES_NBT);
+				int count = destroyRulesNbt.getInt("count");
+				for (int i = 0; i < count; i++) {
+					if (destroyRulesNbt.contains("rule_" + i)) {
+						NbtCompound ruleNbt = destroyRulesNbt.getCompound("rule_" + i);
+						destroyRules.add(new SyncFilterRulesC2SPayload.FilterRule(
+							ruleNbt.getString("matchRule"),
+							ruleNbt.getBoolean("isWhitelist"),
+							ruleNbt.getBoolean("enabled")
+						));
+					}
+				}
+			}
+			
+			// 恢复筛选规则到内存
+			if (!filterRules.isEmpty() || !destroyRules.isEmpty()) {
+				FilterRuleManager.syncPlayerRules(serverPlayer, filterRules, destroyRules);
+			}
 		}
 	}
 
@@ -190,6 +252,47 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 		
 		// 保存仓库类型
 		nbt.putString(PORTABLE_STORAGE_TYPE_NBT, this.portableStorage$storageType.getKey());
+		
+		// 保存进食模式（仅服务端）
+		PlayerEntity self = (PlayerEntity)(Object)this;
+		if (self instanceof ServerPlayerEntity serverPlayer) {
+			AutoEatMode mode = ServerNetworkingHandlers.getPlayerAutoEatMode(serverPlayer);
+			nbt.putInt(PORTABLE_STORAGE_AUTO_EAT_MODE_NBT, mode.getIndex());
+			
+			// 保存筛选规则
+			FilterRuleManager.PlayerFilterRules rules = FilterRuleManager.getPlayerRules(serverPlayer);
+			if (rules != null) {
+				// 保存筛选规则
+				if (!rules.filterRules.isEmpty()) {
+					NbtCompound filterRulesNbt = new NbtCompound();
+					filterRulesNbt.putInt("count", rules.filterRules.size());
+					for (int i = 0; i < rules.filterRules.size(); i++) {
+						SyncFilterRulesC2SPayload.FilterRule rule = rules.filterRules.get(i);
+						NbtCompound ruleNbt = new NbtCompound();
+						ruleNbt.putString("matchRule", rule.matchRule);
+						ruleNbt.putBoolean("isWhitelist", rule.isWhitelist);
+						ruleNbt.putBoolean("enabled", rule.enabled);
+						filterRulesNbt.put("rule_" + i, ruleNbt);
+					}
+					nbt.put(PORTABLE_STORAGE_FILTER_RULES_NBT, filterRulesNbt);
+				}
+				
+				// 保存销毁规则
+				if (!rules.destroyRules.isEmpty()) {
+					NbtCompound destroyRulesNbt = new NbtCompound();
+					destroyRulesNbt.putInt("count", rules.destroyRules.size());
+					for (int i = 0; i < rules.destroyRules.size(); i++) {
+						SyncFilterRulesC2SPayload.FilterRule rule = rules.destroyRules.get(i);
+						NbtCompound ruleNbt = new NbtCompound();
+						ruleNbt.putString("matchRule", rule.matchRule);
+						ruleNbt.putBoolean("isWhitelist", rule.isWhitelist);
+						ruleNbt.putBoolean("enabled", rule.enabled);
+						destroyRulesNbt.put("rule_" + i, ruleNbt);
+					}
+					nbt.put(PORTABLE_STORAGE_DESTROY_RULES_NBT, destroyRulesNbt);
+				}
+			}
+		}
 	}
 	
 	@Inject(method = "tick", at = @At("TAIL"))

@@ -213,7 +213,7 @@ public final class ClientUpgradeState {
     }
     
     // ===== 自动进食模式管理 =====
-    private static AutoEatMode currentAutoEatMode = AutoEatMode.DEFAULT;
+    private static AutoEatMode currentAutoEatMode = AutoEatMode.DISABLED;
     public static AutoEatMode getCurrentAutoEatMode() { return currentAutoEatMode; }
     
     public static void cycleAutoEatMode() {
@@ -221,7 +221,7 @@ public final class ClientUpgradeState {
     }
     
     public static void setAutoEatMode(AutoEatMode mode) {
-        currentAutoEatMode = mode != null ? mode : AutoEatMode.DEFAULT;
+        currentAutoEatMode = mode != null ? mode : AutoEatMode.DISABLED;
     }
 }
 

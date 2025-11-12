@@ -2,32 +2,34 @@ package com.portable.storage.storage;
 
 /**
  * 自动进食模式枚举
- * 定义附魔金苹果升级的不同自动进食模式
+ * 定义附魔金苹果升级的自动喂食数
+ * 0=禁用, 2,4,6,8,10,12,14,16,18,20=不同的喂食数
  */
 public enum AutoEatMode {
     /**
-     * 兜底模式：低于6点自动吃
+     * 禁用：不自动喂食
      */
-    FALLBACK(0, 6, "fallback"),
-    
+    DISABLED(0, 0),
     /**
-     * 回血模式：保持至少18点饱食度
+     * 启用
      */
-    HEAL(1, 18, "heal"),
-    
-    /**
-     * 默认模式：低于14点自动吃
-     */
-    DEFAULT(2, 14, "default");
+    COUNT_2(1, 2),
+    COUNT_4(2, 4),
+    COUNT_6(3, 6),
+    COUNT_8(4, 8),
+    COUNT_10(5, 10),
+    COUNT_12(6, 12),
+    COUNT_14(7, 14),
+    COUNT_16(8, 16),
+    COUNT_18(9, 18),
+    COUNT_20(10, 20);
     
     private final int index;
-    private final int threshold;
-    private final String key;
+    private final int feedCount;
     
-    AutoEatMode(int index, int threshold, String key) {
+    AutoEatMode(int index, int feedCount) {
         this.index = index;
-        this.threshold = threshold;
-        this.key = key;
+        this.feedCount = feedCount;
     }
     
     /**
@@ -38,17 +40,17 @@ public enum AutoEatMode {
     }
     
     /**
-     * 获取饱食度阈值
+     * 获取喂食数（0表示禁用）
      */
-    public int getThreshold() {
-        return threshold;
+    public int getFeedCount() {
+        return feedCount;
     }
     
     /**
-     * 获取翻译键
+     * 是否启用
      */
-    public String getKey() {
-        return key;
+    public boolean isEnabled() {
+        return feedCount > 0;
     }
     
     /**
@@ -60,11 +62,23 @@ public enum AutoEatMode {
                 return mode;
             }
         }
-        return DEFAULT; // 默认返回默认模式
+        return DISABLED; // 默认返回禁用
     }
     
     /**
-     * 获取下一个模式（循环）
+     * 根据喂食数获取模式
+     */
+    public static AutoEatMode fromFeedCount(int feedCount) {
+        for (AutoEatMode mode : values()) {
+            if (mode.feedCount == feedCount) {
+                return mode;
+            }
+        }
+        return DISABLED;
+    }
+    
+    /**
+     * 获取下一个模式（循环）：禁用->2->4->6->...->18->20->禁用
      */
     public AutoEatMode next() {
         int nextIndex = (this.index + 1) % values().length;

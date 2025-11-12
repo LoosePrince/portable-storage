@@ -49,14 +49,21 @@ public final class ServerNetworkingHandlers {
     private static final java.util.Map<java.util.UUID, Integer> xpStepIndexByPlayer = new java.util.concurrent.ConcurrentHashMap<>();
     private static final int[] XP_STEPS = new int[] {1, 5, 10, 100};
     
-    // 附魔金苹果升级：自动进食模式，简单存内存，不做持久化
+    // 附魔金苹果升级：自动进食模式（已持久化到玩家 NBT）
     private static final java.util.Map<java.util.UUID, AutoEatMode> autoEatModeByPlayer = new java.util.concurrent.ConcurrentHashMap<>();
     
     /**
      * 获取玩家的当前自动进食模式
      */
     public static AutoEatMode getPlayerAutoEatMode(ServerPlayerEntity player) {
-        return autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DEFAULT);
+        return autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DISABLED);
+    }
+    
+    /**
+     * 设置玩家的自动进食模式
+     */
+    public static void setPlayerAutoEatMode(ServerPlayerEntity player, AutoEatMode mode) {
+        autoEatModeByPlayer.put(player.getUuid(), mode);
     }
 	
 	/**
@@ -1036,7 +1043,7 @@ public final class ServerNetworkingHandlers {
 		}
 		// 同步自动进食模式
 		{
-			AutoEatMode mode = autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DEFAULT);
+			AutoEatMode mode = autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DISABLED);
 			NbtCompound data = new NbtCompound();
 			data.putInt("modeIndex", mode.getIndex());
 			ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
@@ -1225,7 +1232,28 @@ public final class ServerNetworkingHandlers {
                 ));
                 return;
             }
-            // 其他槽位右键：切换禁用状态（包括扩展槽位5、8、9）
+            if (slot == 9 && !upgrades.isSlotDisabled(9, player) && !upgrades.getStack(9).isEmpty()) {
+                // 附魔金苹果升级槽：右键轮换自动喂食数（禁用->2->4->6->...->18->20->禁用）
+                AutoEatMode currentMode = autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DISABLED);
+                AutoEatMode nextMode = currentMode.next();
+                autoEatModeByPlayer.put(player.getUuid(), nextMode);
+                
+                // 发送消息给玩家
+                if (nextMode.isEnabled()) {
+                    player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.feed_count_switched", nextMode.getFeedCount()), true);
+                } else {
+                    player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.feed_disabled"), true);
+                }
+                
+                // 同步模式到客户端
+                net.minecraft.nbt.NbtCompound data = new net.minecraft.nbt.NbtCompound();
+                data.putInt("modeIndex", nextMode.getIndex());
+                ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
+                    ConfigSyncS2CPayload.Topic.AUTO_EAT_MODE, data
+                ));
+                return;
+            }
+            // 其他槽位右键：切换禁用状态（包括扩展槽位5、8）
             // 检查是否为初级仓库限制的槽位
             if (UpgradeInventory.isPrimaryStorageRestrictedSlot(slot)) {
                 com.portable.storage.player.PlayerStorageAccess access = (com.portable.storage.player.PlayerStorageAccess) player;
@@ -1241,24 +1269,7 @@ public final class ServerNetworkingHandlers {
         }
         
         if (button == 2) { // 中键点击
-            if (slot == 9 && !upgrades.isSlotDisabled(9, player) && !upgrades.getStack(9).isEmpty()) {
-                // 附魔金苹果升级槽：中键切换自动进食模式
-                AutoEatMode currentMode = autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DEFAULT);
-                AutoEatMode nextMode = currentMode.next();
-                autoEatModeByPlayer.put(player.getUuid(), nextMode);
-                
-                // 发送消息给玩家
-                String modeName = Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.mode." + nextMode.getKey()).getString();
-                player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.mode_switched", modeName), true);
-                
-                // 同步模式到客户端
-                net.minecraft.nbt.NbtCompound data = new net.minecraft.nbt.NbtCompound();
-                data.putInt("modeIndex", nextMode.getIndex());
-                ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
-                    ConfigSyncS2CPayload.Topic.AUTO_EAT_MODE, data
-                ));
-                return;
-            }
+
             // 其他槽位中键：切换禁用状态
             upgrades.toggleSlotDisabled(slot);
             sendUpgradeSync(player);
