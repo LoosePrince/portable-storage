@@ -230,9 +230,12 @@ public class UpgradeInventory {
         
         // 检查是否为初级仓库限制的槽位
         if (isPrimaryStorageRestrictedSlot(slot)) {
-            // 只有在使用初级仓库时才禁用这些槽位
+            // 只有在使用初级仓库时才强制禁用这些槽位
             PlayerStorageAccess access = (PlayerStorageAccess) player;
-            return access.portableStorage$getStorageType() == StorageType.PRIMARY;
+            if (access.portableStorage$getStorageType() == StorageType.PRIMARY) {
+                return true; // 初级仓库强制禁用
+            }
+            // 完整仓库时，检查实际的禁用状态
         }
         
         if (slot < BASE_SLOT_COUNT) {

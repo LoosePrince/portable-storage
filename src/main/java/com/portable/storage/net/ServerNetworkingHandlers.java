@@ -23,7 +23,6 @@ import com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload;
 import com.portable.storage.newstore.NewStoreService;
 import com.portable.storage.player.PlayerStorageAccess;
 import com.portable.storage.player.PlayerStorageService;
-import com.portable.storage.player.StoragePersistence;
 import com.portable.storage.screen.PortableCraftingScreenHandler;
 import com.portable.storage.storage.StorageInventory;
 import com.portable.storage.storage.StorageType;
@@ -49,14 +48,21 @@ public final class ServerNetworkingHandlers {
     private static final java.util.Map<java.util.UUID, Integer> xpStepIndexByPlayer = new java.util.concurrent.ConcurrentHashMap<>();
     private static final int[] XP_STEPS = new int[] {1, 5, 10, 100};
     
-    // 附魔金苹果升级：自动进食模式，简单存内存，不做持久化
+    // 附魔金苹果升级：自动进食模式（已持久化到玩家 NBT）
     private static final java.util.Map<java.util.UUID, AutoEatMode> autoEatModeByPlayer = new java.util.concurrent.ConcurrentHashMap<>();
     
     /**
      * 获取玩家的当前自动进食模式
      */
     public static AutoEatMode getPlayerAutoEatMode(ServerPlayerEntity player) {
-        return autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DEFAULT);
+        return autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DISABLED);
+    }
+    
+    /**
+     * 设置玩家的自动进食模式
+     */
+    public static void setPlayerAutoEatMode(ServerPlayerEntity player, AutoEatMode mode) {
+        autoEatModeByPlayer.put(player.getUuid(), mode);
     }
 	
 	/**
@@ -1036,7 +1042,7 @@ public final class ServerNetworkingHandlers {
 		}
 		// 同步自动进食模式
 		{
-			AutoEatMode mode = autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DEFAULT);
+			AutoEatMode mode = autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DISABLED);
 			NbtCompound data = new NbtCompound();
 			data.putInt("modeIndex", mode.getIndex());
 			ServerPlayNetworking.send(player, new ConfigSyncS2CPayload(
@@ -1121,64 +1127,6 @@ public final class ServerNetworkingHandlers {
 		));
 	}
 
-    // ===== 合并仓库（共享木桶） =====
-    private static java.util.List<StorageInventory> getViewStorages(ServerPlayerEntity viewer) {
-        java.util.List<StorageInventory> list = new java.util.ArrayList<>();
-        java.util.LinkedHashSet<java.util.UUID> added = new java.util.LinkedHashSet<>();
-        // 自己优先
-        list.add(PlayerStorageService.getInventory(viewer));
-        added.add(viewer.getUuid());
-
-        // 统计"我所依附的根拥有者集合"
-        java.util.LinkedHashSet<java.util.UUID> rootOwners = new java.util.LinkedHashSet<>();
-        UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(viewer);
-        for (int i = 0; i < upgrades.getSlotCount(); i++) {
-            ItemStack st = upgrades.getStack(i);
-            if (!st.isEmpty() && st.getItem() == net.minecraft.item.Items.BARREL) {
-                java.util.UUID owner = getOwnerUuidFromItem(st);
-                if (owner != null && !owner.equals(viewer.getUuid())) {
-                    rootOwners.add(owner);
-                }
-            }
-        }
-
-        // 如果未依附任何人，则自己就是根拥有者之一（用于处理"我是源头"，让使用我木桶的人加入）
-        if (rootOwners.isEmpty()) {
-            rootOwners.add(viewer.getUuid());
-        }
-
-        var players = viewer.server.getPlayerManager().getPlayerList();
-
-        for (java.util.UUID root : rootOwners) {
-            // 加入根拥有者仓库
-            var ownerPlayer = viewer.server.getPlayerManager().getPlayer(root);
-            if (ownerPlayer != null) {
-                if (added.add(root)) list.add(PlayerStorageService.getInventory(ownerPlayer));
-            } else {
-                // 离线：从存档加载
-                if (added.add(root)) list.add(StoragePersistence.loadStorage(viewer.server, root));
-            }
-
-            // 加入所有"同依附该根拥有者"的玩家（包括 viewer 自己，已去重）
-            for (ServerPlayerEntity p : players) {
-                UpgradeInventory up = PlayerStorageService.getUpgradeInventory(p);
-                boolean usesRoot = false;
-                for (int i = 0; i < up.getSlotCount(); i++) {
-                    ItemStack st = up.getStack(i);
-                    if (!st.isEmpty() && st.getItem() == net.minecraft.item.Items.BARREL) {
-                        java.util.UUID owner = getOwnerUuidFromItem(st);
-                        if (owner != null && owner.equals(root)) { usesRoot = true; break; }
-                    }
-                }
-                if (usesRoot && added.add(p.getUuid())) {
-                    list.add(PlayerStorageService.getInventory(p));
-                }
-            }
-        }
-
-        return list;
-    }
-
     // ===== 统一动作处理 =====
     private static void handleStorageAction(ServerPlayerEntity player, StorageActionC2SPayload p) {
         switch (p.action()) {
@@ -1202,7 +1150,8 @@ public final class ServerNetworkingHandlers {
                 handleRiftTeleport(player);
                 return;
             }
-            if (slot == 6 && upgrades.isBedUpgradeActive()) {
+            if (slot == 6 && !upgrades.isSlotDisabled(6, player) && upgrades.isBedUpgradeActive()) {
+                // 床升级槽：右键睡觉（仅在未禁用时）
                 // 检查仓库是否启用
                 com.portable.storage.player.PlayerStorageAccess access = (com.portable.storage.player.PlayerStorageAccess) player;
                 if (access.portableStorage$isStorageEnabled()) {
@@ -1211,6 +1160,7 @@ public final class ServerNetworkingHandlers {
                 return;
             }
             if (slot == 7 && !upgrades.isSlotDisabled(7, player) && !upgrades.getStack(7).isEmpty()) {
+                // 附魔之瓶升级槽：右键切换存取等级（仅在未禁用时）
                 int idx = xpStepIndexByPlayer.getOrDefault(player.getUuid(), 0);
                 idx = (idx + 1) % XP_STEPS.length;
                 xpStepIndexByPlayer.put(player.getUuid(), idx);
@@ -1223,21 +1173,18 @@ public final class ServerNetworkingHandlers {
                 ));
                 return;
             }
-            upgrades.toggleSlotDisabled(slot);
-            sendUpgradeSync(player);
-            return;
-        }
-        
-        if (button == 2) { // 中键点击
             if (slot == 9 && !upgrades.isSlotDisabled(9, player) && !upgrades.getStack(9).isEmpty()) {
-                // 附魔金苹果升级槽：中键切换自动进食模式
-                AutoEatMode currentMode = autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DEFAULT);
+                // 附魔金苹果升级槽：右键轮换自动喂食数（禁用->2->4->6->...->18->20->禁用）
+                AutoEatMode currentMode = autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DISABLED);
                 AutoEatMode nextMode = currentMode.next();
                 autoEatModeByPlayer.put(player.getUuid(), nextMode);
                 
                 // 发送消息给玩家
-                String modeName = Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.mode." + nextMode.getKey()).getString();
-                player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.mode_switched", modeName), true);
+                if (nextMode.isEnabled()) {
+                    player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.feed_count_switched", nextMode.getFeedCount()), true);
+                } else {
+                    player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.feed_disabled"), true);
+                }
                 
                 // 同步模式到客户端
                 net.minecraft.nbt.NbtCompound data = new net.minecraft.nbt.NbtCompound();
@@ -1247,6 +1194,23 @@ public final class ServerNetworkingHandlers {
                 ));
                 return;
             }
+            // 其他槽位右键：切换禁用状态（包括扩展槽位5、8）
+            // 检查是否为初级仓库限制的槽位
+            if (UpgradeInventory.isPrimaryStorageRestrictedSlot(slot)) {
+                com.portable.storage.player.PlayerStorageAccess access = (com.portable.storage.player.PlayerStorageAccess) player;
+                if (access.portableStorage$getStorageType() == com.portable.storage.storage.StorageType.PRIMARY) {
+                    // 初级仓库限制的槽位在使用初级仓库时无法手动切换禁用状态
+                    player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".message.primary_storage_cannot_toggle"), true);
+                    return;
+                }
+            }
+            upgrades.toggleSlotDisabled(slot);
+            sendUpgradeSync(player);
+            return;
+        }
+        
+        if (button == 2) { // 中键点击
+
             // 其他槽位中键：切换禁用状态
             upgrades.toggleSlotDisabled(slot);
             sendUpgradeSync(player);
@@ -1342,11 +1306,14 @@ public final class ServerNetworkingHandlers {
             SpaceRiftManager.rememberReturnPoint(player);
             java.util.UUID id = player.getUuid();
             net.minecraft.util.math.ChunkPos origin = SpaceRiftManager.ensureAllocatedPlot(server, id);
-            // 初始化平台与屏障
-            SpaceRiftManager.ensurePlotInitialized(rift, origin);
+            // 初始化平台与屏障（仅首次进入）
+            boolean firstTimeEnter = SpaceRiftManager.ensurePlotInitialized(rift, origin, id);
             
             // 优先传送到复制体位置，否则传送到地块中心
             net.minecraft.util.math.BlockPos teleportPos = SpaceRiftManager.getAvatarPositionOrCenter(player, origin);
+            if (!firstTimeEnter) {
+                SpaceRiftManager.ensureEntryPointBlock(rift, teleportPos);
+            }
             
             // 进入裂隙时清除复制体
             SpaceRiftManager.removeAvatar(player);

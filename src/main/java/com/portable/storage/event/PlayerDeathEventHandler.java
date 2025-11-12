@@ -61,8 +61,13 @@ public class PlayerDeathEventHandler {
                 PlayerStorageAccess oldAccess = (PlayerStorageAccess) oldPlayer;
                 PlayerStorageAccess newAccess = (PlayerStorageAccess) newPlayer;
                 
-                // 检查是否需要处理死亡掉落
-                if (oldAccess.portableStorage$isStorageEnabled()) {
+                ServerConfig config = ServerConfig.getInstance();
+                boolean requireCondition = config.isRequireConditionToEnable();
+                boolean wasEnabled = oldAccess.portableStorage$isStorageEnabled();
+
+                if (!requireCondition) {
+                    newAccess.portableStorage$setStorageEnabled(true);
+                } else if (wasEnabled) {
                     // 检查游戏规则：keepInventory
                     boolean keepInventory = newPlayer.getWorld().getGameRules().getBoolean(net.minecraft.world.GameRules.KEEP_INVENTORY);
                     

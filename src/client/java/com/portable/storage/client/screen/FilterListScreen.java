@@ -85,14 +85,12 @@ public class FilterListScreen extends Screen {
     public FilterListScreen(Screen parent, Mode mode, net.minecraft.util.math.BlockPos barrelPos) {
         super(Text.translatable("portable-storage.filter.list.title", mode.getDisplayName()));
         this.parent = parent;
-        this.mode = mode;
         this.barrelPos = barrelPos;
         this.rules = new java.util.ArrayList<>(); // 绑定木桶的规则列表，从方块实体加载
     }
     
     private Screen parent = null;
     private net.minecraft.util.math.BlockPos barrelPos = null;
-    private Mode mode;
     
     // 自适应相关
     private float scale = 1.0f;

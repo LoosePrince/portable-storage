@@ -9,7 +9,6 @@ import com.portable.storage.storage.StorageInventory;
 import com.portable.storage.util.SafeNbtIo;
 
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.WorldSavePath;

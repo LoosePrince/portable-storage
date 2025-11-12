@@ -2,7 +2,9 @@ package com.portable.storage.world;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.portable.storage.PortableStorage;
 import com.portable.storage.config.ServerConfig;
@@ -33,6 +35,7 @@ public final class SpaceRiftManager {
     private static final Map<UUID, WorldBorder> personalBorders = new HashMap<>();
     private static final Map<UUID, net.minecraft.entity.Entity> avatars = new HashMap<>();
     private static final Map<UUID, BlockPos> lastRiftPos = new HashMap<>();
+    private static final Set<UUID> initializedPlots = ConcurrentHashMap.newKeySet();
 
     // 裂隙大小从配置中获取，默认为1区块
     private static final int PLOT_SPACING_CHUNKS = 64; // 相邻玩家相隔64区块
@@ -49,6 +52,21 @@ public final class SpaceRiftManager {
 
     public static ChunkPos ensureAllocatedPlot(MinecraftServer server, UUID playerId) {
         return playerPlotOrigin.computeIfAbsent(playerId, id -> allocatePlotFor(id));
+    }
+
+    public static boolean isPlotInitialized(UUID playerId) {
+        return playerId != null && initializedPlots.contains(playerId);
+    }
+
+    public static void setPlotInitialized(UUID playerId, boolean initialized) {
+        if (playerId == null) {
+            return;
+        }
+        if (initialized) {
+            initializedPlots.add(playerId);
+        } else {
+            initializedPlots.remove(playerId);
+        }
     }
 
     private static ChunkPos allocatePlotFor(UUID playerId) {
@@ -99,9 +117,17 @@ public final class SpaceRiftManager {
         }
     }
 
-    public static void ensurePlotInitialized(ServerWorld world, ChunkPos origin) {
+    public static boolean ensurePlotInitialized(ServerWorld world, ChunkPos origin, UUID playerId) {
+        return ensurePlotInitialized(world, origin, playerId, false);
+    }
+
+    public static boolean ensurePlotInitialized(ServerWorld world, ChunkPos origin, UUID playerId, boolean force) {
         // 确保区块已加载
         world.getChunk(origin.x, origin.z);
+
+        if (!force && playerId != null && initializedPlots.contains(playerId)) {
+            return false;
+        }
 
         // 生成完整 16x16 地板于 FLOOR_Y
         net.minecraft.block.BlockState stone = net.minecraft.block.Blocks.SMOOTH_STONE.getDefaultState();
@@ -131,6 +157,26 @@ public final class SpaceRiftManager {
                     }
                 }
             }
+        }
+        if (playerId != null) {
+            setPlotInitialized(playerId, true);
+        }
+        return true;
+    }
+
+    public static void ensureEntryPointBlock(ServerWorld world, BlockPos teleportPos) {
+        if (teleportPos == null) {
+            return;
+        }
+        int targetY = teleportPos.getY() - 1;
+        int worldBottom = world.getBottomY();
+        if (targetY < worldBottom) {
+            targetY = worldBottom;
+        }
+        BlockPos floorPos = new BlockPos(teleportPos.getX(), targetY, teleportPos.getZ());
+        world.getChunk(floorPos.getX() >> 4, floorPos.getZ() >> 4);
+        if (world.isAir(floorPos)) {
+            world.setBlockState(floorPos, net.minecraft.block.Blocks.SMOOTH_STONE.getDefaultState());
         }
     }
 

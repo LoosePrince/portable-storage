@@ -66,7 +66,7 @@ public final class SpaceRiftCommands {
                 }
             }
             // 重新生成平台
-            SpaceRiftManager.ensurePlotInitialized(rift, origin);
+            SpaceRiftManager.ensurePlotInitialized(rift, origin, id, true);
             // 若在线，重设边界并拉回中心
             ServerPlayerEntity target = server.getPlayerManager().getPlayer(profile.getId());
             if (target != null) {

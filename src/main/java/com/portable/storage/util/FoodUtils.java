@@ -1,6 +1,7 @@
 package com.portable.storage.util;
 
 import com.portable.storage.storage.StorageInventory;
+import com.portable.storage.storage.FilterRuleManager;
 
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.FoodComponent;
@@ -132,8 +133,8 @@ public class FoodUtils {
         
         // 循环进食直到达到目标饱食度
         while (needsFood(player, targetFoodLevel)) {
-            // 寻找数量最多的食物
-            int bestFoodIndex = findMostAbundantFoodIndex(storage);
+            // 寻找数量最多的食物（应用筛选逻辑）
+            int bestFoodIndex = findMostAbundantFoodIndex(storage, player);
             if (bestFoodIndex == -1) {
                 break; // 没有食物了
             }
@@ -189,8 +190,8 @@ public class FoodUtils {
             // 获取合并的存储视图（每次循环都重新获取，确保数据最新）
             var storage = com.portable.storage.net.ServerNetworkingHandlers.buildMergedSnapshot(player);
             
-            // 寻找数量最多的食物
-            int bestFoodIndex = findMostAbundantFoodIndex(storage);
+            // 寻找数量最多的食物（应用筛选逻辑）
+            int bestFoodIndex = findMostAbundantFoodIndex(storage, player);
             if (bestFoodIndex == -1) {
                 break; // 没有食物了
             }
@@ -229,9 +230,9 @@ public class FoodUtils {
     }
     
     /**
-     * 在仓库中寻找数量最多的食物的索引
+     * 在仓库中寻找数量最多的食物的索引（应用筛选逻辑）
      */
-    private static int findMostAbundantFoodIndex(StorageInventory storage) {
+    private static int findMostAbundantFoodIndex(StorageInventory storage, ServerPlayerEntity player) {
         int bestIndex = -1;
         long maxCount = 0;
         
@@ -245,7 +246,8 @@ public class FoodUtils {
             if (!stack.isEmpty() && count > 0) {
                 boolean isFoodItem = isFood(stack);
                 
-                if (isFoodItem && count > maxCount) {
+                // 应用筛选逻辑：只有符合筛选规则的食物才会被选中
+                if (isFoodItem && FilterRuleManager.shouldPickupItem(player, stack) && count > maxCount) {
                     maxCount = count;
                     bestIndex = i;
                 }
