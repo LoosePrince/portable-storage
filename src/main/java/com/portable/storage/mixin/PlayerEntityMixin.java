@@ -163,11 +163,12 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 			this.portableStorage$upgradeInventory = upgrades;
 		}
 		
+		ServerConfig config = ServerConfig.getInstance();
+		
 		if (nbt.contains(PORTABLE_STORAGE_ENABLED_NBT)) {
 			this.portableStorage$enabled = nbt.getBoolean(PORTABLE_STORAGE_ENABLED_NBT);
 		} else {
 			// 新玩家默认启用（如果配置不需要条件启用）
-			ServerConfig config = ServerConfig.getInstance();
 			this.portableStorage$enabled = !config.isRequireConditionToEnable();
 		}
 		
@@ -177,6 +178,14 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 		} else {
 			// 新玩家默认为完整仓库
 			this.portableStorage$storageType = StorageType.FULL;
+		}
+		
+		// 如果配置不需要条件启用，强制所有玩家使用完整仓库
+		if (!config.isRequireConditionToEnable()) {
+			// 如果之前是初级仓库，自动升级为完整仓库
+			if (this.portableStorage$storageType == StorageType.PRIMARY) {
+				this.portableStorage$storageType = StorageType.FULL;
+			}
 		}
 		
 		// 读取并恢复玩家状态
@@ -229,6 +238,16 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 			// 恢复筛选规则到内存
 			if (!filterRules.isEmpty() || !destroyRules.isEmpty()) {
 				FilterRuleManager.syncPlayerRules(serverPlayer, filterRules, destroyRules);
+			}
+			
+			// 如果配置不需要条件启用，确保仓库始终启用
+			if (!ServerConfig.getInstance().isRequireConditionToEnable()) {
+				portableStorage$enabled = true;
+				PlayerEnablementState.get(serverPlayer.getServer()).setPlayerEnabled(serverPlayer.getUuid(), true);
+			}
+		} else {
+			if (!ServerConfig.getInstance().isRequireConditionToEnable()) {
+				portableStorage$enabled = true;
 			}
 		}
 	}
