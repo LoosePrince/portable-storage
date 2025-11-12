@@ -1,7 +1,6 @@
 package com.portable.storage.event;
 
 import com.portable.storage.PortableStorage;
-import com.portable.storage.config.ServerConfig;
 import com.portable.storage.item.StorageKeyItem;
 import com.portable.storage.net.ServerNetworkingHandlers;
 import com.portable.storage.player.PlayerStorageAccess;

@@ -1,7 +1,6 @@
 package com.portable.storage.net.payload;
 
 import com.portable.storage.PortableStorage;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.packet.CustomPayload;

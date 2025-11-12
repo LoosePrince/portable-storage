@@ -23,7 +23,6 @@ import com.portable.storage.net.payload.SyncBarrelFilterRulesC2SPayload;
 import com.portable.storage.newstore.NewStoreService;
 import com.portable.storage.player.PlayerStorageAccess;
 import com.portable.storage.player.PlayerStorageService;
-import com.portable.storage.player.StoragePersistence;
 import com.portable.storage.screen.PortableCraftingScreenHandler;
 import com.portable.storage.storage.StorageInventory;
 import com.portable.storage.storage.StorageType;
@@ -1128,64 +1127,6 @@ public final class ServerNetworkingHandlers {
 		));
 	}
 
-    // ===== 合并仓库（共享木桶） =====
-    private static java.util.List<StorageInventory> getViewStorages(ServerPlayerEntity viewer) {
-        java.util.List<StorageInventory> list = new java.util.ArrayList<>();
-        java.util.LinkedHashSet<java.util.UUID> added = new java.util.LinkedHashSet<>();
-        // 自己优先
-        list.add(PlayerStorageService.getInventory(viewer));
-        added.add(viewer.getUuid());
-
-        // 统计"我所依附的根拥有者集合"
-        java.util.LinkedHashSet<java.util.UUID> rootOwners = new java.util.LinkedHashSet<>();
-        UpgradeInventory upgrades = PlayerStorageService.getUpgradeInventory(viewer);
-        for (int i = 0; i < upgrades.getSlotCount(); i++) {
-            ItemStack st = upgrades.getStack(i);
-            if (!st.isEmpty() && st.getItem() == net.minecraft.item.Items.BARREL) {
-                java.util.UUID owner = getOwnerUuidFromItem(st);
-                if (owner != null && !owner.equals(viewer.getUuid())) {
-                    rootOwners.add(owner);
-                }
-            }
-        }
-
-        // 如果未依附任何人，则自己就是根拥有者之一（用于处理"我是源头"，让使用我木桶的人加入）
-        if (rootOwners.isEmpty()) {
-            rootOwners.add(viewer.getUuid());
-        }
-
-        var players = viewer.server.getPlayerManager().getPlayerList();
-
-        for (java.util.UUID root : rootOwners) {
-            // 加入根拥有者仓库
-            var ownerPlayer = viewer.server.getPlayerManager().getPlayer(root);
-            if (ownerPlayer != null) {
-                if (added.add(root)) list.add(PlayerStorageService.getInventory(ownerPlayer));
-            } else {
-                // 离线：从存档加载
-                if (added.add(root)) list.add(StoragePersistence.loadStorage(viewer.server, root));
-            }
-
-            // 加入所有"同依附该根拥有者"的玩家（包括 viewer 自己，已去重）
-            for (ServerPlayerEntity p : players) {
-                UpgradeInventory up = PlayerStorageService.getUpgradeInventory(p);
-                boolean usesRoot = false;
-                for (int i = 0; i < up.getSlotCount(); i++) {
-                    ItemStack st = up.getStack(i);
-                    if (!st.isEmpty() && st.getItem() == net.minecraft.item.Items.BARREL) {
-                        java.util.UUID owner = getOwnerUuidFromItem(st);
-                        if (owner != null && owner.equals(root)) { usesRoot = true; break; }
-                    }
-                }
-                if (usesRoot && added.add(p.getUuid())) {
-                    list.add(PlayerStorageService.getInventory(p));
-                }
-            }
-        }
-
-        return list;
-    }
-
     // ===== 统一动作处理 =====
     private static void handleStorageAction(ServerPlayerEntity player, StorageActionC2SPayload p) {
         switch (p.action()) {
@@ -1365,11 +1306,14 @@ public final class ServerNetworkingHandlers {
             SpaceRiftManager.rememberReturnPoint(player);
             java.util.UUID id = player.getUuid();
             net.minecraft.util.math.ChunkPos origin = SpaceRiftManager.ensureAllocatedPlot(server, id);
-            // 初始化平台与屏障
-            SpaceRiftManager.ensurePlotInitialized(rift, origin);
+            // 初始化平台与屏障（仅首次进入）
+            boolean firstTimeEnter = SpaceRiftManager.ensurePlotInitialized(rift, origin, id);
             
             // 优先传送到复制体位置，否则传送到地块中心
             net.minecraft.util.math.BlockPos teleportPos = SpaceRiftManager.getAvatarPositionOrCenter(player, origin);
+            if (!firstTimeEnter) {
+                SpaceRiftManager.ensureEntryPointBlock(rift, teleportPos);
+            }
             
             // 进入裂隙时清除复制体
             SpaceRiftManager.removeAvatar(player);

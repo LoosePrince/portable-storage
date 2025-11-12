@@ -14,7 +14,6 @@ import net.minecraft.nbt.NbtIo;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -394,19 +393,6 @@ public final class NewStoreService {
         } catch (Exception e) {
             // 估算大小
             return 64 + (stack.getComponents().isEmpty() ? 0 : 100);
-        }
-    }
-    
-    /**
-     * 格式化字节大小
-     */
-    private static String formatSize(long bytes) {
-        if (bytes < 1024) {
-            return bytes + " B";
-        } else if (bytes < 1024 * 1024) {
-            return String.format("%.1f KB", bytes / 1024.0);
-        } else {
-            return String.format("%.1f MB", bytes / (1024.0 * 1024.0));
         }
     }
     

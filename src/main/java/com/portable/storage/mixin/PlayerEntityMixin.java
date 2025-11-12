@@ -18,6 +18,7 @@ import com.portable.storage.storage.StorageType;
 import com.portable.storage.storage.UpgradeInventory;
 import com.portable.storage.net.ServerNetworkingHandlers;
 import com.portable.storage.net.payload.SyncFilterRulesC2SPayload;
+import com.portable.storage.world.SpaceRiftManager;
 
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -67,6 +68,9 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 	
 	@Unique
 	private static final String PORTABLE_STORAGE_DESTROY_RULES_NBT = "portable_storage_destroy_rules";
+	
+	@Unique
+	private static final String PORTABLE_STORAGE_RIFT_INITIALIZED_NBT = "portable_storage_rift_initialized";
 	
 	@Unique
 	private long portableStorage$lastHopperCheck = 0;
@@ -175,8 +179,13 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 			this.portableStorage$storageType = StorageType.FULL;
 		}
 		
-		// 读取并恢复进食模式（仅服务端）
+		// 读取并恢复玩家状态
 		if (self instanceof ServerPlayerEntity serverPlayer) {
+			// 读取并恢复裂隙初始化状态
+			if (nbt.contains(PORTABLE_STORAGE_RIFT_INITIALIZED_NBT)) {
+				SpaceRiftManager.setPlotInitialized(serverPlayer.getUuid(), nbt.getBoolean(PORTABLE_STORAGE_RIFT_INITIALIZED_NBT));
+			}
+			// 读取并恢复进食模式
 			if (nbt.contains(PORTABLE_STORAGE_AUTO_EAT_MODE_NBT)) {
 				int modeIndex = nbt.getInt(PORTABLE_STORAGE_AUTO_EAT_MODE_NBT);
 				AutoEatMode mode = AutoEatMode.fromIndex(modeIndex);
@@ -253,11 +262,12 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 		// 保存仓库类型
 		nbt.putString(PORTABLE_STORAGE_TYPE_NBT, this.portableStorage$storageType.getKey());
 		
-		// 保存进食模式（仅服务端）
+		// 保存玩家状态
 		PlayerEntity self = (PlayerEntity)(Object)this;
 		if (self instanceof ServerPlayerEntity serverPlayer) {
 			AutoEatMode mode = ServerNetworkingHandlers.getPlayerAutoEatMode(serverPlayer);
 			nbt.putInt(PORTABLE_STORAGE_AUTO_EAT_MODE_NBT, mode.getIndex());
+			nbt.putBoolean(PORTABLE_STORAGE_RIFT_INITIALIZED_NBT, SpaceRiftManager.isPlotInitialized(serverPlayer.getUuid()));
 			
 			// 保存筛选规则
 			FilterRuleManager.PlayerFilterRules rules = FilterRuleManager.getPlayerRules(serverPlayer);

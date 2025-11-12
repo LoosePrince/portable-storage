@@ -7,7 +7,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.server.MinecraftServer;
 

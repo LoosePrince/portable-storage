@@ -67,23 +67,16 @@ public abstract class CrossbowItemMixin {
             StorageInventory merged = ServerNetworkingHandlers.buildMergedSnapshot(serverPlayer);
             
             // 优先查找普通箭，与PlayerEntityProjectileMixin保持一致
-            int spectralIdx = -1;
             ItemStack matchedAmmo = null;
-            int idx = -1;
             
             for (int i = 0; i < merged.getCapacity(); i++) {
                 ItemStack disp = merged.getDisplayStack(i);
                 if (!disp.isEmpty() && isCrossbowAmmo(disp) && merged.getCountByIndex(i) > 0) {
                     if (disp.isOf(Items.ARROW)) {
                         matchedAmmo = disp;
-                        idx = i;
                         break; // 优先使用普通箭
-                    } else if (disp.isOf(Items.SPECTRAL_ARROW) && spectralIdx == -1) {
-                        spectralIdx = i;
-                        if (matchedAmmo == null) {
-                            matchedAmmo = disp;
-                            idx = i;
-                        }
+                    } else if (disp.isOf(Items.SPECTRAL_ARROW) && matchedAmmo == null) {
+                        matchedAmmo = disp;
                     }
                 }
             }
