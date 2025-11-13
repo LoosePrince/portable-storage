@@ -23,6 +23,13 @@ public class PlayerJoinEventHandler {
     public static void register() {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             ServerPlayerEntity player = handler.player;
+            // 如果配置不需要条件启用，强制设置为启用状态和完整仓库类型
+            com.portable.storage.config.ServerConfig config = com.portable.storage.config.ServerConfig.getInstance();
+            if (!config.isRequireConditionToEnable()) {
+                com.portable.storage.player.PlayerStorageAccess access = (com.portable.storage.player.PlayerStorageAccess) player;
+                access.portableStorage$setStorageEnabled(true);
+                access.portableStorage$setStorageType(com.portable.storage.storage.StorageType.FULL);
+            }
             // 玩家加入时发送启用状态同步
             ServerNetworkingHandlers.sendEnablementSync(player);
             // 1秒后（20tick）尝试迁移旧版到新版
@@ -74,3 +81,6 @@ public class PlayerJoinEventHandler {
         });
     }
 }
+
+
+

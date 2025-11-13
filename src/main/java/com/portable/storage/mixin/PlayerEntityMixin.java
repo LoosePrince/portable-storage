@@ -145,12 +145,15 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 			this.portableStorage$upgradeInventory = upgrades;
 		}
 		
+		// 获取配置（用于后续判断）
+		ServerConfig config = ServerConfig.getInstance();
+		boolean requireCondition = config.isRequireConditionToEnable();
+		
 		if (nbt.contains(PORTABLE_STORAGE_ENABLED_NBT)) {
 			this.portableStorage$enabled = nbt.getBoolean(PORTABLE_STORAGE_ENABLED_NBT);
 		} else {
 			// 新玩家默认启用（如果配置不需要条件启用）
-			ServerConfig config = ServerConfig.getInstance();
-			this.portableStorage$enabled = !config.isRequireConditionToEnable();
+			this.portableStorage$enabled = !requireCondition;
 		}
 		
 		if (nbt.contains(PORTABLE_STORAGE_TYPE_NBT)) {
@@ -158,6 +161,13 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 			this.portableStorage$storageType = StorageType.fromKey(typeKey);
 		} else {
 			// 新玩家默认为完整仓库
+			this.portableStorage$storageType = StorageType.FULL;
+		}
+		
+		// 如果配置不需要条件启用，强制设置为启用状态和完整仓库类型
+		// 无论原本是什么类型或者没有仓库，都强制设置为完整仓库
+		if (!requireCondition) {
+			this.portableStorage$enabled = true;
 			this.portableStorage$storageType = StorageType.FULL;
 		}
 	}
@@ -350,6 +360,9 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 		}
 	}
 }
+
+
+
 
 
 

@@ -63,6 +63,15 @@ public class PlayerDeathEventHandler {
                 
                 // 检查是否需要处理死亡掉落
                 if (oldAccess.portableStorage$isStorageEnabled()) {
+                    // 检查配置：如果不需要条件启用，死亡时不禁用仓库也不掉落钥匙
+                    ServerConfig config = ServerConfig.getInstance();
+                    if (!config.isRequireConditionToEnable()) {
+                        // 不需要条件启用时，保持仓库激活状态，不处理死亡掉落
+                        newAccess.portableStorage$setStorageEnabled(true);
+                        PortableStorage.LOGGER.info("Player {} died with require_condition_to_enable=false, storage remains active", oldPlayer.getName().getString());
+                        return; // 直接返回，不处理死亡掉落逻辑
+                    }
+                    
                     // 检查游戏规则：keepInventory
                     boolean keepInventory = newPlayer.getWorld().getGameRules().getBoolean(net.minecraft.world.GameRules.KEEP_INVENTORY);
                     
