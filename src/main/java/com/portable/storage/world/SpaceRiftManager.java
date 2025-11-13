@@ -33,6 +33,8 @@ public final class SpaceRiftManager {
     private static final Map<UUID, WorldBorder> personalBorders = new HashMap<>();
     private static final Map<UUID, net.minecraft.entity.Entity> avatars = new HashMap<>();
     private static final Map<UUID, BlockPos> lastRiftPos = new HashMap<>();
+    // 已初始化的地块（记录完整地板已创建的地块）
+    private static final java.util.Set<ChunkPos> initializedPlots = new java.util.HashSet<>();
 
     // 裂隙大小从配置中获取，默认为1区块
     private static final int PLOT_SPACING_CHUNKS = 64; // 相邻玩家相隔64区块
@@ -103,33 +105,51 @@ public final class SpaceRiftManager {
         // 确保区块已加载
         world.getChunk(origin.x, origin.z);
 
-        // 生成完整 16x16 地板于 FLOOR_Y
         net.minecraft.block.BlockState stone = net.minecraft.block.Blocks.SMOOTH_STONE.getDefaultState();
         net.minecraft.block.BlockState barrier = net.minecraft.block.Blocks.BARRIER.getDefaultState();
-        int minX = origin.getStartX();
-        int minZ = origin.getStartZ();
-        int maxX = minX + 16 * getPlotChunkSize() - 1;
-        int maxZ = minZ + 16 * getPlotChunkSize() - 1;
-        int worldBottom = world.getBottomY();
-        int worldTop = world.getTopY() - 1;
-        int bottomStart = Math.max(BOTTOM_Y, worldBottom);
-        int bottomEnd = Math.min(bottomStart + 9, worldTop);
-        int topEnd = Math.min(TOP_Y, worldTop);
-        int topStart = Math.max(topEnd - 9, worldBottom);
+        
+        // 检查地块是否已初始化
+        boolean isFirstTime = !initializedPlots.contains(origin);
+        
+        if (isFirstTime) {
+            // 第一次初始化：生成完整地板和屏障
+            int minX = origin.getStartX();
+            int minZ = origin.getStartZ();
+            int maxX = minX + 16 * getPlotChunkSize() - 1;
+            int maxZ = minZ + 16 * getPlotChunkSize() - 1;
+            int worldBottom = world.getBottomY();
+            int worldTop = world.getTopY() - 1;
+            int bottomStart = Math.max(BOTTOM_Y, worldBottom);
+            int bottomEnd = Math.min(bottomStart + 9, worldTop);
+            int topEnd = Math.min(TOP_Y, worldTop);
+            int topStart = Math.max(topEnd - 9, worldBottom);
 
-        for (int x = minX; x <= maxX; x++) {
-            for (int z = minZ; z <= maxZ; z++) {
-                world.setBlockState(new BlockPos(x, FLOOR_Y, z), stone);
-                
-                // 只有在启用高度限制时才生成屏障
-                if (ServerConfig.getInstance().isLimitRiftHeight()) {
-                    for (int y = bottomStart; y <= bottomEnd; y++) {
-                        world.setBlockState(new BlockPos(x, y, z), barrier);
-                    }
-                    for (int y = topStart; y <= topEnd; y++) {
-                        world.setBlockState(new BlockPos(x, y, z), barrier);
+            for (int x = minX; x <= maxX; x++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    world.setBlockState(new BlockPos(x, FLOOR_Y, z), stone);
+                    
+                    // 只有在启用高度限制时才生成屏障
+                    if (ServerConfig.getInstance().isLimitRiftHeight()) {
+                        for (int y = bottomStart; y <= bottomEnd; y++) {
+                            world.setBlockState(new BlockPos(x, y, z), barrier);
+                        }
+                        for (int y = topStart; y <= topEnd; y++) {
+                            world.setBlockState(new BlockPos(x, y, z), barrier);
+                        }
                     }
                 }
+            }
+            
+            // 标记为已初始化
+            initializedPlots.add(origin);
+        } else {
+            // 已初始化过：只恢复默认进入点（地块中心）的单个方块，确保玩家进入脚下有方块
+            BlockPos centerBlock = getPlotCenterBlock(origin);
+            // 确保玩家脚下有方块（FLOOR_Y层，因为getPlotCenterBlock返回的是FLOOR_Y+1）
+            BlockPos floorPos = new BlockPos(centerBlock.getX(), FLOOR_Y, centerBlock.getZ());
+            // 检查方块是否存在，如果不存在则恢复
+            if (world.getBlockState(floorPos).isAir()) {
+                world.setBlockState(floorPos, stone);
             }
         }
     }
