@@ -37,18 +37,28 @@ public final class ClientUpgradeState {
         }
         
         // 读取基础槽位禁用状态
-        if (nbt.contains("BaseDisabledSlots")) {
+        if (nbt.contains("BaseDisabledSlots", net.minecraft.nbt.NbtElement.COMPOUND_TYPE)) {
             NbtCompound baseDisabledNbt = nbt.getCompound("BaseDisabledSlots");
             for (int i = 0; i < 5; i++) {
                 disabledSlots[i] = baseDisabledNbt.getBoolean("slot" + i);
             }
+        } else {
+            // 如果不存在，重置为false
+            for (int i = 0; i < 5; i++) {
+                disabledSlots[i] = false;
+            }
         }
         
         // 读取扩展槽位禁用状态
-        if (nbt.contains("ExtendedDisabledSlots")) {
+        if (nbt.contains("ExtendedDisabledSlots", net.minecraft.nbt.NbtElement.COMPOUND_TYPE)) {
             NbtCompound extendedDisabledNbt = nbt.getCompound("ExtendedDisabledSlots");
             for (int i = 0; i < 5; i++) {
                 disabledSlots[i + 5] = extendedDisabledNbt.getBoolean("slot" + i);
+            }
+        } else {
+            // 如果不存在，重置为false
+            for (int i = 0; i < 5; i++) {
+                disabledSlots[i + 5] = false;
             }
         }
         
@@ -95,14 +105,19 @@ public final class ClientUpgradeState {
     public static boolean isSlotDisabled(int slot) {
         if (slot < 0 || slot >= TOTAL_SLOT_COUNT) return false;
         
-        // 检查是否为初级仓库限制的槽位
+        // 先检查手动禁用状态（手动禁用优先）
+        if (disabledSlots[slot]) {
+            return true;
+        }
+        
+        // 再检查是否为初级仓库限制的槽位
         if (UpgradeInventory.isPrimaryStorageRestrictedSlot(slot)) {
             // 只有在使用初级仓库时才禁用这些槽位
             StorageType currentType = ClientStorageState.getStorageType();
             return currentType == StorageType.PRIMARY;
         }
         
-        return disabledSlots[slot];
+        return false;
     }
     
     /**
