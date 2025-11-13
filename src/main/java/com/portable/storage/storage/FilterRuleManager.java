@@ -52,6 +52,13 @@ public class FilterRuleManager {
     }
     
     /**
+     * 获取玩家的筛选规则
+     */
+    public static PlayerFilterRules getPlayerRules(ServerPlayerEntity player) {
+        return playerRules.get(player.getUuid());
+    }
+    
+    /**
      * 检查物品是否应该被漏斗拾取
      * @param player 玩家
      * @param itemStack 物品

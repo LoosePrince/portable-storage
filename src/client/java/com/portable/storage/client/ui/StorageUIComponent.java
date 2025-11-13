@@ -721,19 +721,20 @@ public class StorageUIComponent {
                         tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_piston.block_rotation"));
                     }
                     case 9 -> {
-                        // 附魔金苹果升级：显示当前模式和详细信息
+                        // 附魔金苹果升级：显示当前阈值和详细信息
                         tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.title"));
                         
-                        // 当前模式
-                        com.portable.storage.storage.AutoEatMode currentMode = ClientUpgradeState.getCurrentAutoEatMode();
-                        String modeName = Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.mode." + currentMode.getKey()).getString();
-                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.current_mode", modeName));
-                        
-                        // 饱食度阈值
-                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.threshold", currentMode.getThreshold()));
+                        // 当前阈值
+                        int threshold = ClientUpgradeState.getCurrentAutoEatThreshold();
+                        if (threshold == 0) {
+                            tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.threshold_disabled"));
+                        } else {
+                            tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.threshold", threshold));
+                        }
                         
                         // 交互提示
                         tooltipLines.add(Text.empty()); // 空行分隔
+                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.interact.right_click"));
                         tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.interact.middle_click"));
                     }
                 }
@@ -1872,6 +1873,19 @@ public class StorageUIComponent {
                         ));
                         return true;
                     }
+                    // 附魔金苹果升级槽位右键：循环阈值（禁用、2、4、6、...、18、20）
+                    if (i == 9 && ClientUpgradeState.isEnchantedGoldenAppleUpgradeActive()) {
+                        sendStorageAction(new StorageActionC2SPayload(
+                            StorageActionC2SPayload.Action.CLICK,
+                            StorageActionC2SPayload.Target.UPGRADE,
+                            i,
+                            button,
+                            0,
+                            "",
+                            0
+                        ));
+                        return true;
+                    }
                     // 其他槽位右键：发送到服务器（用于切换禁用等）
                     sendStorageAction(new StorageActionC2SPayload(
                         StorageActionC2SPayload.Action.CLICK,
@@ -1919,18 +1933,15 @@ public class StorageUIComponent {
                         ClientNetworkingHandlers.sendXpBottleMaintenanceToggle();
                         return true;
                     }
-                    // 附魔金苹果升级槽位中键：切换自动进食模式
+                    // 附魔金苹果升级槽位中键：打开筛选界面
                     if (i == 9 && ClientUpgradeState.isEnchantedGoldenAppleUpgradeActive()) {
-                        // 发送中键点击到服务端
-                        sendStorageAction(new StorageActionC2SPayload(
-                            StorageActionC2SPayload.Action.CLICK,
-                            StorageActionC2SPayload.Target.UPGRADE,
-                            i,
-                            button,
-                            0,
-                            "",
-                            0
-                        ));
+                        // 获取当前屏幕作为父界面，这样返回按钮可以正确回到原界面
+                        net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
+                        if (client.currentScreen != null) {
+                            client.setScreen(new com.portable.storage.client.screen.FilterListScreen(client.currentScreen, com.portable.storage.client.screen.FilterListScreen.Mode.FILTER));
+                        } else {
+                            com.portable.storage.client.screen.FilterScreenManager.openFilterScreen();
+                        }
                         return true;
                     }
                     // 其他槽位切换禁用状态

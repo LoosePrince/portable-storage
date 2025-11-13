@@ -4,7 +4,6 @@ import com.portable.storage.PortableStorage;
 import com.portable.storage.net.ServerNetworkingHandlers;
 import com.portable.storage.player.PlayerStorageService;
 import com.portable.storage.storage.UpgradeInventory;
-import com.portable.storage.storage.AutoEatMode;
 import com.portable.storage.util.FoodUtils;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -58,9 +57,13 @@ public class EnchantedGoldenAppleHandler {
             return;
         }
         
-        // 获取当前自动进食模式
-        AutoEatMode currentMode = ServerNetworkingHandlers.getPlayerAutoEatMode(player);
-        int threshold = currentMode.getThreshold();
+        // 获取当前自动进食阈值
+        int threshold = ServerNetworkingHandlers.getPlayerAutoEatThreshold(player);
+        
+        // 如果阈值为0，表示禁用自动进食
+        if (threshold == 0) {
+            return;
+        }
         
         // 检查玩家饱食度是否低于阈值
         if (!FoodUtils.needsFood(player, threshold)) {

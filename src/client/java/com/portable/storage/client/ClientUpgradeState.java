@@ -2,7 +2,6 @@ package com.portable.storage.client;
 
 import com.portable.storage.storage.StorageType;
 import com.portable.storage.storage.UpgradeInventory;
-import com.portable.storage.storage.AutoEatMode;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
@@ -224,16 +223,33 @@ public final class ClientUpgradeState {
         xpTransferStep = Math.max(0, Math.min(3, step)); // 确保在 0-3 范围内
     }
     
-    // ===== 自动进食模式管理 =====
-    private static AutoEatMode currentAutoEatMode = AutoEatMode.DEFAULT;
-    public static AutoEatMode getCurrentAutoEatMode() { return currentAutoEatMode; }
+    // ===== 自动进食阈值管理 =====
+    // 阈值数组：0(禁用)、2、4、6、8、10、12、14、16、18、20
+    private static final int[] AUTO_EAT_THRESHOLDS = new int[] {0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20};
+    private static int currentAutoEatThresholdIndex = 7; // 默认索引7，对应阈值14
     
-    public static void cycleAutoEatMode() {
-        currentAutoEatMode = currentAutoEatMode.next();
+    /**
+     * 获取当前自动进食阈值
+     * @return 阈值，0表示禁用
+     */
+    public static int getCurrentAutoEatThreshold() {
+        return AUTO_EAT_THRESHOLDS[currentAutoEatThresholdIndex];
     }
     
-    public static void setAutoEatMode(AutoEatMode mode) {
-        currentAutoEatMode = mode != null ? mode : AutoEatMode.DEFAULT;
+    /**
+     * 获取当前自动进食阈值索引
+     */
+    public static int getCurrentAutoEatThresholdIndex() {
+        return currentAutoEatThresholdIndex;
+    }
+    
+    /**
+     * 设置自动进食阈值索引
+     */
+    public static void setAutoEatThresholdIndex(int index) {
+        if (index >= 0 && index < AUTO_EAT_THRESHOLDS.length) {
+            currentAutoEatThresholdIndex = index;
+        }
     }
 }
 

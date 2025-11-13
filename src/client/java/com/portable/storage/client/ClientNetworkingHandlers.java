@@ -76,10 +76,9 @@ public final class ClientNetworkingHandlers {
                     }
                     case AUTO_EAT_MODE -> {
                         var nbt = payload.data();
-                        if (nbt != null && nbt.contains("modeIndex")) {
-                            int modeIndex = nbt.getInt("modeIndex");
-                            com.portable.storage.storage.AutoEatMode mode = com.portable.storage.storage.AutoEatMode.fromIndex(modeIndex);
-                            ClientUpgradeState.setAutoEatMode(mode);
+                        if (nbt != null && nbt.contains("thresholdIndex")) {
+                            int thresholdIndex = nbt.getInt("thresholdIndex");
+                            ClientUpgradeState.setAutoEatThresholdIndex(thresholdIndex);
                         }
                     }
                     case DISPLAY_CONFIG -> {

@@ -28,7 +28,6 @@ import com.portable.storage.screen.PortableCraftingScreenHandler;
 import com.portable.storage.storage.StorageInventory;
 import com.portable.storage.storage.StorageType;
 import com.portable.storage.storage.UpgradeInventory;
-import com.portable.storage.storage.AutoEatMode;
 import com.portable.storage.sync.PlayerViewState;
 import com.portable.storage.sync.StorageSyncManager;
 import com.portable.storage.world.SpaceRiftManager;
@@ -49,14 +48,16 @@ public final class ServerNetworkingHandlers {
     private static final java.util.Map<java.util.UUID, Integer> xpStepIndexByPlayer = new java.util.concurrent.ConcurrentHashMap<>();
     private static final int[] XP_STEPS = new int[] {1, 5, 10, 100};
     
-    // 附魔金苹果升级：自动进食模式，简单存内存，不做持久化
-    private static final java.util.Map<java.util.UUID, AutoEatMode> autoEatModeByPlayer = new java.util.concurrent.ConcurrentHashMap<>();
+    // 附魔金苹果升级：阈值数组（禁用、2、4、6、8、10、12、14、16、18、20）
+    private static final int[] AUTO_EAT_THRESHOLDS = new int[] {0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20};
+    private static final java.util.Map<java.util.UUID, Integer> autoEatThresholdIndexByPlayer = new java.util.concurrent.ConcurrentHashMap<>();
     
     /**
-     * 获取玩家的当前自动进食模式
+     * 获取玩家的当前自动进食阈值
      */
-    public static AutoEatMode getPlayerAutoEatMode(ServerPlayerEntity player) {
-        return autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DEFAULT);
+    public static int getPlayerAutoEatThreshold(ServerPlayerEntity player) {
+        int index = autoEatThresholdIndexByPlayer.getOrDefault(player.getUuid(), 7); // 默认索引7，对应阈值14
+        return AUTO_EAT_THRESHOLDS[index];
     }
 	
 	/**
@@ -1050,11 +1051,11 @@ public final class ServerNetworkingHandlers {
                     com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.XP_STEP, data));
             ServerPlayNetworking.send(player, com.portable.storage.net.payload.ConfigSyncS2CPayload.ID, b2);
 		}
-		// 同步自动进食模式
+		// 同步自动进食阈值
 		{
-			AutoEatMode mode = autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DEFAULT);
+			int thresholdIndex = autoEatThresholdIndexByPlayer.getOrDefault(player.getUuid(), 7);
 			NbtCompound data = new NbtCompound();
-			data.putInt("modeIndex", mode.getIndex());
+			data.putInt("thresholdIndex", thresholdIndex);
             net.minecraft.network.PacketByteBuf b3 = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
             com.portable.storage.net.payload.ConfigSyncS2CPayload.write(b3,
                 new com.portable.storage.net.payload.ConfigSyncS2CPayload(
@@ -1253,6 +1254,30 @@ public final class ServerNetworkingHandlers {
                 ServerPlayNetworking.send(player, com.portable.storage.net.payload.ConfigSyncS2CPayload.ID, xbuf);
                 return;
             }
+            if (slot == 9 && !upgrades.isSlotDisabled(9, player) && !upgrades.getStack(9).isEmpty()) {
+                // 附魔金苹果升级槽：右键循环阈值（禁用、2、4、6、...、18、20）
+                int currentIndex = autoEatThresholdIndexByPlayer.getOrDefault(player.getUuid(), 7);
+                int nextIndex = (currentIndex + 1) % AUTO_EAT_THRESHOLDS.length;
+                autoEatThresholdIndexByPlayer.put(player.getUuid(), nextIndex);
+                int threshold = AUTO_EAT_THRESHOLDS[nextIndex];
+                
+                // 发送消息给玩家
+                if (threshold == 0) {
+                    player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.threshold_disabled"), true);
+                } else {
+                    player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.threshold_set", threshold), true);
+                }
+                
+                // 同步阈值到客户端
+                net.minecraft.nbt.NbtCompound data = new net.minecraft.nbt.NbtCompound();
+                data.putInt("thresholdIndex", nextIndex);
+                net.minecraft.network.PacketByteBuf abuf = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+                com.portable.storage.net.payload.ConfigSyncS2CPayload.write(abuf,
+                    new com.portable.storage.net.payload.ConfigSyncS2CPayload(
+                        com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.AUTO_EAT_MODE, data));
+                ServerPlayNetworking.send(player, com.portable.storage.net.payload.ConfigSyncS2CPayload.ID, abuf);
+                return;
+            }
             upgrades.toggleSlotDisabled(slot);
             sendUpgradeSync(player);
             return;
@@ -1260,23 +1285,14 @@ public final class ServerNetworkingHandlers {
         
         if (button == 2) { // 中键点击
             if (slot == 9 && !upgrades.isSlotDisabled(9, player) && !upgrades.getStack(9).isEmpty()) {
-                // 附魔金苹果升级槽：中键切换自动进食模式
-                AutoEatMode currentMode = autoEatModeByPlayer.getOrDefault(player.getUuid(), AutoEatMode.DEFAULT);
-                AutoEatMode nextMode = currentMode.next();
-                autoEatModeByPlayer.put(player.getUuid(), nextMode);
-                
-                // 发送消息给玩家
-                String modeName = Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.mode." + nextMode.getKey()).getString();
-                player.sendMessage(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.mode_switched", modeName), true);
-                
-                // 同步模式到客户端
-                net.minecraft.nbt.NbtCompound data = new net.minecraft.nbt.NbtCompound();
-                data.putInt("modeIndex", nextMode.getIndex());
-                net.minecraft.network.PacketByteBuf abuf = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
-                com.portable.storage.net.payload.ConfigSyncS2CPayload.write(abuf,
-                    new com.portable.storage.net.payload.ConfigSyncS2CPayload(
-                        com.portable.storage.net.payload.ConfigSyncS2CPayload.Topic.AUTO_EAT_MODE, data));
-                ServerPlayNetworking.send(player, com.portable.storage.net.payload.ConfigSyncS2CPayload.ID, abuf);
+                // 附魔金苹果升级槽：中键打开筛选界面
+                net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
+                com.portable.storage.net.payload.RequestOpenScreenC2SPayload.write(b, new com.portable.storage.net.payload.RequestOpenScreenC2SPayload(
+                    com.portable.storage.net.payload.RequestOpenScreenC2SPayload.Screen.FILTER_SCREEN,
+                    null,
+                    ""
+                ));
+                ServerPlayNetworking.send(player, com.portable.storage.net.payload.RequestOpenScreenC2SPayload.ID, b);
                 return;
             }
             // 其他槽位中键：切换禁用状态
@@ -2296,3 +2312,4 @@ public final class ServerNetworkingHandlers {
 		return (currentTime - createTime) >= 200; // 10秒 = 200 ticks
 	}
 }
+

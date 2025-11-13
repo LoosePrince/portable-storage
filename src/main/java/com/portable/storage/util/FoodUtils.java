@@ -125,8 +125,8 @@ public class FoodUtils {
         
         // 循环进食直到达到目标饱食度
         while (needsFood(player, targetFoodLevel)) {
-            // 寻找数量最多的食物
-            int bestFoodIndex = findMostAbundantFoodIndex(storage);
+            // 寻找数量最多的食物（支持筛选规则）
+            int bestFoodIndex = findMostAbundantFoodIndex(storage, player);
             if (bestFoodIndex == -1) {
                 break; // 没有食物了
             }
@@ -182,8 +182,8 @@ public class FoodUtils {
             // 获取合并的存储视图（每次循环都重新获取，确保数据最新）
             var storage = com.portable.storage.net.ServerNetworkingHandlers.buildMergedSnapshot(player);
             
-            // 寻找数量最多的食物
-            int bestFoodIndex = findMostAbundantFoodIndex(storage);
+            // 寻找数量最多的食物（支持筛选规则）
+            int bestFoodIndex = findMostAbundantFoodIndex(storage, player);
             if (bestFoodIndex == -1) {
                 break; // 没有食物了
             }
@@ -222,9 +222,9 @@ public class FoodUtils {
     }
     
     /**
-     * 在仓库中寻找数量最多的食物的索引
+     * 在仓库中寻找数量最多的食物的索引（支持筛选规则）
      */
-    private static int findMostAbundantFoodIndex(StorageInventory storage) {
+    private static int findMostAbundantFoodIndex(StorageInventory storage, ServerPlayerEntity player) {
         int bestIndex = -1;
         long maxCount = 0;
         
@@ -238,9 +238,24 @@ public class FoodUtils {
             if (!stack.isEmpty() && count > 0) {
                 boolean isFoodItem = isFood(stack);
                 
-                if (isFoodItem && count > maxCount) {
-                    maxCount = count;
-                    bestIndex = i;
+                // 如果存在筛选规则，检查是否应该拾取
+                if (isFoodItem) {
+                    // 检查筛选规则（如果存在筛选规则，只吃筛选规则允许的食物）
+                    if (player != null) {
+                        com.portable.storage.storage.FilterRuleManager.PlayerFilterRules rules = 
+                            com.portable.storage.storage.FilterRuleManager.getPlayerRules(player);
+                        if (rules != null && !rules.filterRules.isEmpty()) {
+                            // 有筛选规则时，只吃筛选规则允许的食物
+                            if (!com.portable.storage.storage.FilterRuleManager.shouldPickupItem(player, stack)) {
+                                continue; // 不符合筛选规则，跳过
+                            }
+                        }
+                    }
+                    
+                    if (count > maxCount) {
+                        maxCount = count;
+                        bestIndex = i;
+                    }
                 }
             }
         }
