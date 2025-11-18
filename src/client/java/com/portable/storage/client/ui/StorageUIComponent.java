@@ -692,28 +692,8 @@ public class StorageUIComponent {
                     case 5 -> tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_desc.spectral_arrow"));
                     case 6 -> tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_desc.bed"));
                     case 7 -> tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_desc.experience_bottle"));
-                    case 8 -> {
-                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_desc.piston"));
-                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_piston.auto_refill"));
-                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_piston.block_rotation"));
-                    }
-                    case 9 -> {
-                        // 附魔金苹果升级：显示当前喂食数
-                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.title"));
-                        
-                        // 当前喂食数
-                        com.portable.storage.storage.AutoEatMode currentMode = ClientUpgradeState.getCurrentAutoEatMode();
-                        if (currentMode.isEnabled()) {
-                            tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.feed_count", currentMode.getFeedCount()));
-                        } else {
-                            tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.feed_disabled"));
-                        }
-                        
-                        // 交互提示
-                        tooltipLines.add(Text.empty()); // 空行分隔
-                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.interact.right_click"));
-                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.interact.middle_click"));
-                    }
+                    case 8 -> tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_desc.piston"));
+                    case 9 -> tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.title"));
                 }
 
                 if (hasItem && isDisabled) {
@@ -732,6 +712,22 @@ public class StorageUIComponent {
                     int[] steps = {1, 5, 10, 100};
                     int level = steps[currentStep];
                     tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_current_step", level));
+                } else if (slotIndex == 8) {
+                    tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_piston.auto_refill"));
+                    tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_piston.block_rotation"));
+                } else if (slotIndex == 9) {
+                    // 当前喂食数
+                    com.portable.storage.storage.AutoEatMode currentMode = ClientUpgradeState.getCurrentAutoEatMode();
+                    if (currentMode.isEnabled()) {
+                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.feed_count", currentMode.getFeedCount()));
+                    } else {
+                        tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.feed_disabled"));
+                    }
+                    
+                    // 交互提示
+                    tooltipLines.add(Text.empty()); // 空行分隔
+                    tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.interact.right_click"));
+                    tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".enchanted_golden_apple.interact.middle_click"));
                 } else if (slotIndex == 0) {
                     tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_right_click_custom_crafting"));
                     // 只有服务端启用虚拟合成功能时才显示相关描述
@@ -744,7 +740,7 @@ public class StorageUIComponent {
                         tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_virtual_crafting_status", virtualCraftingStatus));
                         tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_virtual_crafting_warning"));
                     }
-                } else if (slotIndex != 9) {
+                } else {
                     tooltipLines.add(Text.translatable(PortableStorage.MOD_ID + ".ui.upgrade_right_click_hint"));
                 }
 
