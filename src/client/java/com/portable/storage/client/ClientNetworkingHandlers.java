@@ -1,5 +1,6 @@
 package com.portable.storage.client;
 
+import com.portable.storage.PortableStorage;
 import com.portable.storage.client.ui.VirtualCraftingOverlayState;
 import com.portable.storage.net.payload.ConfigSyncS2CPayload;
 import com.portable.storage.net.payload.CraftingOverlayActionC2SPayload;
@@ -13,11 +14,13 @@ import com.portable.storage.net.payload.OpenBarrelFilterS2CPayload;
 import com.portable.storage.storage.StorageType;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.nbt.NbtElement;
 
 public final class ClientNetworkingHandlers {
 	private ClientNetworkingHandlers() {}
 
 	public static void register() {
+        ClientSyncRequestDispatcher.registerLifecycleCallbacks();
 		// 增量同步通道已移除
 		// 注册新的增量同步接收器
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
@@ -26,12 +29,29 @@ public final class ClientNetworkingHandlers {
                 final IncrementalStorageSyncS2CPayload payload = IncrementalStorageSyncS2CPayload.read(buf);
                 client.execute(() -> {
                     if (client.player == null) return;
+                    int removes = 0;
+                    int upserts = 0;
+                    if (payload.diff() != null) {
+                        if (payload.diff().contains("removes", NbtElement.LIST_TYPE)) {
+                            removes = payload.diff().getList("removes", NbtElement.STRING_TYPE).size();
+                        }
+                        if (payload.diff().contains("upserts", NbtElement.LIST_TYPE)) {
+                            upserts = payload.diff().getList("upserts", NbtElement.COMPOUND_TYPE).size();
+                        }
+                    }
+                    PortableStorage.LOGGER.info(
+                        "[Client] 收到增量同步: session={}, seq={}, removes={}, upserts={}",
+                        payload.sessionId(), payload.seq(), removes, upserts
+                    );
                     ClientStorageState.applyDiff(payload.sessionId(), payload.seq(), payload.diff());
                     try {
                         net.minecraft.network.PacketByteBuf ab = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
                         SyncControlC2SPayload.write(ab, new SyncControlC2SPayload(SyncControlC2SPayload.Op.ACK, payload.seq(), true));
                         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(SyncControlC2SPayload.ID, ab);
-                    } catch (Throwable ignored) {}
+                        PortableStorage.LOGGER.debug("[Client] 已发送增量 ACK，seq={}", payload.seq());
+                    } catch (Throwable ex) {
+                        PortableStorage.LOGGER.warn("[Client] 发送增量 ACK 失败", ex);
+                    }
                 });
             }
         );
@@ -41,6 +61,7 @@ public final class ClientNetworkingHandlers {
             final StorageSyncS2CPayload payload = StorageSyncS2CPayload.read(buf);
             client.execute(() -> {
                 if (client.player == null) return;
+                PortableStorage.LOGGER.info("[Client] 收到全量同步，nbtKeys={}", payload.nbt().getKeys());
                 ClientStorageState.updateFromNbt(payload.nbt(), client.player.getWorld().getRegistryManager());
             });
         });
@@ -60,6 +81,9 @@ public final class ClientNetworkingHandlers {
                         if (nbt != null) {
                             if (nbt.contains("enabled")) {
                                 ClientStorageState.setStorageEnabled(nbt.getBoolean("enabled"));
+                                if (nbt.getBoolean("enabled")) {
+                                    ClientSyncRequestDispatcher.requestInitialIfNeeded("enablement_sync");
+                                }
                             }
                             if (nbt.contains("storageType")) {
                                 String typeKey = nbt.getString("storageType");
@@ -182,7 +206,7 @@ public final class ClientNetworkingHandlers {
         
         // 处理服务器请求同步筛选规则
         ClientPlayNetworking.registerGlobalReceiver(RequestFilterRulesSyncS2CPayload.ID, (client, handler, buf, responseSender) -> {
-            final RequestFilterRulesSyncS2CPayload payload = RequestFilterRulesSyncS2CPayload.read(buf);
+            RequestFilterRulesSyncS2CPayload.read(buf);
             client.execute(() -> {
                 if (client.player == null) return;
                 // 主动同步筛选规则到服务器

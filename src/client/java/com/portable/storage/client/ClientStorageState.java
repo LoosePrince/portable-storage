@@ -1,6 +1,7 @@
 package com.portable.storage.client;
 
 import com.mojang.serialization.DynamicOps;
+import com.portable.storage.PortableStorage;
 import com.portable.storage.net.payload.SyncControlC2SPayload;
 import com.portable.storage.storage.StorageType;
 
@@ -41,7 +42,12 @@ public final class ClientStorageState {
     public static boolean isStorageEnabled() { return storageEnabled; }
     
     public static void setStorageEnabled(boolean enabled) {
+        if (storageEnabled == enabled) {
+            PortableStorage.LOGGER.trace("[ClientStorage] 仓库启用状态维持为 {}", enabled);
+            return;
+        }
         storageEnabled = enabled;
+        PortableStorage.LOGGER.info("[ClientStorage] 仓库启用状态切换为 {}", enabled);
     }
     
     public static StorageType getStorageType() { return storageType; }
@@ -106,24 +112,38 @@ public final class ClientStorageState {
             display.set(idx, stack);
             idx++;
         }
+        PortableStorage.LOGGER.info(
+            "[ClientStorage] 全量同步完成: sessionId={}, capacity={}, entriesApplied={}",
+            clientSessionId, capacity, idx
+        );
     }
 
     public static void applyDiff(long sessionId, int seq, NbtCompound diff) {
         if (sessionId != clientSessionId || seq != expectedSeq) {
             // 会话或序号不匹配：请求全量回退
+            PortableStorage.LOGGER.warn(
+                "[ClientStorage] 增量序列不匹配: sessionId={}, expectedSessionId={}, seq={}, expectedSeq={}",
+                sessionId, clientSessionId, seq, expectedSeq
+            );
         try {
             net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
-            com.portable.storage.net.payload.SyncControlC2SPayload.write(b, new com.portable.storage.net.payload.SyncControlC2SPayload(
-                com.portable.storage.net.payload.SyncControlC2SPayload.Op.REQUEST,
+            SyncControlC2SPayload.write(b, new SyncControlC2SPayload(
+                SyncControlC2SPayload.Op.REQUEST,
                 0L,
                 false
             ));
-            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.SyncControlC2SPayload.ID, b);
+            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(SyncControlC2SPayload.ID, b);
+            PortableStorage.LOGGER.info("[ClientStorage] 已请求全量回滚同步");
         } catch (Throwable ignored) {}
             return;
         }
+        PortableStorage.LOGGER.info(
+            "[ClientStorage] 应用增量: sessionId={}, seq={}, hasDiff={}",
+            sessionId, seq, diff != null
+        );
         if (diff == null) {
             expectedSeq++;
+            PortableStorage.LOGGER.info("[ClientStorage] 空 diff，直接推进序列到 {}", expectedSeq);
             return;
         }
         // removes
@@ -143,6 +163,7 @@ public final class ClientStorageState {
             }
         }
         expectedSeq++;
+        PortableStorage.LOGGER.info("[ClientStorage] 增量应用完成，下一期待序列={}", expectedSeq);
     }
 
     private static void removeByKey(String key) {

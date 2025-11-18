@@ -10,15 +10,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import com.portable.storage.PortableStorage;
 import com.portable.storage.client.ClientConfig;
 import com.portable.storage.client.ClientStorageState;
+import com.portable.storage.client.ClientSyncRequestDispatcher;
 import com.portable.storage.client.ClientUpgradeState;
 import com.portable.storage.client.ClientVirtualCraftingConfig;
 import com.portable.storage.client.ui.StorageUIComponent;
 import com.portable.storage.client.ui.VirtualCraftingOverlayState;
-import com.portable.storage.net.payload.CraftingOverlayActionC2SPayload;
-import com.portable.storage.net.payload.SyncControlC2SPayload;
 import com.portable.storage.sync.PlayerViewState;
 
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -76,13 +74,7 @@ public abstract class InventoryScreenMixin {
         PlayerViewState.startViewing(MinecraftClient.getInstance().player.getUuid());
         
         // 打开界面时请求同步
-        net.minecraft.network.PacketByteBuf rb = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
-        com.portable.storage.net.payload.SyncControlC2SPayload.write(rb, new com.portable.storage.net.payload.SyncControlC2SPayload(
-            com.portable.storage.net.payload.SyncControlC2SPayload.Op.REQUEST,
-            0L,
-            false
-        ));
-        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.SyncControlC2SPayload.ID, rb);
+        ClientSyncRequestDispatcher.request("open_inventory");
     }
 
     @Inject(method = "render", at = @At("TAIL"))

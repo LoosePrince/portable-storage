@@ -4,16 +4,12 @@ import com.portable.storage.PortableStorage;
 import com.portable.storage.block.ModBlocks;
 import com.portable.storage.config.ServerConfig;
 import com.portable.storage.crafting.OverlayCraftingManager;
-import com.portable.storage.net.payload.ConfigSyncS2CPayload;
 import com.portable.storage.net.payload.CraftingOverlayActionC2SPayload;
 import com.portable.storage.net.payload.FluidClickC2SPayload;
 import com.portable.storage.net.payload.FluidConversionC2SPayload;
 import com.portable.storage.net.payload.FluidSlotClickC2SPayload;
-import com.portable.storage.net.payload.IncrementalStorageSyncS2CPayload;
-import com.portable.storage.net.payload.OverlayCraftingSyncS2CPayload;
 import com.portable.storage.net.payload.RequestOpenScreenC2SPayload;
 import com.portable.storage.net.payload.StorageActionC2SPayload;
-import com.portable.storage.net.payload.StorageSyncS2CPayload;
 import com.portable.storage.net.payload.SyncControlC2SPayload;
 import com.portable.storage.net.payload.XpBottleClickC2SPayload;
 import com.portable.storage.net.payload.XpBottleConversionC2SPayload;
@@ -85,10 +81,19 @@ public final class ServerNetworkingHandlers {
                 if (payload.op() == com.portable.storage.net.payload.SyncControlC2SPayload.Op.REQUEST) {
                     // 标记玩家开始查看仓库界面
                     PlayerViewState.startViewing(player.getUuid());
+                    var access = (com.portable.storage.player.PlayerStorageAccess) player;
+                    boolean rejected = checkAndRejectIfNotEnabled(player);
+                    PortableStorage.LOGGER.info(
+                        "[Server] 收到 {} 的同步请求: enabled={}, type={}, rejected={}",
+                        player.getGameProfile().getName(),
+                        access.portableStorage$isStorageEnabled(),
+                        access.portableStorage$getStorageType(),
+                        rejected
+                    );
                     // 直接发送启用状态与全量同步
                     sendEnablementSync(player);
-                    if (!checkAndRejectIfNotEnabled(player)) {
-                        sendSync(player);
+                    if (!rejected) {
+                        sendSync(player, "sync_control_request");
                     }
                 } else if (payload.op() == com.portable.storage.net.payload.SyncControlC2SPayload.Op.ACK) {
                     StorageSyncManager.handleSyncAck(player.getUuid(), payload.syncId(), payload.success());
@@ -862,11 +867,19 @@ public final class ServerNetworkingHandlers {
     }
 
     public static void sendSync(ServerPlayerEntity player) {
+        sendSync(player, "unspecified");
+    }
+
+    public static void sendSync(ServerPlayerEntity player, String reason) {
         StorageInventory merged = buildMergedSnapshot(player);
         NbtCompound nbt = new NbtCompound();
         // 重置玩家会话并写入新的 sessionId，客户端据此重置 expectedSeq
         StorageSyncManager.startNewSession(player.getUuid());
         long sid = StorageSyncManager.getOrStartSession(player.getUuid());
+        PortableStorage.LOGGER.info(
+            "[Server] 向 {} 发送全量同步: sessionId={}, entryCount={}, reason={}",
+            player.getGameProfile().getName(), sid, merged.getCapacity(), reason
+        );
         nbt.putLong("sessionId", sid);
         // 使用玩家注册表上下文，确保附魔等基于注册表的数据正确序列化
         merged.writeNbt(nbt, null);
@@ -889,6 +902,7 @@ public final class ServerNetworkingHandlers {
         // 会话不重置，仅生成下一序号
         long sid = StorageSyncManager.getOrStartSession(player.getUuid());
         int seq = StorageSyncManager.nextSeq(player.getUuid());
+        int seqStart = seq;
         StorageInventory cur = buildMergedSnapshot(player);
         NbtCompound diff = buildRealDiffFromSnapshots(player, cur);
         // 分包：按配置上限切分 upserts+removes
@@ -897,6 +911,15 @@ public final class ServerNetworkingHandlers {
             maxEntries = Math.max(1, ServerConfig.getInstance().getIncrementalSyncMaxEntries());
         } catch (Throwable ignored) {}
         java.util.List<NbtCompound> chunks = splitDiff(diff, maxEntries);
+        PortableStorage.LOGGER.info(
+            "[Server] 向 {} 发送增量同步: sessionId={}, seqStart={}, chunkCount={}, diffRemoves={}, diffUpserts={}",
+            player.getGameProfile().getName(),
+            sid,
+            seqStart,
+            chunks.size(),
+            diff.contains("removes", net.minecraft.nbt.NbtElement.LIST_TYPE) ? diff.getList("removes", net.minecraft.nbt.NbtElement.STRING_TYPE).size() : 0,
+            diff.contains("upserts", net.minecraft.nbt.NbtElement.LIST_TYPE) ? diff.getList("upserts", net.minecraft.nbt.NbtElement.COMPOUND_TYPE).size() : 0
+        );
         for (NbtCompound part : chunks) {
             net.minecraft.network.PacketByteBuf b = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
             com.portable.storage.net.payload.IncrementalStorageSyncS2CPayload.write(b, new com.portable.storage.net.payload.IncrementalStorageSyncS2CPayload(sid, seq, part));
