@@ -12,6 +12,7 @@ import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.MinecraftServer;
 
+import com.portable.storage.PortableStorage;
 import com.portable.storage.util.SafeNbtIo;
 
 /**
@@ -45,6 +46,11 @@ public final class TemplateSlices {
     }
 
     public static int putTemplate(MinecraftServerLike server, TemplateIndex index, String key, ItemStack stack, RegistryWrapper.WrapperLookup lookup) {
+        StorageItemValidator.ValidationResult validation = StorageItemValidator.validate(stack, lookup);
+        if (!validation.valid()) {
+            PortableStorage.LOGGER.warn("检测到损坏模板，已拒绝写入。key={} reason={}", key, validation.reason());
+            return index.getOrAllocateSlice();
+        }
         // 选择切片：尽量使用当前切片，必要时滚动
         int targetSlice = index.getOrAllocateSlice();
         if (wouldExceedLimit(server.getServer(), targetSlice, estimateSize(stack, lookup))) {
@@ -65,8 +71,13 @@ public final class TemplateSlices {
             NbtCompound templates = root.contains("templates") ? root.getCompound("templates") : new NbtCompound();
             var ops = (lookup != null) ? net.minecraft.registry.RegistryOps.of(NbtOps.INSTANCE, lookup) : NbtOps.INSTANCE;
             var enc = ItemStack.CODEC.encodeStart(ops, stack);
+            if (enc.result().isEmpty()) {
+                PortableStorage.LOGGER.warn("模板序列化失败，已拒绝写入。key={}", key);
+                return targetSlice;
+            }
             enc.result().ifPresent(nbt -> templates.put(key, nbt));
             root.put("templates", templates);
+            StorageDataVersion.stamp(root);
             SafeNbtIo.writeCompressed(root, sliceFile);
 
             int size = estimateSize(stack, lookup);
@@ -78,20 +89,25 @@ public final class TemplateSlices {
 
     public static void removeTemplate(MinecraftServerLike server, TemplateIndex index, String key) {
         TemplateIndex.Entry e = index.find(key);
-        if (e == null) return;
-        Path sliceFile = StoragePaths.getSliceFile(server.getServer(), e.slice);
-        if (!Files.exists(sliceFile)) return;
-        try {
-            NbtCompound root = SafeNbtIo.readCompressed(sliceFile, NbtSizeTracker.ofUnlimitedBytes());
-            if (root == null) return;
-            if (root.contains("templates")) {
-                NbtCompound templates = root.getCompound("templates");
-                templates.remove(key);
-                root.put("templates", templates);
-            }
-            SafeNbtIo.writeCompressed(root, sliceFile);
+        if (e == null) {
             index.remove(key);
-        } catch (IOException ignored) {}
+            return;
+        }
+        Path sliceFile = StoragePaths.getSliceFile(server.getServer(), e.slice);
+        if (Files.exists(sliceFile)) {
+            try {
+                NbtCompound root = SafeNbtIo.readCompressed(sliceFile, NbtSizeTracker.ofUnlimitedBytes());
+                if (root == null) root = new NbtCompound();
+                if (root.contains("templates")) {
+                    NbtCompound templates = root.getCompound("templates");
+                    templates.remove(key);
+                    root.put("templates", templates);
+                }
+                StorageDataVersion.stamp(root);
+                SafeNbtIo.writeCompressed(root, sliceFile);
+            } catch (IOException ignored) {}
+        }
+        index.remove(key);
     }
 
     private static boolean wouldExceedLimit(MinecraftServer server, int slice, int addBytes) {

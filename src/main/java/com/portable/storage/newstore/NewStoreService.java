@@ -14,6 +14,7 @@ import net.minecraft.nbt.NbtIo;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -38,6 +39,13 @@ public final class NewStoreService {
         if (player == null || stack == null || stack.isEmpty()) return 0;
         MinecraftServer server = player.getServer();
         if (server == null) return 0;
+        
+        StorageItemValidator.ValidationResult validation = StorageItemValidator.validate(stack, player.getRegistryManager());
+        if (!validation.valid()) {
+            player.sendMessage(Text.translatable("portable-storage.message.deposit_corrupt_rejected"), true);
+            PortableStorage.LOGGER.warn("拒绝损坏物品存入，玩家={} reason={}", player.getGameProfile().getName(), validation.reason());
+            return 0;
+        }
         
         // 检查单个物品大小限制
         ServerConfig config = ServerConfig.getInstance();
@@ -109,6 +117,12 @@ public final class NewStoreService {
 
     public static void insertForOfflineUuid(MinecraftServer server, java.util.UUID uuid, ItemStack stack, RegistryWrapper.WrapperLookup lookup) {
         if (server == null || uuid == null || stack == null || stack.isEmpty()) return;
+        
+        StorageItemValidator.ValidationResult validation = StorageItemValidator.validate(stack, lookup);
+        if (!validation.valid()) {
+            PortableStorage.LOGGER.warn("拒绝损坏物品存入（离线），uuid={} reason={}", uuid, validation.reason());
+            return;
+        }
         
         // 纯内存操作：不进行文件IO
         TemplateIndex index = StorageMemoryCache.getTemplateIndex();
@@ -276,6 +290,7 @@ public final class NewStoreService {
         TemplateIndex index = StorageMemoryCache.getTemplateIndex();
         // 使用服务器的注册表上下文，确保附魔等基于注册表的数据正确解析
         var lookup = server.getRegistryManager();
+        java.util.List<String> removedKeys = new java.util.ArrayList<>();
         for (java.util.UUID uuid : sharedUuids) {
             var entries = PlayerStore.readAll(server, uuid);
             for (PlayerStore.Entry e : entries.values()) {
@@ -290,7 +305,12 @@ public final class NewStoreService {
                         StorageMemoryCache.addTemplate(e.key, stack);
                     }
                 }
-                if (stack == null || stack.isEmpty()) continue;
+                if (stack == null || stack.isEmpty()) {
+                    if (handleCorruptEntry(server, uuid, e)) {
+                        removedKeys.add(e.key);
+                    }
+                    continue;
+                }
                 long left = e.count;
                 while (left > 0) {
                     int chunk = (int) Math.min(Integer.MAX_VALUE, left);
@@ -299,6 +319,12 @@ public final class NewStoreService {
                     agg.insertItemStackWithOriginalTimestamp(copy, e.ts);
                     left -= chunk;
                 }
+            }
+        }
+        if (!removedKeys.isEmpty()) {
+            ServerPlayerEntity viewer = server.getPlayerManager().getPlayer(viewerUuid);
+            if (viewer != null) {
+                notifyCorruptRemoval(viewer, removedKeys);
             }
         }
         return agg;
@@ -464,6 +490,30 @@ public final class NewStoreService {
         }
         
         return true; // 没有物品或所有物品数量为0，存储为空
+    }
+
+    private static boolean handleCorruptEntry(MinecraftServer server, UUID ownerUuid, PlayerStore.Entry entry) {
+        if (server == null || entry == null || entry.key == null || entry.key.isEmpty()) {
+            return false;
+        }
+        boolean removed = PlayerStore.purgeEntry(server, ownerUuid, entry.key);
+        TemplateIndex index = StorageMemoryCache.getTemplateIndex();
+        StorageMemoryCache.getTemplateCache().remove(entry.key);
+        TemplateSlices.removeTemplate(() -> server, index, entry.key);
+        StorageMemoryCache.markTemplateIndexDirty();
+        PortableStorage.LOGGER.warn("检测到损坏模板，已移除存储条目 key={} owner={}", entry.key, ownerUuid);
+        return removed;
+    }
+
+    private static void notifyCorruptRemoval(ServerPlayerEntity viewer, java.util.List<String> removedKeys) {
+        if (viewer == null || removedKeys == null || removedKeys.isEmpty()) {
+            return;
+        }
+        if (removedKeys.size() == 1) {
+            viewer.sendMessage(Text.translatable("portable-storage.message.corrupt_entry_cleaned.single", removedKeys.get(0)), false);
+        } else {
+            viewer.sendMessage(Text.translatable("portable-storage.message.corrupt_entry_cleaned.multi", removedKeys.size()), false);
+        }
     }
 }
 

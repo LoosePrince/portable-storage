@@ -10,6 +10,7 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.server.MinecraftServer;
 
+import com.portable.storage.PortableStorage;
 import com.portable.storage.util.SafeNbtIo;
 
 /**
@@ -34,6 +35,11 @@ public final class TemplateIndex {
         if (!Files.exists(file)) return idx;
         try {
             NbtCompound root = SafeNbtIo.readCompressed(file, NbtSizeTracker.ofUnlimitedBytes());
+            if (root != null) {
+                if (!StorageDataVersion.isCompatible(root)) {
+                    PortableStorage.LOGGER.warn("检测到未来版本的模板索引: {} (version={})", file, StorageDataVersion.read(root));
+                }
+            }
             if (root != null && root.contains(ROOT)) {
                 NbtCompound m = root.getCompound(ROOT);
                 for (String k : m.getKeys()) {
@@ -63,6 +69,7 @@ public final class TemplateIndex {
             m.put(en.getKey(), v);
         }
         root.put(ROOT, m);
+        StorageDataVersion.stamp(root);
         try {
             SafeNbtIo.writeCompressed(root, file);
         } catch (IOException ignored) {}

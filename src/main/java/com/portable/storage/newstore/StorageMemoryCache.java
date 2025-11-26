@@ -11,6 +11,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import com.portable.storage.PortableStorage;
+import com.portable.storage.util.SafeNbtIo;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
@@ -153,7 +154,7 @@ public final class StorageMemoryCache {
                         if (entry != null) {
                             ItemStack template = TemplateSlices.getTemplate(() -> server, templateIndex, key, server.getRegistryManager());
                             if (!template.isEmpty()) {
-                                templateCache.put(key, template);
+                                addTemplate(key, template);
                                 loadedCount++;
                             }
                         }
@@ -229,25 +230,39 @@ public final class StorageMemoryCache {
             Map<String, PlayerStore.Entry> entries = new LinkedHashMap<>();
             if (!Files.exists(file)) return new PlayerCacheEntry(null);
             
-            NbtCompound root = net.minecraft.nbt.NbtIo.readCompressed(file, net.minecraft.nbt.NbtSizeTracker.ofUnlimitedBytes());
+            NbtCompound root = SafeNbtIo.readCompressed(file, net.minecraft.nbt.NbtSizeTracker.ofUnlimitedBytes());
             if (root == null) return new PlayerCacheEntry(null);
+            if (!StorageDataVersion.isCompatible(root)) {
+                PortableStorage.LOGGER.warn("玩家数据文件版本不兼容，已尝试继续读取: {} (version={})", file, StorageDataVersion.read(root));
+            }
             
+            boolean mutated = false;
+            Long sessionId = root.contains(PlayerStore.SESSION) ? root.getLong(PlayerStore.SESSION) : null;
             if (root.contains(PlayerStore.ENTRIES, net.minecraft.nbt.NbtElement.LIST_TYPE)) {
                 NbtList list = root.getList(PlayerStore.ENTRIES, net.minecraft.nbt.NbtElement.COMPOUND_TYPE);
                 for (int i = 0; i < list.size(); i++) {
                     NbtCompound c = list.getCompound(i);
-                    PlayerStore.Entry e = new PlayerStore.Entry();
-                    e.key = c.getString("key");
-                    e.count = c.getLong("count");
-                    e.ts = c.getLong("ts");
-                    if (e.key != null && !e.key.isEmpty() && e.count > 0) {
-                        entries.put(e.key, e);
+                    String key = c.getString("key");
+                    long count = c.getLong("count");
+                    long ts = c.contains("ts") ? c.getLong("ts") : 0L;
+                    if (key == null || key.isBlank() || count <= 0) {
+                        mutated = true;
+                        continue;
                     }
+                    PlayerStore.Entry e = new PlayerStore.Entry();
+                    e.key = key;
+                    e.count = count;
+                    e.ts = ts;
+                    entries.put(e.key, e);
                 }
             }
             
-            PlayerCacheEntry entry = new PlayerCacheEntry(null); // sessionId 暂时设为 null
+            PlayerCacheEntry entry = new PlayerCacheEntry(sessionId);
             entry.entries.putAll(entries);
+            if (mutated) {
+                entry.dirty = true;
+                PortableStorage.LOGGER.warn("检测到玩家存储中的损坏条目，已自动清理: {}", file);
+            }
             return entry;
         } catch (Exception e) {
             PortableStorage.LOGGER.error("Failed to load player data for UUID: " + uuid, e);
@@ -352,7 +367,8 @@ public final class StorageMemoryCache {
                 list.add(c);
             }
             root.put(PlayerStore.ENTRIES, list);
-            com.portable.storage.util.SafeNbtIo.writeCompressed(root, file);
+            StorageDataVersion.stamp(root);
+            SafeNbtIo.writeCompressed(root, file);
         } catch (Exception e) {
             throw new RuntimeException("Failed to write player data to file", e);
         }
@@ -400,6 +416,14 @@ public final class StorageMemoryCache {
      * 添加模板到缓存
      */
     public static void addTemplate(String key, ItemStack template) {
+        if (key == null || key.isEmpty() || template == null || template.isEmpty()) {
+            return;
+        }
+        StorageItemValidator.ValidationResult validation = StorageItemValidator.validate(template, null);
+        if (!validation.valid()) {
+            PortableStorage.LOGGER.warn("跳过缓存损坏模板 key={} reason={}", key, validation.reason());
+            return;
+        }
         templateCache.put(key, template);
     }
     

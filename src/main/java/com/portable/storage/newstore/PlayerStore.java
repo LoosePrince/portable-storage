@@ -54,6 +54,23 @@ public final class PlayerStore {
         StorageMemoryCache.playerCache.put(uuid, cacheEntry);
     }
 
+    public static boolean purgeEntry(MinecraftServer server, UUID uuid, String key) {
+        if (key == null || key.isEmpty()) {
+            return false;
+        }
+        StorageMemoryCache.PlayerCacheEntry cacheEntry = StorageMemoryCache.getPlayerCache(uuid, server);
+        if (cacheEntry == null) {
+            return false;
+        }
+        Entry removed = cacheEntry.entries.remove(key);
+        if (removed != null) {
+            cacheEntry.dirty = true;
+            StorageMemoryCache.playerCache.put(uuid, cacheEntry);
+            return true;
+        }
+        return false;
+    }
+
     public static void add(MinecraftServer server, UUID uuid, String key, long delta, long now) {
         if (delta <= 0) return;
         
