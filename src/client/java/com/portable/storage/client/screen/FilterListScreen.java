@@ -22,12 +22,14 @@ public class FilterListScreen extends Screen {
     // 界面模式
     public enum Mode {
         FILTER,
-        DESTROY;
+        DESTROY,
+        AUTO_EAT;
         
         public String getDisplayName() {
             return switch (this) {
                 case FILTER -> Text.translatable("portable-storage.filter.list.mode.filter").getString();
                 case DESTROY -> Text.translatable("portable-storage.filter.list.mode.destroy").getString();
+                case AUTO_EAT -> Text.translatable("portable-storage.filter.list.mode.auto_eat").getString();
             };
         }
     }
@@ -44,6 +46,7 @@ public class FilterListScreen extends Screen {
     private boolean isWhitelistMode = true;
     private String currentFilter = "";
     private List<ClientConfig.FilterRule> rules;
+    private final Mode mode;
     
     // 滚动相关
     private float scroll = 0.0f;
@@ -73,19 +76,22 @@ public class FilterListScreen extends Screen {
     
     public FilterListScreen(Mode mode) {
         super(Text.translatable("portable-storage.filter.list.title", mode.getDisplayName()));
-        this.rules = mode == Mode.FILTER ? ClientConfig.getInstance().filterRules : ClientConfig.getInstance().destroyRules;
+        this.mode = mode;
+        this.rules = resolveRulesByMode(mode);
     }
     
     public FilterListScreen(Screen parent, Mode mode) {
         super(Text.translatable("portable-storage.filter.list.title", mode.getDisplayName()));
         this.parent = parent;
-        this.rules = mode == Mode.FILTER ? ClientConfig.getInstance().filterRules : ClientConfig.getInstance().destroyRules;
+        this.mode = mode;
+        this.rules = resolveRulesByMode(mode);
     }
     
     public FilterListScreen(Screen parent, Mode mode, net.minecraft.util.math.BlockPos barrelPos) {
         super(Text.translatable("portable-storage.filter.list.title", mode.getDisplayName()));
         this.parent = parent;
         this.barrelPos = barrelPos;
+        this.mode = mode;
         this.rules = new java.util.ArrayList<>(); // 绑定木桶的规则列表，从方块实体加载
     }
     
@@ -487,12 +493,21 @@ public class FilterListScreen extends Screen {
     /**
      * 同步规则到服务器
      */
+    private java.util.List<ClientConfig.FilterRule> resolveRulesByMode(Mode mode) {
+        return switch (mode) {
+            case FILTER -> ClientConfig.getInstance().filterRules;
+            case DESTROY -> ClientConfig.getInstance().destroyRules;
+            case AUTO_EAT -> ClientConfig.getInstance().autoEatRules;
+        };
+    }
+    
     private void syncRulesToServer() {
         if (MinecraftClient.getInstance().player == null) return;
         
         // 转换规则格式
         java.util.List<com.portable.storage.net.payload.SyncFilterRulesC2SPayload.FilterRule> serverFilterRules = new java.util.ArrayList<>();
         java.util.List<com.portable.storage.net.payload.SyncFilterRulesC2SPayload.FilterRule> serverDestroyRules = new java.util.ArrayList<>();
+        java.util.List<com.portable.storage.net.payload.SyncFilterRulesC2SPayload.FilterRule> serverAutoEatRules = new java.util.ArrayList<>();
         
         for (ClientConfig.FilterRule rule : ClientConfig.getInstance().filterRules) {
             serverFilterRules.add(new com.portable.storage.net.payload.SyncFilterRulesC2SPayload.FilterRule(
@@ -506,9 +521,15 @@ public class FilterListScreen extends Screen {
             ));
         }
         
+        for (ClientConfig.FilterRule rule : ClientConfig.getInstance().autoEatRules) {
+            serverAutoEatRules.add(new com.portable.storage.net.payload.SyncFilterRulesC2SPayload.FilterRule(
+                rule.matchRule, rule.isWhitelist, rule.enabled
+            ));
+        }
+        
         // 发送到服务器
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
-            new com.portable.storage.net.payload.SyncFilterRulesC2SPayload(serverFilterRules, serverDestroyRules)
+            new com.portable.storage.net.payload.SyncFilterRulesC2SPayload(serverFilterRules, serverDestroyRules, serverAutoEatRules)
         );
     }
     

@@ -11,7 +11,9 @@ import java.util.List;
 /**
  * 客户端向服务器同步筛选规则的网络包
  */
-public record SyncFilterRulesC2SPayload(List<FilterRule> filterRules, List<FilterRule> destroyRules) implements CustomPayload {
+public record SyncFilterRulesC2SPayload(List<FilterRule> filterRules,
+                                        List<FilterRule> destroyRules,
+                                        List<FilterRule> autoEatRules) implements CustomPayload {
     public static final Id<SyncFilterRulesC2SPayload> ID = new Id<>(Identifier.of(PortableStorage.MOD_ID, "sync_filter_rules"));
     public static final PacketCodec<RegistryByteBuf, SyncFilterRulesC2SPayload> CODEC = PacketCodec.of(
         (payload, buf) -> {
@@ -25,6 +27,14 @@ public record SyncFilterRulesC2SPayload(List<FilterRule> filterRules, List<Filte
             // 写入销毁规则
             buf.writeInt(payload.destroyRules.size());
             for (FilterRule rule : payload.destroyRules) {
+                buf.writeString(rule.matchRule);
+                buf.writeBoolean(rule.isWhitelist);
+                buf.writeBoolean(rule.enabled);
+            }
+
+            // 写入自动喂食规则
+            buf.writeInt(payload.autoEatRules.size());
+            for (FilterRule rule : payload.autoEatRules) {
                 buf.writeString(rule.matchRule);
                 buf.writeBoolean(rule.isWhitelist);
                 buf.writeBoolean(rule.enabled);
@@ -49,7 +59,17 @@ public record SyncFilterRulesC2SPayload(List<FilterRule> filterRules, List<Filte
                 boolean enabled = buf.readBoolean();
                 destroyRules.add(new FilterRule(matchRule, isWhitelist, enabled));
             }
-            return new SyncFilterRulesC2SPayload(filterRules, destroyRules);
+
+            // 读取自动喂食规则
+            int autoEatSize = buf.readInt();
+            List<FilterRule> autoEatRules = new java.util.ArrayList<>();
+            for (int i = 0; i < autoEatSize; i++) {
+                String matchRule = buf.readString();
+                boolean isWhitelist = buf.readBoolean();
+                boolean enabled = buf.readBoolean();
+                autoEatRules.add(new FilterRule(matchRule, isWhitelist, enabled));
+            }
+            return new SyncFilterRulesC2SPayload(filterRules, destroyRules, autoEatRules);
         }
     );
     

@@ -70,6 +70,9 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 	private static final String PORTABLE_STORAGE_DESTROY_RULES_NBT = "portable_storage_destroy_rules";
 	
 	@Unique
+	private static final String PORTABLE_STORAGE_AUTO_EAT_RULES_NBT = "portable_storage_auto_eat_rules";
+	
+	@Unique
 	private static final String PORTABLE_STORAGE_RIFT_INITIALIZED_NBT = "portable_storage_rift_initialized";
 	
 	@Unique
@@ -204,6 +207,7 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 			// 读取并恢复筛选规则
 			java.util.List<SyncFilterRulesC2SPayload.FilterRule> filterRules = new java.util.ArrayList<>();
 			java.util.List<SyncFilterRulesC2SPayload.FilterRule> destroyRules = new java.util.ArrayList<>();
+			java.util.List<SyncFilterRulesC2SPayload.FilterRule> autoEatRules = new java.util.ArrayList<>();
 			
 			if (nbt.contains(PORTABLE_STORAGE_FILTER_RULES_NBT)) {
 				NbtCompound filterRulesNbt = nbt.getCompound(PORTABLE_STORAGE_FILTER_RULES_NBT);
@@ -235,9 +239,26 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 				}
 			}
 			
+			if (nbt.contains(PORTABLE_STORAGE_AUTO_EAT_RULES_NBT)) {
+				NbtCompound autoEatRulesNbt = nbt.getCompound(PORTABLE_STORAGE_AUTO_EAT_RULES_NBT);
+				int count = autoEatRulesNbt.getInt("count");
+				for (int i = 0; i < count; i++) {
+					if (autoEatRulesNbt.contains("rule_" + i)) {
+						NbtCompound ruleNbt = autoEatRulesNbt.getCompound("rule_" + i);
+						autoEatRules.add(new SyncFilterRulesC2SPayload.FilterRule(
+							ruleNbt.getString("matchRule"),
+							ruleNbt.getBoolean("isWhitelist"),
+							ruleNbt.getBoolean("enabled")
+						));
+					}
+				}
+			} else if (!filterRules.isEmpty()) {
+				autoEatRules.addAll(filterRules);
+			}
+			
 			// 恢复筛选规则到内存
-			if (!filterRules.isEmpty() || !destroyRules.isEmpty()) {
-				FilterRuleManager.syncPlayerRules(serverPlayer, filterRules, destroyRules);
+			if (!filterRules.isEmpty() || !destroyRules.isEmpty() || !autoEatRules.isEmpty()) {
+				FilterRuleManager.syncPlayerRules(serverPlayer, filterRules, destroyRules, autoEatRules);
 			}
 			
 			// 如果配置不需要条件启用，确保仓库始终启用
@@ -319,6 +340,21 @@ public abstract class PlayerEntityMixin implements PlayerStorageAccess {
 						destroyRulesNbt.put("rule_" + i, ruleNbt);
 					}
 					nbt.put(PORTABLE_STORAGE_DESTROY_RULES_NBT, destroyRulesNbt);
+				}
+				
+				// 保存自动喂食规则
+				if (!rules.autoEatRules.isEmpty()) {
+					NbtCompound autoEatRulesNbt = new NbtCompound();
+					autoEatRulesNbt.putInt("count", rules.autoEatRules.size());
+					for (int i = 0; i < rules.autoEatRules.size(); i++) {
+						SyncFilterRulesC2SPayload.FilterRule rule = rules.autoEatRules.get(i);
+						NbtCompound ruleNbt = new NbtCompound();
+						ruleNbt.putString("matchRule", rule.matchRule);
+						ruleNbt.putBoolean("isWhitelist", rule.isWhitelist);
+						ruleNbt.putBoolean("enabled", rule.enabled);
+						autoEatRulesNbt.put("rule_" + i, ruleNbt);
+					}
+					nbt.put(PORTABLE_STORAGE_AUTO_EAT_RULES_NBT, autoEatRulesNbt);
 				}
 			}
 		}

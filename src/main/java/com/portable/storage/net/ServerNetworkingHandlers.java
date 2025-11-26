@@ -408,7 +408,7 @@ public final class ServerNetworkingHandlers {
 		ServerPlayNetworking.registerGlobalReceiver(SyncFilterRulesC2SPayload.ID, (payload, context) -> {
 			context.server().execute(() -> {
 				ServerPlayerEntity player = (ServerPlayerEntity) context.player();
-				com.portable.storage.storage.FilterRuleManager.syncPlayerRules(player, payload.filterRules(), payload.destroyRules());
+				com.portable.storage.storage.FilterRuleManager.syncPlayerRules(player, payload.filterRules(), payload.destroyRules(), payload.autoEatRules());
 			});
 		});
 		

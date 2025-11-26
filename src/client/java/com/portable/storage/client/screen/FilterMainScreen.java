@@ -44,15 +44,25 @@ public class FilterMainScreen extends Screen {
         int centerY = this.height / 2;
         
         // 创建按钮
+        int buttonWidth = 80;
+        int buttonHeight = 20;
+        int gap = 20;
+        
+        int totalWidth = buttonWidth * 2 + gap;
+        int startX = centerX - totalWidth / 2;
+        
         this.filterButton = ButtonWidget.builder(
             Text.translatable("portable-storage.filter.main.filter_button"),
             button -> openFilterScreen()
-        ).dimensions(centerX - 100, centerY - 20, 80, 20).build();
+        ).dimensions(startX, centerY - buttonHeight, buttonWidth, buttonHeight).build();
         
         this.destroyButton = ButtonWidget.builder(
             Text.translatable("portable-storage.filter.main.destroy_button"),
             button -> openDestroyScreen()
-        ).dimensions(centerX + 20, centerY - 20, 80, 20).build();
+        ).dimensions(startX + buttonWidth + gap, centerY - buttonHeight, buttonWidth, buttonHeight).build();
+        
+        this.addDrawableChild(filterButton);
+        this.addDrawableChild(destroyButton);
         
         this.backButton = ButtonWidget.builder(
             Text.translatable("portable-storage.filter.main.back_button"),
@@ -65,8 +75,6 @@ public class FilterMainScreen extends Screen {
             }
         ).dimensions(centerX - 40, centerY + 20, 80, 20).build();
         
-        this.addDrawableChild(filterButton);
-        this.addDrawableChild(destroyButton);
         this.addDrawableChild(backButton);
         
         
@@ -102,6 +110,7 @@ public class FilterMainScreen extends Screen {
             MinecraftClient.getInstance().setScreen(new FilterListScreen(this, FilterListScreen.Mode.FILTER));
         }
     }
+    
     
     private void openDestroyScreen() {
         if (barrelPos != null) {

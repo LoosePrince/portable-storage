@@ -29,11 +29,14 @@ public class FilterRuleManager {
     public static class PlayerFilterRules {
         public final List<SyncFilterRulesC2SPayload.FilterRule> filterRules;
         public final List<SyncFilterRulesC2SPayload.FilterRule> destroyRules;
+        public final List<SyncFilterRulesC2SPayload.FilterRule> autoEatRules;
         
         public PlayerFilterRules(List<SyncFilterRulesC2SPayload.FilterRule> filterRules, 
-                                List<SyncFilterRulesC2SPayload.FilterRule> destroyRules) {
+                                 List<SyncFilterRulesC2SPayload.FilterRule> destroyRules,
+                                 List<SyncFilterRulesC2SPayload.FilterRule> autoEatRules) {
             this.filterRules = new ArrayList<>(filterRules);
             this.destroyRules = new ArrayList<>(destroyRules);
+            this.autoEatRules = new ArrayList<>(autoEatRules);
         }
     }
     
@@ -42,13 +45,14 @@ public class FilterRuleManager {
      */
     public static void syncPlayerRules(ServerPlayerEntity player, 
                                      List<SyncFilterRulesC2SPayload.FilterRule> filterRules,
-                                     List<SyncFilterRulesC2SPayload.FilterRule> destroyRules) {
+                                     List<SyncFilterRulesC2SPayload.FilterRule> destroyRules,
+                                     List<SyncFilterRulesC2SPayload.FilterRule> autoEatRules) {
         UUID playerId = player.getUuid();
-        playerRules.put(playerId, new PlayerFilterRules(filterRules, destroyRules));
+        playerRules.put(playerId, new PlayerFilterRules(filterRules, destroyRules, autoEatRules));
         
         // 记录日志
-        PortableStorage.LOGGER.info("Player {} synced {} filter rules and {} destroy rules", 
-            player.getName().getString(), filterRules.size(), destroyRules.size());
+        PortableStorage.LOGGER.info("Player {} synced pickup={}, destroy={}, autoEat={} rules", 
+            player.getName().getString(), filterRules.size(), destroyRules.size(), autoEatRules.size());
     }
     
     /**
@@ -70,44 +74,7 @@ public class FilterRuleManager {
         }
         
         PlayerFilterRules rules = playerRules.get(player.getUuid());
-        if (rules == null || rules.filterRules.isEmpty()) {
-            // 没有筛选规则时拾取全部
-            return true;
-        }
-        
-        // 分离白名单和黑名单规则
-        java.util.List<SyncFilterRulesC2SPayload.FilterRule> whitelistRules = new java.util.ArrayList<>();
-        java.util.List<SyncFilterRulesC2SPayload.FilterRule> blacklistRules = new java.util.ArrayList<>();
-        
-        for (SyncFilterRulesC2SPayload.FilterRule rule : rules.filterRules) {
-            if (!rule.enabled) continue;
-            
-            if (rule.isWhitelist) {
-                whitelistRules.add(rule);
-            } else {
-                blacklistRules.add(rule);
-            }
-        }
-        
-        // 1. 先检查黑名单：如果匹配任何黑名单规则，则不拾取
-        for (SyncFilterRulesC2SPayload.FilterRule rule : blacklistRules) {
-            if (matchesRuleDirect(itemStack, rule)) {
-                return false; // 匹配黑名单，不拾取
-            }
-        }
-        
-        // 2. 如果有白名单规则，必须匹配至少一个白名单规则
-        if (!whitelistRules.isEmpty()) {
-            for (SyncFilterRulesC2SPayload.FilterRule rule : whitelistRules) {
-                if (matchesRuleDirect(itemStack, rule)) {
-                    return true; // 匹配白名单，拾取
-                }
-            }
-            return false; // 没有匹配任何白名单，不拾取
-        }
-        
-        // 3. 如果没有白名单规则，只有黑名单规则，则通过黑名单检查即可拾取
-        return true;
+        return evaluateFilterRules(rules.filterRules, itemStack);
     }
     
     /**
@@ -137,6 +104,57 @@ public class FilterRuleManager {
         }
         
         return false;
+    }
+
+    /**
+     * 检查物品是否允许用于自动喂食
+     */
+    public static boolean shouldAutoEatItem(ServerPlayerEntity player, ItemStack itemStack) {
+        if (itemStack == null || itemStack.isEmpty()) {
+            return false;
+        }
+        
+        PlayerFilterRules rules = playerRules.get(player.getUuid());
+        if (rules == null) {
+            return true;
+        }
+        return evaluateFilterRules(rules.autoEatRules, itemStack);
+    }
+
+    private static boolean evaluateFilterRules(List<SyncFilterRulesC2SPayload.FilterRule> sourceRules, ItemStack itemStack) {
+        if (sourceRules == null || sourceRules.isEmpty()) {
+            return true;
+        }
+        
+        java.util.List<SyncFilterRulesC2SPayload.FilterRule> whitelistRules = new java.util.ArrayList<>();
+        java.util.List<SyncFilterRulesC2SPayload.FilterRule> blacklistRules = new java.util.ArrayList<>();
+        
+        for (SyncFilterRulesC2SPayload.FilterRule rule : sourceRules) {
+            if (!rule.enabled) continue;
+            
+            if (rule.isWhitelist) {
+                whitelistRules.add(rule);
+            } else {
+                blacklistRules.add(rule);
+            }
+        }
+        
+        for (SyncFilterRulesC2SPayload.FilterRule rule : blacklistRules) {
+            if (matchesRuleDirect(itemStack, rule)) {
+                return false;
+            }
+        }
+        
+        if (!whitelistRules.isEmpty()) {
+            for (SyncFilterRulesC2SPayload.FilterRule rule : whitelistRules) {
+                if (matchesRuleDirect(itemStack, rule)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        return true;
     }
     
     /**

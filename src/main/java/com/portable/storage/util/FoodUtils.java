@@ -247,7 +247,7 @@ public class FoodUtils {
                 boolean isFoodItem = isFood(stack);
                 
                 // 应用筛选逻辑：只有符合筛选规则的食物才会被选中
-                if (isFoodItem && FilterRuleManager.shouldPickupItem(player, stack) && count > maxCount) {
+                if (isFoodItem && FilterRuleManager.shouldAutoEatItem(player, stack) && count > maxCount) {
                     maxCount = count;
                     bestIndex = i;
                 }
