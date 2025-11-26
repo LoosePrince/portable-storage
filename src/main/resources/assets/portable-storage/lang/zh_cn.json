@@ -156,6 +156,7 @@
   "command.portable-storage.newstore.get_item_size.exceeds_limit": "⚠️ 物品大小超过限制 (最大: %s)",
   "command.portable-storage.newstore.get_item_size.within_limit": "✓ 物品大小在限制范围内 (最大: %s)",
   "portable-storage.message.size_limit_exceeded": "物品大小超限！物品大小: %s，最大限制: %s",
+  "portable-storage.message.corrupt_template_removed": "检测到损坏的存储条目（%s），条目已被清除，请重新存入。",
   "portable-storage.filter.main.title": "筛选系统",
   "portable-storage.filter.main.filter_button": "筛选界面",
   "portable-storage.filter.main.destroy_button": "销毁界面",

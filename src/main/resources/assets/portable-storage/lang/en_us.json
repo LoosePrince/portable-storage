@@ -154,6 +154,7 @@
   "command.portable-storage.newstore.get_item_size.exceeds_limit": "⚠️ Item size exceeds limit (Max: %s)",
   "command.portable-storage.newstore.get_item_size.within_limit": "✓ Item size within limit (Max: %s)",
   "portable-storage.message.size_limit_exceeded": "Item size limit exceeded! Item size: %s, Max limit: %s",
+  "portable-storage.message.corrupt_template_removed": "Detected a corrupted storage entry (%s). It has been cleared, please deposit it again.",
   "portable-storage.filter.main.title": "Filter System",
   "portable-storage.filter.main.filter_button": "Filter Interface",
   "portable-storage.filter.main.destroy_button": "Destroy Interface",

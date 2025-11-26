@@ -404,6 +404,13 @@ public final class StorageMemoryCache {
     }
     
     /**
+     * 从模板缓存中移除指定条目
+     */
+    public static void removeTemplateFromCache(String key) {
+        templateCache.remove(key);
+    }
+    
+    /**
      * 从缓存中移除玩家数据
      */
     public static void removePlayerCache(UUID uuid) {
