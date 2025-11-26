@@ -22,12 +22,14 @@ public class FilterListScreen extends Screen {
     // 界面模式
     public enum Mode {
         FILTER,
-        DESTROY;
+        DESTROY,
+        AUTO_EAT;
         
         public String getDisplayName() {
             return switch (this) {
                 case FILTER -> Text.translatable("portable-storage.filter.list.mode.filter").getString();
                 case DESTROY -> Text.translatable("portable-storage.filter.list.mode.destroy").getString();
+                case AUTO_EAT -> Text.translatable("portable-storage.filter.list.mode.auto_eat").getString();
             };
         }
     }
@@ -73,13 +75,15 @@ public class FilterListScreen extends Screen {
     
     public FilterListScreen(Mode mode) {
         super(Text.translatable("portable-storage.filter.list.title", mode.getDisplayName()));
-        this.rules = mode == Mode.FILTER ? ClientConfig.getInstance().filterRules : ClientConfig.getInstance().destroyRules;
+        this.mode = mode;
+        this.rules = getRulesForMode(mode);
     }
     
     public FilterListScreen(Screen parent, Mode mode) {
         super(Text.translatable("portable-storage.filter.list.title", mode.getDisplayName()));
         this.parent = parent;
-        this.rules = mode == Mode.FILTER ? ClientConfig.getInstance().filterRules : ClientConfig.getInstance().destroyRules;
+        this.mode = mode;
+        this.rules = getRulesForMode(mode);
     }
     
     public FilterListScreen(Screen parent, Mode mode, net.minecraft.util.math.BlockPos barrelPos) {
@@ -93,6 +97,18 @@ public class FilterListScreen extends Screen {
     private Screen parent = null;
     private net.minecraft.util.math.BlockPos barrelPos = null;
     private Mode mode;
+    
+    /**
+     * 根据模式获取对应的规则列表（玩家本地配置）
+     */
+    private java.util.List<ClientConfig.FilterRule> getRulesForMode(Mode mode) {
+        ClientConfig cfg = ClientConfig.getInstance();
+        return switch (mode) {
+            case FILTER -> cfg.filterRules;
+            case DESTROY -> cfg.destroyRules;
+            case AUTO_EAT -> cfg.autoEatRules;
+        };
+    }
     
     // 自适应相关
     private float scale = 1.0f;
@@ -494,6 +510,7 @@ public class FilterListScreen extends Screen {
         // 转换规则格式
         java.util.List<com.portable.storage.net.payload.SyncFilterRulesC2SPayload.FilterRule> serverFilterRules = new java.util.ArrayList<>();
         java.util.List<com.portable.storage.net.payload.SyncFilterRulesC2SPayload.FilterRule> serverDestroyRules = new java.util.ArrayList<>();
+        java.util.List<com.portable.storage.net.payload.SyncFilterRulesC2SPayload.FilterRule> serverAutoEatRules = new java.util.ArrayList<>();
         
         for (ClientConfig.FilterRule rule : ClientConfig.getInstance().filterRules) {
             serverFilterRules.add(new com.portable.storage.net.payload.SyncFilterRulesC2SPayload.FilterRule(
@@ -506,11 +523,17 @@ public class FilterListScreen extends Screen {
                 rule.matchRule, rule.isWhitelist, rule.enabled
             ));
         }
+
+        for (ClientConfig.FilterRule rule : ClientConfig.getInstance().autoEatRules) {
+            serverAutoEatRules.add(new com.portable.storage.net.payload.SyncFilterRulesC2SPayload.FilterRule(
+                rule.matchRule, rule.isWhitelist, rule.enabled
+            ));
+        }
         
         // 发送到服务器
         net.minecraft.network.PacketByteBuf b2 = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
         com.portable.storage.net.payload.SyncFilterRulesC2SPayload.write(b2,
-            new com.portable.storage.net.payload.SyncFilterRulesC2SPayload(serverFilterRules, serverDestroyRules));
+            new com.portable.storage.net.payload.SyncFilterRulesC2SPayload(serverFilterRules, serverDestroyRules, serverAutoEatRules));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(com.portable.storage.net.payload.SyncFilterRulesC2SPayload.ID, b2);
     }
     

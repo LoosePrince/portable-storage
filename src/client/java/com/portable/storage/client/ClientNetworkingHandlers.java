@@ -241,6 +241,7 @@ public final class ClientNetworkingHandlers {
 		// 转换规则格式
 		java.util.List<com.portable.storage.net.payload.SyncFilterRulesC2SPayload.FilterRule> serverFilterRules = new java.util.ArrayList<>();
 		java.util.List<com.portable.storage.net.payload.SyncFilterRulesC2SPayload.FilterRule> serverDestroyRules = new java.util.ArrayList<>();
+		java.util.List<com.portable.storage.net.payload.SyncFilterRulesC2SPayload.FilterRule> serverAutoEatRules = new java.util.ArrayList<>();
 		
 		for (com.portable.storage.client.ClientConfig.FilterRule rule : com.portable.storage.client.ClientConfig.getInstance().filterRules) {
 			serverFilterRules.add(new com.portable.storage.net.payload.SyncFilterRulesC2SPayload.FilterRule(
@@ -253,11 +254,17 @@ public final class ClientNetworkingHandlers {
 				rule.matchRule, rule.isWhitelist, rule.enabled
 			));
 		}
+
+		for (com.portable.storage.client.ClientConfig.FilterRule rule : com.portable.storage.client.ClientConfig.getInstance().autoEatRules) {
+			serverAutoEatRules.add(new com.portable.storage.net.payload.SyncFilterRulesC2SPayload.FilterRule(
+				rule.matchRule, rule.isWhitelist, rule.enabled
+			));
+		}
 		
 		// 发送到服务器
         net.minecraft.network.PacketByteBuf sb = new net.minecraft.network.PacketByteBuf(io.netty.buffer.Unpooled.buffer());
         com.portable.storage.net.payload.SyncFilterRulesC2SPayload.write(sb,
-            new com.portable.storage.net.payload.SyncFilterRulesC2SPayload(serverFilterRules, serverDestroyRules));
+            new com.portable.storage.net.payload.SyncFilterRulesC2SPayload(serverFilterRules, serverDestroyRules, serverAutoEatRules));
         ClientPlayNetworking.send(com.portable.storage.net.payload.SyncFilterRulesC2SPayload.ID, sb);
 	}
 }

@@ -407,10 +407,10 @@ public final class ServerNetworkingHandlers {
         // 旧 EmiRecipeFillC2SPayload 接收器已移除（使用统一 CraftingOverlayActionC2SPayload）
 		
 		// 筛选规则同步
-        ServerPlayNetworking.registerGlobalReceiver(SyncFilterRulesC2SPayload.ID, (server, player, handler, buf, responseSender) -> {
+		ServerPlayNetworking.registerGlobalReceiver(SyncFilterRulesC2SPayload.ID, (server, player, handler, buf, responseSender) -> {
             final com.portable.storage.net.payload.SyncFilterRulesC2SPayload payload = com.portable.storage.net.payload.SyncFilterRulesC2SPayload.read(buf);
             server.execute(() -> {
-                com.portable.storage.storage.FilterRuleManager.syncPlayerRules(player, payload.filterRules, payload.destroyRules);
+                com.portable.storage.storage.FilterRuleManager.syncPlayerRules(player, payload.filterRules, payload.destroyRules, payload.autoEatRules);
 			});
 		});
 		

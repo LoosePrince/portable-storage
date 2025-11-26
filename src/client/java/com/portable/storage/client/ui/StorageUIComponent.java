@@ -1933,14 +1933,21 @@ public class StorageUIComponent {
                         ClientNetworkingHandlers.sendXpBottleMaintenanceToggle();
                         return true;
                     }
-                    // 附魔金苹果升级槽位中键：打开筛选界面
+                    // 附魔金苹果升级槽位中键：打开自动进食筛选界面
                     if (i == 9 && ClientUpgradeState.isEnchantedGoldenAppleUpgradeActive()) {
                         // 获取当前屏幕作为父界面，这样返回按钮可以正确回到原界面
                         net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
                         if (client.currentScreen != null) {
-                            client.setScreen(new com.portable.storage.client.screen.FilterListScreen(client.currentScreen, com.portable.storage.client.screen.FilterListScreen.Mode.FILTER));
+                            client.setScreen(new com.portable.storage.client.screen.FilterListScreen(
+                                client.currentScreen,
+                                com.portable.storage.client.screen.FilterListScreen.Mode.AUTO_EAT
+                            ));
                         } else {
-                            com.portable.storage.client.screen.FilterScreenManager.openFilterScreen();
+                            // 无父界面时，直接打开自动进食筛选界面
+                            client.setScreen(new com.portable.storage.client.screen.FilterListScreen(
+                                null,
+                                com.portable.storage.client.screen.FilterListScreen.Mode.AUTO_EAT
+                            ));
                         }
                         return true;
                     }

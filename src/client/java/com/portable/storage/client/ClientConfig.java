@@ -56,11 +56,14 @@ public class ClientConfig {
     // 多音字映射表：字符 -> 所有可能的拼音数组
     public java.util.Map<String, String[]> polyphoneMap = new java.util.HashMap<>();
     
-    // 筛选规则列表
+    // 筛选规则列表（漏斗拾取）
     public java.util.List<FilterRule> filterRules = new java.util.ArrayList<>();
     
     // 销毁规则列表
     public java.util.List<FilterRule> destroyRules = new java.util.ArrayList<>();
+    
+    // 自动进食筛选规则列表（独立于漏斗拾取）
+    public java.util.List<FilterRule> autoEatRules = new java.util.ArrayList<>();
     
     public enum SortMode {
         COUNT("count"),           // 数量
@@ -150,6 +153,7 @@ public class ClientConfig {
                 merged.polyphoneMap = new java.util.HashMap<>(defaults.polyphoneMap);
                 merged.filterRules = new java.util.ArrayList<>(defaults.filterRules);
                 merged.destroyRules = new java.util.ArrayList<>(defaults.destroyRules);
+                merged.autoEatRules = new java.util.ArrayList<>(defaults.autoEatRules);
 
                 // 再按文件中存在的键覆盖
                 if (obj.has("collapsed")) {
@@ -294,6 +298,31 @@ public class ClientConfig {
                         changed = true;
                     }
                 } else {
+                    changed = true;
+                }
+
+                // 读取自动进食规则（如果存在）；否则默认拷贝一份筛选规则，保证向后兼容
+                if (obj.has("autoEatRules")) {
+                    try {
+                        JsonArray autoEatArray = obj.getAsJsonArray("autoEatRules");
+                        java.util.List<FilterRule> autoEatRules = new java.util.ArrayList<>();
+                        for (int i = 0; i < autoEatArray.size(); i++) {
+                            JsonObject ruleObj = autoEatArray.get(i).getAsJsonObject();
+                            FilterRule rule = new FilterRule();
+                            rule.matchRule = ruleObj.has("matchRule") ? ruleObj.get("matchRule").getAsString() : "";
+                            rule.isWhitelist = ruleObj.has("isWhitelist") ? ruleObj.get("isWhitelist").getAsBoolean() : true;
+                            rule.enabled = ruleObj.has("enabled") ? ruleObj.get("enabled").getAsBoolean() : true;
+                            autoEatRules.add(rule);
+                        }
+                        merged.autoEatRules = autoEatRules;
+                    } catch (Exception ignored) {
+                        // 解析失败，退回到默认：使用筛选规则副本
+                        merged.autoEatRules = new java.util.ArrayList<>(merged.filterRules);
+                        changed = true;
+                    }
+                } else {
+                    // 旧配置没有自动进食规则时，默认复制筛选规则，便于玩家逐步调整
+                    merged.autoEatRules = new java.util.ArrayList<>(merged.filterRules);
                     changed = true;
                 }
 

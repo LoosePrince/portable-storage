@@ -29,11 +29,19 @@ public class FilterRuleManager {
     public static class PlayerFilterRules {
         public final List<SyncFilterRulesC2SPayload.FilterRule> filterRules;
         public final List<SyncFilterRulesC2SPayload.FilterRule> destroyRules;
+        public final List<SyncFilterRulesC2SPayload.FilterRule> autoEatRules;
         
         public PlayerFilterRules(List<SyncFilterRulesC2SPayload.FilterRule> filterRules, 
-                                List<SyncFilterRulesC2SPayload.FilterRule> destroyRules) {
+                                List<SyncFilterRulesC2SPayload.FilterRule> destroyRules,
+                                List<SyncFilterRulesC2SPayload.FilterRule> autoEatRules) {
             this.filterRules = new ArrayList<>(filterRules);
             this.destroyRules = new ArrayList<>(destroyRules);
+            // 自动进食规则独立于漏斗拾取规则，但默认继承一份以兼容旧配置
+            if (autoEatRules == null || autoEatRules.isEmpty()) {
+                this.autoEatRules = new ArrayList<>(filterRules);
+            } else {
+                this.autoEatRules = new ArrayList<>(autoEatRules);
+            }
         }
     }
     
@@ -42,13 +50,15 @@ public class FilterRuleManager {
      */
     public static void syncPlayerRules(ServerPlayerEntity player, 
                                      List<SyncFilterRulesC2SPayload.FilterRule> filterRules,
-                                     List<SyncFilterRulesC2SPayload.FilterRule> destroyRules) {
+                                     List<SyncFilterRulesC2SPayload.FilterRule> destroyRules,
+                                     List<SyncFilterRulesC2SPayload.FilterRule> autoEatRules) {
         UUID playerId = player.getUuid();
-        playerRules.put(playerId, new PlayerFilterRules(filterRules, destroyRules));
+        playerRules.put(playerId, new PlayerFilterRules(filterRules, destroyRules, autoEatRules));
         
         // 记录日志
-        PortableStorage.LOGGER.info("Player {} synced {} filter rules and {} destroy rules", 
-            player.getName().getString(), filterRules.size(), destroyRules.size());
+        int autoEatSize = (autoEatRules != null ? autoEatRules.size() : filterRules.size());
+        PortableStorage.LOGGER.info("Player {} synced {} filter rules, {} destroy rules and {} auto-eat rules", 
+            player.getName().getString(), filterRules.size(), destroyRules.size(), autoEatSize);
     }
     
     /**
@@ -59,7 +69,7 @@ public class FilterRuleManager {
     }
     
     /**
-     * 检查物品是否应该被漏斗拾取
+     * 检查物品是否应该被漏斗拾取（漏斗拾取筛选规则）
      * @param player 玩家
      * @param itemStack 物品
      * @return true=应该拾取, false=不应该拾取
@@ -70,44 +80,32 @@ public class FilterRuleManager {
         }
         
         PlayerFilterRules rules = playerRules.get(player.getUuid());
-        if (rules == null || rules.filterRules.isEmpty()) {
-            // 没有筛选规则时拾取全部
+        if (rules == null) {
+            // 没有任何规则时拾取全部
             return true;
         }
         
-        // 分离白名单和黑名单规则
-        java.util.List<SyncFilterRulesC2SPayload.FilterRule> whitelistRules = new java.util.ArrayList<>();
-        java.util.List<SyncFilterRulesC2SPayload.FilterRule> blacklistRules = new java.util.ArrayList<>();
-        
-        for (SyncFilterRulesC2SPayload.FilterRule rule : rules.filterRules) {
-            if (!rule.enabled) continue;
-            
-            if (rule.isWhitelist) {
-                whitelistRules.add(rule);
-            } else {
-                blacklistRules.add(rule);
-            }
+        return evaluateFilterRules(itemStack, rules.filterRules, true);
+    }
+    
+    /**
+     * 检查物品是否应该作为自动进食候选（自动进食筛选规则）
+     * @param player 玩家
+     * @param itemStack 物品
+     * @return true=可以作为自动进食候选, false=不允许自动进食
+     */
+    public static boolean shouldAutoEatItem(ServerPlayerEntity player, ItemStack itemStack) {
+        if (itemStack == null || itemStack.isEmpty()) {
+            return false;
         }
         
-        // 1. 先检查黑名单：如果匹配任何黑名单规则，则不拾取
-        for (SyncFilterRulesC2SPayload.FilterRule rule : blacklistRules) {
-            if (matchesRuleDirect(itemStack, rule)) {
-                return false; // 匹配黑名单，不拾取
-            }
+        PlayerFilterRules rules = playerRules.get(player.getUuid());
+        if (rules == null) {
+            // 没有任何规则时允许全部食物参与自动进食
+            return true;
         }
         
-        // 2. 如果有白名单规则，必须匹配至少一个白名单规则
-        if (!whitelistRules.isEmpty()) {
-            for (SyncFilterRulesC2SPayload.FilterRule rule : whitelistRules) {
-                if (matchesRuleDirect(itemStack, rule)) {
-                    return true; // 匹配白名单，拾取
-                }
-            }
-            return false; // 没有匹配任何白名单，不拾取
-        }
-        
-        // 3. 如果没有白名单规则，只有黑名单规则，则通过黑名单检查即可拾取
-        return true;
+        return evaluateFilterRules(itemStack, rules.autoEatRules, true);
     }
     
     /**
@@ -137,6 +135,52 @@ public class FilterRuleManager {
         }
         
         return false;
+    }
+    
+    /**
+     * 通用规则评估逻辑（白名单/黑名单组合）
+     * @param itemStack 待检查物品
+     * @param rules 规则列表
+     * @param defaultIfNoRules 当没有任何启用规则时的默认结果
+     */
+    private static boolean evaluateFilterRules(ItemStack itemStack, List<SyncFilterRulesC2SPayload.FilterRule> rules, boolean defaultIfNoRules) {
+        if (rules == null || rules.isEmpty()) {
+            return defaultIfNoRules;
+        }
+        
+        // 分离白名单和黑名单规则
+        java.util.List<SyncFilterRulesC2SPayload.FilterRule> whitelistRules = new java.util.ArrayList<>();
+        java.util.List<SyncFilterRulesC2SPayload.FilterRule> blacklistRules = new java.util.ArrayList<>();
+        
+        for (SyncFilterRulesC2SPayload.FilterRule rule : rules) {
+            if (!rule.enabled) continue;
+            
+            if (rule.isWhitelist) {
+                whitelistRules.add(rule);
+            } else {
+                blacklistRules.add(rule);
+            }
+        }
+        
+        // 1. 先检查黑名单：如果匹配任何黑名单规则，则不通过
+        for (SyncFilterRulesC2SPayload.FilterRule rule : blacklistRules) {
+            if (matchesRuleDirect(itemStack, rule)) {
+                return false;
+            }
+        }
+        
+        // 2. 如果有白名单规则，必须匹配至少一个白名单规则
+        if (!whitelistRules.isEmpty()) {
+            for (SyncFilterRulesC2SPayload.FilterRule rule : whitelistRules) {
+                if (matchesRuleDirect(itemStack, rule)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        // 3. 如果没有白名单规则，只有黑名单规则，则通过黑名单检查即可通过
+        return true;
     }
     
     /**

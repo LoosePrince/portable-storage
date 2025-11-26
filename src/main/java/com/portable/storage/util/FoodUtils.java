@@ -238,17 +238,11 @@ public class FoodUtils {
             if (!stack.isEmpty() && count > 0) {
                 boolean isFoodItem = isFood(stack);
                 
-                // 如果存在筛选规则，检查是否应该拾取
                 if (isFoodItem) {
-                    // 检查筛选规则（如果存在筛选规则，只吃筛选规则允许的食物）
+                    // 自动进食使用独立的自动进食筛选规则
                     if (player != null) {
-                        com.portable.storage.storage.FilterRuleManager.PlayerFilterRules rules = 
-                            com.portable.storage.storage.FilterRuleManager.getPlayerRules(player);
-                        if (rules != null && !rules.filterRules.isEmpty()) {
-                            // 有筛选规则时，只吃筛选规则允许的食物
-                            if (!com.portable.storage.storage.FilterRuleManager.shouldPickupItem(player, stack)) {
-                                continue; // 不符合筛选规则，跳过
-                            }
+                        if (!com.portable.storage.storage.FilterRuleManager.shouldAutoEatItem(player, stack)) {
+                            continue; // 不符合自动进食筛选规则，跳过
                         }
                     }
                     
