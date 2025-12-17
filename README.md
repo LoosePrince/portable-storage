@@ -25,6 +25,10 @@
 
 </div>
 
+> 注意！
+> 本项目使用AI编写了99.99%的代码和模组设计，我并不会Java。
+> 这意味着，我将无法保证模组的可用性、兼容性、稳定性，请确保你能接受并有能力保护好的数据再使用本模组。
+
 ## 项目简介
 
 **Portable Storage** 是一个基于 [Fabric](https://fabricmc.net/) 和 [Fabric API](https://www.curseforge.com/minecraft/mc-mods/fabric-api) 的 Minecraft 模组，为玩家提供随身仓库功能。仓库目前采用无限堆叠设计，按物品变体（含组件和NBT数据）进行智能存储，支持多玩家共享和自动化设备交互。
