@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"package": "com.portablestorage.mixin.client",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"ExampleClientMixin",
+		"InventoryScreenMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
