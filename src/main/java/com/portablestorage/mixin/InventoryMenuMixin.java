@@ -9,6 +9,7 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.Container;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -28,58 +29,61 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void addWarehouseSlots(Inventory inventory, boolean active, Player owner, CallbackInfo ci) {
+        // 不再在这里直接返回，而是始终注入槽位，但在创造模式下禁用它们
         WarehouseComponent warehouse = ModComponents.WAREHOUSE.get(owner);
-        
-        // 同步 Screen 的修改：
-        // 间隔 4px, 背景 startY = 166 + 4 = 170
-        // 槽位对齐修正为 +8, 最终 startY = 170 + 8 = 178
-        // 槽位横向对齐修正为 +8
+        if (!(warehouse instanceof Container warehouseContainer)) return;
+
         int startX = 8;
         int startY = 178; 
         
         for (int row = 0; row < 6; row++) {
             for (int col = 0; col < 9; col++) {
-                this.addSlot(new Slot(warehouse, col + row * 9, startX + col * 18, startY + row * 18));
+                // 使用自定义 Slot 类，动态控制其激活状态
+                this.addSlot(new Slot(warehouseContainer, col + row * 9, startX + col * 18, startY + row * 18) {
+                    @Override
+                    public boolean mayPlace(ItemStack stack) {
+                        return true; 
+                    }
+
+                    @Override
+                    public boolean isActive() {
+                        // 动态判断：只有非创造模式下才激活这些槽位
+                        // 使用 abilities.instabuild 是最安全的早期判断方式，因为它不会 NPE
+                        return !owner.getAbilities().instabuild;
+                    }
+                });
             }
         }
     }
 
     @Inject(method = "quickMoveStack", at = @At("HEAD"), cancellable = true)
     private void handleQuickMove(Player player, int index, CallbackInfoReturnable<ItemStack> cir) {
+        // 快速转移逻辑仅在非创造模式下生效
+        if (player.getAbilities().instabuild) return;
+
         Slot slot = this.slots.get(index);
-        if (slot == null || !slot.hasItem()) {
-            return;
-        }
+        if (slot == null || !slot.hasItem()) return;
 
         ItemStack stackInSlot = slot.getItem();
-        ItemStack copy = stackInSlot.copy();
+        WarehouseComponent warehouse = ModComponents.WAREHOUSE.get(player);
 
-        // 仓库槽位索引从 46 开始 (0-45 是原版槽位)
         if (index >= 46 && index < 100) {
-            if (!this.moveItemStackTo(stackInSlot, 9, 45, true)) {
+            long realCount = warehouse.getRealCount(index - 46);
+            int toTake = (int) Math.min(stackInSlot.getMaxStackSize(), realCount);
+            
+            ItemStack resultStack = stackInSlot.copyWithCount(toTake);
+            if (!this.moveItemStackTo(resultStack, 9, 45, true)) {
                 cir.setReturnValue(ItemStack.EMPTY);
                 return;
             }
+            
+            int moved = toTake - resultStack.getCount();
+            warehouse.removeItem(index - 46, moved);
+            cir.setReturnValue(ItemStack.EMPTY); 
         } else if (index >= 9 && index < 45) {
-            if (!this.moveItemStackTo(stackInSlot, 46, 100, false)) {
-                return; 
-            }
-        } else {
-            return;
-        }
-
-        if (stackInSlot.isEmpty()) {
-            slot.setByPlayer(ItemStack.EMPTY);
-        } else {
-            slot.setChanged();
-        }
-
-        if (stackInSlot.getCount() == copy.getCount()) {
+            warehouse.addItem(stackInSlot.copy());
+            slot.set(ItemStack.EMPTY);
             cir.setReturnValue(ItemStack.EMPTY);
-            return;
         }
-
-        slot.onTake(player, stackInSlot);
-        cir.setReturnValue(copy);
     }
 }

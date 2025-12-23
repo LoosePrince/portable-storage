@@ -1,5 +1,10 @@
 package com.portablestorage.mixin.client;
 
+import com.portablestorage.component.ModComponents;
+import com.portablestorage.component.WarehouseComponent;
+import com.portablestorage.network.ScrollPayload;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -26,18 +31,20 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         super(menu, playerInventory, title);
     }
 
+    @Unique
+    private boolean shouldShowWarehouse() {
+        return this.minecraft != null && this.minecraft.player != null && !this.minecraft.player.isCreative();
+    }
+
     @Inject(method = "init", at = @At("RETURN"))
     protected void onInit(CallbackInfo ci) {
-        // 1. 强制上移界面
+        if (!shouldShowWarehouse()) return;
+
         this.topPos -= 60; 
-        // 2. 设置总高度（166背包 + 4间隔 + 120仓库）
         this.imageHeight = 166 + 4 + 120; 
 
-        // 3. 寻找并隐藏配方书按钮
-        // 我们通过遍历 children() 这个公共列表来找到它
         for (GuiEventListener child : this.children()) {
             if (child instanceof AbstractWidget widget) {
-                // 原版配方书按钮的初始 Y 坐标逻辑
                 if (widget.getY() == (this.height / 2 - 22)) {
                     widget.visible = false;
                     widget.active = false;
@@ -46,22 +53,38 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         }
     }
 
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (!shouldShowWarehouse()) return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+
+        int warehouseX = this.leftPos;
+        int warehouseY = this.topPos + 170;
+        
+        if (mouseX >= warehouseX && mouseX < warehouseX + 176 && mouseY >= warehouseY && mouseY < warehouseY + 120) {
+            ClientPlayNetworking.send(new ScrollPayload((int) Math.signum(scrollY)));
+            return true;
+        }
+        
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
     @Inject(method = "renderBg", at = @At("HEAD"))
     protected void onRenderBgHead(GuiGraphics graphics, float partialTick, int mouseX, int mouseY, CallbackInfo ci) {
+        if (!shouldShowWarehouse()) return;
         this.imageHeight = 166;
     }
 
     @Inject(method = "renderBg", at = @At("RETURN"))
     protected void onRenderBgReturn(GuiGraphics graphics, float partialTick, int mouseX, int mouseY, CallbackInfo ci) {
+        if (!shouldShowWarehouse()) return;
+
         this.imageHeight = 166 + 4 + 120;
         
         int x = this.leftPos;
         int y = this.topPos + 166 + 4;
 
-        // 绘制仓库背景
         drawNinePatch(graphics, WAREHOUSE_GUI_TEXTURE, x, y, 176, 120, 10);
 
-        // 绘制槽位
         int slotStartX = x + 7;
         int slotStartY = y + 7;
         
@@ -70,6 +93,40 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                 graphics.blit(WAREHOUSE_SLOT_TEXTURE, slotStartX + col * 18, slotStartY + row * 18, 0, 0, 18, 18, 18, 18);
             }
         }
+    }
+
+    @Inject(method = "render", at = @At("TAIL"))
+    private void renderRealCounts(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+        if (!shouldShowWarehouse()) return;
+        
+        WarehouseComponent warehouse = ModComponents.WAREHOUSE.get(Minecraft.getInstance().player);
+        
+        int x = this.leftPos + 7;
+        int y = this.topPos + 166 + 4 + 7;
+
+        for (int i = 0; i < 54; i++) {
+            long count = warehouse.getRealCount(i);
+            if (count > 1) {
+                String countStr = formatCount(count);
+                int row = i / 9;
+                int col = i % 9;
+                
+                graphics.pose().pushPose();
+                graphics.pose().translate(0, 0, 300); 
+                int textX = x + col * 18 + 19 - this.font.width(countStr);
+                int textY = y + row * 18 + 10;
+                graphics.drawString(this.font, countStr, textX, textY, 0xFFFFFF, true);
+                graphics.pose().popPose();
+            }
+        }
+    }
+
+    @Unique
+    private String formatCount(long count) {
+        if (count >= 1_000_000_000) return String.format("%.1fG", count / 1_000_000_000.0);
+        if (count >= 1_000_000) return String.format("%.1fM", count / 1_000_000.0);
+        if (count >= 10_000) return String.format("%.1fK", count / 1_000.0);
+        return String.valueOf(count);
     }
 
     @Unique
