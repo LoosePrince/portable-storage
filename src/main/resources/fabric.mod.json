@@ -21,7 +21,7 @@
 		"client": [
 			"com.portablestorage.PortableStorageClient"
 		],
-		"cardinal-components": [
+		"cardinal-components-world": [
 			"com.portablestorage.component.ModComponentRegistration"
 		]
 	},

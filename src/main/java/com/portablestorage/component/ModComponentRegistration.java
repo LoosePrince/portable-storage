@@ -1,13 +1,12 @@
 package com.portablestorage.component;
 
-import org.ladysnake.cca.api.v3.entity.EntityComponentInitializer;
-import org.ladysnake.cca.api.v3.entity.EntityComponentFactoryRegistry;
-import org.ladysnake.cca.api.v3.entity.RespawnCopyStrategy;
-import net.minecraft.world.entity.player.Player;
+import org.ladysnake.cca.api.v3.world.WorldComponentInitializer;
+import org.ladysnake.cca.api.v3.world.WorldComponentFactoryRegistry;
 
-public class ModComponentRegistration implements EntityComponentInitializer {
+public class ModComponentRegistration implements WorldComponentInitializer {
     @Override
-    public void registerEntityComponentFactories(EntityComponentFactoryRegistry registry) {
-        registry.registerForPlayers(ModComponents.WAREHOUSE, MyWarehouseComponent::new, RespawnCopyStrategy.INVENTORY);
+    public void registerWorldComponentFactories(WorldComponentFactoryRegistry registry) {
+        // 注册到世界（Level）
+        registry.register(ModComponents.WAREHOUSE, MyWarehouseComponent::new);
     }
 }

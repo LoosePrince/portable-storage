@@ -28,6 +28,21 @@ loom {
 		}
 	}
 
+	runs {
+        client {
+            client()
+            setConfigName("Fabric Client")
+            ideConfigGenerated(true)
+            runDir("run")
+            
+            // 完整的玩家配置
+            property 'fabric.developer.uuid', '0a5e4ff0-6099-36b5-b64d-a84ffa9f1f72'
+            property 'fabric.developer.name', 'DevPlayer'
+            programArgs '--username', 'DevPlayer'
+            programArgs '--uuid', '0a5e4ff0-6099-36b5-b64d-a84ffa9f1f72'
+        }
+    }
+
 }
 
 dependencies {
@@ -42,8 +57,10 @@ dependencies {
 	// Cardinal Components API
 	modImplementation "org.ladysnake.cardinal-components-api:cardinal-components-base:${project.cca_version}"
 	modImplementation "org.ladysnake.cardinal-components-api:cardinal-components-entity:${project.cca_version}"
+	modImplementation "org.ladysnake.cardinal-components-api:cardinal-components-world:${project.cca_version}"
 	include "org.ladysnake.cardinal-components-api:cardinal-components-base:${project.cca_version}"
 	include "org.ladysnake.cardinal-components-api:cardinal-components-entity:${project.cca_version}"
+	include "org.ladysnake.cardinal-components-api:cardinal-components-world:${project.cca_version}"
 	
 }
 
