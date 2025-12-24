@@ -4,6 +4,7 @@ import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.WarehouseComponent;
 import com.portablestorage.network.ScrollPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -13,11 +14,15 @@ import net.minecraft.client.gui.screens.inventory.EffectRenderingInventoryScreen
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Mixin(InventoryScreen.class)
 public abstract class InventoryScreenMixin extends EffectRenderingInventoryScreen<InventoryMenu> {
@@ -33,7 +38,8 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
 
     @Unique
     private boolean shouldShowWarehouse() {
-        return this.minecraft != null && this.minecraft.player != null && !this.minecraft.player.isCreative();
+        // 关键：instabuild 是创造模式的标志，使用它判断最稳定
+        return this.minecraft != null && this.minecraft.player != null && !this.minecraft.player.getAbilities().instabuild;
     }
 
     @Inject(method = "init", at = @At("RETURN"))
@@ -96,14 +102,14 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
     }
 
     @Inject(method = "render", at = @At("TAIL"))
-    private void renderRealCounts(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+    private void renderWarehouseContent(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         if (!shouldShowWarehouse()) return;
         
         WarehouseComponent warehouse = ModComponents.WAREHOUSE.get(Minecraft.getInstance().player);
-        
-        int x = this.leftPos + 7;
-        int y = this.topPos + 166 + 4 + 7;
+        int startX = this.leftPos + 7;
+        int startY = this.topPos + 166 + 4 + 7;
 
+        // 1. 渲染数字
         for (int i = 0; i < 54; i++) {
             long count = warehouse.getRealCount(i);
             if (count > 1) {
@@ -112,20 +118,32 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                 int col = i % 9;
                 
                 graphics.pose().pushPose();
+                // 提高 Z 轴到 800，确保在一切物品和高亮之上
                 graphics.pose().translate(0, 0, 300); 
-                int textX = x + col * 18 + 19 - this.font.width(countStr);
-                int textY = y + row * 18 + 10;
+                int textX = startX + col * 18 + 19 - this.font.width(countStr);
+                int textY = startY + row * 18 + 10;
                 graphics.drawString(this.font, countStr, textX, textY, 0xFFFFFF, true);
                 graphics.pose().popPose();
+            }
+        }
+
+        // 2. 处理仓库槽位的 Tooltip
+        if (this.hoveredSlot != null && this.hoveredSlot.index >= 46 && this.hoveredSlot.index < 100) {
+            long realCount = warehouse.getRealCount(this.hoveredSlot.index - 46);
+            if (realCount > 99) {
+                List<Component> tooltip = new ArrayList<>(this.getTooltipFromContainerItem(this.hoveredSlot.getItem()));
+                tooltip.add(1, Component.translatable("gui.portablestorage.count", String.format("%, d", realCount))
+                        .withStyle(ChatFormatting.GRAY));
+                graphics.renderComponentTooltip(this.font, tooltip, mouseX, mouseY);
             }
         }
     }
 
     @Unique
     private String formatCount(long count) {
-        if (count >= 1_000_000_000) return String.format("%.1fG", count / 1_000_000_000.0);
-        if (count >= 1_000_000) return String.format("%.1fM", count / 1_000_000.0);
-        if (count >= 10_000) return String.format("%.1fK", count / 1_000.0);
+        if (count >= 1_000_000_000) return String.format("%.1fG", Math.floor(count / 100_000_000.0) / 10.0);
+        if (count >= 1_000_000) return String.format("%.1fM", Math.floor(count / 100_000.0) / 10.0);
+        if (count >= 1_000) return String.format("%.1fk", Math.floor(count / 100.0) / 10.0);
         return String.valueOf(count);
     }
 

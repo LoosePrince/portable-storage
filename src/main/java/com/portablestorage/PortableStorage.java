@@ -9,11 +9,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class PortableStorage implements ModInitializer {
-    public static final String MOD_ID = "portablestorage";
-    public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+	public static final String MOD_ID = "portablestorage";
+	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-    @Override
-    public void onInitialize() {
+	@Override
+	public void onInitialize() {
         PayloadTypeRegistry.playC2S().register(ScrollPayload.TYPE, ScrollPayload.CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(ScrollPayload.TYPE, (payload, context) -> {
@@ -31,5 +31,5 @@ public class PortableStorage implements ModInitializer {
         });
 
         LOGGER.info("Portable Storage Initialized!");
-    }
+	}
 }
