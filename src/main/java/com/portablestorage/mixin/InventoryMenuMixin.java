@@ -33,7 +33,7 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
         PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(owner.level()).getWarehouse(owner.getUUID());
 
         int startX = 8;
-        int startY = 178; 
+        int startY = 191; 
         
         for (int row = 0; row < 6; row++) {
             for (int col = 0; col < 9; col++) {

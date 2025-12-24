@@ -1,3 +1,4 @@
 {
-  "gui.portablestorage.count": "数量: %s"
+  "gui.portablestorage.count": "数量: %s",
+  "gui.portablestorage.search": "搜索物品..."
 }

@@ -2,6 +2,7 @@ package com.portablestorage;
 
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.network.ScrollPayload;
+import com.portablestorage.network.SearchPayload;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -15,14 +16,26 @@ public class PortableStorage implements ModInitializer {
     @Override
     public void onInitialize() {
         PayloadTypeRegistry.playC2S().register(ScrollPayload.TYPE, ScrollPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(SearchPayload.TYPE, SearchPayload.CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(ScrollPayload.TYPE, (payload, context) -> {
             context.server().execute(() -> {
                 var player = context.player();
-                // 改为从世界组件获取特定玩家的仓库
                 var warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
                 int current = warehouse.getScrollOffset();
                 warehouse.setScrollOffset(current - payload.delta());
+                
+                if (player.containerMenu != null) {
+                    player.containerMenu.broadcastChanges();
+                }
+            });
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(SearchPayload.TYPE, (payload, context) -> {
+            context.server().execute(() -> {
+                var player = context.player();
+                var warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+                warehouse.setSearchText(payload.searchText());
                 
                 if (player.containerMenu != null) {
                     player.containerMenu.broadcastChanges();

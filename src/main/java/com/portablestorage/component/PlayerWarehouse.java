@@ -10,21 +10,25 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 
 public class PlayerWarehouse implements Container {
     private final List<WarehouseEntry> storage = new ArrayList<>();
-    private final UUID id;
     private int scrollOffset = 0;
+    private String searchText = "";
     private List<WarehouseEntry> sortedCache = null;
     private final Consumer<PlayerWarehouse> onChanged;
 
     public PlayerWarehouse(UUID id, Consumer<PlayerWarehouse> onChanged) {
-        this.id = id;
         this.onChanged = onChanged;
+    }
+
+    public void setSearchText(String text) {
+        this.searchText = text.toLowerCase();
+        this.scrollOffset = 0;
+        this.setChanged();
     }
 
     public void addItem(ItemStack stack) {
@@ -59,7 +63,13 @@ public class PlayerWarehouse implements Container {
 
     public List<WarehouseEntry> getSortedEntries() {
         if (sortedCache == null) {
-            sortedCache = new ArrayList<>(storage);
+            List<WarehouseEntry> filtered = storage;
+            if (!searchText.isEmpty()) {
+                filtered = storage.stream()
+                        .filter(entry -> entry.getItemStack().getHoverName().getString().toLowerCase().contains(searchText))
+                        .toList();
+            }
+            sortedCache = new ArrayList<>(filtered);
             sortedCache.sort((a, b) -> {
                 int res = Long.compare(b.getCount(), a.getCount());
                 if (res == 0) res = Long.compare(b.getLastUpdated(), a.getLastUpdated());
@@ -73,7 +83,7 @@ public class PlayerWarehouse implements Container {
 
     public int getScrollOffset() { return scrollOffset; }
     public void setScrollOffset(int offset) {
-        int maxRows = (int) Math.ceil(storage.size() / 9.0);
+        int maxRows = (int) Math.ceil(getSortedEntries().size() / 9.0);
         int maxOffset = Math.max(0, maxRows - 6);
         this.scrollOffset = Math.clamp(offset, 0, maxOffset);
         this.setChanged();
@@ -92,6 +102,7 @@ public class PlayerWarehouse implements Container {
             storage.add(WarehouseEntry.fromNbt(list.getCompound(i), registries));
         }
         this.scrollOffset = tag.getInt("scrollOffset");
+        this.searchText = tag.getString("searchText");
         this.sortedCache = null;
     }
 
@@ -100,6 +111,7 @@ public class PlayerWarehouse implements Container {
         for (WarehouseEntry entry : storage) list.add(entry.toNbt(registries));
         tag.put("storage", list);
         tag.putInt("scrollOffset", scrollOffset);
+        tag.putString("searchText", searchText);
     }
 
     @Override public int getContainerSize() { return 54; }
