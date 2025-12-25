@@ -34,7 +34,7 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
         int startX = 8;
         int startY = 191; 
         
-        // 始终添加 108 个槽位 (12行)，但根据 visibleRows 控制激活状态
+        // 始终添加 108 个槽位 (12行)，但根据 visibleRows 和折叠状态控制激活状态
         for (int row = 0; row < 12; row++) {
             final int currentRow = row;
             for (int col = 0; col < 9; col++) {
@@ -44,8 +44,8 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
 
                     @Override
                     public boolean isActive() {
-                        // 1. 非创造模式 2. 在当前可见行范围内
-                        return !owner.getAbilities().instabuild && currentRow < warehouse.getVisibleRows();
+                        // 1. 非创造模式 2. 仓库未折叠 3. 在当前可见行范围内
+                        return !owner.getAbilities().instabuild && !warehouse.isFolded() && currentRow < warehouse.getVisibleRows();
                     }
                 });
             }
@@ -55,22 +55,28 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
         PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
-        int warehouseSlotStart = 46;
-        int warehouseSlotEnd = warehouseSlotStart + (warehouse.getVisibleRows() * 9);
+        
+        // 仓库折叠时禁止直接点击操作
+        if (!warehouse.isFolded()) {
+            int warehouseSlotStart = 46;
+            int warehouseSlotEnd = warehouseSlotStart + (warehouse.getVisibleRows() * 9);
 
-        // 只有被激活的仓库槽位才响应点击
-        if (slotId >= warehouseSlotStart && slotId < warehouseSlotEnd && !player.getAbilities().instabuild) {
-            ItemStack cursorStack = this.getCarried();
+            // 只有被激活的仓库槽位才响应点击
+            if (slotId >= warehouseSlotStart && slotId < warehouseSlotEnd && !player.getAbilities().instabuild) {
+                ItemStack cursorStack = this.getCarried();
 
-            if (!cursorStack.isEmpty()) {
-                warehouse.addItem(cursorStack);
-                this.setCarried(ItemStack.EMPTY);
-            } else {
-                int amount = (button == 1) ? 1 : 64;
-                ItemStack taken = warehouse.removeItem(slotId - 46, amount);
-                this.setCarried(taken);
+                if (!cursorStack.isEmpty()) {
+                    // 光标有物品：存入仓库
+                    warehouse.addItem(cursorStack);
+                    this.setCarried(ItemStack.EMPTY); 
+                } else {
+                    // 光标无物品：从仓库取出
+                    int amount = (button == 1) ? 1 : 64; // 右键取1个，左键取一组
+                    ItemStack taken = warehouse.removeItem(slotId - 46, amount);
+                    this.setCarried(taken); 
+                }
+                return; // 阻止原版 clicked 方法继续执行
             }
-            return;
         }
         super.clicked(slotId, button, clickType, player);
     }
@@ -84,23 +90,33 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
 
         ItemStack stackInSlot = slot.getItem();
         PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+        
+        // 仓库折叠时禁止快速移动操作
+        if (warehouse.isFolded()) return;
+
         int warehouseSlotStart = 46;
         int warehouseSlotEnd = warehouseSlotStart + (warehouse.getVisibleRows() * 9);
 
-        if (index >= warehouseSlotStart && index < warehouseSlotEnd) {
+        if (index >= warehouseSlotStart && index < warehouseSlotEnd) { // 从仓库快速转移到背包
             long realCount = warehouse.getRealCount(index - warehouseSlotStart);
-            int toTake = (int) Math.min(stackInSlot.getMaxStackSize(), realCount);
+            int toTake = (int) Math.min(stackInSlot.getMaxStackSize(), realCount); // 尝试取出一组
             ItemStack resultStack = stackInSlot.copyWithCount(toTake);
+            
+            // 尝试将物品移动到玩家背包 (槽位 9-45)
             if (!this.moveItemStackTo(resultStack, 9, 45, true)) {
-                cir.setReturnValue(ItemStack.EMPTY);
+                cir.setReturnValue(ItemStack.EMPTY); // 无法移动，返回空
                 return;
             }
+            // 成功移动部分或全部，从仓库中移除相应数量
             warehouse.removeItem(index - 46, toTake - resultStack.getCount());
-            cir.setReturnValue(ItemStack.EMPTY); 
-        } else if (index >= 9 && index < 45) {
-            warehouse.addItem(stackInSlot.copy());
-            slot.set(ItemStack.EMPTY);
-            cir.setReturnValue(ItemStack.EMPTY);
+            cir.setReturnValue(ItemStack.EMPTY); // 阻止原版 quickMoveStack 继续执行
+        } else if (index >= 9 && index < 45) { // 从玩家背包快速转移到仓库
+            // 检查是否开启了快捷交互
+            if (warehouse.isQuickInteraction()) {
+                warehouse.addItem(stackInSlot.copy()); // 存入仓库
+                slot.set(ItemStack.EMPTY); // 清空背包槽位
+                cir.setReturnValue(ItemStack.EMPTY); // 阻止原版 quickMoveStack 继续执行
+            }
         }
     }
 }

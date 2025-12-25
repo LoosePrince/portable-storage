@@ -19,6 +19,10 @@ public class PlayerWarehouse implements Container {
     private int scrollOffset = 0;
     private int visibleRows = 6;
     private String searchText = "";
+    private boolean isFolded = true;
+    private int sortMode = 0; // 0: 数量, 1: 名称, 2: ID, 3: 更新时间
+    private boolean isAscending = false;
+    private boolean quickInteraction = true;
     private List<WarehouseEntry> sortedCache = null;
     private final Consumer<PlayerWarehouse> onChanged;
 
@@ -72,10 +76,19 @@ public class PlayerWarehouse implements Container {
             }
             sortedCache = new ArrayList<>(filtered);
             sortedCache.sort((a, b) -> {
-                int res = Long.compare(b.getCount(), a.getCount());
-                if (res == 0) res = Long.compare(b.getLastUpdated(), a.getLastUpdated());
-                if (res == 0) res = BuiltInRegistries.ITEM.getKey(a.getItemStack().getItem())
-                        .compareTo(BuiltInRegistries.ITEM.getKey(b.getItemStack().getItem()));
+                int res = 0;
+                switch (sortMode) {
+                    case 0 -> res = Long.compare(a.getCount(), b.getCount()); // 数量
+                    case 1 -> res = a.getItemStack().getHoverName().getString().compareToIgnoreCase(b.getItemStack().getHoverName().getString()); // 名称
+                    case 2 -> res = BuiltInRegistries.ITEM.getKey(a.getItemStack().getItem()).compareTo(BuiltInRegistries.ITEM.getKey(b.getItemStack().getItem())); // ID
+                    case 3 -> res = Long.compare(a.getLastUpdated(), b.getLastUpdated()); // 更新时间
+                }
+                
+                // 默认降序逻辑：如果不匹配则取反
+                if (!isAscending && res != 0) res = -res;
+                
+                // 稳定性排序：如果相等，按 ID 排序
+                if (res == 0) res = BuiltInRegistries.ITEM.getKey(a.getItemStack().getItem()).compareTo(BuiltInRegistries.ITEM.getKey(b.getItemStack().getItem()));
                 return res;
             });
         }
@@ -100,6 +113,18 @@ public class PlayerWarehouse implements Container {
         this.setChanged();
     }
 
+    public boolean isFolded() { return isFolded; }
+    public void setFolded(boolean folded) { this.isFolded = folded; this.setChanged(); }
+
+    public int getSortMode() { return sortMode; }
+    public void setSortMode(int mode) { this.sortMode = mode; this.setChanged(); }
+
+    public boolean isAscending() { return isAscending; }
+    public void setAscending(boolean ascending) { this.isAscending = ascending; this.setChanged(); }
+
+    public boolean isQuickInteraction() { return quickInteraction; }
+    public void setQuickInteraction(boolean quick) { this.quickInteraction = quick; this.setChanged(); }
+
     public long getRealCount(int slotIndex) {
         List<WarehouseEntry> sorted = getSortedEntries();
         int actualIndex = slotIndex + (scrollOffset * 9);
@@ -114,6 +139,10 @@ public class PlayerWarehouse implements Container {
         }
         this.scrollOffset = tag.getInt("scrollOffset");
         this.visibleRows = tag.contains("visibleRows") ? tag.getInt("visibleRows") : 6;
+        this.isFolded = tag.contains("isFolded") ? tag.getBoolean("isFolded") : true;
+        this.sortMode = tag.getInt("sortMode");
+        this.isAscending = tag.getBoolean("isAscending");
+        this.quickInteraction = tag.contains("quickInteraction") ? tag.getBoolean("quickInteraction") : true;
         this.searchText = tag.getString("searchText");
         this.sortedCache = null;
     }
@@ -124,6 +153,10 @@ public class PlayerWarehouse implements Container {
         tag.put("storage", list);
         tag.putInt("scrollOffset", scrollOffset);
         tag.putInt("visibleRows", visibleRows);
+        tag.putBoolean("isFolded", isFolded);
+        tag.putInt("sortMode", sortMode);
+        tag.putBoolean("isAscending", isAscending);
+        tag.putBoolean("quickInteraction", quickInteraction);
         tag.putString("searchText", searchText);
     }
 

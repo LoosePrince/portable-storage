@@ -6,6 +6,7 @@ import com.portablestorage.config.ModConfig;
 import com.portablestorage.network.ChangeRowsPayload;
 import com.portablestorage.network.ScrollPayload;
 import com.portablestorage.network.SearchPayload;
+import com.portablestorage.network.UpdateSettingsPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -34,6 +35,8 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
     private static final ResourceLocation WAREHOUSE_GUI_TEXTURE = ResourceLocation.fromNamespaceAndPath("portablestorage", "textures/gui/gui.png");
     @Unique
     private static final ResourceLocation WAREHOUSE_SLOT_TEXTURE = ResourceLocation.fromNamespaceAndPath("portablestorage", "textures/gui/slot.png");
+    @Unique
+    private static final ResourceLocation WAREHOUSE_ICON_TEXTURE = ResourceLocation.fromNamespaceAndPath("portablestorage", "textures/gui/icon.png");
 
     @Unique
     private EditBox searchBox;
@@ -57,13 +60,16 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         var player = Minecraft.getInstance().player;
         if (player == null) return;
         PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
-        int rows = warehouse.getVisibleRows();
+        int rows = warehouse.isFolded() ? 0 : warehouse.getVisibleRows();
         
-        int yOffset = ModConfig.offsetInventory ? 10 + rows * 10 : 0; // 动态偏移，保证界面美观
+        // 调整偏移量：折叠时只需要给标题栏预留空间
+        int yOffset = ModConfig.offsetInventory ? (warehouse.isFolded() ? 25 : 10 + rows * 10) : 0; 
         if (yOffset > 0) {
             this.topPos -= yOffset; 
         }
-        this.imageHeight = 166 + 4 + 27 + rows * 18; // 166 + 间隔 + 搜索框区域 + 槽位区域
+        
+        int warehouseHeight = warehouse.isFolded() ? 22 : 27 + rows * 18;
+        this.imageHeight = 166 + 4 + warehouseHeight; 
 
         // 兼容性修复：将所有控件（包括其他模组添加的）同步上移
         for (GuiEventListener child : this.children()) {
@@ -85,7 +91,9 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         // 仓库宽度 192，居中于背包 (176)
         int x = this.leftPos - 8 + 16; 
         int y = this.topPos + 166 + 4 + 6;
-        this.searchBox = new EditBox(this.font, x, y, 140, 12, Component.literal("")); // 缩短宽度给按钮腾位置
+        
+        // 初始化搜索框（宽度同步为 141，折叠时不显示）
+        this.searchBox = new EditBox(this.font, x, y, 141, 12, Component.literal(""));
         this.searchBox.setResponder(text -> {
             ClientPlayNetworking.send(new SearchPayload(text));
         });
@@ -93,6 +101,14 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         this.searchBox.setBordered(false);
         this.searchBox.setTextColor(0xFFFFFF);
         this.searchBox.setHint(Component.translatable("gui.portablestorage.search").withStyle(ChatFormatting.DARK_GRAY));
+        // 显式根据 warehouse.isFolded() 状态设置
+        if (warehouse.isFolded()) {
+            this.searchBox.visible = false;
+            this.searchBox.active = false;
+        } else {
+            this.searchBox.visible = true;
+            this.searchBox.active = true;
+        }
         this.addRenderableWidget(this.searchBox);
     }
 
@@ -102,8 +118,9 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         var player = Minecraft.getInstance().player;
         if (player == null) return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
         PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+        if (warehouse.isFolded()) return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+
         int rows = warehouse.getVisibleRows();
-        
         int warehouseX = this.leftPos - 8;
         int warehouseY = this.topPos + 170;
         int warehouseHeight = 27 + rows * 18;
@@ -127,61 +144,100 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         var player = Minecraft.getInstance().player;
         if (player == null) return;
         PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
-        int rows = warehouse.getVisibleRows();
+        int rows = warehouse.isFolded() ? 0 : warehouse.getVisibleRows();
         
+        // 折叠时背景高度为0（不显示），非折叠时计算高度
         int warehouseHeight = 27 + rows * 18;
-        this.imageHeight = 166 + 4 + warehouseHeight;
-        int x = this.leftPos - 8; // 居中对齐
+        this.imageHeight = 166 + 4 + (warehouse.isFolded() ? 22 : warehouseHeight);
+        
+        int x = this.leftPos - 8; 
         int y = this.topPos + 166 + 4;
-        drawNinePatch(graphics, WAREHOUSE_GUI_TEXTURE, x, y, 192, warehouseHeight, 10);
         
-        // 搜索框背景与描边 (内部描边：左上暗，右下亮)
-        int sbX = x + 16;
-        int sbY = y + 5;
-        int sbW = 141; // 缩短以适应按钮
-        int sbH = 12;
-        graphics.fill(sbX, sbY, sbX + sbW, sbY + sbH, 0xFF222222); // 底色
-        graphics.fill(sbX, sbY, sbX + sbW, sbY + 1, 0xFF111111); // 上边 (暗)
-        graphics.fill(sbX, sbY, sbX + 1, sbY + sbH, 0xFF111111); // 左边 (暗)
-        graphics.fill(sbX, sbY + sbH - 1, sbX + sbW, sbY + sbH, 0xFF555555); // 下边 (亮)
-        graphics.fill(sbX + sbW - 1, sbY, sbX + sbW, sbY + sbH, 0xFF555555); // 右边 (亮)
+        if (!warehouse.isFolded()) {
+            // 只有未折叠时才绘制仓库背景
+            drawNinePatch(graphics, WAREHOUSE_GUI_TEXTURE, x, y, 192, warehouseHeight, 10);
+            
+            // 搜索框背景与描边
+            int sbX = x + 16;
+            int sbY = y + 5;
+            int sbW = 141; 
+            int sbH = 12;
+            graphics.fill(sbX, sbY, sbX + sbW, sbY + sbH, 0xFF222222);
+            graphics.fill(sbX, sbY, sbX + sbW, sbY + 1, 0xFF111111);
+            graphics.fill(sbX, sbY, sbX + 1, sbY + sbH, 0xFF111111);
+            graphics.fill(sbX, sbY + sbH - 1, sbX + sbW, sbY + sbH, 0xFF555555);
+            graphics.fill(sbX + sbW - 1, sbY, sbX + sbW, sbY + sbH, 0xFF555555);
 
-        // 绘制 +/- 按钮
-        renderPlusMinusButtons(graphics, x + 160, y + 5, mouseX, mouseY);
-        
-        int slotStartX = x + 15; 
-        int slotStartY = y + 20;
-        for (int row = 0; row < rows; row++) {
-            for (int col = 0; col < 9; col++) {
-                graphics.blit(WAREHOUSE_SLOT_TEXTURE, slotStartX + col * 18, slotStartY + row * 18, 0, 0, 18, 18, 18, 18);
+            // 绘制 +/- 按钮
+            renderPlusMinusButtons(graphics, x + 160, y + 5, mouseX, mouseY);
+            
+            // 绘制槽位
+            int slotStartX = x + 15; 
+            int slotStartY = y + 20;
+            for (int row = 0; row < rows; row++) {
+                for (int col = 0; col < 9; col++) {
+                    graphics.blit(WAREHOUSE_SLOT_TEXTURE, slotStartX + col * 18, slotStartY + row * 18, 0, 0, 18, 18, 18, 18);
+                }
+            }
+
+            // 绘制滚动条
+            int scrollbarX = x + 182; 
+            int scrollbarY = y + 23;
+            int scrollbarHeight = rows * 18 - 4;
+            int scrollbarWidth = 4;
+            
+            if (scrollbarHeight > 0) {
+                graphics.fill(scrollbarX, scrollbarY, scrollbarX + scrollbarWidth, scrollbarY + scrollbarHeight, 0xFF333333);
+                int totalRows = (int) Math.ceil(warehouse.getSortedEntries().size() / 9.0);
+                int thumbHeight = (totalRows <= rows) ? scrollbarHeight : Math.max(10, (int) (scrollbarHeight * ((float) rows / totalRows)));
+                int maxOffset = Math.max(0, totalRows - rows);
+                int thumbY = scrollbarY + (maxOffset == 0 ? 0 : (warehouse.getScrollOffset() * (scrollbarHeight - thumbHeight) / maxOffset));
+                int thumbColor = (isDraggingScrollbar || (mouseX >= scrollbarX && mouseX <= scrollbarX + scrollbarWidth && mouseY >= thumbY && mouseY <= thumbY + thumbHeight)) ? 0xFFAAAAAA : 0xFF888888;
+                graphics.fill(scrollbarX, thumbY, scrollbarX + scrollbarWidth, thumbY + thumbHeight, thumbColor);
+                graphics.fill(scrollbarX - 1, thumbY - 1, scrollbarX + scrollbarWidth, thumbY, 0xFFBBBBBB); 
+                graphics.fill(scrollbarX - 1, thumbY, scrollbarX, thumbY + thumbHeight, 0xFFBBBBBB); 
+                graphics.fill(scrollbarX, thumbY + thumbHeight, scrollbarX + scrollbarWidth + 1, thumbY + thumbHeight + 1, 0xFF444444); 
+                graphics.fill(scrollbarX + scrollbarWidth, thumbY - 1, scrollbarX + scrollbarWidth + 1, thumbY + thumbHeight, 0xFF444444); 
             }
         }
 
-        // 绘制滚动条
-        int scrollbarX = x + 182; 
-        int scrollbarY = y + 23;
-        int scrollbarHeight = rows * 18 - 4;
-        int scrollbarWidth = 4;
-        
-        if (scrollbarHeight > 0) {
-            // 背景
-            graphics.fill(scrollbarX, scrollbarY, scrollbarX + scrollbarWidth, scrollbarY + scrollbarHeight, 0xFF333333);
+        // 绘制侧边功能按钮（间距优化：距离仓库2px，按钮间隙1px）
+        renderSidebarButtons(graphics, x + 192, y, mouseX, mouseY, warehouse);
+    }
+
+    @Unique
+    private void renderSidebarButtons(GuiGraphics graphics, int sidebarX, int sidebarY, int mouseX, int mouseY, PlayerWarehouse warehouse) {
+        if (warehouse.isFolded()) {
+            // 折叠状态：展开图标（图标14）移动到副手槽位
+            renderIconButton(graphics, this.leftPos + 76, this.topPos + 43, 13, mouseX, mouseY, "fold");
+        } else {
+            // 展开状态：保持在右侧纵向排列
+            // 1. 折叠按钮
+            renderIconButton(graphics, sidebarX, sidebarY, 0, mouseX, mouseY, "fold");
             
-            // 滑块
-            int totalRows = (int) Math.ceil(warehouse.getSortedEntries().size() / 9.0);
-            int visibleRows = rows;
-            int thumbHeight = (totalRows <= visibleRows) ? scrollbarHeight : Math.max(10, (int) (scrollbarHeight * ((float) visibleRows / totalRows)));
-            int maxOffset = Math.max(0, totalRows - visibleRows);
-            int thumbY = scrollbarY + (maxOffset == 0 ? 0 : (warehouse.getScrollOffset() * (scrollbarHeight - thumbHeight) / maxOffset));
+            // 2. 排序方式按钮
+            renderIconButton(graphics, sidebarX, sidebarY + 17, 1 + warehouse.getSortMode(), mouseX, mouseY, "sort_mode");
             
-            int thumbColor = (isDraggingScrollbar || (mouseX >= scrollbarX && mouseX <= scrollbarX + scrollbarWidth && mouseY >= thumbY && mouseY <= thumbY + thumbHeight)) ? 0xFFAAAAAA : 0xFF888888;
-            graphics.fill(scrollbarX, thumbY, scrollbarX + scrollbarWidth, thumbY + thumbHeight, thumbColor);
+            // 3. 排序顺序按钮
+            int orderIconIndex = warehouse.isAscending() ? 6 : 5;
+            renderIconButton(graphics, sidebarX, sidebarY + 34, orderIconIndex, mouseX, mouseY, "sort_order");
             
-            graphics.fill(scrollbarX - 1, thumbY - 1, scrollbarX + scrollbarWidth, thumbY, 0xFFBBBBBB); 
-            graphics.fill(scrollbarX - 1, thumbY, scrollbarX, thumbY + thumbHeight, 0xFFBBBBBB); 
-            graphics.fill(scrollbarX, thumbY + thumbHeight, scrollbarX + scrollbarWidth + 1, thumbY + thumbHeight + 1, 0xFF444444); 
-            graphics.fill(scrollbarX + scrollbarWidth, thumbY - 1, scrollbarX + scrollbarWidth + 1, thumbY + thumbHeight, 0xFF444444); 
+            // 4. 快捷交互按钮
+            renderIconButton(graphics, sidebarX, sidebarY + 51, 9, mouseX, mouseY, "quick_interact", warehouse.isQuickInteraction());
         }
+    }
+
+    @Unique
+    private void renderIconButton(GuiGraphics graphics, int x, int y, int iconIndex, int mouseX, int mouseY, String type) {
+        renderIconButton(graphics, x, y, iconIndex, mouseX, mouseY, type, true);
+    }
+
+    @Unique
+    private void renderIconButton(GuiGraphics graphics, int x, int y, int iconIndex, int mouseX, int mouseY, String type, boolean active) {
+        // 绘制图标 (16x16)
+        int u = (iconIndex % 5) * 16;
+        int v = (iconIndex / 5) * 16;
+        graphics.blit(WAREHOUSE_ICON_TEXTURE, x + 1, y + 1, u, v, 16, 16, 80, 48);
     }
 
     @Unique
@@ -221,27 +277,72 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                 int x = this.leftPos - 8;
                 int y = this.topPos + 166 + 4;
                 
-                // 减号按钮
-                if (mouseX >= x + 160 && mouseX < x + 172 && mouseY >= y + 5 && mouseY < y + 17) {
-                    ClientPlayNetworking.send(new ChangeRowsPayload(-1));
-                    this.minecraft.setScreen(new InventoryScreen(player)); // 立即重新初始化界面
-                    return true;
+                // 侧边按钮点击
+                int bx = x + 194;
+                
+                // 处理折叠/展开按钮（位置在折叠和展开状态下不同）
+                if (warehouse.isFolded()) {
+                    // 折叠状态：点击副手槽位上方的图标 (坐标 77, 44)
+                    if (mouseX >= this.leftPos + 75 && mouseX < this.leftPos + 93 && 
+                        mouseY >= this.topPos + 43 && mouseY < this.topPos + 61) {
+                        warehouse.setFolded(false);
+                        ClientPlayNetworking.send(new UpdateSettingsPayload(0, 0));
+                        this.minecraft.setScreen(new InventoryScreen(player));
+                        return true;
+                    }
+                } else {
+                    // 展开状态：点击侧边栏第1个按钮
+                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y && mouseY < y + 18) {
+                        warehouse.setFolded(true);
+                        ClientPlayNetworking.send(new UpdateSettingsPayload(0, 1));
+                        if (this.searchBox != null) {
+                            this.searchBox.setFocused(false);
+                        }
+                        this.minecraft.setScreen(new InventoryScreen(player));
+                        return true;
+                    }
                 }
-                // 加号按钮
-                if (mouseX >= x + 174 && mouseX < x + 186 && mouseY >= y + 5 && mouseY < y + 17) {
-                    ClientPlayNetworking.send(new ChangeRowsPayload(1));
-                    this.minecraft.setScreen(new InventoryScreen(player)); // 立即重新初始化界面
-                    return true;
-                }
+                
+                if (!warehouse.isFolded()) {
+                    // 2. 排序方式
+                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + 19 && mouseY < y + 37) {
+                        int nextMode = (warehouse.getSortMode() + 1) % 4;
+                        ClientPlayNetworking.send(new UpdateSettingsPayload(1, nextMode));
+                        return true;
+                    }
+                    // 3. 排序顺序
+                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + 38 && mouseY < y + 56) {
+                        ClientPlayNetworking.send(new UpdateSettingsPayload(2, warehouse.isAscending() ? 0 : 1));
+                        return true;
+                    }
+                    // 4. 快捷交互
+                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + 57 && mouseY < y + 75) {
+                        ClientPlayNetworking.send(new UpdateSettingsPayload(3, warehouse.isQuickInteraction() ? 0 : 1));
+                        return true;
+                    }
 
-                // 滚动条
-                int sx = x + 182;
-                int sy = y + 23;
-                int sh = rows * 18 - 4;
-                if (mouseX >= sx && mouseX <= sx + 4 && mouseY >= sy && mouseY <= sy + sh) {
-                    this.isDraggingScrollbar = true;
-                    this.updateScrollFromMouse(mouseY);
-                    return true;
+                    // 减号按钮
+                    if (mouseX >= x + 160 && mouseX < x + 172 && mouseY >= y + 5 && mouseY < y + 17) {
+                        ClientPlayNetworking.send(new ChangeRowsPayload(-1));
+                        this.minecraft.setScreen(new InventoryScreen(player));
+                        return true;
+                    }
+                    // 加号按钮
+                    if (mouseX >= x + 174 && mouseX < x + 186 && mouseY >= y + 5 && mouseY < y + 17) {
+                        ClientPlayNetworking.send(new ChangeRowsPayload(1));
+                        this.minecraft.setScreen(new InventoryScreen(player));
+                        return true;
+                    }
+
+                    // 滚动条
+                    int sx = x + 182;
+                    int sy = y + 23;
+                    int sh = rows * 18 - 4;
+                    if (mouseX >= sx && mouseX <= sx + 4 && mouseY >= sy && mouseY <= sy + sh) {
+                        this.isDraggingScrollbar = true;
+                        this.updateScrollFromMouse(mouseY);
+                        return true;
+                    }
                 }
             }
         }
@@ -289,7 +390,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (this.searchBox != null && this.searchBox.isFocused()) {
+        if (this.searchBox != null && this.searchBox.isVisible() && this.searchBox.isFocused()) {
             if (keyCode == 256) { // ESC
                 this.searchBox.setFocused(false);
                 return true;
@@ -307,15 +408,22 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
     private void renderWarehouseContent(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         if (!shouldShowWarehouse()) return;
         
-        // 实时同步搜索框位置，防止打开配方书时界面位移导致脱节
-        if (this.searchBox != null) {
-            this.searchBox.setX(this.leftPos - 8 + 16);
-            this.searchBox.setY(this.topPos + 166 + 4 + 6);
-        }
-
         var player = Minecraft.getInstance().player;
         if (player == null) return;
         PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+
+        // 实时同步搜索框位置与状态，确保与折叠状态绝对同步
+        if (this.searchBox != null) {
+            this.searchBox.setX(this.leftPos - 8 + 16);
+            this.searchBox.setY(this.topPos + 166 + 4 + 6);
+            
+            // 实时同步可见性和激活状态，防止竞态条件
+            this.searchBox.visible = !warehouse.isFolded();
+            this.searchBox.active = !warehouse.isFolded();
+        }
+
+        if (warehouse.isFolded()) return; 
+        
         int startX = this.leftPos + 8; // 统一使用 +8 对齐
         int startY = this.topPos + 166 + 4 + 20;
 

@@ -5,6 +5,7 @@ import com.portablestorage.config.ModConfig;
 import com.portablestorage.network.ChangeRowsPayload;
 import com.portablestorage.network.ScrollPayload;
 import com.portablestorage.network.SearchPayload;
+import com.portablestorage.network.UpdateSettingsPayload;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -21,6 +22,23 @@ public class PortableStorage implements ModInitializer {
         PayloadTypeRegistry.playC2S().register(ScrollPayload.TYPE, ScrollPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(SearchPayload.TYPE, SearchPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(ChangeRowsPayload.TYPE, ChangeRowsPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(UpdateSettingsPayload.TYPE, UpdateSettingsPayload.CODEC);
+
+        ServerPlayNetworking.registerGlobalReceiver(UpdateSettingsPayload.TYPE, (payload, context) -> {
+            context.server().execute(() -> {
+                var player = context.player();
+                var warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+                switch (payload.settingType()) {
+                    case 0 -> warehouse.setFolded(payload.value() == 1);
+                    case 1 -> warehouse.setSortMode(payload.value());
+                    case 2 -> warehouse.setAscending(payload.value() == 1);
+                    case 3 -> warehouse.setQuickInteraction(payload.value() == 1);
+                }
+                if (player.containerMenu != null) {
+                    player.containerMenu.broadcastChanges();
+                }
+            });
+        });
 
         ServerPlayNetworking.registerGlobalReceiver(ChangeRowsPayload.TYPE, (payload, context) -> {
             context.server().execute(() -> {
