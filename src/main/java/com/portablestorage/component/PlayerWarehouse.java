@@ -17,6 +17,7 @@ import java.util.function.Consumer;
 public class PlayerWarehouse implements Container {
     private final List<WarehouseEntry> storage = new ArrayList<>();
     private int scrollOffset = 0;
+    private int visibleRows = 6;
     private String searchText = "";
     private List<WarehouseEntry> sortedCache = null;
     private final Consumer<PlayerWarehouse> onChanged;
@@ -84,8 +85,18 @@ public class PlayerWarehouse implements Container {
     public int getScrollOffset() { return scrollOffset; }
     public void setScrollOffset(int offset) {
         int maxRows = (int) Math.ceil(getSortedEntries().size() / 9.0);
-        int maxOffset = Math.max(0, maxRows - 6);
+        int maxOffset = Math.max(0, maxRows - visibleRows);
         this.scrollOffset = Math.clamp(offset, 0, maxOffset);
+        this.setChanged();
+    }
+
+    public int getVisibleRows() {
+        return visibleRows;
+    }
+
+    public void setVisibleRows(int rows) {
+        this.visibleRows = Math.clamp(rows, 1, 12);
+        this.scrollOffset = 0;
         this.setChanged();
     }
 
@@ -102,6 +113,7 @@ public class PlayerWarehouse implements Container {
             storage.add(WarehouseEntry.fromNbt(list.getCompound(i), registries));
         }
         this.scrollOffset = tag.getInt("scrollOffset");
+        this.visibleRows = tag.contains("visibleRows") ? tag.getInt("visibleRows") : 6;
         this.searchText = tag.getString("searchText");
         this.sortedCache = null;
     }
@@ -111,10 +123,11 @@ public class PlayerWarehouse implements Container {
         for (WarehouseEntry entry : storage) list.add(entry.toNbt(registries));
         tag.put("storage", list);
         tag.putInt("scrollOffset", scrollOffset);
+        tag.putInt("visibleRows", visibleRows);
         tag.putString("searchText", searchText);
     }
 
-    @Override public int getContainerSize() { return 54; }
+    @Override public int getContainerSize() { return visibleRows * 9; }
     @Override public boolean isEmpty() { return storage.isEmpty(); }
     @Override public ItemStack getItem(int slot) {
         List<WarehouseEntry> sorted = getSortedEntries();

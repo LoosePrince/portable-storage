@@ -2,7 +2,6 @@ package com.portablestorage.mixin;
 
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
-import com.portablestorage.component.WarehouseComponent;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -35,7 +34,9 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
         int startX = 8;
         int startY = 191; 
         
-        for (int row = 0; row < 6; row++) {
+        // 始终添加 108 个槽位 (12行)，但根据 visibleRows 控制激活状态
+        for (int row = 0; row < 12; row++) {
+            final int currentRow = row;
             for (int col = 0; col < 9; col++) {
                 this.addSlot(new Slot(warehouse, col + row * 9, startX + col * 18, startY + row * 18) {
                     @Override
@@ -43,7 +44,8 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
 
                     @Override
                     public boolean isActive() {
-                        return !owner.getAbilities().instabuild;
+                        // 1. 非创造模式 2. 在当前可见行范围内
+                        return !owner.getAbilities().instabuild && currentRow < warehouse.getVisibleRows();
                     }
                 });
             }
@@ -52,8 +54,12 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
 
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
-        if (slotId >= 46 && slotId < 100 && !player.getAbilities().instabuild) {
-            PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+        PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+        int warehouseSlotStart = 46;
+        int warehouseSlotEnd = warehouseSlotStart + (warehouse.getVisibleRows() * 9);
+
+        // 只有被激活的仓库槽位才响应点击
+        if (slotId >= warehouseSlotStart && slotId < warehouseSlotEnd && !player.getAbilities().instabuild) {
             ItemStack cursorStack = this.getCarried();
 
             if (!cursorStack.isEmpty()) {
@@ -78,9 +84,11 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
 
         ItemStack stackInSlot = slot.getItem();
         PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+        int warehouseSlotStart = 46;
+        int warehouseSlotEnd = warehouseSlotStart + (warehouse.getVisibleRows() * 9);
 
-        if (index >= 46 && index < 100) {
-            long realCount = warehouse.getRealCount(index - 46);
+        if (index >= warehouseSlotStart && index < warehouseSlotEnd) {
+            long realCount = warehouse.getRealCount(index - warehouseSlotStart);
             int toTake = (int) Math.min(stackInSlot.getMaxStackSize(), realCount);
             ItemStack resultStack = stackInSlot.copyWithCount(toTake);
             if (!this.moveItemStackTo(resultStack, 9, 45, true)) {

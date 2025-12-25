@@ -1,0 +1,6 @@
+# 是否偏移背包界面 (true: 上移并显示仓库, false: 保持原样)
+offsetInventory = true
+
+# 是否隐藏配方书按钮 (如果 offsetInventory 为 true，此项将被强制视为 true)
+hideRecipeBook = true
+
