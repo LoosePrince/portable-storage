@@ -63,14 +63,13 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
         int rows = warehouse.isFolded() ? 0 : warehouse.getVisibleRows();
         
-        int warehouseHeight = warehouse.isFolded() ? WarehouseConstants.WAREHOUSE_FOLDED_HEIGHT : WarehouseConstants.WAREHOUSE_TITLE_HEIGHT + rows * WarehouseConstants.SLOT_SIZE;
-        this.imageHeight = WarehouseConstants.VANILLA_INVENTORY_HEIGHT + WarehouseConstants.WAREHOUSE_Y_SPACING + warehouseHeight; 
-
-        // 动态居中计算：将 topPos 向上移动总高度增量的一半
-        int yOffset = ModConfig.offsetInventory ? (this.imageHeight - WarehouseConstants.VANILLA_INVENTORY_HEIGHT) / 2 : 0;
+        int yOffset = ModConfig.offsetInventory ? (warehouse.isFolded() ? WarehouseConstants.OFFSET_FOLDED : WarehouseConstants.OFFSET_BASE + rows * WarehouseConstants.OFFSET_PER_ROW) : 0; 
         if (yOffset > 0) {
             this.topPos -= yOffset; 
         }
+        
+        this.imageHeight = WarehouseConstants.VANILLA_INVENTORY_HEIGHT; 
+
         for (GuiEventListener child : this.children()) {
             if (child instanceof AbstractWidget widget) {
                 if (yOffset > 0) {
@@ -134,7 +133,6 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         int rows = warehouse.isFolded() ? 0 : warehouse.getVisibleRows();
         
         int warehouseHeight = WarehouseConstants.WAREHOUSE_TITLE_HEIGHT + rows * WarehouseConstants.SLOT_SIZE;
-        this.imageHeight = WarehouseConstants.VANILLA_INVENTORY_HEIGHT + WarehouseConstants.WAREHOUSE_Y_SPACING + (warehouse.isFolded() ? WarehouseConstants.WAREHOUSE_FOLDED_HEIGHT : warehouseHeight);
         
         int x = this.leftPos + WarehouseConstants.WAREHOUSE_X_OFFSET; 
         int y = this.topPos + WarehouseConstants.WAREHOUSE_Y_OFFSET;

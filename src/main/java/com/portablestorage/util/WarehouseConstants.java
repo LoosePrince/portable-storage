@@ -60,6 +60,11 @@ public class WarehouseConstants {
     public static final int WAREHOUSE_TITLE_HEIGHT = 27; // 包含搜索框区域的高度
     public static final int WAREHOUSE_FOLDED_HEIGHT = 22; // 折叠时的背景高度
     
+    // 界面偏移计算参数 (yOffset)
+    public static final int OFFSET_FOLDED = 0; // 折叠时回到原位
+    public static final int OFFSET_BASE = 10; // 未折叠时相对于背包的偏移
+    public static final int OFFSET_PER_ROW = 10; // 每行相对于背包的偏移
+
     // 物品数量显示
     public static final float QUANTITY_TEXT_SCALE = 0.8f;
     public static final float QUANTITY_TEXT_Z_OFFSET = 300.0f;
