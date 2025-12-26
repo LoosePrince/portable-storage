@@ -12,6 +12,7 @@ public class ModConfig {
     
     public static boolean offsetInventory = true;
     public static boolean hideRecipeBook = true;
+    public static boolean enable3x3Crafting = true;
 
     public static void load() {
         CommentedFileConfig config = CommentedFileConfig.builder(CONFIG_FILE, TomlFormat.instance())
@@ -24,6 +25,7 @@ public class ModConfig {
 
         offsetInventory = config.getOrElse("offsetInventory", true);
         hideRecipeBook = config.getOrElse("hideRecipeBook", true);
+        enable3x3Crafting = config.getOrElse("enable3x3Crafting", true);
 
         // 如果启用背包偏移，则强制隐藏配方书
         if (offsetInventory) {

@@ -4,7 +4,9 @@
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
 		"ExampleMixin",
-		"InventoryMenuMixin"
+		"InventoryMenuCraftingMixin",
+		"InventoryMenuMixin",
+		"accessor.SlotAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

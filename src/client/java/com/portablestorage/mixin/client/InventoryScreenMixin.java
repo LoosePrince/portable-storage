@@ -3,6 +3,7 @@ package com.portablestorage.mixin.client;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
+import com.portablestorage.mixin.accessor.SlotAccessor;
 import com.portablestorage.network.ChangeRowsPayload;
 import com.portablestorage.network.ScrollPayload;
 import com.portablestorage.network.SearchPayload;
@@ -57,7 +58,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
     @Inject(method = "init", at = @At("RETURN"))
     protected void onInit(CallbackInfo ci) {
         if (!shouldShowWarehouse()) return;
-        
+
         var player = Minecraft.getInstance().player;
         if (player == null) return;
         PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());

@@ -4,3 +4,6 @@ offsetInventory = true
 # 是否隐藏配方书按钮 (如果 offsetInventory 为 true，此项将被强制视为 true)
 hideRecipeBook = true
 
+# 是否启用 3x3 背包合成功能
+enable3x3Crafting = true
+

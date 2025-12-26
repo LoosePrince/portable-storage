@@ -7,9 +7,19 @@ public class WarehouseConstants {
     public static final int TOTAL_SLOTS = SLOTS_PER_ROW * MAX_ROWS;
     
     // 槽位索引 (InventoryMenu)
-    public static final int WAREHOUSE_SLOT_START = 46;
+    public static final int CRAFTING_INPUT_COUNT = 9; // 3x3
+    public static final int VANILLA_CRAFTING_INPUT_COUNT = 4; // 2x2
+    public static final int EXTRA_CRAFTING_SLOTS = CRAFTING_INPUT_COUNT - VANILLA_CRAFTING_INPUT_COUNT; // 5个新槽位
+    
+    public static final int WAREHOUSE_SLOT_START = 46 + EXTRA_CRAFTING_SLOTS; // 从 51 开始
     public static final int PLAYER_INVENTORY_START = 9;
     public static final int PLAYER_INVENTORY_END = 45;
+
+    // 3x3 合成槽位逻辑坐标 (相对于 leftPos / topPos)
+    public static final int CRAFT_3X3_X = 98;
+    public static final int CRAFT_3X3_Y = 18;
+    public static final int CRAFT_RESULT_X = 154;
+    public static final int CRAFT_RESULT_Y = 28;
 
     // GUI 基础布局
     public static final int VANILLA_INVENTORY_WIDTH = 176;

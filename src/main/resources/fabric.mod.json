@@ -13,6 +13,7 @@
 	},
 	"license": "MIT",
 	"icon": "assets/portablestorage/icon.png",
+	"accessWidener": "portablestorage.accesswidener",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
