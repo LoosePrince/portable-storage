@@ -10,6 +10,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -75,22 +76,21 @@ public class PlayerWarehouse implements Container {
                         .toList();
             }
             sortedCache = new ArrayList<>(filtered);
-            sortedCache.sort((a, b) -> {
-                int res = 0;
-                switch (sortMode) {
-                    case 0 -> res = Long.compare(a.getCount(), b.getCount()); // 数量
-                    case 1 -> res = a.getItemStack().getHoverName().getString().compareToIgnoreCase(b.getItemStack().getHoverName().getString()); // 名称
-                    case 2 -> res = BuiltInRegistries.ITEM.getKey(a.getItemStack().getItem()).compareTo(BuiltInRegistries.ITEM.getKey(b.getItemStack().getItem())); // ID
-                    case 3 -> res = Long.compare(a.getLastUpdated(), b.getLastUpdated()); // 更新时间
-                }
-                
-                // 默认降序逻辑：如果不匹配则取反
-                if (!isAscending && res != 0) res = -res;
-                
-                // 稳定性排序：如果相等，按 ID 排序
-                if (res == 0) res = BuiltInRegistries.ITEM.getKey(a.getItemStack().getItem()).compareTo(BuiltInRegistries.ITEM.getKey(b.getItemStack().getItem()));
-                return res;
-            });
+            
+            Comparator<WarehouseEntry> comparator = switch (sortMode) {
+                case 0 -> Comparator.comparingLong(WarehouseEntry::getCount);
+                case 1 -> Comparator.comparing(e -> e.getItemStack().getHoverName().getString(), String.CASE_INSENSITIVE_ORDER);
+                case 2 -> Comparator.comparing(e -> BuiltInRegistries.ITEM.getKey(e.getItemStack().getItem()));
+                case 3 -> Comparator.comparingLong(WarehouseEntry::getLastUpdated);
+                default -> (a, b) -> 0;
+            };
+
+            if (!isAscending) comparator = comparator.reversed();
+            
+            // 稳定性排序：如果相等，按 ID 排序
+            comparator = comparator.thenComparing(e -> BuiltInRegistries.ITEM.getKey(e.getItemStack().getItem()));
+            
+            sortedCache.sort(comparator);
         }
         return sortedCache;
     }
