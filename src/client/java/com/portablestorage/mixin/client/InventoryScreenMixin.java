@@ -329,19 +329,5 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                 graphics.pose().popPose();
             }
         }
-
-        if (this.hoveredSlot != null && this.hoveredSlot.index >= WarehouseConstants.WAREHOUSE_SLOT_START) {
-            PlayerWarehouse wh = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
-            int whSlotEnd = WarehouseConstants.WAREHOUSE_SLOT_START + (wh.getVisibleRows() * WarehouseConstants.SLOTS_PER_ROW);
-            
-            if (this.hoveredSlot.index < whSlotEnd) {
-                long realCount = wh.getRealCount(this.hoveredSlot.index - WarehouseConstants.WAREHOUSE_SLOT_START);
-                if (realCount > 1) {
-                    List<Component> tooltip = new ArrayList<>(this.getTooltipFromContainerItem(this.hoveredSlot.getItem()));
-                    tooltip.add(1, Component.translatable("gui.portablestorage.count", String.format("%,d", realCount)).withStyle(ChatFormatting.GRAY));
-                    graphics.renderComponentTooltip(this.font, tooltip, mouseX, mouseY);
-                }
-            }
-        }
     }
 }
