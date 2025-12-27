@@ -18,9 +18,12 @@
   "gui.portablestorage.off": "关闭",
   "gui.portablestorage.button.settings_hint": "中键: 打开设置",
   "gui.portablestorage.settings.title": "Portable Storage 设置",
-  "gui.portablestorage.settings.tab.client": "客户端",
-  "gui.portablestorage.settings.tab.server": "服务端",
+  "gui.portablestorage.settings.tab.client": "客户端设置",
+  "gui.portablestorage.settings.tab.server": "服务端设置",
   "gui.portablestorage.settings.offset_inventory": "偏移背包界面",
+  "gui.portablestorage.settings.offset_inventory.desc": "开启后背包界面将上移，并在下方显示仓库内容。关闭则保持原版位置。",
   "gui.portablestorage.settings.hide_recipe_book": "隐藏配方书按钮",
-  "gui.portablestorage.settings.enable_3x3_crafting": "启用 3x3 合成"
+  "gui.portablestorage.settings.hide_recipe_book.desc": "开启后将隐藏背包中的配方书按钮。注意：开启“偏移背包界面”时将强制开启此项。",
+  "gui.portablestorage.settings.enable_3x3_crafting": "启用 3x3 合成",
+  "gui.portablestorage.settings.enable_3x3_crafting.desc": "将背包中的 2x2 合成区域升级为 3x3。此项由服务端配置决定，客户端仅能查看。"
 }

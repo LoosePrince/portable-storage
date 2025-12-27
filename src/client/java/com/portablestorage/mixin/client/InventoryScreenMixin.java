@@ -3,7 +3,7 @@ package com.portablestorage.mixin.client;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
-import com.portablestorage.gui.ModSettingsScreen;
+import com.portablestorage.config.YACLConfig;
 import com.portablestorage.network.ChangeRowsPayload;
 import com.portablestorage.network.ScrollPayload;
 import com.portablestorage.network.SearchPayload;
@@ -190,9 +190,10 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                 
                 int foldButtonX = this.leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
                 int foldButtonY = this.topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
+
                 if (mouseX >= foldButtonX && mouseX < foldButtonX + 18 && mouseY >= foldButtonY && mouseY < foldButtonY + 18) {
                     if (button == 2) { // 中键
-                        this.minecraft.setScreen(new ModSettingsScreen(this));
+                        this.minecraft.setScreen(YACLConfig.create(this));
                         return true;
                     }
                     if (button == 0) { // 左键
