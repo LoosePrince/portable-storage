@@ -27,15 +27,16 @@ public abstract class AbstractContainerScreenMixin {
 
     @Inject(method = "renderTooltip", at = @At("HEAD"), cancellable = true)
     private void onRenderTooltip(GuiGraphics graphics, int x, int y, CallbackInfo ci) {
-        if (this.hoveredSlot != null && this.hoveredSlot.index >= WarehouseConstants.WAREHOUSE_SLOT_START) {
+        int whStart = WarehouseConstants.getWarehouseSlotStart();
+        if (this.hoveredSlot != null && this.hoveredSlot.index >= whStart) {
             var player = Minecraft.getInstance().player;
             if (player == null) return;
             
             PlayerWarehouse wh = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
-            int whSlotEnd = WarehouseConstants.WAREHOUSE_SLOT_START + (wh.getVisibleRows() * WarehouseConstants.SLOTS_PER_ROW);
+            int whSlotEnd = whStart + (wh.getVisibleRows() * WarehouseConstants.SLOTS_PER_ROW);
             
-            if (this.hoveredSlot.index < whSlotEnd) {
-                long realCount = wh.getRealCount(this.hoveredSlot.index - WarehouseConstants.WAREHOUSE_SLOT_START);
+            if (this.hoveredSlot.index >= whStart && this.hoveredSlot.index < whSlotEnd) {
+                long realCount = wh.getRealCount(this.hoveredSlot.index - whStart);
                 if (realCount > 1) {
                     // 获取原版 Tooltip 列表
                     List<Component> tooltip = new ArrayList<>(this.getTooltipFromContainerItem(this.hoveredSlot.getItem()));

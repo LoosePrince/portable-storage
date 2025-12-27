@@ -25,7 +25,7 @@ public abstract class InventoryScreenCraftingMixin extends net.minecraft.client.
 
     @Inject(method = "init", at = @At("RETURN"))
     protected void onInitCrafting(CallbackInfo ci) {
-        if (!ModConfig.enable3x3Crafting) return;
+        if (!ModConfig.is3x3Enabled()) return;
 
         int[] craftIndices = {1, 2, 3, 4, 46, 47, 48, 49, 50};
         for (int i = 0; i < craftIndices.length; i++) {
@@ -41,7 +41,7 @@ public abstract class InventoryScreenCraftingMixin extends net.minecraft.client.
 
     @Inject(method = "renderBg", at = @At("RETURN"))
     protected void onRenderBgCrafting(GuiGraphics graphics, float partialTick, int mouseX, int mouseY, CallbackInfo ci) {
-        if (!ModConfig.enable3x3Crafting) return;
+        if (!ModConfig.is3x3Enabled()) return;
 
         int cx = this.leftPos + WarehouseConstants.CRAFT_3X3_X - 1;
         int cy = this.topPos + WarehouseConstants.CRAFT_3X3_Y - 1;

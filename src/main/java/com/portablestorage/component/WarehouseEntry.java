@@ -1,12 +1,8 @@
 package com.portablestorage.component;
 
 import net.minecraft.core.HolderLookup;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-
-import java.util.Objects;
 
 public class WarehouseEntry {
     private final ItemStack itemStack; // 用于存储 Item 和 NBT

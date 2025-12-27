@@ -56,13 +56,14 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
         PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+        int warehouseStart = WarehouseConstants.getWarehouseSlotStart();
         
         // 仓库折叠时禁止直接点击操作
         if (!warehouse.isFolded()) {
-            int warehouseSlotEnd = WarehouseConstants.WAREHOUSE_SLOT_START + (warehouse.getVisibleRows() * WarehouseConstants.SLOTS_PER_ROW);
+            int warehouseSlotEnd = warehouseStart + (warehouse.getVisibleRows() * WarehouseConstants.SLOTS_PER_ROW);
 
             // 只有被激活的仓库槽位才响应点击
-            if (slotId >= WarehouseConstants.WAREHOUSE_SLOT_START && slotId < warehouseSlotEnd && !player.getAbilities().instabuild) {
+            if (slotId >= warehouseStart && slotId < warehouseSlotEnd && !player.getAbilities().instabuild) {
                 ItemStack cursorStack = this.getCarried();
 
                 if (!cursorStack.isEmpty()) {
@@ -72,7 +73,7 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
                 } else {
                     // 光标无物品：从仓库取出
                     int amount = (button == 1) ? 1 : 64; // 右键取1个，左键取一组
-                    ItemStack taken = warehouse.removeItem(slotId - WarehouseConstants.WAREHOUSE_SLOT_START, amount);
+                    ItemStack taken = warehouse.removeItem(slotId - warehouseStart, amount);
                     this.setCarried(taken); 
                 }
                 return;
@@ -90,14 +91,15 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
 
         ItemStack stackInSlot = slot.getItem();
         PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+        int warehouseStart = WarehouseConstants.getWarehouseSlotStart();
         
         // 仓库折叠时禁止快速移动操作
         if (warehouse.isFolded()) return;
 
-        int warehouseSlotEnd = WarehouseConstants.WAREHOUSE_SLOT_START + (warehouse.getVisibleRows() * WarehouseConstants.SLOTS_PER_ROW);
+        int warehouseSlotEnd = warehouseStart + (warehouse.getVisibleRows() * WarehouseConstants.SLOTS_PER_ROW);
 
-        if (index >= WarehouseConstants.WAREHOUSE_SLOT_START && index < warehouseSlotEnd) { // 从仓库快速转移到背包
-            long realCount = warehouse.getRealCount(index - WarehouseConstants.WAREHOUSE_SLOT_START);
+        if (index >= warehouseStart && index < warehouseSlotEnd) { // 从仓库快速转移到背包
+            long realCount = warehouse.getRealCount(index - warehouseStart);
             int toTake = (int) Math.min(stackInSlot.getMaxStackSize(), realCount);
             ItemStack resultStack = stackInSlot.copyWithCount(toTake);
             
@@ -105,7 +107,7 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
                 cir.setReturnValue(ItemStack.EMPTY);
                 return;
             }
-            warehouse.removeItem(index - WarehouseConstants.WAREHOUSE_SLOT_START, toTake - resultStack.getCount());
+            warehouse.removeItem(index - warehouseStart, toTake - resultStack.getCount());
             cir.setReturnValue(ItemStack.EMPTY);
         } else if (index >= WarehouseConstants.PLAYER_INVENTORY_START && index < WarehouseConstants.PLAYER_INVENTORY_END) { // 从玩家背包快速转移到仓库
             if (warehouse.isQuickInteraction()) {

@@ -63,7 +63,7 @@ public class WarehouseRenderer {
         graphics.fill(x, y + WarehouseConstants.TINY_BUTTON_SIZE, x + WarehouseConstants.TINY_BUTTON_SIZE + 1, y + WarehouseConstants.TINY_BUTTON_SIZE + 1, 0xFF444444); 
         graphics.fill(x + WarehouseConstants.TINY_BUTTON_SIZE, y - 1, x + WarehouseConstants.TINY_BUTTON_SIZE + 1, y + WarehouseConstants.TINY_BUTTON_SIZE, 0xFF444444); 
 
-        int textX = x + (WarehouseConstants.TINY_BUTTON_SIZE / 2) - font.width(text) / 2;
+        int textX = x + (WarehouseConstants.TINY_BUTTON_SIZE / 2) - font.width(text) / 2 + 1;
         int textY = y + 2;
         graphics.drawString(font, text, textX, textY, 0xFFFFFF, false);
     }

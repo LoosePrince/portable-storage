@@ -2,7 +2,6 @@ package com.portablestorage.component;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import java.util.HashMap;
 import java.util.Map;

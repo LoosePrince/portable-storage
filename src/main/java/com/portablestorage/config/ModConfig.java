@@ -13,25 +13,49 @@ public class ModConfig {
     public static boolean offsetInventory = true;
     public static boolean hideRecipeBook = true;
     public static boolean enable3x3Crafting = true;
+    
+    // 运行时启用的 3x3 合成状态，由服务端下发决定
+    private static boolean active3x3Crafting = true;
+
+    public static boolean is3x3Enabled() {
+        return active3x3Crafting;
+    }
+
+    public static void setActive3x3Crafting(boolean value) {
+        active3x3Crafting = value;
+    }
 
     public static void load() {
         CommentedFileConfig config = CommentedFileConfig.builder(CONFIG_FILE, TomlFormat.instance())
                 .defaultResource("/assets/portablestorage/config/default-config.toml")
-                .autosave()
                 .writingMode(WritingMode.REPLACE)
                 .build();
         
         config.load();
 
-        offsetInventory = config.getOrElse("offsetInventory", true);
-        hideRecipeBook = config.getOrElse("hideRecipeBook", true);
-        enable3x3Crafting = config.getOrElse("enable3x3Crafting", true);
+        offsetInventory = config.getOrElse("client.offsetInventory", true);
+        hideRecipeBook = config.getOrElse("client.hideRecipeBook", true);
+        enable3x3Crafting = config.getOrElse("server.enable3x3Crafting", true);
+        
+        // 初始时设置为本地配置值
+        active3x3Crafting = enable3x3Crafting;
 
-        // 如果启用背包偏移，则强制隐藏配方书
         if (offsetInventory) {
             hideRecipeBook = true;
         }
         
+        config.close();
+    }
+
+    public static void save() {
+        CommentedFileConfig config = CommentedFileConfig.builder(CONFIG_FILE, TomlFormat.instance())
+                .writingMode(WritingMode.REPLACE)
+                .build();
+        config.load();
+        config.set("client.offsetInventory", offsetInventory);
+        config.set("client.hideRecipeBook", hideRecipeBook);
+        config.set("server.enable3x3Crafting", enable3x3Crafting);
+        config.save();
         config.close();
     }
 }

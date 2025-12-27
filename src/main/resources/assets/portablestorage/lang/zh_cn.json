@@ -1,4 +1,26 @@
 {
   "gui.portablestorage.count": "数量: %s",
-  "gui.portablestorage.search": "搜索物品..."
+  "gui.portablestorage.search": "搜索物品...",
+  "gui.portablestorage.button.fold": "折叠仓库",
+  "gui.portablestorage.button.unfold": "展开仓库",
+  "gui.portablestorage.button.sort_mode": "排序模式",
+  "gui.portablestorage.button.sort_order": "排序顺序",
+  "gui.portablestorage.button.quick_interaction": "快速存取",
+  "gui.portablestorage.current": "当前: %s",
+  "gui.portablestorage.sort.count": "物品数量",
+  "gui.portablestorage.sort.name": "物品名称",
+  "gui.portablestorage.sort.id": "物品 ID",
+  "gui.portablestorage.sort.time": "更新时间",
+  "gui.portablestorage.sort.mod": "所属模组",
+  "gui.portablestorage.order.ascending": "升序",
+  "gui.portablestorage.order.descending": "降序",
+  "gui.portablestorage.on": "开启",
+  "gui.portablestorage.off": "关闭",
+  "gui.portablestorage.button.settings_hint": "中键: 打开设置",
+  "gui.portablestorage.settings.title": "Portable Storage 设置",
+  "gui.portablestorage.settings.tab.client": "客户端",
+  "gui.portablestorage.settings.tab.server": "服务端",
+  "gui.portablestorage.settings.offset_inventory": "偏移背包界面",
+  "gui.portablestorage.settings.hide_recipe_book": "隐藏配方书按钮",
+  "gui.portablestorage.settings.enable_3x3_crafting": "启用 3x3 合成"
 }

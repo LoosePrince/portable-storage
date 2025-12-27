@@ -11,7 +11,10 @@ public class WarehouseConstants {
     public static final int VANILLA_CRAFTING_INPUT_COUNT = 4; // 2x2
     public static final int EXTRA_CRAFTING_SLOTS = CRAFTING_INPUT_COUNT - VANILLA_CRAFTING_INPUT_COUNT; // 5个新槽位
     
-    public static final int WAREHOUSE_SLOT_START = 46 + EXTRA_CRAFTING_SLOTS; // 从 51 开始
+    public static int getWarehouseSlotStart() {
+        return 46 + (com.portablestorage.config.ModConfig.is3x3Enabled() ? EXTRA_CRAFTING_SLOTS : 0);
+    }
+
     public static final int PLAYER_INVENTORY_START = 9;
     public static final int PLAYER_INVENTORY_END = 45;
 
@@ -32,9 +35,9 @@ public class WarehouseConstants {
     // 搜索框 (相对于 warehouseX, warehouseY)
     public static final int SEARCH_BOX_X_OFFSET = 16;
     public static final int SEARCH_BOX_Y_OFFSET = 6;
-    public static final int SEARCH_BOX_WIDTH = 141;
+    public static final int SEARCH_BOX_WIDTH = 143;
     public static final int SEARCH_BOX_HEIGHT = 12;
-    public static final int SEARCH_BOX_INNER_OFFSET = 1; // 内部文本偏移 1px 以避开描边
+    public static final int SEARCH_BOX_INNER_OFFSET = 2; // 内部文本偏移 1px 以避开描边
 
     // 槽位逻辑坐标 (相对于 leftPos / topPos)
     public static final int SLOT_LOGIC_X = 8; 
@@ -45,7 +48,7 @@ public class WarehouseConstants {
     public static final int SLOT_VISUAL_OFFSET = -1;
 
     // 滚动条 (相对于 warehouseX, warehouseY)
-    public static final int SCROLLBAR_X_OFFSET = 182;
+    public static final int SCROLLBAR_X_OFFSET = 181;
     public static final int SCROLLBAR_Y_OFFSET = 23;
     public static final int SCROLLBAR_WIDTH = 4;
     public static final int SCROLLBAR_PADDING = 4; // 滚动条上下边距
@@ -56,9 +59,9 @@ public class WarehouseConstants {
     public static final int SIDEBAR_BUTTON_SPACING = 1;
 
     // +/- 按钮 (相对于 warehouseX, warehouseY)
-    public static final int PLUS_MINUS_X_OFFSET = 160;
-    public static final int PLUS_MINUS_Y_OFFSET = 5;
-    public static final int TINY_BUTTON_SIZE = 12;
+    public static final int PLUS_MINUS_X_OFFSET = 162;
+    public static final int PLUS_MINUS_Y_OFFSET = 6;
+    public static final int TINY_BUTTON_SIZE = 11;
     public static final int TINY_BUTTON_SPACING = 2;
 
     // 折叠/展开按钮 (相对于 leftPos, topPos - 副手槽位上方)

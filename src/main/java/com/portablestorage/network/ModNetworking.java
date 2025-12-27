@@ -14,6 +14,10 @@ public class ModNetworking {
         PayloadTypeRegistry.playC2S().register(UpdateSettingsPayload.TYPE, UpdateSettingsPayload.CODEC);
     }
 
+    public static void registerS2CPayloads() {
+        PayloadTypeRegistry.playS2C().register(SyncConfigPayload.TYPE, SyncConfigPayload.CODEC);
+    }
+
     public static void registerServerReceivers() {
         // 统一处理逻辑：获取仓库 -> 执行操作 -> 广播变更
         ServerPlayNetworking.registerGlobalReceiver(UpdateSettingsPayload.TYPE, (payload, context) -> {

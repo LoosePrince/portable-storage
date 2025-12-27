@@ -3,7 +3,7 @@ package com.portablestorage.mixin.client;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
-import com.portablestorage.mixin.accessor.SlotAccessor;
+import com.portablestorage.gui.ModSettingsScreen;
 import com.portablestorage.network.ChangeRowsPayload;
 import com.portablestorage.network.ScrollPayload;
 import com.portablestorage.network.SearchPayload;
@@ -191,12 +191,18 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                 int foldButtonX = this.leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
                 int foldButtonY = this.topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
                 if (mouseX >= foldButtonX && mouseX < foldButtonX + 18 && mouseY >= foldButtonY && mouseY < foldButtonY + 18) {
-                    boolean newFolded = !warehouse.isFolded();
-                    warehouse.setFolded(newFolded);
-                    ClientPlayNetworking.send(new UpdateSettingsPayload(0, newFolded ? 1 : 0));
-                    if (newFolded && this.searchBox != null) this.searchBox.setFocused(false);
-                    this.minecraft.setScreen(new InventoryScreen(player));
-                    return true;
+                    if (button == 2) { // 中键
+                        this.minecraft.setScreen(new ModSettingsScreen(this));
+                        return true;
+                    }
+                    if (button == 0) { // 左键
+                        boolean newFolded = !warehouse.isFolded();
+                        warehouse.setFolded(newFolded);
+                        ClientPlayNetworking.send(new UpdateSettingsPayload(0, newFolded ? 1 : 0));
+                        if (newFolded && this.searchBox != null) this.searchBox.setFocused(false);
+                        this.minecraft.setScreen(new InventoryScreen(player));
+                        return true;
+                    }
                 }
                 
                 int bx = x + WarehouseConstants.SIDEBAR_X_OFFSET;
@@ -307,6 +313,8 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
             this.searchBox.active = !warehouse.isFolded();
         }
 
+        renderButtonTooltips(graphics, mouseX, mouseY, warehouse);
+
         if (warehouse.isFolded()) return; 
         
         int startX = this.leftPos + WarehouseConstants.SLOT_LOGIC_X;
@@ -328,6 +336,63 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                 graphics.drawString(this.font, countStr, 0, 0, WarehouseConstants.QUANTITY_TEXT_COLOR, true);
                 graphics.pose().popPose();
             }
+        }
+    }
+
+    @Unique
+    private void renderButtonTooltips(GuiGraphics graphics, int mouseX, int mouseY, PlayerWarehouse warehouse) {
+        int foldButtonX = this.leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
+        int foldButtonY = this.topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
+        
+        if (mouseX >= foldButtonX && mouseX < foldButtonX + 18 && mouseY >= foldButtonY && mouseY < foldButtonY + 18) {
+            List<Component> tooltip = new ArrayList<>();
+            tooltip.add(Component.translatable(warehouse.isFolded() ? "gui.portablestorage.button.unfold" : "gui.portablestorage.button.fold"));
+            tooltip.add(Component.translatable("gui.portablestorage.button.settings_hint").withStyle(ChatFormatting.DARK_GRAY));
+            graphics.renderComponentTooltip(this.font, tooltip, mouseX, mouseY);
+            return;
+        }
+
+        if (warehouse.isFolded()) return;
+
+        int x = this.leftPos + WarehouseConstants.WAREHOUSE_X_OFFSET;
+        int y = this.topPos + WarehouseConstants.WAREHOUSE_Y_OFFSET;
+        int bx = x + WarehouseConstants.SIDEBAR_X_OFFSET;
+        int iconSpacing = WarehouseConstants.SIDEBAR_BUTTON_SIZE + WarehouseConstants.SIDEBAR_BUTTON_SPACING;
+
+        // 排序模式
+        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y && mouseY < y + 18) {
+            List<Component> tooltip = new ArrayList<>();
+            tooltip.add(Component.translatable("gui.portablestorage.button.sort_mode"));
+            String modeKey = switch (warehouse.getSortMode()) {
+                case 0 -> "gui.portablestorage.sort.count";
+                case 1 -> "gui.portablestorage.sort.name";
+                case 2 -> "gui.portablestorage.sort.id";
+                case 3 -> "gui.portablestorage.sort.time";
+                default -> "gui.portablestorage.sort.id";
+            };
+            tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(modeKey)).withStyle(ChatFormatting.GRAY));
+            graphics.renderComponentTooltip(this.font, tooltip, mouseX, mouseY);
+            return;
+        }
+
+        // 排序顺序
+        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing && mouseY < y + iconSpacing + 18) {
+            List<Component> tooltip = new ArrayList<>();
+            tooltip.add(Component.translatable("gui.portablestorage.button.sort_order"));
+            String orderKey = warehouse.isAscending() ? "gui.portablestorage.order.ascending" : "gui.portablestorage.order.descending";
+            tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(orderKey)).withStyle(ChatFormatting.GRAY));
+            graphics.renderComponentTooltip(this.font, tooltip, mouseX, mouseY);
+            return;
+        }
+
+        // 快速存取
+        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 2 && mouseY < y + iconSpacing * 2 + 18) {
+            List<Component> tooltip = new ArrayList<>();
+            tooltip.add(Component.translatable("gui.portablestorage.button.quick_interaction"));
+            String statusKey = warehouse.isQuickInteraction() ? "gui.portablestorage.on" : "gui.portablestorage.off";
+            tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(statusKey)).withStyle(ChatFormatting.GRAY));
+            graphics.renderComponentTooltip(this.font, tooltip, mouseX, mouseY);
+            return;
         }
     }
 }
