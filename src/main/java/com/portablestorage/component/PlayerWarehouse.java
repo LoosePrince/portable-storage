@@ -24,6 +24,7 @@ public class PlayerWarehouse implements Container {
     private int sortMode = 0; // 0: 数量, 1: 名称, 2: ID, 3: 更新时间
     private boolean isAscending = false;
     private boolean quickInteraction = true;
+    private boolean enabled = true;
     private List<WarehouseEntry> sortedCache = null;
     private final Consumer<PlayerWarehouse> onChanged;
 
@@ -114,7 +115,11 @@ public class PlayerWarehouse implements Container {
     }
 
     public boolean isFolded() { return isFolded; }
-    public void setFolded(boolean folded) { this.isFolded = folded; this.setChanged(); }
+    public void setFolded(boolean folded) { 
+        if (!enabled && !folded) return; // 禁用时不允许展开
+        this.isFolded = folded; 
+        this.setChanged(); 
+    }
 
     public int getSortMode() { return sortMode; }
     public void setSortMode(int mode) { this.sortMode = mode; this.setChanged(); }
@@ -124,6 +129,9 @@ public class PlayerWarehouse implements Container {
 
     public boolean isQuickInteraction() { return quickInteraction; }
     public void setQuickInteraction(boolean quick) { this.quickInteraction = quick; this.setChanged(); }
+
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; this.setChanged(); }
 
     public long getRealCount(int slotIndex) {
         List<WarehouseEntry> sorted = getSortedEntries();
@@ -143,6 +151,7 @@ public class PlayerWarehouse implements Container {
         this.sortMode = tag.getInt("sortMode");
         this.isAscending = tag.getBoolean("isAscending");
         this.quickInteraction = tag.contains("quickInteraction") ? tag.getBoolean("quickInteraction") : true;
+        this.enabled = !tag.contains("enabled") || tag.getBoolean("enabled");
         this.searchText = tag.getString("searchText");
         this.sortedCache = null;
     }
@@ -157,6 +166,7 @@ public class PlayerWarehouse implements Container {
         tag.putInt("sortMode", sortMode);
         tag.putBoolean("isAscending", isAscending);
         tag.putBoolean("quickInteraction", quickInteraction);
+        tag.putBoolean("enabled", enabled);
         tag.putString("searchText", searchText);
     }
 

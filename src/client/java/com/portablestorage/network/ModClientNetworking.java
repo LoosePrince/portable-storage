@@ -8,6 +8,7 @@ public class ModClientNetworking {
         ClientPlayNetworking.registerGlobalReceiver(SyncConfigPayload.TYPE, (payload, context) -> {
             context.client().execute(() -> {
                 ModConfig.setActive3x3Crafting(payload.enable3x3Crafting());
+                ModConfig.dropStorageOnDeath = payload.dropStorageOnDeath();
             });
         });
     }

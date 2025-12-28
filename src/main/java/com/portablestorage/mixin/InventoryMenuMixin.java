@@ -6,7 +6,6 @@ import com.portablestorage.util.WarehouseConstants;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
@@ -19,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(InventoryMenu.class)
+@Mixin(value = InventoryMenu.class, priority = 1500)
 public abstract class InventoryMenuMixin extends AbstractContainerMenu {
 
     @Shadow @Final private Player owner;
@@ -45,69 +44,39 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
 
                     @Override
                     public boolean isActive() {
-                        // 1. 非创造模式 2. 仓库未折叠 3. 在当前可见行范围内
-                        return !owner.getAbilities().instabuild && !warehouse.isFolded() && currentRow < warehouse.getVisibleRows();
+                        // 1. 非创造模式 2. 仓库未折叠 3. 仓库已启用 4. 在当前可见行范围内
+                        return !owner.getAbilities().instabuild && !warehouse.isFolded() && warehouse.isEnabled() && currentRow < warehouse.getVisibleRows();
                     }
                 });
             }
         }
     }
 
-    @Override
-    public void clicked(int slotId, int button, ClickType clickType, Player player) {
-        PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
-        int warehouseStart = WarehouseConstants.getWarehouseSlotStart();
-        
-        // 仓库折叠时禁止直接点击操作
-        if (!warehouse.isFolded()) {
-            int warehouseSlotEnd = warehouseStart + (warehouse.getVisibleRows() * WarehouseConstants.SLOTS_PER_ROW);
-
-            // 只有被激活的仓库槽位才响应点击
-            if (slotId >= warehouseStart && slotId < warehouseSlotEnd && !player.getAbilities().instabuild) {
-                // 如果是快速移动（Shift-click），交给 super 处理，进而触发 handleQuickMove
-                if (clickType == ClickType.QUICK_MOVE) {
-                    super.clicked(slotId, button, clickType, player);
-                    return;
-                }
-
-                ItemStack cursorStack = this.getCarried();
-
-                if (!cursorStack.isEmpty()) {
-                    // 光标有物品：存入仓库
-                    warehouse.addItem(cursorStack);
-                    this.setCarried(ItemStack.EMPTY); 
-                } else {
-                    // 光标无物品：从仓库取出
-                    int amount = (button == 1) ? 1 : 64; // 右键取1个，左键取一组
-                    ItemStack taken = warehouse.removeItem(slotId - warehouseStart, amount);
-                    
-                    if (warehouse.isQuickInteraction()) {
-                        // 开启快速存取时，尝试直接放入背包
-                        this.moveItemStackTo(taken, WarehouseConstants.PLAYER_INVENTORY_START, WarehouseConstants.PLAYER_INVENTORY_END, true);
-                        if (!taken.isEmpty()) {
-                            // 背包满了或者未完全转移，剩下的拿在手上
-                            this.setCarried(taken);
-                        }
-                    } else {
-                        this.setCarried(taken); 
-                    }
-                }
-                return;
-            }
-        }
-        super.clicked(slotId, button, clickType, player);
-    }
-
     @Inject(method = "quickMoveStack", at = @At("HEAD"), cancellable = true)
     private void handleQuickMove(Player player, int index, CallbackInfoReturnable<ItemStack> cir) {
         if (player.getAbilities().instabuild) return;
+
+        PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+        
+        // 如果仓库被禁用，只允许玩家将物品存入仓库（如果需要），但不允许从仓库取出
+        // 这里我们统一下，禁用时直接不响应快速移动
+        if (!warehouse.isEnabled()) return;
 
         Slot slot = this.slots.get(index);
         if (slot == null || !slot.hasItem()) return;
 
         ItemStack stackInSlot = slot.getItem();
-        PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
-        int warehouseStart = WarehouseConstants.getWarehouseSlotStart();
+        
+        // 动态定位仓库槽位起始索引
+        int warehouseStart = -1;
+        for (int i = 0; i < this.slots.size(); i++) {
+            if (this.slots.get(i).container == warehouse) {
+                warehouseStart = i;
+                break;
+            }
+        }
+        
+        if (warehouseStart == -1) return;
         
         // 仓库折叠时禁止快速移动操作
         if (warehouse.isFolded()) return;
@@ -115,16 +84,35 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
         int warehouseSlotEnd = warehouseStart + (warehouse.getVisibleRows() * WarehouseConstants.SLOTS_PER_ROW);
 
         if (index >= warehouseStart && index < warehouseSlotEnd) { // 从仓库快速转移到背包
+            if (warehouse.isQuickInteraction()) {
             long realCount = warehouse.getRealCount(index - warehouseStart);
             int toTake = (int) Math.min(stackInSlot.getMaxStackSize(), realCount);
             ItemStack resultStack = stackInSlot.copyWithCount(toTake);
             
-            if (!this.moveItemStackTo(resultStack, WarehouseConstants.PLAYER_INVENTORY_START, WarehouseConstants.PLAYER_INVENTORY_END, true)) {
+                // 尝试转移到背包（36-44 是快捷栏，9-35 是主背包）
+                // 先尝试快捷栏
+                if (!this.moveItemStackTo(resultStack, 36, 45, false)) {
+                    // 失败则尝试主背包
+                    if (!this.moveItemStackTo(resultStack, 9, 36, false)) {
+                        cir.setReturnValue(ItemStack.EMPTY);
+                        return;
+                    }
+                }
+                
+                int movedCount = toTake - resultStack.getCount();
+                if (movedCount > 0) {
+                    warehouse.removeItem(index - warehouseStart, movedCount);
+                    // 返回原本槽位中的物品副本，这会引导系统的循环逻辑继续处理，
+                    // 从而实现“一组一组连续取出”的效果。
+                    cir.setReturnValue(stackInSlot.copy());
+                } else {
+                    cir.setReturnValue(ItemStack.EMPTY);
+                }
+            } else {
+                // 如果快捷交互未开启，按住 Shift 点击仓库物品时，我们也应该拦截它，
+                // 防止它流向原版逻辑导致物品被莫名其妙拿起或消失。
                 cir.setReturnValue(ItemStack.EMPTY);
-                return;
             }
-            warehouse.removeItem(index - warehouseStart, toTake - resultStack.getCount());
-            cir.setReturnValue(ItemStack.EMPTY);
         } else if (index >= WarehouseConstants.PLAYER_INVENTORY_START && index < WarehouseConstants.PLAYER_INVENTORY_END) { // 从玩家背包快速转移到仓库
             if (warehouse.isQuickInteraction()) {
                 warehouse.addItem(stackInSlot.copy());

@@ -9,3 +9,5 @@ hideRecipeBook = true
 # 是否启用 3x3 背包合成功能
 enable3x3Crafting = true
 
+# 是否在玩家死亡时禁用仓库 (true: 禁用, false: 保留)
+dropStorageOnDeath = true

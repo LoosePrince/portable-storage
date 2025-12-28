@@ -48,6 +48,17 @@ public class YACLConfig {
                                 .controller(BooleanControllerBuilder::create)
                                 .available(false) // Disable interaction
                                 .build())
+                        .option(Option.<Boolean>createBuilder()
+                                .name(Component.translatable("gui.portablestorage.settings.drop_storage_on_death"))
+                                .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.drop_storage_on_death.desc")))
+                                .binding(
+                                        true,
+                                        () -> ModConfig.dropStorageOnDeath,
+                                        val -> {} // Read-only on client
+                                )
+                                .controller(BooleanControllerBuilder::create)
+                                .available(false)
+                                .build())
                         .build())
                 .save(ModConfig::save)
                 .build()

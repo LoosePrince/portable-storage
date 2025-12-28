@@ -22,29 +22,41 @@ import java.util.List;
 public abstract class AbstractContainerScreenMixin {
 
     @Shadow protected Slot hoveredSlot;
-
     @Shadow protected abstract List<Component> getTooltipFromContainerItem(net.minecraft.world.item.ItemStack stack);
 
     @Inject(method = "renderTooltip", at = @At("HEAD"), cancellable = true)
     private void onRenderTooltip(GuiGraphics graphics, int x, int y, CallbackInfo ci) {
-        int whStart = WarehouseConstants.getWarehouseSlotStart();
-        if (this.hoveredSlot != null && this.hoveredSlot.index >= whStart) {
-            var player = Minecraft.getInstance().player;
-            if (player == null) return;
-            
-            PlayerWarehouse wh = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
-            int whSlotEnd = whStart + (wh.getVisibleRows() * WarehouseConstants.SLOTS_PER_ROW);
-            
-            if (this.hoveredSlot.index >= whStart && this.hoveredSlot.index < whSlotEnd) {
-                long realCount = wh.getRealCount(this.hoveredSlot.index - whStart);
-                if (realCount > 1) {
-                    // 获取原版 Tooltip 列表
-                    List<Component> tooltip = new ArrayList<>(this.getTooltipFromContainerItem(this.hoveredSlot.getItem()));
-                    // 插入数量信息
-                    tooltip.add(1, Component.translatable("gui.portablestorage.count", String.format("%,d", realCount)).withStyle(ChatFormatting.GRAY));
-                    // 手动渲染并拦截原版调用，防止重叠
-                    graphics.renderComponentTooltip(Minecraft.getInstance().font, tooltip, x, y);
-                    ci.cancel();
+        var player = Minecraft.getInstance().player;
+        if (player == null || player.getAbilities().instabuild) return;
+
+        PlayerWarehouse wh = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+        if (!wh.isEnabled() || wh.isFolded()) return;
+
+        if (this.hoveredSlot != null && this.hoveredSlot.container == wh) {
+            // 动态定位仓库槽位起始索引
+            int whStart = -1;
+            AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>)(Object)this;
+            for (int i = 0; i < screen.getMenu().slots.size(); i++) {
+                if (screen.getMenu().slots.get(i).container == wh) {
+                    whStart = i;
+                    break;
+                }
+            }
+
+            if (whStart != -1) {
+                int whSlotEnd = whStart + (wh.getVisibleRows() * WarehouseConstants.SLOTS_PER_ROW);
+                
+                if (this.hoveredSlot.index >= whStart && this.hoveredSlot.index < whSlotEnd) {
+                    long realCount = wh.getRealCount(this.hoveredSlot.index - whStart);
+                    if (realCount > 1) {
+                        // 获取原版 Tooltip 列表
+                        List<Component> tooltip = new ArrayList<>(this.getTooltipFromContainerItem(this.hoveredSlot.getItem()));
+                        // 插入数量信息
+                        tooltip.add(1, Component.translatable("gui.portablestorage.count", String.format("%,d", realCount)).withStyle(ChatFormatting.GRAY));
+                        // 手动渲染并拦截原版调用，防止重叠
+                        graphics.renderComponentTooltip(Minecraft.getInstance().font, tooltip, x, y);
+                        ci.cancel();
+                    }
                 }
             }
         }

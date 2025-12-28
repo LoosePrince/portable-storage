@@ -13,6 +13,7 @@ public class ModConfig {
     public static boolean offsetInventory = true;
     public static boolean hideRecipeBook = true;
     public static boolean enable3x3Crafting = true;
+    public static boolean dropStorageOnDeath = true;
     
     // 运行时启用的 3x3 合成状态，由服务端下发决定
     private static boolean active3x3Crafting = true;
@@ -36,6 +37,7 @@ public class ModConfig {
         offsetInventory = config.getOrElse("client.offsetInventory", true);
         hideRecipeBook = config.getOrElse("client.hideRecipeBook", true);
         enable3x3Crafting = config.getOrElse("server.enable3x3Crafting", true);
+        dropStorageOnDeath = config.getOrElse("server.dropStorageOnDeath", true);
         
         // 初始时设置为本地配置值
         active3x3Crafting = enable3x3Crafting;
@@ -55,6 +57,7 @@ public class ModConfig {
         config.set("client.offsetInventory", offsetInventory);
         config.set("client.hideRecipeBook", hideRecipeBook);
         config.set("server.enable3x3Crafting", enable3x3Crafting);
+        config.set("server.dropStorageOnDeath", dropStorageOnDeath);
         config.save();
         config.close();
     }

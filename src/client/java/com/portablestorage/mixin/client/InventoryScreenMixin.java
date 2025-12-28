@@ -5,6 +5,7 @@ import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
 import com.portablestorage.config.YACLConfig;
 import com.portablestorage.network.ChangeRowsPayload;
+import com.portablestorage.network.QuickTransferPayload;
 import com.portablestorage.network.ScrollPayload;
 import com.portablestorage.network.SearchPayload;
 import com.portablestorage.network.UpdateSettingsPayload;
@@ -22,6 +23,7 @@ import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.gui.screens.inventory.EffectRenderingInventoryScreen;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.InventoryMenu;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -52,7 +54,9 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
 
     @Unique
     private boolean shouldShowWarehouse() {
-        return this.minecraft != null && this.minecraft.player != null && !this.minecraft.player.getAbilities().instabuild;
+        if (this.minecraft == null || this.minecraft.player == null || this.minecraft.player.getAbilities().instabuild) return false;
+        var warehouse = ModComponents.WAREHOUSE.get(this.minecraft.player.level()).getWarehouse(this.minecraft.player.getUUID());
+        return warehouse.isEnabled();
     }
 
     @Inject(method = "init", at = @At("RETURN"))
@@ -181,6 +185,34 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // 检测仓库槽位的 Shift+点击
+        if (shouldShowWarehouse() && this.minecraft != null && this.minecraft.player != null && button == 0) { // 左键
+            PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(this.minecraft.player.level()).getWarehouse(this.minecraft.player.getUUID());
+            
+            // 检测 Shift 键状态
+            boolean isShiftPressed = net.minecraft.client.gui.screens.Screen.hasShiftDown();
+            
+            if (isShiftPressed && warehouse.isQuickInteraction() && !warehouse.isFolded()) {
+                // 手动查找被点击的槽位
+                Slot clickedSlot = null;
+                for (Slot slot : this.menu.slots) {
+                    int slotX = this.leftPos + slot.x;
+                    int slotY = this.topPos + slot.y;
+                    if (mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY && mouseY < slotY + 16) {
+                        clickedSlot = slot;
+                        break;
+                    }
+                }
+                
+                // 检查是否点击在仓库槽位上
+                if (clickedSlot != null && clickedSlot.container instanceof PlayerWarehouse) {
+                    // 发送快速转移网络包
+                    ClientPlayNetworking.send(new QuickTransferPayload(clickedSlot.index));
+                    return true;
+                }
+            }
+        }
+        
         if (shouldShowWarehouse()) {
             var player = Minecraft.getInstance().player;
             if (player != null) {
