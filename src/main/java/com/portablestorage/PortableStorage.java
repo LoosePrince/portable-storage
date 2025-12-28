@@ -1,5 +1,6 @@
 package com.portablestorage;
 
+import com.portablestorage.component.ModComponents;
 import com.portablestorage.config.ModConfig;
 import com.portablestorage.event.PlayerDeathEventHandler;
 import com.portablestorage.item.ModItems;
@@ -8,15 +9,17 @@ import com.portablestorage.network.SyncConfigPayload;
 import com.portablestorage.screen.ModScreenHandlers;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage;
+import net.minecraft.world.entity.EntityType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class PortableStorage implements ModInitializer {
-	public static final String MOD_ID = "portablestorage";
-	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+    public static final String MOD_ID = "portablestorage";
+    public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-	@Override
-	public void onInitialize() {
+    @Override
+    public void onInitialize() {
         ModConfig.load();
         ModItems.registerModItems();
         ModScreenHandlers.register();

@@ -1,6 +1,12 @@
 package com.portablestorage.component;
 
 import com.portablestorage.mixin.accessor.AbstractContainerMenuAccessor;
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants;
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
+import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
+import net.fabricmc.fabric.api.transfer.v1.storage.StorageView;
+import net.fabricmc.fabric.api.transfer.v1.transaction.TransactionContext;
+import net.fabricmc.fabric.api.transfer.v1.transaction.base.SnapshotParticipant;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
@@ -11,12 +17,15 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
 
 import java.util.*;
 import java.util.function.Consumer;
 
-public class PlayerWarehouse implements Container {
+public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>> implements Container, Storage<FluidVariant> {
     private final List<WarehouseEntry> storage = new ArrayList<>();
+    private final Map<FluidVariant, Long> fluidStorage = new LinkedHashMap<>();
     private int scrollOffset = 0;
     private int visibleRows = 6;
     private String searchText = "";
@@ -32,6 +41,78 @@ public class PlayerWarehouse implements Container {
 
     public PlayerWarehouse(UUID id, Consumer<PlayerWarehouse> onChanged) {
         this.onChanged = onChanged;
+    }
+
+    @Override
+    public long insert(FluidVariant resource, long maxAmount, TransactionContext transaction) {
+        if (maxAmount <= 0) return 0;
+        updateSnapshots(transaction);
+        long current = fluidStorage.getOrDefault(resource, 0L);
+        fluidStorage.put(resource, current + maxAmount);
+        this.setChanged();
+        return maxAmount;
+    }
+
+    @Override
+    public long extract(FluidVariant resource, long maxAmount, TransactionContext transaction) {
+        if (maxAmount <= 0) return 0;
+        long current = fluidStorage.getOrDefault(resource, 0L);
+        if (current <= 0) return 0;
+        updateSnapshots(transaction);
+        long extracted = Math.min(current, maxAmount);
+        if (current - extracted > 0) {
+            fluidStorage.put(resource, current - extracted);
+        } else {
+            fluidStorage.remove(resource);
+        }
+        this.setChanged();
+        return extracted;
+    }
+
+    @Override
+    public Iterator<StorageView<FluidVariant>> iterator() {
+        return fluidStorage.entrySet().stream().map(e -> (StorageView<FluidVariant>) new StorageView<FluidVariant>() {
+            @Override
+            public long extract(FluidVariant resource, long maxAmount, TransactionContext transaction) {
+                if (resource.equals(e.getKey())) {
+                    return PlayerWarehouse.this.extract(resource, maxAmount, transaction);
+                }
+                return 0;
+            }
+
+            @Override
+            public boolean isResourceBlank() { return e.getKey().isBlank(); }
+            @Override
+            public FluidVariant getResource() { return e.getKey(); }
+            @Override
+            public long getAmount() { return e.getValue(); }
+            @Override
+            public long getCapacity() { return Long.MAX_VALUE; }
+        }).iterator();
+    }
+
+    @Override
+    protected Map<FluidVariant, Long> createSnapshot() {
+        return new LinkedHashMap<>(fluidStorage);
+    }
+
+    @Override
+    protected void readSnapshot(Map<FluidVariant, Long> snapshot) {
+        fluidStorage.clear();
+        fluidStorage.putAll(snapshot);
+    }
+
+    private net.minecraft.world.item.Item getVirtualItemForFluid(FluidVariant fluid) {
+        if (fluid.isOf(Fluids.LAVA)) return com.portablestorage.item.ModItems.VIRTUAL_LAVA;
+        if (fluid.isOf(Fluids.WATER)) return com.portablestorage.item.ModItems.VIRTUAL_WATER;
+        // Milk handled separately for now as it's not a fluid in vanilla
+        return null;
+    }
+
+    private FluidVariant getFluidForVirtualItem(net.minecraft.world.item.Item item) {
+        if (item == com.portablestorage.item.ModItems.VIRTUAL_LAVA) return FluidVariant.of(Fluids.LAVA);
+        if (item == com.portablestorage.item.ModItems.VIRTUAL_WATER) return FluidVariant.of(Fluids.WATER);
+        return null;
     }
 
     private net.minecraft.world.item.Item getVirtualFluidForItem(net.minecraft.world.item.Item item) {
@@ -81,29 +162,50 @@ public class PlayerWarehouse implements Container {
             return stack;
         }
 
+        // 处理普通物品或 Milk (Milk 暂时保留为虚拟物品)
         net.minecraft.world.item.Item virtualItem = getVirtualFluidForItem(stack.getItem());
         if (virtualItem == null) {
             addItemInternal(stack);
             return stack;
         }
 
-        int originalCount = stack.getCount();
-        ItemStack virtualStack = new ItemStack(virtualItem, originalCount);
-        addItemInternal(virtualStack);
-        
-        int stored = originalCount - virtualStack.getCount();
-        if (stored > 0) {
-            ItemStack emptyBuckets = new ItemStack(net.minecraft.world.item.Items.BUCKET, stored);
-            stack.shrink(stored); // 减少原本的流体桶
+        // 如果是 Lava 或 Water，使用 Fluid API 存储
+        FluidVariant fluid = getFluidForVirtualItem(virtualItem);
+        if (fluid != null) {
+            int originalCount = stack.getCount();
+            long toInsert = (long) originalCount * FluidConstants.BUCKET;
             
-            if (stack.isEmpty()) {
-                // 全部转换为了流体
-                return emptyBuckets;
-            } else {
-                // 部分转换，剩余部分仍然是流体桶。空桶需要额外处理（放入背包）。
-                if (!player.getInventory().add(emptyBuckets)) {
-                    player.drop(emptyBuckets, false);
+            try (net.fabricmc.fabric.api.transfer.v1.transaction.Transaction transaction = net.fabricmc.fabric.api.transfer.v1.transaction.Transaction.openOuter()) {
+                long inserted = this.insert(fluid, toInsert, transaction);
+                transaction.commit();
+                
+                int bucketsStored = (int) (inserted / FluidConstants.BUCKET);
+                if (bucketsStored > 0) {
+                    ItemStack emptyBuckets = new ItemStack(net.minecraft.world.item.Items.BUCKET, bucketsStored);
+                    stack.shrink(bucketsStored);
+                    
+                    if (stack.isEmpty()) {
+                        return emptyBuckets;
+                    } else {
+                        if (!player.getInventory().add(emptyBuckets)) {
+                            player.drop(emptyBuckets, false);
+                        }
+                        return stack;
+                    }
                 }
+            }
+        } else {
+            // Milk 走原本的虚拟物品逻辑
+            int originalCount = stack.getCount();
+            ItemStack virtualStack = new ItemStack(virtualItem, originalCount);
+            addItemInternal(virtualStack);
+            
+            int stored = originalCount - virtualStack.getCount();
+            if (stored > 0) {
+                ItemStack emptyBuckets = new ItemStack(net.minecraft.world.item.Items.BUCKET, stored);
+                stack.shrink(stored);
+                if (stack.isEmpty()) return emptyBuckets;
+                if (!player.getInventory().add(emptyBuckets)) player.drop(emptyBuckets, false);
                 return stack;
             }
         }
@@ -112,6 +214,20 @@ public class PlayerWarehouse implements Container {
     }
 
     public void addItem(ItemStack stack) {
+        // 如果外部直接传入虚拟流体物品（例如通过某些自动化手段），尝试将其转回 FluidStorage
+        FluidVariant fluid = getFluidForVirtualItem(stack.getItem());
+        if (fluid != null) {
+            try (net.fabricmc.fabric.api.transfer.v1.transaction.Transaction transaction = net.fabricmc.fabric.api.transfer.v1.transaction.Transaction.openOuter()) {
+                long toInsert = (long) stack.getCount() * FluidConstants.BUCKET;
+                long inserted = this.insert(fluid, toInsert, transaction);
+                transaction.commit();
+                
+                int bucketsStored = (int) (inserted / FluidConstants.BUCKET);
+                stack.shrink(bucketsStored);
+                if (bucketsStored > 0) this.setChanged();
+            }
+            if (stack.isEmpty()) return;
+        }
         addItemInternal(stack);
     }
 
@@ -191,6 +307,22 @@ public class PlayerWarehouse implements Container {
                 return ItemStack.EMPTY;
             }
 
+            // 3. 处理流体提取
+            FluidVariant fluid = getFluidForVirtualItem(entry.getItemStack().getItem());
+            if (fluid != null) {
+                try (net.fabricmc.fabric.api.transfer.v1.transaction.Transaction transaction = net.fabricmc.fabric.api.transfer.v1.transaction.Transaction.openOuter()) {
+                    long toExtract = (long) amount * FluidConstants.BUCKET;
+                    long extracted = this.extract(fluid, toExtract, transaction);
+                    transaction.commit();
+                    
+                    int bucketsExtracted = (int) (extracted / FluidConstants.BUCKET);
+                    if (bucketsExtracted > 0) {
+                        return entry.getItemStack().copyWithCount(bucketsExtracted);
+                    }
+                }
+                return ItemStack.EMPTY;
+            }
+
             long toRemove = Math.min(amount, entry.getCount());
             ItemStack result = entry.getItemStack().copyWithCount((int)toRemove);
             entry.subtract(toRemove);
@@ -203,7 +335,20 @@ public class PlayerWarehouse implements Container {
 
     public List<WarehouseEntry> getSortedEntries() {
         if (sortedCache == null) {
-            List<WarehouseEntry> filtered = storage;
+            List<WarehouseEntry> filtered = new ArrayList<>(storage);
+            
+            // 将流体存储转换为虚拟物品展示
+            for (Map.Entry<FluidVariant, Long> entry : fluidStorage.entrySet()) {
+                net.minecraft.world.item.Item virtualItem = getVirtualItemForFluid(entry.getKey());
+                if (virtualItem != null) {
+                    // 1 桶 = 81000 滴 (Fabric Fluid API 标准)
+                    long bucketCount = entry.getValue() / FluidConstants.BUCKET;
+                    if (bucketCount > 0) {
+                        filtered.add(new WarehouseEntry(new ItemStack(virtualItem), bucketCount));
+                    }
+                }
+            }
+
             if (!searchText.isEmpty()) {
                 String query = searchText.toLowerCase().trim();
                 boolean exact = query.startsWith("!") && query.endsWith("!") && query.length() > 2;
@@ -448,6 +593,31 @@ public class PlayerWarehouse implements Container {
         for (int i = 0; i < list.size(); i++) {
             storage.add(WarehouseEntry.fromNbt(list.getCompound(i), registries));
         }
+
+        fluidStorage.clear();
+        if (tag.contains("fluids")) {
+            ListTag fluidList = tag.getList("fluids", Tag.TAG_COMPOUND);
+            for (int i = 0; i < fluidList.size(); i++) {
+                CompoundTag fluidTag = fluidList.getCompound(i);
+                net.minecraft.resources.ResourceLocation id = net.minecraft.resources.ResourceLocation.parse(fluidTag.getString("fluid"));
+                Fluid fluid = BuiltInRegistries.FLUID.get(id);
+                
+                net.minecraft.world.item.component.CustomData customData = fluidTag.contains("nbt") ? 
+                    net.minecraft.world.item.component.CustomData.of(fluidTag.getCompound("nbt")) : null;
+                
+                // 1.21 使用 DataComponentPatch
+                net.minecraft.core.component.DataComponentPatch patch = net.minecraft.core.component.DataComponentPatch.EMPTY;
+                if (fluidTag.contains("components")) {
+                    patch = net.minecraft.core.component.DataComponentPatch.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, fluidTag.get("components"))
+                        .getOrThrow();
+                }
+                
+                FluidVariant variant = FluidVariant.of(fluid, patch);
+                long amount = fluidTag.getLong("amount");
+                fluidStorage.put(variant, amount);
+            }
+        }
+
         this.scrollOffset = tag.getInt("scrollOffset");
         this.visibleRows = tag.contains("visibleRows") ? tag.getInt("visibleRows") : 6;
         this.isFolded = tag.contains("isFolded") ? tag.getBoolean("isFolded") : true;
@@ -465,6 +635,23 @@ public class PlayerWarehouse implements Container {
         ListTag list = new ListTag();
         for (WarehouseEntry entry : storage) list.add(entry.toNbt(registries));
         tag.put("storage", list);
+
+        ListTag fluidList = new ListTag();
+        for (Map.Entry<FluidVariant, Long> entry : fluidStorage.entrySet()) {
+            CompoundTag fluidTag = new CompoundTag();
+            fluidTag.putString("fluid", BuiltInRegistries.FLUID.getKey(entry.getKey().getFluid()).toString());
+            
+            net.minecraft.core.component.DataComponentPatch patch = entry.getKey().getComponents();
+            if (!patch.isEmpty()) {
+                fluidTag.put("components", net.minecraft.core.component.DataComponentPatch.CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, patch)
+                    .getOrThrow());
+            }
+            
+            fluidTag.putLong("amount", entry.getValue());
+            fluidList.add(fluidTag);
+        }
+        tag.put("fluids", fluidList);
+
         tag.putInt("scrollOffset", scrollOffset);
         tag.putInt("visibleRows", visibleRows);
         tag.putBoolean("isFolded", isFolded);
