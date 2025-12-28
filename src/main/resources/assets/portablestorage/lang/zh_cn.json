@@ -56,5 +56,9 @@
   "tooltip.portablestorage.key_use_hint": "右键使用以重新激活你的便携仓库",
   "message.portablestorage.key_not_owner": "你不是这把钥匙的主人！",
   "message.portablestorage.already_enabled": "你的仓库已经处于激活状态了。",
-  "message.portablestorage.reactivated": "便携仓库已重新激活！"
+  "message.portablestorage.reactivated": "便携仓库已重新激活！",
+  "item.portablestorage.lava": "岩浆 (储量)",
+  "item.portablestorage.water": "水 (储量)",
+  "item.portablestorage.milk": "牛奶 (储量)",
+  "tooltip.portablestorage.fluid_take_hint": "开启快速存取后背包中有空桶时按住 Shift 点击以取出"
 }

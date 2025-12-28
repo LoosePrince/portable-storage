@@ -85,43 +85,18 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
 
         if (index >= warehouseStart && index < warehouseSlotEnd) { // 从仓库快速转移到背包
             if (warehouse.isQuickInteraction()) {
-            long realCount = warehouse.getRealCount(index - warehouseStart);
-            int toTake = (int) Math.min(stackInSlot.getMaxStackSize(), realCount);
-            ItemStack resultStack = stackInSlot.copyWithCount(toTake);
-            
-                // 尝试转移到背包（36-44 是快捷栏，9-35 是主背包）
-                // 先尝试快捷栏
-                if (!this.moveItemStackTo(resultStack, 36, 45, false)) {
-                    // 失败则尝试主背包
-                    if (!this.moveItemStackTo(resultStack, 9, 36, false)) {
+                // Shift+点击由 QuickTransferPayload 处理
                 cir.setReturnValue(ItemStack.EMPTY);
-                return;
-            }
-                }
-                
-                int movedCount = toTake - resultStack.getCount();
-                if (movedCount > 0) {
-                    warehouse.removeItem(index - warehouseStart, movedCount);
-                    // 返回原本槽位中的物品副本，这会引导系统的循环逻辑继续处理，
-                    // 从而实现“一组一组连续取出”的效果。
-                    cir.setReturnValue(stackInSlot.copy());
-                } else {
-            cir.setReturnValue(ItemStack.EMPTY);
-                }
             } else {
-                // 如果快捷交互未开启，按住 Shift 点击仓库物品时，我们也应该拦截它，
-                // 防止它流向原版逻辑导致物品被莫名其妙拿起或消失。
+                // 如果快捷交互未开启，按住 Shift 点击仓库物品时，我们也应该拦截它
                 cir.setReturnValue(ItemStack.EMPTY);
             }
-            } else if (index >= WarehouseConstants.PLAYER_INVENTORY_START && index < WarehouseConstants.PLAYER_INVENTORY_END) { // 从玩家背包快速转移到仓库
-            if (warehouse.isQuickInteraction()) {
-                    warehouse.addItem(stackInSlot);
-                    // 如果 stackInSlot 还没变空，说明有溢出部分留在原槽位，不需要 set(EMPTY)
-                    if (stackInSlot.isEmpty()) {
-                slot.set(ItemStack.EMPTY);
-                    }
-                cir.setReturnValue(ItemStack.EMPTY);
+        } else if (index >= WarehouseConstants.PLAYER_INVENTORY_START && index < WarehouseConstants.PLAYER_INVENTORY_END) { // 从玩家背包快速转移到仓库
+                if (warehouse.isQuickInteraction()) {
+                    ItemStack remaining = warehouse.addFluid(stackInSlot, player);
+                    slot.set(remaining);
+                    cir.setReturnValue(ItemStack.EMPTY);
+                }
             }
-        }
     }
 }

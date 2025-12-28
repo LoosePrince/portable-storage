@@ -149,7 +149,8 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
                 // 尝试移动到仓库或合成槽位
                 PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
                 if (warehouse.isEnabled() && !warehouse.isFolded() && warehouse.isQuickInteraction()) {
-                    warehouse.addItem(itemStack2);
+                    ItemStack remaining = warehouse.addFluid(itemStack2, player);
+                    slot.set(remaining);
                 } else {
                     // 如果仓库不可用，尝试在背包和快捷栏之间移动
                     if (index < 37) {
@@ -161,6 +162,11 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
                     }
                 }
             } else if (index >= 46) { // 仓库槽位
+                PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+                if (warehouse.isQuickInteraction()) {
+                    return ItemStack.EMPTY; // Shift+点击由 QuickTransferPayload 处理
+                }
+                
                 // 尝试移动到玩家背包
                 if (!this.moveItemStackTo(itemStack2, 10, 46, true)) {
                     return ItemStack.EMPTY;

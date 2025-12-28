@@ -34,15 +34,89 @@ public class PlayerWarehouse implements Container {
         this.onChanged = onChanged;
     }
 
+    private net.minecraft.world.item.Item getVirtualFluidForItem(net.minecraft.world.item.Item item) {
+        if (item == net.minecraft.world.item.Items.LAVA_BUCKET) return com.portablestorage.item.ModItems.VIRTUAL_LAVA;
+        if (item == net.minecraft.world.item.Items.WATER_BUCKET) return com.portablestorage.item.ModItems.VIRTUAL_WATER;
+        if (item == net.minecraft.world.item.Items.MILK_BUCKET) return com.portablestorage.item.ModItems.VIRTUAL_MILK;
+        return null;
+    }
+
+    private boolean isVirtualFluid(net.minecraft.world.item.Item item) {
+        return item == com.portablestorage.item.ModItems.VIRTUAL_LAVA || 
+               item == com.portablestorage.item.ModItems.VIRTUAL_WATER || 
+               item == com.portablestorage.item.ModItems.VIRTUAL_MILK;
+    }
+
+    private int findEmptyBucket(Player player) {
+        for (int i = 0; i < player.containerMenu.slots.size(); i++) {
+            Slot slot = player.containerMenu.slots.get(i);
+            if (slot.container instanceof Inventory && slot.getItem().is(net.minecraft.world.item.Items.BUCKET)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private ItemStack getFluidBucket(net.minecraft.world.item.Item virtualFluid) {
+        if (virtualFluid == com.portablestorage.item.ModItems.VIRTUAL_LAVA) return new ItemStack(net.minecraft.world.item.Items.LAVA_BUCKET);
+        if (virtualFluid == com.portablestorage.item.ModItems.VIRTUAL_WATER) return new ItemStack(net.minecraft.world.item.Items.WATER_BUCKET);
+        if (virtualFluid == com.portablestorage.item.ModItems.VIRTUAL_MILK) return new ItemStack(net.minecraft.world.item.Items.MILK_BUCKET);
+        return ItemStack.EMPTY;
+    }
+
     public void setSearchText(String text) {
         this.searchText = text.toLowerCase();
         this.scrollOffset = 0;
         this.setChanged();
     }
 
-    public void addItem(ItemStack stack) {
-        if (stack.isEmpty()) return;
+    /**
+     * 尝试存入流体并转换桶。
+     * @param stack 流体桶堆叠
+     * @return 转换后应该留在原处（或光标上）的物品（可能是剩余流体桶，或者是空桶，或者是两者的混合 - 混合情况将优先返回剩余流体桶并将空桶尝试放入背包）
+     */
+    public ItemStack addFluid(ItemStack stack, Player player) {
+        if (!enabled || !quickInteraction) {
+            addItemInternal(stack);
+            return stack;
+        }
+
+        net.minecraft.world.item.Item virtualItem = getVirtualFluidForItem(stack.getItem());
+        if (virtualItem == null) {
+            addItemInternal(stack);
+            return stack;
+        }
+
+        int originalCount = stack.getCount();
+        ItemStack virtualStack = new ItemStack(virtualItem, originalCount);
+        addItemInternal(virtualStack);
         
+        int stored = originalCount - virtualStack.getCount();
+        if (stored > 0) {
+            ItemStack emptyBuckets = new ItemStack(net.minecraft.world.item.Items.BUCKET, stored);
+            stack.shrink(stored); // 减少原本的流体桶
+            
+            if (stack.isEmpty()) {
+                // 全部转换为了流体
+                return emptyBuckets;
+            } else {
+                // 部分转换，剩余部分仍然是流体桶。空桶需要额外处理（放入背包）。
+                if (!player.getInventory().add(emptyBuckets)) {
+                    player.drop(emptyBuckets, false);
+                }
+                return stack;
+            }
+        }
+        
+        return stack;
+    }
+
+    public void addItem(ItemStack stack) {
+        addItemInternal(stack);
+    }
+
+    private void addItemInternal(ItemStack stack) {
+        if (stack.isEmpty()) return;
         long limit = com.portablestorage.config.ModConfig.maxItemStackSize;
         boolean changed = false;
 
@@ -96,16 +170,24 @@ public class PlayerWarehouse implements Container {
     }
 
     public ItemStack removeItem(int slot, int amount) {
+        return removeItem(slot, amount, false);
+    }
+
+    public ItemStack removeItem(int slot, int amount, boolean force) {
         List<WarehouseEntry> sorted = getSortedEntries();
         int actualIndex = slot + (scrollOffset * 9);
         if (actualIndex >= 0 && actualIndex < sorted.size()) {
             WarehouseEntry entry = sorted.get(actualIndex);
             
-            // 使用自定义标识检测是否为合并条目
+            // 1. 拦截智能折叠的展示项
             net.minecraft.world.item.component.CustomData customData = entry.getItemStack().get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
             boolean isCollapsed = customData != null && customData.copyTag().getBoolean(com.portablestorage.util.WarehouseConstants.SMART_COLLAPSE_TAG);
+            if (!force && smartCollapse && searchText.isEmpty() && isCollapsed) {
+                return ItemStack.EMPTY;
+            }
 
-            if (smartCollapse && searchText.isEmpty() && isCollapsed) {
+            // 2. 拦截虚拟流体项（除非强制，例如流体桶提取逻辑）
+            if (!force && isVirtualFluid(entry.getItemStack().getItem())) {
                 return ItemStack.EMPTY;
             }
 
@@ -266,6 +348,33 @@ public class PlayerWarehouse implements Container {
         WarehouseEntry entry = sorted.get(actualIndex);
         ItemStack stackInSlot = entry.getItemStack();
         if (stackInSlot.isEmpty()) return;
+
+        // 1. 特殊逻辑：流体提取
+        if (isVirtualFluid(stackInSlot.getItem())) {
+            // 查找玩家背包中是否有空桶
+            int emptyBucketSlot = findEmptyBucket(player);
+            if (emptyBucketSlot != -1) {
+                ItemStack fluidBucket = getFluidBucket(stackInSlot.getItem());
+                if (!fluidBucket.isEmpty()) {
+                    Slot slot = player.containerMenu.getSlot(emptyBucketSlot);
+                    ItemStack bucketStack = slot.getItem();
+                    
+                    // 转换一个空桶
+                    bucketStack.shrink(1);
+                    if (bucketStack.isEmpty()) slot.set(ItemStack.EMPTY);
+                    
+                    // 尝试放入流体桶
+                    if (!player.getInventory().add(fluidBucket)) {
+                        player.drop(fluidBucket, false);
+                    }
+                    
+                    // 消耗仓库流体
+                    this.removeItem(slotIndex, 1, true);
+                    player.containerMenu.broadcastChanges();
+                }
+            }
+            return;
+        }
 
         long realCount = entry.getCount();
         int toTake = (int) Math.min(stackInSlot.getMaxStackSize(), realCount);
