@@ -64,6 +64,12 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
 
             // 只有被激活的仓库槽位才响应点击
             if (slotId >= warehouseStart && slotId < warehouseSlotEnd && !player.getAbilities().instabuild) {
+                // 如果是快速移动（Shift-click），交给 super 处理，进而触发 handleQuickMove
+                if (clickType == ClickType.QUICK_MOVE) {
+                    super.clicked(slotId, button, clickType, player);
+                    return;
+                }
+
                 ItemStack cursorStack = this.getCarried();
 
                 if (!cursorStack.isEmpty()) {
@@ -74,7 +80,17 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
                     // 光标无物品：从仓库取出
                     int amount = (button == 1) ? 1 : 64; // 右键取1个，左键取一组
                     ItemStack taken = warehouse.removeItem(slotId - warehouseStart, amount);
-                    this.setCarried(taken); 
+                    
+                    if (warehouse.isQuickInteraction()) {
+                        // 开启快速存取时，尝试直接放入背包
+                        this.moveItemStackTo(taken, WarehouseConstants.PLAYER_INVENTORY_START, WarehouseConstants.PLAYER_INVENTORY_END, true);
+                        if (!taken.isEmpty()) {
+                            // 背包满了或者未完全转移，剩下的拿在手上
+                            this.setCarried(taken);
+                        }
+                    } else {
+                        this.setCarried(taken); 
+                    }
                 }
                 return;
             }
