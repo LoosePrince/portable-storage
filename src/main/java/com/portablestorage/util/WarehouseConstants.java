@@ -95,6 +95,24 @@ public class WarehouseConstants {
     public static final int SCROLLBAR_THUMB_HOVER_COLOR = 0xFFAAAAAA;
     public static final int SCROLLBAR_BORDER_LIGHT = 0xFFBBBBBB;
     public static final int SCROLLBAR_BORDER_DARK = 0xFF444444;
+
+    // 贴图与图标参数
+    public static final int ICON_TEXTURE_WIDTH = 80;
+    public static final int ICON_TEXTURE_HEIGHT = 48;
+    public static final int ICON_SIZE = 16;
+    public static final int GUI_TEXTURE_SIZE = 30;
+    
+    // 图标索引
+    public static final int ICON_FOLDED = 13;
+    public static final int ICON_UNFOLDED = 0;
+    public static final int ICON_SORT_MODE_BASE = 1;
+    public static final int ICON_ORDER_DESC = 5;
+    public static final int ICON_ORDER_ASC = 6;
+    public static final int ICON_QUICK_INTERACTION = 9;
+    public static final int ICON_SMART_COLLAPSE_ON = 10;
+    public static final int ICON_SMART_COLLAPSE_OFF = 11;
+    public static final int ICON_CRAFT_REFILL = 7;
+    public static final int ICON_CRAFTING_TABLE = 14;
     
     // 智能折叠虚拟条目标识 (使用自定义 NBT)
     public static final String SMART_COLLAPSE_TAG = "portablestorage_collapsed";

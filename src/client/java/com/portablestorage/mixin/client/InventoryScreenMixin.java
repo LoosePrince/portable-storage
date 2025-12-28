@@ -35,9 +35,9 @@ import java.util.Optional;
 public abstract class InventoryScreenMixin extends EffectRenderingInventoryScreen<InventoryMenu> {
 
     @Unique
-    private static final ResourceLocation WAREHOUSE_GUI_TEXTURE = ResourceLocation.fromNamespaceAndPath("portablestorage", "textures/gui/gui.png");
+    private static final ResourceLocation WAREHOUSE_GUI_TEXTURE = com.portablestorage.PortableStorage.id("textures/gui/gui.png");
     @Unique
-    private static final ResourceLocation WAREHOUSE_SLOT_TEXTURE = ResourceLocation.fromNamespaceAndPath("portablestorage", "textures/gui/slot.png");
+    private static final ResourceLocation WAREHOUSE_SLOT_TEXTURE = com.portablestorage.PortableStorage.id("textures/gui/slot.png");
 
     @Unique
     private EditBox searchBox;

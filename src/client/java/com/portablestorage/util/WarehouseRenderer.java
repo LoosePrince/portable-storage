@@ -1,5 +1,6 @@
 package com.portablestorage.util;
 
+import com.portablestorage.PortableStorage;
 import com.portablestorage.component.PlayerWarehouse;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
@@ -11,9 +12,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class WarehouseRenderer {
-    private static final ResourceLocation WAREHOUSE_ICON_TEXTURE = ResourceLocation.fromNamespaceAndPath("portablestorage", "textures/gui/icon.png");
-    private static final ResourceLocation WAREHOUSE_GUI_TEXTURE = ResourceLocation.fromNamespaceAndPath("portablestorage", "textures/gui/gui.png");
-    private static final ResourceLocation WAREHOUSE_SLOT_TEXTURE = ResourceLocation.fromNamespaceAndPath("portablestorage", "textures/gui/slot.png");
+    private static final ResourceLocation WAREHOUSE_ICON_TEXTURE = PortableStorage.id("textures/gui/icon.png");
+    private static final ResourceLocation WAREHOUSE_GUI_TEXTURE = PortableStorage.id("textures/gui/gui.png");
+    private static final ResourceLocation WAREHOUSE_SLOT_TEXTURE = PortableStorage.id("textures/gui/slot.png");
 
     public static void renderBackground(GuiGraphics graphics, int x, int y, int mouseX, int mouseY, PlayerWarehouse warehouse, Font font) {
         int rows = warehouse.isFolded() ? 0 : warehouse.getVisibleRows();
@@ -47,33 +48,33 @@ public class WarehouseRenderer {
     public static void renderSidebarButtons(GuiGraphics graphics, int foldX, int foldY, int sidebarX, int sidebarY, int mouseX, int mouseY, PlayerWarehouse warehouse) {
         boolean showShortcuts = com.portablestorage.config.ModConfig.showSmallIcons;
         if (warehouse.isFolded()) {
-            renderIconButton(graphics, foldX, foldY, 13, mouseX, mouseY);
+            renderIconButton(graphics, foldX, foldY, WarehouseConstants.ICON_FOLDED, mouseX, mouseY);
         } else {
-            renderIconButton(graphics, foldX, foldY, 0, mouseX, mouseY);
+            renderIconButton(graphics, foldX, foldY, WarehouseConstants.ICON_UNFOLDED, mouseX, mouseY);
             
             int iconSpacing = WarehouseConstants.SIDEBAR_BUTTON_SIZE + WarehouseConstants.SIDEBAR_BUTTON_SPACING;
             
             if (showShortcuts) {
                 // 排序模式 (1-4)
-                renderIconButton(graphics, sidebarX, sidebarY, 1 + warehouse.getSortMode(), mouseX, mouseY);
+                renderIconButton(graphics, sidebarX, sidebarY, WarehouseConstants.ICON_SORT_MODE_BASE + warehouse.getSortMode(), mouseX, mouseY);
                 
                 // 排序顺序 (5/6)
-                int orderIconIndex = warehouse.isAscending() ? 6 : 5;
+                int orderIconIndex = warehouse.isAscending() ? WarehouseConstants.ICON_ORDER_ASC : WarehouseConstants.ICON_ORDER_DESC;
                 renderIconButton(graphics, sidebarX, sidebarY + iconSpacing, orderIconIndex, mouseX, mouseY);
                 
                 // 快速交互 (9)
-                renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 2, 9, mouseX, mouseY);
+                renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 2, WarehouseConstants.ICON_QUICK_INTERACTION, mouseX, mouseY);
                 
                 // 智能折叠 (10/11)
-                renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 3, warehouse.isSmartCollapse() ? 10 : 11, mouseX, mouseY);
+                renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 3, warehouse.isSmartCollapse() ? WarehouseConstants.ICON_SMART_COLLAPSE_ON : WarehouseConstants.ICON_SMART_COLLAPSE_OFF, mouseX, mouseY);
                 
                 // 合成补充 (7)
-                renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 4, 7, mouseX, mouseY);
+                renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 4, WarehouseConstants.ICON_CRAFT_REFILL, mouseX, mouseY);
             }
 
             // 合成台图标 (14) - 如果快捷项隐藏，它会移到第一个位置
             int craftingY = showShortcuts ? (sidebarY + iconSpacing * 5) : sidebarY;
-            renderIconButton(graphics, sidebarX, craftingY, 14, mouseX, mouseY);
+            renderIconButton(graphics, sidebarX, craftingY, WarehouseConstants.ICON_CRAFTING_TABLE, mouseX, mouseY);
         }
     }
 
@@ -222,7 +223,7 @@ public class WarehouseRenderer {
     }
 
     public static void drawNinePatch(GuiGraphics graphics, ResourceLocation texture, int x, int y, int width, int height, int cornerSize) {
-        int textureSize = 30;
+        int textureSize = WarehouseConstants.GUI_TEXTURE_SIZE;
         int centerSize = textureSize - cornerSize * 2;
         int targetCenterWidth = width - cornerSize * 2;
         int targetCenterHeight = height - cornerSize * 2;
@@ -238,9 +239,9 @@ public class WarehouseRenderer {
     }
 
     public static void renderIconButton(GuiGraphics graphics, int x, int y, int iconIndex, int mouseX, int mouseY) {
-        int u = (iconIndex % 5) * 16;
-        int v = (iconIndex / 5) * 16;
-        graphics.blit(WAREHOUSE_ICON_TEXTURE, x + 1, y + 1, u, v, 16, 16, 80, 48);
+        int u = (iconIndex % 5) * WarehouseConstants.ICON_SIZE;
+        int v = (iconIndex / 5) * WarehouseConstants.ICON_SIZE;
+        graphics.blit(WAREHOUSE_ICON_TEXTURE, x + 1, y + 1, u, v, WarehouseConstants.ICON_SIZE, WarehouseConstants.ICON_SIZE, WarehouseConstants.ICON_TEXTURE_WIDTH, WarehouseConstants.ICON_TEXTURE_HEIGHT);
     }
 
     public static void renderPlusMinusButtons(GuiGraphics graphics, Font font, int x, int y, int mouseX, int mouseY) {

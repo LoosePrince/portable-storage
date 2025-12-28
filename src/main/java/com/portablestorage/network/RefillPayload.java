@@ -4,11 +4,10 @@ import com.portablestorage.PortableStorage;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 public record RefillPayload(java.util.List<Integer> slotIds, ItemStack targetStack) implements CustomPacketPayload {
-    public static final Type<RefillPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(PortableStorage.MOD_ID, "refill"));
+    public static final Type<RefillPayload> TYPE = new Type<>(PortableStorage.id("refill"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, RefillPayload> CODEC = StreamCodec.of(
         (buf, payload) -> {

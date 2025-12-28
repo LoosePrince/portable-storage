@@ -1,9 +1,9 @@
 package com.portablestorage.network;
 
+import com.portablestorage.PortableStorage;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
 import java.util.Optional;
 
 public record C2SUpdateWarehouseStatePayload(
@@ -13,7 +13,7 @@ public record C2SUpdateWarehouseStatePayload(
     Optional<Integer> settingValue,
     Optional<Integer> rowsDelta
 ) implements CustomPacketPayload {
-    public static final Type<C2SUpdateWarehouseStatePayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath("portablestorage", "update_state"));
+    public static final Type<C2SUpdateWarehouseStatePayload> TYPE = new Type<>(PortableStorage.id("update_state"));
 
     public static final StreamCodec<FriendlyByteBuf, C2SUpdateWarehouseStatePayload> CODEC = StreamCodec.of(
         (buf, payload) -> {

@@ -1,6 +1,6 @@
 package com.portablestorage.component;
 
-import net.minecraft.resources.ResourceLocation;
+import com.portablestorage.PortableStorage;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 import org.ladysnake.cca.api.v3.component.ComponentKey;
@@ -8,7 +8,7 @@ import org.ladysnake.cca.api.v3.component.ComponentRegistry;
 
 public class ModComponents {
     public static final ComponentKey<WarehouseComponent> WAREHOUSE = 
-        ComponentRegistry.getOrCreate(ResourceLocation.fromNamespaceAndPath("portablestorage", "warehouse"), WarehouseComponent.class);
+        ComponentRegistry.getOrCreate(PortableStorage.id("warehouse"), WarehouseComponent.class);
 
     /**
      * 从 Level 获取仓库组件（通过计分板实现跨维度）

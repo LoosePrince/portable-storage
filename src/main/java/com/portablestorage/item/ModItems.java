@@ -3,7 +3,6 @@ package com.portablestorage.item;
 import com.portablestorage.PortableStorage;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 
 public class ModItems {
@@ -15,7 +14,7 @@ public class ModItems {
     public static final Item VIRTUAL_MILK = register("milk", new VirtualFluidItem(new Item.Properties()));
 
     private static <T extends Item> T register(String name, T item) {
-        return Registry.register(BuiltInRegistries.ITEM, ResourceLocation.fromNamespaceAndPath(PortableStorage.MOD_ID, name), item);
+        return Registry.register(BuiltInRegistries.ITEM, PortableStorage.id(name), item);
     }
 
     public static void registerModItems() {

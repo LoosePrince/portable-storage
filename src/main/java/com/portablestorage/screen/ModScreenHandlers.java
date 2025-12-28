@@ -3,7 +3,6 @@ package com.portablestorage.screen;
 import com.portablestorage.PortableStorage;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.MenuType;
 
 public class ModScreenHandlers {
@@ -11,7 +10,7 @@ public class ModScreenHandlers {
         new MenuType<>(CraftingWarehouseScreenHandler::new, net.minecraft.world.flag.FeatureFlags.VANILLA_SET);
 
     public static void register() {
-        Registry.register(BuiltInRegistries.MENU, ResourceLocation.fromNamespaceAndPath(PortableStorage.MOD_ID, "crafting_warehouse"), CRAFTING_WAREHOUSE);
+        Registry.register(BuiltInRegistries.MENU, PortableStorage.id("crafting_warehouse"), CRAFTING_WAREHOUSE);
     }
 }
 
