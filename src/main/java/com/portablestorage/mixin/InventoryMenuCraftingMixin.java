@@ -49,19 +49,37 @@ public abstract class InventoryMenuCraftingMixin extends AbstractContainerMenu {
         Slot slot = this.slots.get(index);
         if (slot == null || !slot.hasItem()) return;
         ItemStack stackInSlot = slot.getItem();
+        ItemStack resultStack = stackInSlot.copy();
 
-        if (index >= 1 && index <= 4 || (index >= 46 && index <= 50)) { // 合成槽位
-            if (!this.moveItemStackTo(stackInSlot, WarehouseConstants.PLAYER_INVENTORY_START, WarehouseConstants.PLAYER_INVENTORY_END, true)) {
+        if (index == 0) { // 合成结果
+            // 补全工作台级别的连续合成逻辑
+            while (slot.hasItem()) {
+                ItemStack currentResult = slot.getItem();
+                ItemStack resultCopy = currentResult.copy();
+                
+                currentResult.getItem().onCraftedBy(currentResult, player.level(), player);
+                
+                // 尝试移动到背包 (9-45)
+                if (!this.moveItemStackTo(currentResult, 9, 45, true)) {
+                    break;
+                }
+                
+                slot.onQuickCraft(currentResult, resultCopy);
+                slot.onTake(player, currentResult);
+                
+                // 如果数量没变，说明背包满了或材料没了，跳出循环
+                if (currentResult.getCount() == resultCopy.getCount()) {
+                    break;
+                }
+            }
+            cir.setReturnValue(ItemStack.EMPTY);
+        } else if (index >= 1 && index <= 4 || (index >= 46 && index <= 50)) { // 合成槽位
+            if (!this.moveItemStackTo(stackInSlot, 9, 45, false)) {
                 cir.setReturnValue(ItemStack.EMPTY);
+                return;
             }
             slot.setChanged();
-            cir.setReturnValue(ItemStack.EMPTY);
-        } else if (index == 0) { // 合成结果
-            if (!this.moveItemStackTo(stackInSlot, WarehouseConstants.PLAYER_INVENTORY_START, WarehouseConstants.PLAYER_INVENTORY_END, true)) {
-                cir.setReturnValue(ItemStack.EMPTY);
-            }
-            slot.setChanged();
-            cir.setReturnValue(ItemStack.EMPTY);
+            cir.setReturnValue(resultStack);
         }
     }
 }

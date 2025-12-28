@@ -115,9 +115,76 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
 
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
-        // 这里可以复用之前的快速移动逻辑，但由于槽位索引变化，需要仔细处理
-        // 简单起见，可以先实现基础的
-        return ItemStack.EMPTY;
+        ItemStack itemStack = ItemStack.EMPTY;
+        Slot slot = (Slot)this.slots.get(index);
+        if (slot != null && slot.hasItem()) {
+            ItemStack itemStack2 = slot.getItem();
+            itemStack = itemStack2.copy();
+            if (index == 0) { // 合成结果
+                while (slot.hasItem()) {
+                    ItemStack currentResult = slot.getItem();
+                    ItemStack resultCopy = currentResult.copy();
+                    
+                    currentResult.getItem().onCraftedBy(currentResult, player.level(), player);
+                    
+                    // 尝试移动到玩家背包或快捷栏 (10-46)
+                    if (!this.moveItemStackTo(currentResult, 10, 46, true)) {
+                        break;
+                    }
+
+                    slot.onQuickCraft(currentResult, resultCopy);
+                    slot.onTake(player, currentResult);
+
+                    if (currentResult.getCount() == resultCopy.getCount()) {
+                        break;
+                    }
+                }
+                return ItemStack.EMPTY;
+            } else if (index >= 1 && index < 10) { // 合成槽位
+                if (!this.moveItemStackTo(itemStack2, 10, 46, false)) {
+                    return ItemStack.EMPTY;
+                }
+            } else if (index >= 10 && index < 46) { // 玩家背包或快捷栏
+                // 尝试移动到仓库或合成槽位
+                PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+                if (warehouse.isEnabled() && !warehouse.isFolded() && warehouse.isQuickInteraction()) {
+                    warehouse.addItem(itemStack2);
+                } else {
+                    // 如果仓库不可用，尝试在背包和快捷栏之间移动
+                    if (index < 37) {
+                        if (!this.moveItemStackTo(itemStack2, 37, 46, false)) {
+                            return ItemStack.EMPTY;
+                        }
+                    } else if (!this.moveItemStackTo(itemStack2, 10, 37, false)) {
+                        return ItemStack.EMPTY;
+                    }
+                }
+            } else if (index >= 46) { // 仓库槽位
+                // 尝试移动到玩家背包
+                if (!this.moveItemStackTo(itemStack2, 10, 46, true)) {
+                    return ItemStack.EMPTY;
+                }
+                
+                int movedCount = itemStack.getCount() - itemStack2.getCount();
+                if (movedCount > 0) {
+                    ((PlayerWarehouse)slot.container).removeItem(slot.getContainerSlot(), movedCount);
+                }
+            }
+
+            if (itemStack2.isEmpty()) {
+                slot.set(ItemStack.EMPTY);
+            } else {
+                slot.setChanged();
+            }
+
+            if (itemStack2.getCount() == itemStack.getCount()) {
+                return ItemStack.EMPTY;
+            }
+
+            slot.onTake(player, itemStack2);
+        }
+
+        return itemStack;
     }
 }
 

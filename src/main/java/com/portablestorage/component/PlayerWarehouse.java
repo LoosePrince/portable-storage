@@ -82,17 +82,17 @@ public class PlayerWarehouse implements Container {
                         storage.add(new WarehouseEntry(stack.copyWithCount(toAdd), toAdd));
                         stack.shrink(toAdd);
                         changed = true;
-                    }
+            }
                 } else {
-                    storage.add(new WarehouseEntry(stack.copy(), stack.getCount()));
-                    stack.setCount(0);
+        storage.add(new WarehouseEntry(stack.copy(), stack.getCount()));
+        stack.setCount(0);
                     changed = true;
                 }
             }
         }
 
         if (changed) {
-            this.setChanged();
+        this.setChanged();
         }
     }
 

@@ -94,9 +94,9 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
                 if (!this.moveItemStackTo(resultStack, 36, 45, false)) {
                     // 失败则尝试主背包
                     if (!this.moveItemStackTo(resultStack, 9, 36, false)) {
-                        cir.setReturnValue(ItemStack.EMPTY);
-                        return;
-                    }
+                cir.setReturnValue(ItemStack.EMPTY);
+                return;
+            }
                 }
                 
                 int movedCount = toTake - resultStack.getCount();
@@ -106,7 +106,7 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
                     // 从而实现“一组一组连续取出”的效果。
                     cir.setReturnValue(stackInSlot.copy());
                 } else {
-                    cir.setReturnValue(ItemStack.EMPTY);
+            cir.setReturnValue(ItemStack.EMPTY);
                 }
             } else {
                 // 如果快捷交互未开启，按住 Shift 点击仓库物品时，我们也应该拦截它，
@@ -114,14 +114,14 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
                 cir.setReturnValue(ItemStack.EMPTY);
             }
             } else if (index >= WarehouseConstants.PLAYER_INVENTORY_START && index < WarehouseConstants.PLAYER_INVENTORY_END) { // 从玩家背包快速转移到仓库
-                if (warehouse.isQuickInteraction()) {
+            if (warehouse.isQuickInteraction()) {
                     warehouse.addItem(stackInSlot);
                     // 如果 stackInSlot 还没变空，说明有溢出部分留在原槽位，不需要 set(EMPTY)
                     if (stackInSlot.isEmpty()) {
-                        slot.set(ItemStack.EMPTY);
+                slot.set(ItemStack.EMPTY);
                     }
-                    cir.setReturnValue(ItemStack.EMPTY);
-                }
+                cir.setReturnValue(ItemStack.EMPTY);
             }
+        }
     }
 }

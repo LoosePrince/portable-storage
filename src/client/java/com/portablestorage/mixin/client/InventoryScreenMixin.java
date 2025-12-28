@@ -139,7 +139,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         
         // 使用封装好的渲染逻辑
         WarehouseRenderer.renderBackground(graphics, x, y, mouseX, mouseY, warehouse, this.font);
-        
+            
         int foldX = this.leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
         int foldY = this.topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
         WarehouseRenderer.renderSidebarButtons(graphics, foldX, foldY, x + WarehouseConstants.SIDEBAR_X_OFFSET, y, mouseX, mouseY, warehouse);
