@@ -5,6 +5,7 @@ import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
 import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.screen.CraftingWarehouseScreenHandler;
+import com.portablestorage.util.WarehouseSetting;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -25,43 +26,31 @@ public class ModServerNetworking {
         });
     }
 
-    public static void handleUpdateSettings(UpdateSettingsPayload payload, ServerPlayNetworking.Context context) {
+    public static void handleUpdateWarehouseState(C2SUpdateWarehouseStatePayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
             ServerPlayer player = context.player();
             PlayerWarehouse warehouse = getWarehouse(player);
+
+            payload.scrollDelta().ifPresent(delta -> warehouse.setScrollOffset(warehouse.getScrollOffset() - delta));
+            payload.searchText().ifPresent(warehouse::setSearchText);
+            payload.rowsDelta().ifPresent(delta -> warehouse.setVisibleRows(warehouse.getVisibleRows() + delta));
             
-                    switch (payload.setting()) {
-                        case FOLD -> warehouse.setFolded(payload.value() == 1);
-                        case SORT_MODE -> warehouse.setSortMode(payload.value());
-                        case SORT_ORDER -> warehouse.setAscending(payload.value() == 1);
-                        case QUICK_INTERACTION -> warehouse.setQuickInteraction(payload.value() == 1);
-                        case SMART_COLLAPSE -> warehouse.setSmartCollapse(payload.value() == 1);
-                        case CRAFT_REFILL -> warehouse.setCraftRefill(payload.value() == 1);
-                    }
-            syncChanges(player);
-        });
-    }
+            if (payload.settingId().isPresent() && payload.settingValue().isPresent()) {
+                int value = payload.settingValue().get();
+                WarehouseSetting setting = WarehouseSetting.values()[payload.settingId().get()];
+                switch (setting) {
+                    case FOLD -> warehouse.setFolded(value == 1);
+                    case SORT_MODE -> warehouse.setSortMode(value);
+                    case SORT_ORDER -> warehouse.setAscending(value == 1);
+                    case QUICK_INTERACTION -> warehouse.setQuickInteraction(value == 1);
+                    case SMART_COLLAPSE -> warehouse.setSmartCollapse(value == 1);
+                    case CRAFT_REFILL -> warehouse.setCraftRefill(value == 1);
+                }
+            }
 
-    public static void handleChangeRows(ChangeRowsPayload payload, ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            ServerPlayer player = context.player();
-            getWarehouse(player).setVisibleRows(getWarehouse(player).getVisibleRows() + payload.delta());
-            syncChanges(player);
-        });
-    }
-
-    public static void handleScroll(ScrollPayload payload, ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            ServerPlayer player = context.player();
-            getWarehouse(player).setScrollOffset(getWarehouse(player).getScrollOffset() - payload.delta());
-            syncChanges(player);
-        });
-    }
-
-    public static void handleSearch(SearchPayload payload, ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            ServerPlayer player = context.player();
-            getWarehouse(player).setSearchText(payload.searchText());
+            // UI 状态改变不需要强制同步整个 NBT（如果客户端已经发过来了）
+            // 但是为了确保服务端逻辑（如排序缓存）更新，我们依然调用 markDirty
+            // 稍后我们会在 PlayerWarehouse 中优化 markDirty 的 IO 行为
             syncChanges(player);
         });
     }

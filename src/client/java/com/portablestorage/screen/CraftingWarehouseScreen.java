@@ -19,10 +19,16 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.resources.ResourceLocation;
 
+import java.util.Optional;
+
 public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWarehouseScreenHandler> {
     private static final ResourceLocation CRAFTING_TABLE_TEXTURE = ResourceLocation.withDefaultNamespace("textures/gui/container/crafting_table.png");
     private EditBox searchBox;
     private boolean isDraggingScrollbar = false;
+
+    // 搜索防抖
+    private long lastSearchUpdateTime = 0;
+    private String pendingSearchText = null;
 
     // 合成补充相关字段
     private ItemStack lastCraftingOutput = ItemStack.EMPTY;
@@ -58,7 +64,11 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         int sbH = WarehouseConstants.SEARCH_BOX_HEIGHT - WarehouseConstants.SEARCH_BOX_INNER_OFFSET * 2;
         
         this.searchBox = new EditBox(this.font, sbX, sbY, sbW, sbH, Component.literal(""));
-        this.searchBox.setResponder(text -> ClientPlayNetworking.send(new SearchPayload(text)));
+        this.searchBox.setResponder(text -> {
+            this.pendingSearchText = text;
+            this.lastSearchUpdateTime = System.currentTimeMillis();
+            warehouse.setSearchText(text);
+        });
         this.searchBox.setBordered(false);
         this.searchBox.setTextColor(0xFFFFFF);
         this.searchBox.setValue(warehouse.getSearchText());
@@ -72,6 +82,12 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         this.renderTooltip(graphics, mouseX, mouseY);
         
         checkCraftRefill();
+
+        // 搜索防抖
+        if (pendingSearchText != null && System.currentTimeMillis() - lastSearchUpdateTime > 300) {
+            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(pendingSearchText), Optional.empty(), Optional.empty(), Optional.empty()));
+            pendingSearchText = null;
+        }
         
         PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
         
@@ -203,7 +219,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
                     if (this.searchBox != null) {
                         this.searchBox.setValue(newSearch);
                         warehouse.setSearchText(newSearch);
-                        ClientPlayNetworking.send(new SearchPayload(newSearch));
+                        ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(newSearch), Optional.empty(), Optional.empty(), Optional.empty()));
                     }
                     return true;
                 }
@@ -236,7 +252,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
             if (button == 0) { // 左键
                 boolean newFolded = !warehouse.isFolded();
                 warehouse.setFolded(newFolded);
-                ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.FOLD, newFolded ? 1 : 0));
+                ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.FOLD.ordinal()), Optional.of(newFolded ? 1 : 0), Optional.empty()));
                 this.minecraft.setScreen(new CraftingWarehouseScreen(this.menu, this.minecraft.player.getInventory(), this.title));
                 return true;
             }
@@ -251,23 +267,33 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
 
             if (showShortcuts) {
                 if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y && mouseY < y + 18) {
-                    ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.SORT_MODE, (warehouse.getSortMode() + 1) % 4));
+                    int newVal = (warehouse.getSortMode() + 1) % 4;
+                    warehouse.setSortMode(newVal);
+                    ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.SORT_MODE.ordinal()), Optional.of(newVal), Optional.empty()));
                     return true;
                 }
                 if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing && mouseY < y + iconSpacing + 18) {
-                    ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.SORT_ORDER, warehouse.isAscending() ? 0 : 1));
+                    boolean newVal = !warehouse.isAscending();
+                    warehouse.setAscending(newVal);
+                    ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.SORT_ORDER.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty()));
                     return true;
                 }
                 if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 2 && mouseY < y + iconSpacing * 2 + 18) {
-                    ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.QUICK_INTERACTION, warehouse.isQuickInteraction() ? 0 : 1));
+                    boolean newVal = !warehouse.isQuickInteraction();
+                    warehouse.setQuickInteraction(newVal);
+                    ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.QUICK_INTERACTION.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty()));
                     return true;
                 }
                 if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 3 && mouseY < y + iconSpacing * 3 + 18) {
-                    ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.SMART_COLLAPSE, warehouse.isSmartCollapse() ? 0 : 1));
+                    boolean newVal = !warehouse.isSmartCollapse();
+                    warehouse.setSmartCollapse(newVal);
+                    ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.SMART_COLLAPSE.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty()));
                     return true;
                 }
                 if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 4 && mouseY < y + iconSpacing * 4 + 18) {
-                    ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.CRAFT_REFILL, warehouse.isCraftRefill() ? 0 : 1));
+                    boolean newVal = !warehouse.isCraftRefill();
+                    warehouse.setCraftRefill(newVal);
+                    ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.CRAFT_REFILL.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty()));
                     return true;
                 }
             }
@@ -282,12 +308,14 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
             int pmX = x + WarehouseConstants.PLUS_MINUS_X_OFFSET;
             int pmY = y + WarehouseConstants.PLUS_MINUS_Y_OFFSET;
             if (mouseX >= pmX && mouseX < pmX + WarehouseConstants.TINY_BUTTON_SIZE && mouseY >= pmY && mouseY < pmY + WarehouseConstants.TINY_BUTTON_SIZE) {
-                ClientPlayNetworking.send(new ChangeRowsPayload(-1));
+                warehouse.setVisibleRows(warehouse.getVisibleRows() - 1);
+                ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(-1)));
                 this.minecraft.setScreen(new CraftingWarehouseScreen(this.menu, this.minecraft.player.getInventory(), this.title));
                 return true;
             }
             if (mouseX >= pmX + WarehouseConstants.TINY_BUTTON_SIZE + WarehouseConstants.TINY_BUTTON_SPACING && mouseX < pmX + WarehouseConstants.TINY_BUTTON_SIZE * 2 + WarehouseConstants.TINY_BUTTON_SPACING && mouseY >= pmY && mouseY < pmY + WarehouseConstants.TINY_BUTTON_SIZE) {
-                ClientPlayNetworking.send(new ChangeRowsPayload(1));
+                warehouse.setVisibleRows(warehouse.getVisibleRows() + 1);
+                ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(1)));
                 this.minecraft.setScreen(new CraftingWarehouseScreen(this.menu, this.minecraft.player.getInventory(), this.title));
                 return true;
             }
@@ -316,7 +344,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
 
     @Override
     public void removed() {
-        ClientPlayNetworking.send(new SearchPayload(""));
+        ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(""), Optional.empty(), Optional.empty(), Optional.empty()));
         super.removed();
     }
 
@@ -346,7 +374,11 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
                 int thumbHeight = Math.max(10, (int) (scrollbarHeight * ((float) visibleRows / totalRows)));
                 double relativeY = Math.clamp(mouseY - scrollbarY - thumbHeight / 2.0, 0, scrollbarHeight - thumbHeight);
                 int newOffset = (int) Math.round((relativeY * maxOffset) / (scrollbarHeight - thumbHeight));
-                if (newOffset != warehouse.getScrollOffset()) ClientPlayNetworking.send(new ScrollPayload(warehouse.getScrollOffset() - newOffset));
+                if (newOffset != warehouse.getScrollOffset()) {
+                    int delta = warehouse.getScrollOffset() - newOffset;
+                    warehouse.setScrollOffset(newOffset);
+                    ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.of(delta), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+                }
             }
             return true;
         }
@@ -362,7 +394,9 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         int warehouseY = this.topPos + WarehouseConstants.WAREHOUSE_Y_OFFSET;
         int warehouseHeight = WarehouseConstants.WAREHOUSE_TITLE_HEIGHT + warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE;
         if (mouseX >= warehouseX && mouseX < warehouseX + WarehouseConstants.WAREHOUSE_WIDTH && mouseY >= warehouseY && mouseY < warehouseY + warehouseHeight) {
-            ClientPlayNetworking.send(new ScrollPayload((int) Math.signum(scrollY)));
+            int delta = (int) Math.signum(scrollY);
+            warehouse.setScrollOffset(warehouse.getScrollOffset() - delta);
+            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.of(delta), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);

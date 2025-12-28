@@ -2,7 +2,7 @@ package com.portablestorage.config;
 
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
-import com.portablestorage.network.UpdateSettingsPayload;
+import com.portablestorage.network.C2SUpdateWarehouseStatePayload;
 import com.portablestorage.network.UpdateServerConfigPayload;
 import com.portablestorage.util.WarehouseSetting;
 import dev.isxander.yacl3.api.*;
@@ -16,6 +16,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 import java.util.Arrays;
+import java.util.Optional;
 
 public class YACLConfig {
     private static PlayerWarehouse getWarehouse() {
@@ -34,7 +35,13 @@ public class YACLConfig {
                 case CRAFT_REFILL -> warehouse.setCraftRefill(value == 1);
                 case FOLD -> warehouse.setFolded(value == 1);
             }
-            ClientPlayNetworking.send(new UpdateSettingsPayload(setting, value));
+            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(
+                Optional.empty(), 
+                Optional.empty(), 
+                Optional.of(setting.ordinal()), 
+                Optional.of(value), 
+                Optional.empty()
+            ));
         }
     }
 

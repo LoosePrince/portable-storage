@@ -63,6 +63,13 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         }
     }
 
+    /**
+     * 仅使 UI 缓存失效，不触发 CCA 同步和持久化
+     */
+    public void markUIChanged() {
+        this.sortedCache = null;
+    }
+
     // --- Container 接口实现 (基础代理) ---
 
     @Override
@@ -186,14 +193,14 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         int maxRows = (int) Math.ceil(getSortedEntries().size() / 9.0);
         int maxOffset = Math.max(0, maxRows - visibleRows);
         this.scrollOffset = Math.clamp(offset, 0, maxOffset);
-        this.markDirty();
+        this.markUIChanged();
     }
 
     public int getVisibleRows() { return visibleRows; }
     public void setVisibleRows(int rows) {
         this.visibleRows = Math.clamp(rows, 1, 12);
         this.scrollOffset = 0;
-        this.markDirty();
+        this.markDirty(); // 这个建议保留持久化，因为布局设置通常希望被记住
     }
 
     public boolean isFolded() { return isFolded; }
@@ -225,7 +232,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     public void setSearchText(String text) {
         this.searchText = text.toLowerCase();
         this.scrollOffset = 0;
-        this.markDirty();
+        this.markUIChanged();
     }
 
     public long getRealCount(int slotIndex) {
@@ -370,7 +377,6 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             }
         }
 
-        this.scrollOffset = tag.getInt("scrollOffset");
         this.visibleRows = tag.contains("visibleRows") ? tag.getInt("visibleRows") : 6;
         this.isFolded = tag.contains("isFolded") ? tag.getBoolean("isFolded") : true;
         this.sortMode = tag.getInt("sortMode");
@@ -379,7 +385,6 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         this.smartCollapse = tag.getBoolean("smartCollapse");
         this.craftRefill = !tag.contains("craftRefill") || tag.getBoolean("craftRefill");
         this.enabled = !tag.contains("enabled") || tag.getBoolean("enabled");
-        this.searchText = tag.getString("searchText");
         this.markDirty();
     }
 
@@ -402,7 +407,6 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         }
         tag.put("fluids", fluidList);
 
-        tag.putInt("scrollOffset", scrollOffset);
         tag.putInt("visibleRows", visibleRows);
         tag.putBoolean("isFolded", isFolded);
         tag.putInt("sortMode", sortMode);
@@ -411,6 +415,5 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         tag.putBoolean("smartCollapse", smartCollapse);
         tag.putBoolean("craftRefill", craftRefill);
         tag.putBoolean("enabled", enabled);
-        tag.putString("searchText", searchText);
     }
 }
