@@ -233,34 +233,38 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
             int x = this.leftPos + WarehouseConstants.WAREHOUSE_X_OFFSET;
             int y = this.topPos + WarehouseConstants.WAREHOUSE_Y_OFFSET;
             int bx = x + WarehouseConstants.SIDEBAR_X_OFFSET;
+            boolean showShortcuts = ModConfig.showSmallIcons;
             int iconSpacing = WarehouseConstants.SIDEBAR_BUTTON_SIZE + WarehouseConstants.SIDEBAR_BUTTON_SPACING;
 
-            if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y && mouseY < y + 18) {
-                ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.SORT_MODE, (warehouse.getSortMode() + 1) % 4));
+            if (showShortcuts) {
+                if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y && mouseY < y + 18) {
+                    ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.SORT_MODE, (warehouse.getSortMode() + 1) % 4));
+                    return true;
+                }
+                if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing && mouseY < y + iconSpacing + 18) {
+                    ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.SORT_ORDER, warehouse.isAscending() ? 0 : 1));
+                    return true;
+                }
+                if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 2 && mouseY < y + iconSpacing * 2 + 18) {
+                    ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.QUICK_INTERACTION, warehouse.isQuickInteraction() ? 0 : 1));
+                    return true;
+                }
+                if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 3 && mouseY < y + iconSpacing * 3 + 18) {
+                    ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.SMART_COLLAPSE, warehouse.isSmartCollapse() ? 0 : 1));
+                    return true;
+                }
+                if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 4 && mouseY < y + iconSpacing * 4 + 18) {
+                    ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.CRAFT_REFILL, warehouse.isCraftRefill() ? 0 : 1));
+                    return true;
+                }
+            }
+            
+            // 2. 合成按钮变为返回背包
+            int craftingY = y + (showShortcuts ? (iconSpacing * 5) : 0);
+            if (mouseX >= bx && mouseX < bx + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
+                this.minecraft.setScreen(new InventoryScreen(this.minecraft.player));
                 return true;
             }
-            if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing && mouseY < y + iconSpacing + 18) {
-                ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.SORT_ORDER, warehouse.isAscending() ? 0 : 1));
-                return true;
-            }
-                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 2 && mouseY < y + iconSpacing * 2 + 18) {
-                        ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.QUICK_INTERACTION, warehouse.isQuickInteraction() ? 0 : 1));
-                        return true;
-                    }
-                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 3 && mouseY < y + iconSpacing * 3 + 18) {
-                        ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.SMART_COLLAPSE, warehouse.isSmartCollapse() ? 0 : 1));
-                        return true;
-                    }
-                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 4 && mouseY < y + iconSpacing * 4 + 18) {
-                        ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.CRAFT_REFILL, warehouse.isCraftRefill() ? 0 : 1));
-                        return true;
-                    }
-                    
-                    // 2. 合成按钮变为返回背包
-                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 5 && mouseY < y + iconSpacing * 5 + 18) {
-                        this.minecraft.setScreen(new InventoryScreen(this.minecraft.player));
-                        return true;
-                    }
 
             int pmX = x + WarehouseConstants.PLUS_MINUS_X_OFFSET;
             int pmY = y + WarehouseConstants.PLUS_MINUS_Y_OFFSET;

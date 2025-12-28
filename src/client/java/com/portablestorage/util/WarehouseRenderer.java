@@ -45,89 +45,106 @@ public class WarehouseRenderer {
     }
 
     public static void renderSidebarButtons(GuiGraphics graphics, int foldX, int foldY, int sidebarX, int sidebarY, int mouseX, int mouseY, PlayerWarehouse warehouse) {
+        boolean showShortcuts = com.portablestorage.config.ModConfig.showSmallIcons;
         if (warehouse.isFolded()) {
             renderIconButton(graphics, foldX, foldY, 13, mouseX, mouseY);
         } else {
             renderIconButton(graphics, foldX, foldY, 0, mouseX, mouseY);
             
             int iconSpacing = WarehouseConstants.SIDEBAR_BUTTON_SIZE + WarehouseConstants.SIDEBAR_BUTTON_SPACING;
-            renderIconButton(graphics, sidebarX, sidebarY, 1 + warehouse.getSortMode(), mouseX, mouseY);
             
-            int orderIconIndex = warehouse.isAscending() ? 6 : 5;
-            renderIconButton(graphics, sidebarX, sidebarY + iconSpacing, orderIconIndex, mouseX, mouseY);
-            renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 2, 9, mouseX, mouseY);
-            
-            // 智能折叠 (10/11)
-            renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 3, warehouse.isSmartCollapse() ? 10 : 11, mouseX, mouseY);
-            
-            // 合成补充 (7)
-            renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 4, 7, mouseX, mouseY);
+            if (showShortcuts) {
+                // 排序模式 (1-4)
+                renderIconButton(graphics, sidebarX, sidebarY, 1 + warehouse.getSortMode(), mouseX, mouseY);
+                
+                // 排序顺序 (5/6)
+                int orderIconIndex = warehouse.isAscending() ? 6 : 5;
+                renderIconButton(graphics, sidebarX, sidebarY + iconSpacing, orderIconIndex, mouseX, mouseY);
+                
+                // 快速交互 (9)
+                renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 2, 9, mouseX, mouseY);
+                
+                // 智能折叠 (10/11)
+                renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 3, warehouse.isSmartCollapse() ? 10 : 11, mouseX, mouseY);
+                
+                // 合成补充 (7)
+                renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 4, 7, mouseX, mouseY);
+            }
 
-            // 合成台图标 (14)
-            renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 5, 14, mouseX, mouseY);
+            // 合成台图标 (14) - 如果快捷项隐藏，它会移到第一个位置
+            int craftingY = showShortcuts ? (sidebarY + iconSpacing * 5) : sidebarY;
+            renderIconButton(graphics, sidebarX, craftingY, 14, mouseX, mouseY);
         }
     }
 
     public static void renderSidebarTooltips(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX, int mouseY, PlayerWarehouse warehouse) {
+        boolean showShortcuts = com.portablestorage.config.ModConfig.showSmallIcons;
         int x = leftPos + WarehouseConstants.WAREHOUSE_X_OFFSET;
         int y = topPos + WarehouseConstants.WAREHOUSE_Y_OFFSET;
         int bx = x + WarehouseConstants.SIDEBAR_X_OFFSET;
         int iconSpacing = WarehouseConstants.SIDEBAR_BUTTON_SIZE + WarehouseConstants.SIDEBAR_BUTTON_SPACING;
 
-        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y && mouseY < y + 18) {
-            List<Component> tooltip = new ArrayList<>();
-            tooltip.add(Component.translatable("gui.portablestorage.button.sort_mode"));
-            String modeKey = switch (warehouse.getSortMode()) {
-                case 0 -> "gui.portablestorage.sort.count";
-                case 1 -> "gui.portablestorage.sort.name";
-                case 2 -> "gui.portablestorage.sort.id";
-                case 3 -> "gui.portablestorage.sort.time";
-                default -> "gui.portablestorage.sort.id";
-            };
-            tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(modeKey)).withStyle(ChatFormatting.GRAY));
-            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
-            return;
+        if (showShortcuts) {
+            // 排序模式
+            if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y && mouseY < y + 18) {
+                List<Component> tooltip = new ArrayList<>();
+                tooltip.add(Component.translatable("gui.portablestorage.button.sort_mode"));
+                String modeKey = switch (warehouse.getSortMode()) {
+                    case 0 -> "gui.portablestorage.sort.count";
+                    case 1 -> "gui.portablestorage.sort.name";
+                    case 2 -> "gui.portablestorage.sort.id";
+                    case 3 -> "gui.portablestorage.sort.time";
+                    default -> "gui.portablestorage.sort.id";
+                };
+                tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(modeKey)).withStyle(ChatFormatting.GRAY));
+                graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+                return;
+            }
+
+            // 排序顺序
+            if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing && mouseY < y + iconSpacing + 18) {
+                List<Component> tooltip = new ArrayList<>();
+                tooltip.add(Component.translatable("gui.portablestorage.button.sort_order"));
+                String orderKey = warehouse.isAscending() ? "gui.portablestorage.order.ascending" : "gui.portablestorage.order.descending";
+                tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(orderKey)).withStyle(ChatFormatting.GRAY));
+                graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+                return;
+            }
+
+            // 快速交互
+            if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 2 && mouseY < y + iconSpacing * 2 + 18) {
+                List<Component> tooltip = new ArrayList<>();
+                tooltip.add(Component.translatable("gui.portablestorage.button.quick_interaction"));
+                String statusKey = warehouse.isQuickInteraction() ? "gui.portablestorage.on" : "gui.portablestorage.off";
+                tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(statusKey)).withStyle(ChatFormatting.GRAY));
+                graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+                return;
+            }
+
+            // 智能折叠
+            if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 3 && mouseY < y + iconSpacing * 3 + 18) {
+                List<Component> tooltip = new ArrayList<>();
+                tooltip.add(Component.translatable("gui.portablestorage.button.smart_collapse"));
+                String statusKey = warehouse.isSmartCollapse() ? "gui.portablestorage.on" : "gui.portablestorage.off";
+                tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(statusKey)).withStyle(ChatFormatting.GRAY));
+                graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+                return;
+            }
+
+            // 合成补充
+            if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 4 && mouseY < y + iconSpacing * 4 + 18) {
+                List<Component> tooltip = new ArrayList<>();
+                tooltip.add(Component.translatable("gui.portablestorage.button.craft_refill"));
+                String statusKey = warehouse.isCraftRefill() ? "gui.portablestorage.on" : "gui.portablestorage.off";
+                tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(statusKey)).withStyle(ChatFormatting.GRAY));
+                graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+                return;
+            }
         }
 
-        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing && mouseY < y + iconSpacing + 18) {
-            List<Component> tooltip = new ArrayList<>();
-            tooltip.add(Component.translatable("gui.portablestorage.button.sort_order"));
-            String orderKey = warehouse.isAscending() ? "gui.portablestorage.order.ascending" : "gui.portablestorage.order.descending";
-            tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(orderKey)).withStyle(ChatFormatting.GRAY));
-            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
-            return;
-        }
-
-        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 2 && mouseY < y + iconSpacing * 2 + 18) {
-            List<Component> tooltip = new ArrayList<>();
-            tooltip.add(Component.translatable("gui.portablestorage.button.quick_interaction"));
-            String statusKey = warehouse.isQuickInteraction() ? "gui.portablestorage.on" : "gui.portablestorage.off";
-            tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(statusKey)).withStyle(ChatFormatting.GRAY));
-            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
-            return;
-        }
-
-        // 智能折叠
-        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 3 && mouseY < y + iconSpacing * 3 + 18) {
-            List<Component> tooltip = new ArrayList<>();
-            tooltip.add(Component.translatable("gui.portablestorage.button.smart_collapse"));
-            String statusKey = warehouse.isSmartCollapse() ? "gui.portablestorage.on" : "gui.portablestorage.off";
-            tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(statusKey)).withStyle(ChatFormatting.GRAY));
-            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
-            return;
-        }
-
-        // 合成补充
-        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 4 && mouseY < y + iconSpacing * 4 + 18) {
-            List<Component> tooltip = new ArrayList<>();
-            tooltip.add(Component.translatable("gui.portablestorage.button.craft_refill"));
-            String statusKey = warehouse.isCraftRefill() ? "gui.portablestorage.on" : "gui.portablestorage.off";
-            tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(statusKey)).withStyle(ChatFormatting.GRAY));
-            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
-            return;
-        }
-
-        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 5 && mouseY < y + iconSpacing * 5 + 18) {
+        // 合成台图标
+        int craftingY = y + (showShortcuts ? (iconSpacing * 5) : 0);
+        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
             boolean isCrafting = net.minecraft.client.Minecraft.getInstance().screen instanceof com.portablestorage.screen.CraftingWarehouseScreen;
             List<Component> tooltip = new ArrayList<>();
             tooltip.add(Component.translatable(isCrafting ? "gui.portablestorage.button.back" : "gui.portablestorage.button.open_crafting"));

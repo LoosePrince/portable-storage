@@ -187,7 +187,7 @@ public class PlayerWarehouse implements Container {
                 }
                 sortedCache = new ArrayList<>(collapsed);
             } else {
-                sortedCache = new ArrayList<>(filtered);
+            sortedCache = new ArrayList<>(filtered);
             }
             
             Comparator<WarehouseEntry> comparator = switch (sortMode) {
