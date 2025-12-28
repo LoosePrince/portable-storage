@@ -52,14 +52,12 @@ public abstract class InventoryMenuCraftingMixin extends AbstractContainerMenu {
         ItemStack resultStack = stackInSlot.copy();
 
         if (index == 0) { // 合成结果
-            // 补全工作台级别的连续合成逻辑
             while (slot.hasItem()) {
                 ItemStack currentResult = slot.getItem();
                 ItemStack resultCopy = currentResult.copy();
                 
                 currentResult.getItem().onCraftedBy(currentResult, player.level(), player);
                 
-                // 尝试移动到背包 (9-45)
                 if (!this.moveItemStackTo(currentResult, 9, 45, true)) {
                     break;
                 }
@@ -67,7 +65,6 @@ public abstract class InventoryMenuCraftingMixin extends AbstractContainerMenu {
                 slot.onQuickCraft(currentResult, resultCopy);
                 slot.onTake(player, currentResult);
                 
-                // 如果数量没变，说明背包满了或材料没了，跳出循环
                 if (currentResult.getCount() == resultCopy.getCount()) {
                     break;
                 }
@@ -78,8 +75,10 @@ public abstract class InventoryMenuCraftingMixin extends AbstractContainerMenu {
                 cir.setReturnValue(ItemStack.EMPTY);
                 return;
             }
+            slot.onQuickCraft(stackInSlot, resultStack);
             slot.setChanged();
-            cir.setReturnValue(resultStack);
+            this.slotsChanged(this.craftSlots); // 手动触发合成结果更新
+            cir.setReturnValue(ItemStack.EMPTY);
         }
     }
 }

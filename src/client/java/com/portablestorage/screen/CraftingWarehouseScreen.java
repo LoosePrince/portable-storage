@@ -16,12 +16,18 @@ import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.resources.ResourceLocation;
 
 public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWarehouseScreenHandler> {
     private static final ResourceLocation CRAFTING_TABLE_TEXTURE = ResourceLocation.withDefaultNamespace("textures/gui/container/crafting_table.png");
     private EditBox searchBox;
     private boolean isDraggingScrollbar = false;
+
+    // 合成补充相关字段
+    private ItemStack lastCraftingOutput = ItemStack.EMPTY;
+    private final java.util.Map<Integer, ItemStack> lastCraftingStacks = new java.util.HashMap<>();
+    private long lastCraftRefillCheck = 0;
 
     // 自定义折叠按钮在合成界面中的位置（第三行右侧）
     private static final int CRAFT_FOLD_X = 84;
@@ -65,6 +71,8 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         super.render(graphics, mouseX, mouseY, delta);
         this.renderTooltip(graphics, mouseX, mouseY);
         
+        checkCraftRefill();
+        
         PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
         
         // 特殊处理合成界面的 Tooltip 偏移
@@ -87,6 +95,63 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         WarehouseRenderer.renderSidebarButtons(graphics, this.leftPos + CRAFT_FOLD_X, this.topPos + CRAFT_FOLD_Y, x + WarehouseConstants.SIDEBAR_X_OFFSET, y, mouseX, mouseY, warehouse);
     }
 
+    private void checkCraftRefill() {
+        if (this.minecraft == null || this.minecraft.player == null) return;
+        PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
+        if (!warehouse.isEnabled() || !warehouse.isCraftRefill()) return;
+
+        long now = System.currentTimeMillis();
+        if (now - lastCraftRefillCheck < 100) return;
+        lastCraftRefillCheck = now;
+
+        var menu = this.getMenu();
+        // 0: 结果, 1-9: 合成输入
+        Slot outputSlot = menu.getSlot(0);
+        ItemStack currentOutput = outputSlot.getItem();
+        
+        boolean craftOccurred = false;
+        if (!lastCraftingOutput.isEmpty()) {
+            if (currentOutput.isEmpty() || !ItemStack.isSameItemSameComponents(currentOutput, lastCraftingOutput) || currentOutput.getCount() < lastCraftingOutput.getCount()) {
+                craftOccurred = true;
+            }
+        }
+        lastCraftingOutput = currentOutput.copy();
+
+        if (craftOccurred) {
+            java.util.Map<ItemStack, java.util.List<Integer>> refills = new java.util.HashMap<>();
+            for (int slotId = 1; slotId <= 9; slotId++) {
+                Slot slot = menu.getSlot(slotId);
+                ItemStack currentStack = slot.getItem();
+                ItemStack lastStack = lastCraftingStacks.get(slotId);
+
+                if (lastStack != null && !lastStack.isEmpty()) {
+                    if (currentStack.isEmpty() || (ItemStack.isSameItemSameComponents(currentStack, lastStack) && currentStack.getCount() < lastStack.getCount())) {
+                        boolean found = false;
+                        for (ItemStack key : refills.keySet()) {
+                            if (ItemStack.isSameItemSameComponents(key, lastStack)) {
+                                refills.get(key).add(slotId);
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            java.util.List<Integer> list = new java.util.ArrayList<>();
+                            list.add(slotId);
+                            refills.put(lastStack, list);
+                        }
+                    }
+                }
+            }
+            for (var entry : refills.entrySet()) {
+                ClientPlayNetworking.send(new RefillPayload(entry.getValue(), entry.getKey().copy()));
+            }
+        }
+
+        for (int slotId = 1; slotId <= 9; slotId++) {
+            lastCraftingStacks.put(slotId, menu.getSlot(slotId).getItem().copy());
+        }
+    }
+
     private void renderCraftingTooltips(GuiGraphics graphics, int mouseX, int mouseY, PlayerWarehouse warehouse) {
         // 使用合成界面特有的折叠按钮判定
         if (mouseX >= this.leftPos + CRAFT_FOLD_X && mouseX < this.leftPos + CRAFT_FOLD_X + 18 && mouseY >= this.topPos + CRAFT_FOLD_Y && mouseY < this.topPos + CRAFT_FOLD_Y + 18) {
@@ -102,6 +167,35 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
+
+        // 1. 处理折叠项的点击（展开搜索）
+        if (!net.minecraft.client.gui.screens.Screen.hasShiftDown() && !warehouse.isFolded() && button == 0) {
+            Slot clickedSlot = null;
+            for (Slot slot : this.menu.slots) {
+                int slotX = this.leftPos + slot.x;
+                int slotY = this.topPos + slot.y;
+                if (mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY && mouseY < slotY + 16) {
+                    clickedSlot = slot;
+                    break;
+                }
+            }
+            if (clickedSlot != null && clickedSlot.container instanceof PlayerWarehouse && clickedSlot.hasItem()) {
+                ItemStack stack = clickedSlot.getItem();
+                net.minecraft.world.item.component.CustomData customData = stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+                boolean isCollapsed = customData != null && customData.copyTag().getBoolean(WarehouseConstants.SMART_COLLAPSE_TAG);
+
+                if (warehouse.isSmartCollapse() && warehouse.getSearchText().isEmpty() && isCollapsed) {
+                    String itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+                    String newSearch = "!" + itemId + "!";
+                    if (this.searchBox != null) {
+                        this.searchBox.setValue(newSearch);
+                        warehouse.setSearchText(newSearch);
+                        ClientPlayNetworking.send(new SearchPayload(newSearch));
+                    }
+                    return true;
+                }
+            }
+        }
         
         // 处理 Shift+点击
         if (button == 0 && hasShiftDown() && warehouse.isQuickInteraction() && !warehouse.isFolded()) {
@@ -149,16 +243,24 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
                 ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.SORT_ORDER, warehouse.isAscending() ? 0 : 1));
                 return true;
             }
-            if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 2 && mouseY < y + iconSpacing * 2 + 18) {
-                ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.QUICK_INTERACTION, warehouse.isQuickInteraction() ? 0 : 1));
-                return true;
-            }
-            
-            // 2. 合成按钮变为返回背包
-            if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 3 && mouseY < y + iconSpacing * 3 + 18) {
-                this.minecraft.setScreen(new InventoryScreen(this.minecraft.player));
-                return true;
-            }
+                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 2 && mouseY < y + iconSpacing * 2 + 18) {
+                        ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.QUICK_INTERACTION, warehouse.isQuickInteraction() ? 0 : 1));
+                        return true;
+                    }
+                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 3 && mouseY < y + iconSpacing * 3 + 18) {
+                        ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.SMART_COLLAPSE, warehouse.isSmartCollapse() ? 0 : 1));
+                        return true;
+                    }
+                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 4 && mouseY < y + iconSpacing * 4 + 18) {
+                        ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.CRAFT_REFILL, warehouse.isCraftRefill() ? 0 : 1));
+                        return true;
+                    }
+                    
+                    // 2. 合成按钮变为返回背包
+                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 5 && mouseY < y + iconSpacing * 5 + 18) {
+                        this.minecraft.setScreen(new InventoryScreen(this.minecraft.player));
+                        return true;
+                    }
 
             int pmX = x + WarehouseConstants.PLUS_MINUS_X_OFFSET;
             int pmY = y + WarehouseConstants.PLUS_MINUS_Y_OFFSET;

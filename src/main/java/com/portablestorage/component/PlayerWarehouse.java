@@ -12,10 +12,7 @@ import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.Consumer;
 
 public class PlayerWarehouse implements Container {
@@ -27,6 +24,8 @@ public class PlayerWarehouse implements Container {
     private int sortMode = 0; // 0: 数量, 1: 名称, 2: ID, 3: 更新时间
     private boolean isAscending = false;
     private boolean quickInteraction = true;
+    private boolean smartCollapse = false;
+    private boolean craftRefill = true;
     private boolean enabled = true;
     private List<WarehouseEntry> sortedCache = null;
     private final Consumer<PlayerWarehouse> onChanged;
@@ -101,6 +100,15 @@ public class PlayerWarehouse implements Container {
         int actualIndex = slot + (scrollOffset * 9);
         if (actualIndex >= 0 && actualIndex < sorted.size()) {
             WarehouseEntry entry = sorted.get(actualIndex);
+            
+            // 使用自定义标识检测是否为合并条目
+            net.minecraft.world.item.component.CustomData customData = entry.getItemStack().get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+            boolean isCollapsed = customData != null && customData.copyTag().getBoolean(com.portablestorage.util.WarehouseConstants.SMART_COLLAPSE_TAG);
+
+            if (smartCollapse && searchText.isEmpty() && isCollapsed) {
+                return ItemStack.EMPTY;
+            }
+
             long toRemove = Math.min(amount, entry.getCount());
             ItemStack result = entry.getItemStack().copyWithCount((int)toRemove);
             entry.subtract(toRemove);
@@ -115,11 +123,72 @@ public class PlayerWarehouse implements Container {
         if (sortedCache == null) {
             List<WarehouseEntry> filtered = storage;
             if (!searchText.isEmpty()) {
+                String query = searchText.toLowerCase().trim();
+                boolean exact = query.startsWith("!") && query.endsWith("!") && query.length() > 2;
+                final String finalQuery = exact ? query.substring(1, query.length() - 1) : query;
+
                 filtered = storage.stream()
-                        .filter(entry -> entry.getItemStack().getHoverName().getString().toLowerCase().contains(searchText))
+                        .filter(entry -> {
+                            ItemStack stack = entry.getItemStack();
+                            // 1. 名称搜索
+                            String name = stack.getHoverName().getString().toLowerCase();
+                            if (exact ? name.equals(finalQuery) : name.contains(finalQuery)) return true;
+
+                            // 2. ID 搜索
+                            String id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString().toLowerCase();
+                            if (exact ? id.equals(finalQuery) : id.contains(finalQuery)) return true;
+
+                            // 3. 描述 (Lore) 搜索
+                            net.minecraft.world.item.component.ItemLore lore = stack.get(net.minecraft.core.component.DataComponents.LORE);
+                            if (lore != null) {
+                                for (net.minecraft.network.chat.Component line : lore.lines()) {
+                                    String lineText = line.getString().toLowerCase();
+                                    if (exact ? lineText.equals(finalQuery) : lineText.contains(finalQuery)) return true;
+                                }
+                            }
+                            return false;
+                        })
                         .toList();
             }
-            sortedCache = new ArrayList<>(filtered);
+
+            if (smartCollapse && searchText.isEmpty()) {
+                // 按物品类型分组折叠（不同 NBT 但相同 Item）
+                Map<net.minecraft.world.item.Item, List<WarehouseEntry>> groups = new LinkedHashMap<>();
+                for (WarehouseEntry entry : filtered) {
+                    groups.computeIfAbsent(entry.getItemStack().getItem(), k -> new ArrayList<>()).add(entry);
+                }
+
+                List<WarehouseEntry> collapsed = new ArrayList<>();
+                for (Map.Entry<net.minecraft.world.item.Item, List<WarehouseEntry>> group : groups.entrySet()) {
+                    List<WarehouseEntry> entries = group.getValue();
+                    if (entries.size() > 1) {
+                        long totalCount = 0;
+                        long lastUpdated = 0;
+                        for (WarehouseEntry e : entries) {
+                            totalCount += e.getCount();
+                            lastUpdated = Math.max(lastUpdated, e.getLastUpdated());
+                        }
+                        
+                        // 创建一个无 NBT 的展示 ItemStack，并添加光效
+                        ItemStack displayStack = new ItemStack(group.getKey());
+                        displayStack.set(net.minecraft.core.component.DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
+                        
+                        // 使用自定义组件标记这是合并条目
+                        displayStack.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, 
+                            net.minecraft.world.item.component.CustomData.of(new net.minecraft.nbt.CompoundTag() {{
+                                putBoolean(com.portablestorage.util.WarehouseConstants.SMART_COLLAPSE_TAG, true);
+                            }}));
+                        
+                        WarehouseEntry merged = new WarehouseEntry(displayStack, totalCount);
+                        collapsed.add(merged);
+                    } else {
+                        collapsed.add(entries.get(0));
+                    }
+                }
+                sortedCache = new ArrayList<>(collapsed);
+            } else {
+                sortedCache = new ArrayList<>(filtered);
+            }
             
             Comparator<WarehouseEntry> comparator = switch (sortMode) {
                 case 0 -> Comparator.comparingLong(WarehouseEntry::getCount);
@@ -173,6 +242,12 @@ public class PlayerWarehouse implements Container {
     public boolean isQuickInteraction() { return quickInteraction; }
     public void setQuickInteraction(boolean quick) { this.quickInteraction = quick; this.setChanged(); }
 
+    public boolean isSmartCollapse() { return smartCollapse; }
+    public void setSmartCollapse(boolean smart) { this.smartCollapse = smart; this.setChanged(); }
+
+    public boolean isCraftRefill() { return craftRefill; }
+    public void setCraftRefill(boolean refill) { this.craftRefill = refill; this.setChanged(); }
+
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; this.setChanged(); }
 
@@ -216,6 +291,42 @@ public class PlayerWarehouse implements Container {
         }
     }
 
+    /**
+     * 服务器端执行：从仓库中取出指定数量的匹配物品
+     * @param template 模板物品
+     * @param amount 数量
+     * @param matchComponents 是否需要完全匹配组件（NBT）
+     */
+    public ItemStack takeMatching(ItemStack template, int amount, boolean matchComponents) {
+        int totalTaken = 0;
+        ItemStack result = template.copyWithCount(0);
+        
+        for (int i = storage.size() - 1; i >= 0; i--) {
+            WarehouseEntry entry = storage.get(i);
+            boolean matches = matchComponents ? entry.matches(template) : entry.getItemStack().is(template.getItem());
+            
+            if (matches) {
+                long canTake = Math.min(amount - totalTaken, entry.getCount());
+                if (canTake > 0) {
+                    entry.subtract(canTake);
+                    totalTaken += (int)canTake;
+                    if (entry.getCount() <= 0) storage.remove(i);
+                }
+            }
+            if (totalTaken >= amount) break;
+        }
+        
+        if (totalTaken > 0) {
+            result.setCount(totalTaken);
+            this.setChanged();
+        }
+        return result;
+    }
+
+    public ItemStack takeMatching(ItemStack template, int amount) {
+        return takeMatching(template, amount, true);
+    }
+
     public long getRealCount(int slotIndex) {
         List<WarehouseEntry> sorted = getSortedEntries();
         int actualIndex = slotIndex + (scrollOffset * 9);
@@ -234,6 +345,8 @@ public class PlayerWarehouse implements Container {
         this.sortMode = tag.getInt("sortMode");
         this.isAscending = tag.getBoolean("isAscending");
         this.quickInteraction = tag.contains("quickInteraction") ? tag.getBoolean("quickInteraction") : true;
+        this.smartCollapse = tag.getBoolean("smartCollapse");
+        this.craftRefill = !tag.contains("craftRefill") || tag.getBoolean("craftRefill");
         this.enabled = !tag.contains("enabled") || tag.getBoolean("enabled");
         this.searchText = tag.getString("searchText");
         this.sortedCache = null;
@@ -249,6 +362,8 @@ public class PlayerWarehouse implements Container {
         tag.putInt("sortMode", sortMode);
         tag.putBoolean("isAscending", isAscending);
         tag.putBoolean("quickInteraction", quickInteraction);
+        tag.putBoolean("smartCollapse", smartCollapse);
+        tag.putBoolean("craftRefill", craftRefill);
         tag.putBoolean("enabled", enabled);
         tag.putString("searchText", searchText);
     }

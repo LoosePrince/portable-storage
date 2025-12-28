@@ -5,12 +5,7 @@ import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
 import com.portablestorage.config.YACLConfig;
 import com.portablestorage.util.WarehouseSetting;
-import com.portablestorage.network.ChangeRowsPayload;
-import com.portablestorage.network.OpenCraftingPayload;
-import com.portablestorage.network.QuickTransferPayload;
-import com.portablestorage.network.ScrollPayload;
-import com.portablestorage.network.SearchPayload;
-import com.portablestorage.network.UpdateSettingsPayload;
+import com.portablestorage.network.*;
 import com.portablestorage.util.WarehouseConstants;
 import com.portablestorage.util.WarehouseRenderer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -25,6 +20,7 @@ import net.minecraft.client.gui.screens.inventory.EffectRenderingInventoryScreen
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -147,11 +143,40 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        // 检测仓库槽位的 Shift+点击
+        // 检测仓库槽位的点击
         if (shouldShowWarehouse() && this.minecraft != null && this.minecraft.player != null && button == 0) { // 左键
             PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
             
-            // 检测 Shift 键状态
+            // 1. 处理折叠项的点击（展开搜索）
+            if (!net.minecraft.client.gui.screens.Screen.hasShiftDown() && !warehouse.isFolded()) {
+                Slot clickedSlot = null;
+                for (Slot slot : this.menu.slots) {
+                    int slotX = this.leftPos + slot.x;
+                    int slotY = this.topPos + slot.y;
+                    if (mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY && mouseY < slotY + 16) {
+                        clickedSlot = slot;
+                        break;
+                    }
+                }
+                if (clickedSlot != null && clickedSlot.container instanceof PlayerWarehouse && clickedSlot.hasItem()) {
+                    ItemStack stack = clickedSlot.getItem();
+                    net.minecraft.world.item.component.CustomData customData = stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+                    boolean isCollapsed = customData != null && customData.copyTag().getBoolean(WarehouseConstants.SMART_COLLAPSE_TAG);
+
+                    if (warehouse.isSmartCollapse() && warehouse.getSearchText().isEmpty() && isCollapsed) {
+                        String itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+                        String newSearch = "!" + itemId + "!";
+                        if (this.searchBox != null) {
+                            this.searchBox.setValue(newSearch);
+                            warehouse.setSearchText(newSearch);
+                            ClientPlayNetworking.send(new SearchPayload(newSearch));
+                        }
+                        return true;
+                    }
+                }
+            }
+
+            // 2. 检测 Shift 键状态
             boolean isShiftPressed = net.minecraft.client.gui.screens.Screen.hasShiftDown();
             
             if (isShiftPressed && warehouse.isQuickInteraction() && !warehouse.isFolded()) {
@@ -216,8 +241,16 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                          ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.QUICK_INTERACTION, warehouse.isQuickInteraction() ? 0 : 1));
                          return true;
                      }
-                        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 3 && mouseY < y + iconSpacing * 3 + 18) {
-                            ClientPlayNetworking.send(new OpenCraftingPayload());
+                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 3 && mouseY < y + iconSpacing * 3 + 18) {
+                        ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.SMART_COLLAPSE, warehouse.isSmartCollapse() ? 0 : 1));
+                        return true;
+                    }
+                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 4 && mouseY < y + iconSpacing * 4 + 18) {
+                        ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.CRAFT_REFILL, warehouse.isCraftRefill() ? 0 : 1));
+                        return true;
+                    }
+                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 5 && mouseY < y + iconSpacing * 5 + 18) {
+                        ClientPlayNetworking.send(new OpenCraftingPayload());
                         return true;
                     }
 
@@ -297,9 +330,84 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
-    @Inject(method = "render", at = @At("TAIL"))
+    @Unique private ItemStack lastCraftingOutput = ItemStack.EMPTY;
+    @Unique private final java.util.Map<Integer, ItemStack> lastCraftingStacks = new java.util.HashMap<>();
+    @Unique private long lastCraftRefillCheck = 0;
+
+    @Unique
+    private void checkCraftRefill() {
+        if (this.minecraft == null || this.minecraft.player == null) return;
+        PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
+        if (!warehouse.isEnabled() || !warehouse.isCraftRefill()) return;
+
+        long now = System.currentTimeMillis();
+        if (now - lastCraftRefillCheck < 100) return;
+        lastCraftRefillCheck = now;
+
+        net.minecraft.world.inventory.AbstractContainerMenu menu = this.getMenu();
+        
+        // 1. 检测合成是否发生
+        net.minecraft.world.inventory.Slot outputSlot = menu.getSlot(0);
+        ItemStack currentOutput = outputSlot.getItem();
+        
+        boolean craftOccurred = false;
+        if (!lastCraftingOutput.isEmpty()) {
+            if (currentOutput.isEmpty() || !ItemStack.isSameItemSameComponents(currentOutput, lastCraftingOutput) || currentOutput.getCount() < lastCraftingOutput.getCount()) {
+                craftOccurred = true;
+            }
+        }
+        lastCraftingOutput = currentOutput.copy();
+
+        // 2. 如果发生合成，检测消耗并补货
+        int[] craftInputSlots = {1, 2, 3, 4, 46, 47, 48, 49, 50};
+        if (craftOccurred) {
+            java.util.Map<ItemStack, java.util.List<Integer>> refills = new java.util.HashMap<>();
+            
+            for (int slotId : craftInputSlots) {
+                if (slotId >= menu.slots.size()) continue;
+                net.minecraft.world.inventory.Slot slot = menu.getSlot(slotId);
+                ItemStack currentStack = slot.getItem();
+                ItemStack lastStack = lastCraftingStacks.get(slotId);
+
+                if (lastStack != null && !lastStack.isEmpty()) {
+                    if (currentStack.isEmpty() || (ItemStack.isSameItemSameComponents(currentStack, lastStack) && currentStack.getCount() < lastStack.getCount())) {
+                        // 按物品类型分组（使用 ItemStack 作为键，需要自定义比较逻辑或转换为唯一键）
+                        boolean found = false;
+                        for (ItemStack key : refills.keySet()) {
+                            if (ItemStack.isSameItemSameComponents(key, lastStack)) {
+                                refills.get(key).add(slotId);
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            java.util.List<Integer> list = new java.util.ArrayList<>();
+                            list.add(slotId);
+                            refills.put(lastStack, list);
+                        }
+                    }
+                }
+            }
+            
+            // 发送分组后的请求
+            for (var entry : refills.entrySet()) {
+                ClientPlayNetworking.send(new RefillPayload(entry.getValue(), entry.getKey().copy()));
+            }
+        }
+
+        // 3. 更新输入缓存
+        for (int slotId : craftInputSlots) {
+            if (slotId < menu.slots.size()) {
+                lastCraftingStacks.put(slotId, menu.getSlot(slotId).getItem().copy());
+            }
+        }
+    }
+
+    @Inject(method = "render", at = @At("RETURN"))
     private void renderWarehouseContent(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         if (!shouldShowWarehouse()) return;
+        
+        checkCraftRefill();
         
         var player = Minecraft.getInstance().player;
         if (player == null) return;

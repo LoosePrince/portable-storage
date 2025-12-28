@@ -95,5 +95,8 @@ public class WarehouseConstants {
     public static final int SCROLLBAR_THUMB_HOVER_COLOR = 0xFFAAAAAA;
     public static final int SCROLLBAR_BORDER_LIGHT = 0xFFBBBBBB;
     public static final int SCROLLBAR_BORDER_DARK = 0xFF444444;
+    
+    // 智能折叠虚拟条目标识 (使用自定义 NBT)
+    public static final String SMART_COLLAPSE_TAG = "portablestorage_collapsed";
 }
 

@@ -144,6 +144,7 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
                 if (!this.moveItemStackTo(itemStack2, 10, 46, false)) {
                     return ItemStack.EMPTY;
                 }
+                this.slotsChanged(this.craftSlots); // 手动触发合成结果更新
             } else if (index >= 10 && index < 46) { // 玩家背包或快捷栏
                 // 尝试移动到仓库或合成槽位
                 PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());

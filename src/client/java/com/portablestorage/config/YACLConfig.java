@@ -2,6 +2,8 @@ package com.portablestorage.config;
 
 import dev.isxander.yacl3.api.*;
 import dev.isxander.yacl3.api.controller.BooleanControllerBuilder;
+import dev.isxander.yacl3.api.controller.IntegerFieldControllerBuilder;
+import dev.isxander.yacl3.api.controller.LongFieldControllerBuilder;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -43,10 +45,10 @@ public class YACLConfig {
                                 .binding(
                                         true,
                                         () -> ModConfig.is3x3Enabled(),
-                                        val -> {} // Read-only
+                                        val -> {} // 只读
                                 )
                                 .controller(BooleanControllerBuilder::create)
-                                .available(false) // Disable interaction
+                                .available(false)
                                 .build())
                         .option(Option.<Boolean>createBuilder()
                                 .name(Component.translatable("gui.portablestorage.settings.drop_storage_on_death"))
@@ -54,9 +56,37 @@ public class YACLConfig {
                                 .binding(
                                         true,
                                         () -> ModConfig.dropStorageOnDeath,
-                                        val -> {} // Read-only on client
+                                        val -> {} // 只读
                                 )
                                 .controller(BooleanControllerBuilder::create)
+                                .available(false)
+                                .build())
+                        .option(Option.<Integer>createBuilder()
+                                .name(Component.translatable("gui.portablestorage.settings.max_storage_types"))
+                                .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.server_limit.desc")))
+                                .binding(-1, () -> ModConfig.maxStorageTypes, val -> {})
+                                .controller(IntegerFieldControllerBuilder::create)
+                                .available(false)
+                                .build())
+                        .option(Option.<Long>createBuilder()
+                                .name(Component.translatable("gui.portablestorage.settings.max_item_stack_size"))
+                                .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.server_limit.desc")))
+                                .binding(-1L, () -> ModConfig.maxItemStackSize, val -> {})
+                                .controller(LongFieldControllerBuilder::create)
+                                .available(false)
+                                .build())
+                        .option(Option.<Integer>createBuilder()
+                                .name(Component.translatable("gui.portablestorage.settings.base_max_storage_types"))
+                                .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.server_limit.desc")))
+                                .binding(54, () -> ModConfig.baseMaxStorageTypes, val -> {})
+                                .controller(IntegerFieldControllerBuilder::create)
+                                .available(false)
+                                .build())
+                        .option(Option.<Long>createBuilder()
+                                .name(Component.translatable("gui.portablestorage.settings.base_max_item_stack_size"))
+                                .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.server_limit.desc")))
+                                .binding(-1L, () -> ModConfig.baseMaxItemStackSize, val -> {})
+                                .controller(LongFieldControllerBuilder::create)
                                 .available(false)
                                 .build())
                         .build())

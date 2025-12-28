@@ -6,6 +6,8 @@
   "gui.portablestorage.button.sort_mode": "排序模式",
   "gui.portablestorage.button.sort_order": "排序顺序",
   "gui.portablestorage.button.quick_interaction": "快速存取",
+  "gui.portablestorage.button.smart_collapse": "智能折叠",
+  "gui.portablestorage.button.craft_refill": "合成补充",
   "gui.portablestorage.button.open_crafting": "打开合成界面",
   "gui.portablestorage.button.back": "返回背包",
   "gui.portablestorage.current": "当前: %s",

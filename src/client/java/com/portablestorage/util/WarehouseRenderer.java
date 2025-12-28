@@ -57,8 +57,14 @@ public class WarehouseRenderer {
             renderIconButton(graphics, sidebarX, sidebarY + iconSpacing, orderIconIndex, mouseX, mouseY);
             renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 2, 9, mouseX, mouseY);
             
-            // 固定使用合成台图标 (14)
-            renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 3, 14, mouseX, mouseY);
+            // 智能折叠 (10/11)
+            renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 3, warehouse.isSmartCollapse() ? 10 : 11, mouseX, mouseY);
+            
+            // 合成补充 (7)
+            renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 4, 7, mouseX, mouseY);
+
+            // 合成台图标 (14)
+            renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 5, 14, mouseX, mouseY);
         }
     }
 
@@ -101,7 +107,27 @@ public class WarehouseRenderer {
             return;
         }
 
+        // 智能折叠
         if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 3 && mouseY < y + iconSpacing * 3 + 18) {
+            List<Component> tooltip = new ArrayList<>();
+            tooltip.add(Component.translatable("gui.portablestorage.button.smart_collapse"));
+            String statusKey = warehouse.isSmartCollapse() ? "gui.portablestorage.on" : "gui.portablestorage.off";
+            tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(statusKey)).withStyle(ChatFormatting.GRAY));
+            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+            return;
+        }
+
+        // 合成补充
+        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 4 && mouseY < y + iconSpacing * 4 + 18) {
+            List<Component> tooltip = new ArrayList<>();
+            tooltip.add(Component.translatable("gui.portablestorage.button.craft_refill"));
+            String statusKey = warehouse.isCraftRefill() ? "gui.portablestorage.on" : "gui.portablestorage.off";
+            tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(statusKey)).withStyle(ChatFormatting.GRAY));
+            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+            return;
+        }
+
+        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 5 && mouseY < y + iconSpacing * 5 + 18) {
             boolean isCrafting = net.minecraft.client.Minecraft.getInstance().screen instanceof com.portablestorage.screen.CraftingWarehouseScreen;
             List<Component> tooltip = new ArrayList<>();
             tooltip.add(Component.translatable(isCrafting ? "gui.portablestorage.button.back" : "gui.portablestorage.button.open_crafting"));

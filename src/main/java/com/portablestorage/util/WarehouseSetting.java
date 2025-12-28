@@ -6,7 +6,9 @@ public enum WarehouseSetting implements StringRepresentable {
     FOLD(0),
     SORT_MODE(1),
     SORT_ORDER(2),
-    QUICK_INTERACTION(3);
+    QUICK_INTERACTION(3),
+    SMART_COLLAPSE(4),
+    CRAFT_REFILL(5);
 
     private final int id;
 
