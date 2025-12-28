@@ -2,11 +2,26 @@ package com.portablestorage.network;
 
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
+import com.portablestorage.screen.CraftingWarehouseScreenHandler;
+import com.portablestorage.util.WarehouseSetting;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.Slot;
 
 public class ModServerNetworking {
+
+    public static void handleOpenCrafting(OpenCraftingPayload payload, ServerPlayNetworking.Context context) {
+        context.server().execute(() -> {
+            ServerPlayer player = context.player();
+            player.openMenu(new SimpleMenuProvider(
+                (syncId, inventory, p) -> new CraftingWarehouseScreenHandler(syncId, inventory, ContainerLevelAccess.create(player.level(), player.blockPosition())),
+                Component.translatable("container.crafting")
+            ));
+        });
+    }
 
     public static void handleUpdateSettings(UpdateSettingsPayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
@@ -84,4 +99,3 @@ public class ModServerNetworking {
         }
     }
 }
-

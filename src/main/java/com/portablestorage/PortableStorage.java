@@ -5,6 +5,7 @@ import com.portablestorage.event.PlayerDeathEventHandler;
 import com.portablestorage.item.ModItems;
 import com.portablestorage.network.ModNetworking;
 import com.portablestorage.network.SyncConfigPayload;
+import com.portablestorage.screen.ModScreenHandlers;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import org.slf4j.Logger;
@@ -18,6 +19,7 @@ public class PortableStorage implements ModInitializer {
 	public void onInitialize() {
         ModConfig.load();
         ModItems.registerModItems();
+        ModScreenHandlers.register();
         ModNetworking.registerC2SPayloads();
         ModNetworking.registerS2CPayloads();
         ModNetworking.registerServerReceivers();

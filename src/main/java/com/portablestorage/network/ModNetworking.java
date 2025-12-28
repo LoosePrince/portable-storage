@@ -10,6 +10,7 @@ public class ModNetworking {
         PayloadTypeRegistry.playC2S().register(ChangeRowsPayload.TYPE, ChangeRowsPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(UpdateSettingsPayload.TYPE, UpdateSettingsPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(QuickTransferPayload.ID, QuickTransferPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(OpenCraftingPayload.TYPE, OpenCraftingPayload.CODEC);
     }
 
     public static void registerS2CPayloads() {
@@ -22,6 +23,7 @@ public class ModNetworking {
         ServerPlayNetworking.registerGlobalReceiver(ScrollPayload.TYPE, ModServerNetworking::handleScroll);
         ServerPlayNetworking.registerGlobalReceiver(SearchPayload.TYPE, ModServerNetworking::handleSearch);
         ServerPlayNetworking.registerGlobalReceiver(QuickTransferPayload.ID, ModServerNetworking::handleQuickTransfer);
+        ServerPlayNetworking.registerGlobalReceiver(OpenCraftingPayload.TYPE, ModServerNetworking::handleOpenCrafting);
     }
 }
 

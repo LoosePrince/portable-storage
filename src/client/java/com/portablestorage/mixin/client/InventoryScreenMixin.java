@@ -6,6 +6,7 @@ import com.portablestorage.config.ModConfig;
 import com.portablestorage.config.YACLConfig;
 import com.portablestorage.util.WarehouseSetting;
 import com.portablestorage.network.ChangeRowsPayload;
+import com.portablestorage.network.OpenCraftingPayload;
 import com.portablestorage.network.QuickTransferPayload;
 import com.portablestorage.network.ScrollPayload;
 import com.portablestorage.network.SearchPayload;
@@ -138,7 +139,10 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         
         // 使用封装好的渲染逻辑
         WarehouseRenderer.renderBackground(graphics, x, y, mouseX, mouseY, warehouse, this.font);
-        WarehouseRenderer.renderSidebarButtons(graphics, this.leftPos, this.topPos, x + WarehouseConstants.SIDEBAR_X_OFFSET, y, mouseX, mouseY, warehouse);
+            
+        int foldX = this.leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
+        int foldY = this.topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
+        WarehouseRenderer.renderSidebarButtons(graphics, foldX, foldY, x + WarehouseConstants.SIDEBAR_X_OFFSET, y, mouseX, mouseY, warehouse);
     }
 
     @Override
@@ -210,6 +214,10 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                     }
                     if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 2 && mouseY < y + iconSpacing * 2 + 18) {
                          ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.QUICK_INTERACTION, warehouse.isQuickInteraction() ? 0 : 1));
+                         return true;
+                     }
+                        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 3 && mouseY < y + iconSpacing * 3 + 18) {
+                            ClientPlayNetworking.send(new OpenCraftingPayload());
                         return true;
                     }
 

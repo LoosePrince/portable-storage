@@ -136,6 +136,8 @@ public class PlayerWarehouse implements Container {
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; this.setChanged(); }
 
+    public String getSearchText() { return searchText; }
+
     /**
      * 服务器端执行：将仓库中的物品快速转移到玩家背包
      */
