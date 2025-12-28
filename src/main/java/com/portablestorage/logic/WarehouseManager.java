@@ -230,7 +230,9 @@ public class WarehouseManager {
 
             CustomData customData = entry.getItemStack().get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
             boolean isCollapsed = customData != null && customData.copyTag().getBoolean(WarehouseConstants.SMART_COLLAPSE_TAG);
-            if (!force && warehouse.isSmartCollapse() && warehouse.getSearchText().isEmpty() && isCollapsed) {
+            
+            // 严禁提取折叠项（无论 force 与否，因为它是虚拟的）
+            if (isCollapsed) {
                 return ItemStack.EMPTY;
             }
 

@@ -171,7 +171,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
             PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
             
             // 1. 处理折叠项的点击（展开搜索）
-            if (!net.minecraft.client.gui.screens.Screen.hasShiftDown() && !warehouse.isFolded()) {
+            if (!warehouse.isFolded()) {
                 Slot clickedSlot = null;
                 for (Slot slot : this.menu.slots) {
                     int slotX = this.leftPos + slot.x;
@@ -194,7 +194,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                             warehouse.setSearchText(newSearch);
                             ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(newSearch), Optional.empty(), Optional.empty(), Optional.empty()));
                         }
-                        return true;
+                        return true; // 拦截，不继续处理 Shift 点击
                     }
                 }
             }

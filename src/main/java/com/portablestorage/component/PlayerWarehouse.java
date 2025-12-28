@@ -295,11 +295,16 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                 filteredCache = baseCache;
             } else {
                 String query = searchText.toLowerCase().trim();
-                boolean exact = query.startsWith("!") && query.endsWith("!") && query.length() > 2;
-                final String finalQuery = exact ? query.substring(1, query.length() - 1) : query;
-
+                boolean startExact = query.startsWith("!");
+                boolean endExact = query.endsWith("!");
+                
+                String tempQuery = query;
+                if (startExact) tempQuery = tempQuery.substring(1);
+                if (endExact && tempQuery.length() > 0) tempQuery = tempQuery.substring(0, tempQuery.length() - 1);
+                
+                final String finalQuery = tempQuery;
                 filteredCache = baseCache.stream()
-                        .filter(entry -> matchesQuery(entry, finalQuery, exact))
+                        .filter(entry -> matchesQuery(entry, finalQuery, startExact, endExact))
                         .toList();
             }
             collapsedCache = null;
@@ -325,22 +330,30 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         return sortedCache;
     }
 
-    private boolean matchesQuery(WarehouseEntry entry, String finalQuery, boolean exact) {
+    private boolean matchesQuery(WarehouseEntry entry, String finalQuery, boolean startExact, boolean endExact) {
         ItemStack stack = entry.getItemStack();
         String name = stack.getHoverName().getString().toLowerCase();
-        if (exact ? name.equals(finalQuery) : name.contains(finalQuery)) return true;
+        if (checkMatch(name, finalQuery, startExact, endExact)) return true;
 
         String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString().toLowerCase();
-        if (exact ? id.equals(finalQuery) : id.contains(finalQuery)) return true;
+        if (checkMatch(id, finalQuery, startExact, endExact)) return true;
 
         net.minecraft.world.item.component.ItemLore lore = stack.get(net.minecraft.core.component.DataComponents.LORE);
         if (lore != null) {
             for (net.minecraft.network.chat.Component line : lore.lines()) {
                 String lineText = line.getString().toLowerCase();
-                if (exact ? lineText.equals(finalQuery) : lineText.contains(finalQuery)) return true;
+                if (checkMatch(lineText, finalQuery, startExact, endExact)) return true;
             }
         }
         return false;
+    }
+
+    private boolean checkMatch(String target, String query, boolean startExact, boolean endExact) {
+        if (query.isEmpty()) return true;
+        if (startExact && endExact) return target.equals(query);
+        if (startExact) return target.startsWith(query);
+        if (endExact) return target.endsWith(query);
+        return target.contains(query);
     }
 
     private List<WarehouseEntry> applySmartCollapse(List<WarehouseEntry> filtered) {
