@@ -34,7 +34,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
 
     @Override
     protected void init() {
-        PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(this.minecraft.player.level()).getWarehouse(this.minecraft.player.getUUID());
+        PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
         
         // 1. 支持 offsetInventory 属性
         int rows = warehouse.isFolded() ? 0 : warehouse.getVisibleRows();
@@ -65,7 +65,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         super.render(graphics, mouseX, mouseY, delta);
         this.renderTooltip(graphics, mouseX, mouseY);
         
-        PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(this.minecraft.player.level()).getWarehouse(this.minecraft.player.getUUID());
+        PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
         
         // 特殊处理合成界面的 Tooltip 偏移
         renderCraftingTooltips(graphics, mouseX, mouseY, warehouse);
@@ -77,7 +77,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
     protected void renderBg(GuiGraphics graphics, float delta, int mouseX, int mouseY) {
         graphics.blit(CRAFTING_TABLE_TEXTURE, this.leftPos, this.topPos, 0, 0, this.imageWidth, this.imageHeight);
         
-        PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(this.minecraft.player.level()).getWarehouse(this.minecraft.player.getUUID());
+        PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
         int x = this.leftPos + WarehouseConstants.WAREHOUSE_X_OFFSET;
         int y = this.topPos + WarehouseConstants.WAREHOUSE_Y_OFFSET;
         
@@ -101,7 +101,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(this.minecraft.player.level()).getWarehouse(this.minecraft.player.getUUID());
+        PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
         
         // 处理 Shift+点击
         if (button == 0 && hasShiftDown() && warehouse.isQuickInteraction() && !warehouse.isFolded()) {
@@ -209,7 +209,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (this.isDraggingScrollbar) {
-            PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(this.minecraft.player.level()).getWarehouse(this.minecraft.player.getUUID());
+            PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
             int scrollbarY = this.topPos + WarehouseConstants.WAREHOUSE_Y_OFFSET + WarehouseConstants.SCROLLBAR_Y_OFFSET;
             int scrollbarHeight = warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE - WarehouseConstants.SCROLLBAR_PADDING;
             
@@ -230,7 +230,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(this.minecraft.player.level()).getWarehouse(this.minecraft.player.getUUID());
+        PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
         if (warehouse.isFolded()) return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
 
         int warehouseX = this.leftPos + WarehouseConstants.WAREHOUSE_X_OFFSET;

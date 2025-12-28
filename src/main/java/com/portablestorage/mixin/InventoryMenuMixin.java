@@ -29,7 +29,7 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void addWarehouseSlots(Inventory inventory, boolean active, Player owner, CallbackInfo ci) {
-        PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(owner.level()).getWarehouse(owner.getUUID());
+        PlayerWarehouse warehouse = ModComponents.get(owner).getWarehouse(owner.getUUID());
 
         int startX = WarehouseConstants.SLOT_LOGIC_X; // 8
         int startY = WarehouseConstants.SLOT_LOGIC_Y_BASE; // 191
@@ -56,7 +56,7 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
     private void handleQuickMove(Player player, int index, CallbackInfoReturnable<ItemStack> cir) {
         if (player.getAbilities().instabuild) return;
 
-        PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         
         // 如果仓库被禁用，只允许玩家将物品存入仓库（如果需要），但不允许从仓库取出
         // 这里我们统一下，禁用时直接不响应快速移动

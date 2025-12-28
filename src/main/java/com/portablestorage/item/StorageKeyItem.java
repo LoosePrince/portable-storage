@@ -45,7 +45,7 @@ public class StorageKeyItem extends Item {
             return InteractionResultHolder.fail(stack);
         }
 
-        PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(level).getWarehouse(player.getUUID());
+        PlayerWarehouse warehouse = ModComponents.get(level).getWarehouse(player.getUUID());
         if (warehouse.isEnabled()) {
             player.displayClientMessage(Component.translatable("message.portablestorage.already_enabled").withStyle(ChatFormatting.YELLOW), false);
             return InteractionResultHolder.fail(stack);

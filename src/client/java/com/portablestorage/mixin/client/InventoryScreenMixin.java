@@ -53,7 +53,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
     @Unique
     private boolean shouldShowWarehouse() {
         if (this.minecraft == null || this.minecraft.player == null || this.minecraft.player.getAbilities().instabuild) return false;
-        var warehouse = ModComponents.WAREHOUSE.get(this.minecraft.player.level()).getWarehouse(this.minecraft.player.getUUID());
+        var warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
         return warehouse.isEnabled();
     }
 
@@ -63,7 +63,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
 
         var player = Minecraft.getInstance().player;
         if (player == null) return;
-        PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         int rows = warehouse.isFolded() ? 0 : warehouse.getVisibleRows();
         
         int yOffset = ModConfig.offsetInventory ? (warehouse.isFolded() ? WarehouseConstants.OFFSET_FOLDED : WarehouseConstants.OFFSET_BASE + rows * WarehouseConstants.OFFSET_PER_ROW) : 0; 
@@ -107,7 +107,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         if (!shouldShowWarehouse()) return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
         var player = Minecraft.getInstance().player;
         if (player == null) return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-        PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         if (warehouse.isFolded()) return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
 
         int warehouseX = this.leftPos + WarehouseConstants.WAREHOUSE_X_OFFSET;
@@ -132,14 +132,14 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         
         var player = Minecraft.getInstance().player;
         if (player == null) return;
-        PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         
         int x = this.leftPos + WarehouseConstants.WAREHOUSE_X_OFFSET; 
         int y = this.topPos + WarehouseConstants.WAREHOUSE_Y_OFFSET;
         
         // 使用封装好的渲染逻辑
         WarehouseRenderer.renderBackground(graphics, x, y, mouseX, mouseY, warehouse, this.font);
-            
+        
         int foldX = this.leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
         int foldY = this.topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
         WarehouseRenderer.renderSidebarButtons(graphics, foldX, foldY, x + WarehouseConstants.SIDEBAR_X_OFFSET, y, mouseX, mouseY, warehouse);
@@ -149,7 +149,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         // 检测仓库槽位的 Shift+点击
         if (shouldShowWarehouse() && this.minecraft != null && this.minecraft.player != null && button == 0) { // 左键
-            PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(this.minecraft.player.level()).getWarehouse(this.minecraft.player.getUUID());
+            PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
             
             // 检测 Shift 键状态
             boolean isShiftPressed = net.minecraft.client.gui.screens.Screen.hasShiftDown();
@@ -178,7 +178,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         if (shouldShowWarehouse()) {
             var player = Minecraft.getInstance().player;
             if (player != null) {
-                PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+                PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
                 int x = this.leftPos + WarehouseConstants.WAREHOUSE_X_OFFSET;
                 int y = this.topPos + WarehouseConstants.WAREHOUSE_Y_OFFSET;
                 
@@ -267,7 +267,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
     private void updateScrollFromMouse(double mouseY) {
         var player = Minecraft.getInstance().player;
         if (player == null) return;
-        PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         
         int scrollbarY = this.topPos + WarehouseConstants.WAREHOUSE_Y_OFFSET + WarehouseConstants.SCROLLBAR_Y_OFFSET;
         int scrollbarHeight = warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE - WarehouseConstants.SCROLLBAR_PADDING;
@@ -303,7 +303,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         
         var player = Minecraft.getInstance().player;
         if (player == null) return;
-        PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
 
         if (this.searchBox != null) {
             this.searchBox.setX(this.leftPos + WarehouseConstants.WAREHOUSE_X_OFFSET + WarehouseConstants.SEARCH_BOX_X_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET);

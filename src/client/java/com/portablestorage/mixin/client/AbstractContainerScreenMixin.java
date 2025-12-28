@@ -29,7 +29,7 @@ public abstract class AbstractContainerScreenMixin {
         var player = Minecraft.getInstance().player;
         if (player == null || player.getAbilities().instabuild) return;
 
-        PlayerWarehouse wh = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+        PlayerWarehouse wh = ModComponents.get(player).getWarehouse(player.getUUID());
         if (!wh.isEnabled() || wh.isFolded()) return;
 
         if (this.hoveredSlot != null && this.hoveredSlot.container == wh) {

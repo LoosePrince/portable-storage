@@ -2,44 +2,46 @@ package com.portablestorage.component;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.level.Level;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.scores.Scoreboard;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 public class MyWarehouseComponent implements WarehouseComponent {
     private final Map<UUID, PlayerWarehouse> warehouses = new HashMap<>();
-    private final Level level;
+    private final Scoreboard scoreboard;
+    private final MinecraftServer server;
 
-    public MyWarehouseComponent(Level level) {
-        this.level = level;
+    public MyWarehouseComponent(Scoreboard scoreboard, MinecraftServer server) {
+        this.scoreboard = scoreboard;
+        this.server = server;
     }
 
     @Override
     public PlayerWarehouse getWarehouse(UUID uuid) {
         // 确保同一个 UUID 始终返回同一个 PlayerWarehouse 实例
         return warehouses.computeIfAbsent(uuid, k -> new PlayerWarehouse(k, (warehouse) -> {
-            if (!level.isClientSide) {
-                syncForPlayer(k);
-            }
+            sync();
         }));
     }
 
     @Override
     public void syncForPlayer(UUID uuid) {
-        if (level.isClientSide) return;
-        // 触发世界组件同步
-        ModComponents.WAREHOUSE.sync(level);
+        sync();
+    }
+
+    private void sync() {
+        // Scoreboard 组件同步是全局的
+        ModComponents.WAREHOUSE.sync(scoreboard);
     }
 
     @Override
     public void readFromNbt(CompoundTag tag, HolderLookup.Provider registries) {
-        // 关键修复：不要 clear()，否则客户端已打开的界面引用的实例会失效
         CompoundTag warehousesTag = tag.getCompound("warehouses");
         for (String key : warehousesTag.getAllKeys()) {
             try {
                 UUID uuid = UUID.fromString(key);
-                // 获取（或创建）实例并更新其内容
                 PlayerWarehouse warehouse = getWarehouse(uuid);
                 warehouse.readNbt(warehousesTag.getCompound(key), registries);
             } catch (IllegalArgumentException ignored) {}

@@ -17,8 +17,8 @@ public class PlayerDeathEventHandler {
             if (oldPlayer == null || newPlayer == null) return;
 
             // 获取仓库组件
-            PlayerWarehouse oldWarehouse = ModComponents.WAREHOUSE.get(oldPlayer.level()).getWarehouse(oldPlayer.getUUID());
-            PlayerWarehouse newWarehouse = ModComponents.WAREHOUSE.get(newPlayer.level()).getWarehouse(newPlayer.getUUID());
+            PlayerWarehouse oldWarehouse = ModComponents.get(oldPlayer).getWarehouse(oldPlayer.getUUID());
+            PlayerWarehouse newWarehouse = ModComponents.get(newPlayer).getWarehouse(newPlayer.getUUID());
 
             // 检查 keepInventory 规则
             boolean keepInventory = newPlayer.level().getGameRules().getBoolean(GameRules.RULE_KEEPINVENTORY);

@@ -90,7 +90,7 @@ public class ModServerNetworking {
     }
 
     private static PlayerWarehouse getWarehouse(ServerPlayer player) {
-        return ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
+        return ModComponents.get(player).getWarehouse(player.getUUID());
     }
 
     private static void syncChanges(ServerPlayer player) {
