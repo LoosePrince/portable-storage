@@ -113,12 +113,15 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
                 // 防止它流向原版逻辑导致物品被莫名其妙拿起或消失。
                 cir.setReturnValue(ItemStack.EMPTY);
             }
-        } else if (index >= WarehouseConstants.PLAYER_INVENTORY_START && index < WarehouseConstants.PLAYER_INVENTORY_END) { // 从玩家背包快速转移到仓库
-            if (warehouse.isQuickInteraction()) {
-                warehouse.addItem(stackInSlot.copy());
-                slot.set(ItemStack.EMPTY);
-                cir.setReturnValue(ItemStack.EMPTY);
+            } else if (index >= WarehouseConstants.PLAYER_INVENTORY_START && index < WarehouseConstants.PLAYER_INVENTORY_END) { // 从玩家背包快速转移到仓库
+                if (warehouse.isQuickInteraction()) {
+                    warehouse.addItem(stackInSlot);
+                    // 如果 stackInSlot 还没变空，说明有溢出部分留在原槽位，不需要 set(EMPTY)
+                    if (stackInSlot.isEmpty()) {
+                        slot.set(ItemStack.EMPTY);
+                    }
+                    cir.setReturnValue(ItemStack.EMPTY);
+                }
             }
-        }
     }
 }

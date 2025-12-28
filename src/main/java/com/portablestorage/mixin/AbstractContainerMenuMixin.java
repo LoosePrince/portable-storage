@@ -44,13 +44,16 @@ public abstract class AbstractContainerMenuMixin {
                     return;
                 }
 
-                // 普通点击处理
-                ItemStack cursorStack = menu.getCarried();
-                if (!cursorStack.isEmpty()) {
-                    // 存入
-                    warehouse.addItem(cursorStack);
-                    menu.setCarried(ItemStack.EMPTY);
-                } else {
+                        // 普通点击处理
+                        ItemStack cursorStack = menu.getCarried();
+                        if (!cursorStack.isEmpty()) {
+                            // 存入
+                            warehouse.addItem(cursorStack);
+                            // addItem 会 shrink 传入的 stack，如果为空则设为 EMPTY，否则保留溢出
+                            if (cursorStack.isEmpty()) {
+                                menu.setCarried(ItemStack.EMPTY);
+                            }
+                        } else {
                     // 取出
                     int amount = (button == 1) ? 1 : 64;
                     ItemStack taken = warehouse.removeItem(slotId - warehouseStart, amount);

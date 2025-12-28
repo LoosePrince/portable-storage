@@ -11,3 +11,15 @@ enable3x3Crafting = true
 
 # 是否在玩家死亡时禁用仓库 (true: 禁用, false: 保留)
 dropStorageOnDeath = true
+
+# 仓库储存最大种类数 (-1: 不限制)
+maxStorageTypes = -1
+
+# 仓库储存物品最大堆叠数 (-1: 不限制)
+maxItemStackSize = -1
+
+# 基础仓库储存最大种类数
+baseMaxStorageTypes = 54
+
+# 基础仓库储存物品最大堆叠数 (-1: 不限制)
+baseMaxItemStackSize = -1

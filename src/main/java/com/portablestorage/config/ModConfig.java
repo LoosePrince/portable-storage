@@ -15,6 +15,12 @@ public class ModConfig {
     public static boolean enable3x3Crafting = true;
     public static boolean dropStorageOnDeath = true;
     
+    // 仓库限制配置
+    public static int maxStorageTypes = -1;
+    public static long maxItemStackSize = -1;
+    public static int baseMaxStorageTypes = 54;
+    public static long baseMaxItemStackSize = -1;
+    
     // 运行时启用的 3x3 合成状态，由服务端下发决定
     private static boolean active3x3Crafting = true;
 
@@ -39,6 +45,11 @@ public class ModConfig {
         enable3x3Crafting = config.getOrElse("server.enable3x3Crafting", true);
         dropStorageOnDeath = config.getOrElse("server.dropStorageOnDeath", true);
         
+        maxStorageTypes = ((Number) config.getOrElse("server.maxStorageTypes", -1)).intValue();
+        maxItemStackSize = ((Number) config.getOrElse("server.maxItemStackSize", -1L)).longValue();
+        baseMaxStorageTypes = ((Number) config.getOrElse("server.baseMaxStorageTypes", 54)).intValue();
+        baseMaxItemStackSize = ((Number) config.getOrElse("server.baseMaxItemStackSize", -1L)).longValue();
+        
         // 初始时设置为本地配置值
         active3x3Crafting = enable3x3Crafting;
 
@@ -58,6 +69,12 @@ public class ModConfig {
         config.set("client.hideRecipeBook", hideRecipeBook);
         config.set("server.enable3x3Crafting", enable3x3Crafting);
         config.set("server.dropStorageOnDeath", dropStorageOnDeath);
+        
+        config.set("server.maxStorageTypes", maxStorageTypes);
+        config.set("server.maxItemStackSize", maxItemStackSize);
+        config.set("server.baseMaxStorageTypes", baseMaxStorageTypes);
+        config.set("server.baseMaxItemStackSize", baseMaxItemStackSize);
+        
         config.save();
         config.close();
     }

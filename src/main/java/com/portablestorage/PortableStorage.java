@@ -27,7 +27,14 @@ public class PortableStorage implements ModInitializer {
 
         // 玩家加入时同步服务端配置
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-            sender.sendPacket(new SyncConfigPayload(ModConfig.enable3x3Crafting, ModConfig.dropStorageOnDeath));
+            sender.sendPacket(new SyncConfigPayload(
+                ModConfig.enable3x3Crafting, 
+                ModConfig.dropStorageOnDeath,
+                ModConfig.maxStorageTypes,
+                ModConfig.maxItemStackSize,
+                ModConfig.baseMaxStorageTypes,
+                ModConfig.baseMaxItemStackSize
+            ));
         });
 
         LOGGER.info("Portable Storage Initialized!");

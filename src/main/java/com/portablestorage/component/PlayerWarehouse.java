@@ -43,17 +43,57 @@ public class PlayerWarehouse implements Container {
 
     public void addItem(ItemStack stack) {
         if (stack.isEmpty()) return;
+        
+        long limit = com.portablestorage.config.ModConfig.maxItemStackSize;
+        boolean changed = false;
+
+        // 1. 查找是否已有相同条目
+        WarehouseEntry existingEntry = null;
         for (WarehouseEntry entry : storage) {
             if (entry.matches(stack)) {
-                entry.add(stack.getCount());
-                stack.setCount(0);
-                this.setChanged();
-                return;
+                existingEntry = entry;
+                break;
             }
         }
-        storage.add(new WarehouseEntry(stack.copy(), stack.getCount()));
-        stack.setCount(0);
-        this.setChanged();
+
+        if (existingEntry != null) {
+            // 已有该种类：仅尝试合并
+            if (limit > 0) {
+                long current = existingEntry.getCount();
+                long canAdd = Math.max(0, limit - current);
+                if (canAdd > 0) {
+                    int toAdd = (int) Math.min(stack.getCount(), canAdd);
+                    existingEntry.add(toAdd);
+                    stack.shrink(toAdd);
+                    changed = true;
+                }
+            } else {
+                existingEntry.add(stack.getCount());
+                stack.setCount(0);
+                changed = true;
+            }
+        } else {
+            // 没有该种类：检查种类上限并创建新条目
+            int typeLimit = com.portablestorage.config.ModConfig.maxStorageTypes;
+            if (typeLimit < 0 || storage.size() < typeLimit) {
+                if (limit > 0) {
+                    int toAdd = (int) Math.min(stack.getCount(), (int) Math.min(stack.getCount(), limit));
+                    if (toAdd > 0) {
+                        storage.add(new WarehouseEntry(stack.copyWithCount(toAdd), toAdd));
+                        stack.shrink(toAdd);
+                        changed = true;
+                    }
+                } else {
+                    storage.add(new WarehouseEntry(stack.copy(), stack.getCount()));
+                    stack.setCount(0);
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed) {
+            this.setChanged();
+        }
     }
 
     public ItemStack removeItem(int slot, int amount) {
