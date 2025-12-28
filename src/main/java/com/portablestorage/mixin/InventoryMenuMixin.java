@@ -68,23 +68,10 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
 
         ItemStack stackInSlot = slot.getItem();
         
-        // 动态定位仓库槽位起始索引
-        int warehouseStart = -1;
-        for (int i = 0; i < this.slots.size(); i++) {
-            if (this.slots.get(i).container == warehouse) {
-                warehouseStart = i;
-                break;
-            }
-        }
-        
-        if (warehouseStart == -1) return;
-        
         // 仓库折叠时禁止快速移动操作
         if (warehouse.isFolded()) return;
 
-        int warehouseSlotEnd = warehouseStart + (warehouse.getVisibleRows() * WarehouseConstants.SLOTS_PER_ROW);
-
-        if (index >= warehouseStart && index < warehouseSlotEnd) { // 从仓库快速转移到背包
+        if (slot.container instanceof PlayerWarehouse) { // 从仓库快速转移到背包
             if (warehouse.isQuickInteraction()) {
                 // Shift+点击由 QuickTransferPayload 处理
                 cir.setReturnValue(ItemStack.EMPTY);
@@ -92,11 +79,16 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
                 // 如果快捷交互未开启，按住 Shift 点击仓库物品时，我们也应该拦截它
                 cir.setReturnValue(ItemStack.EMPTY);
             }
-        } else if (index >= WarehouseConstants.PLAYER_INVENTORY_START && index < WarehouseConstants.PLAYER_INVENTORY_END) { // 从玩家背包快速转移到仓库
-            if (warehouse.isQuickInteraction()) {
+        } else if (slot.container instanceof Inventory) { // 从玩家背包快速转移到仓库
+            // 排除装备栏和副手槽位
+            // Inventory.items 是 0-35 (Main + Hotbar)
+            int containerSlot = slot.getContainerSlot();
+            if (containerSlot >= 0 && containerSlot < 36) {
+                if (warehouse.isQuickInteraction()) {
                     ItemStack remaining = WarehouseManager.addFluid(warehouse, stackInSlot, player);
                     slot.set(remaining);
-                cir.setReturnValue(ItemStack.EMPTY);
+                    cir.setReturnValue(ItemStack.EMPTY);
+                }
             }
         }
     }

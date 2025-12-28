@@ -105,8 +105,16 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         lastCraftRefillCheck = now;
 
         var menu = this.getMenu();
-        // 0: 结果, 1-9: 合成输入
-        Slot outputSlot = menu.getSlot(0);
+        // 动态查找结果槽位和合成输入槽位
+        Slot outputSlot = null;
+        for (Slot slot : menu.slots) {
+            if (slot instanceof net.minecraft.world.inventory.ResultSlot) {
+                outputSlot = slot;
+                break;
+            }
+        }
+        if (outputSlot == null) return;
+        
         ItemStack currentOutput = outputSlot.getItem();
         
         boolean craftOccurred = false;
@@ -119,25 +127,28 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
 
         if (craftOccurred) {
             java.util.Map<ItemStack, java.util.List<Integer>> refills = new java.util.HashMap<>();
-            for (int slotId = 1; slotId <= 9; slotId++) {
-                Slot slot = menu.getSlot(slotId);
-                ItemStack currentStack = slot.getItem();
-                ItemStack lastStack = lastCraftingStacks.get(slotId);
+            for (Slot slot : menu.slots) {
+                // 动态识别合成输入槽位
+                if (slot.container instanceof net.minecraft.world.inventory.CraftingContainer && !(slot instanceof net.minecraft.world.inventory.ResultSlot)) {
+                    int slotId = slot.index;
+                    ItemStack currentStack = slot.getItem();
+                    ItemStack lastStack = lastCraftingStacks.get(slotId);
 
-                if (lastStack != null && !lastStack.isEmpty()) {
-                    if (currentStack.isEmpty() || (ItemStack.isSameItemSameComponents(currentStack, lastStack) && currentStack.getCount() < lastStack.getCount())) {
-                        boolean found = false;
-                        for (ItemStack key : refills.keySet()) {
-                            if (ItemStack.isSameItemSameComponents(key, lastStack)) {
-                                refills.get(key).add(slotId);
-                                found = true;
-                                break;
+                    if (lastStack != null && !lastStack.isEmpty()) {
+                        if (currentStack.isEmpty() || (ItemStack.isSameItemSameComponents(currentStack, lastStack) && currentStack.getCount() < lastStack.getCount())) {
+                            boolean found = false;
+                            for (ItemStack key : refills.keySet()) {
+                                if (ItemStack.isSameItemSameComponents(key, lastStack)) {
+                                    refills.get(key).add(slotId);
+                                    found = true;
+                                    break;
+                                }
                             }
-                        }
-                        if (!found) {
-                            java.util.List<Integer> list = new java.util.ArrayList<>();
-                            list.add(slotId);
-                            refills.put(lastStack, list);
+                            if (!found) {
+                                java.util.List<Integer> list = new java.util.ArrayList<>();
+                                list.add(slotId);
+                                refills.put(lastStack, list);
+                            }
                         }
                     }
                 }
@@ -147,8 +158,10 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
             }
         }
 
-        for (int slotId = 1; slotId <= 9; slotId++) {
-            lastCraftingStacks.put(slotId, menu.getSlot(slotId).getItem().copy());
+        for (Slot slot : menu.slots) {
+            if (slot.container instanceof net.minecraft.world.inventory.CraftingContainer && !(slot instanceof net.minecraft.world.inventory.ResultSlot)) {
+                lastCraftingStacks.put(slot.index, slot.getItem().copy());
+            }
         }
     }
 

@@ -19,6 +19,7 @@ import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.gui.screens.inventory.EffectRenderingInventoryScreen;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.InventoryMenu;
+import net.minecraft.world.inventory.ResultSlot;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.network.chat.Component;
@@ -360,7 +361,15 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         net.minecraft.world.inventory.AbstractContainerMenu menu = this.getMenu();
         
         // 1. 检测合成是否发生
-        net.minecraft.world.inventory.Slot outputSlot = menu.getSlot(0);
+        net.minecraft.world.inventory.Slot outputSlot = null;
+        for (Slot slot : menu.slots) {
+            if (slot instanceof net.minecraft.world.inventory.ResultSlot) {
+                outputSlot = slot;
+                break;
+            }
+        }
+        if (outputSlot == null) return;
+        
         ItemStack currentOutput = outputSlot.getItem();
         
         boolean craftOccurred = false;
@@ -372,31 +381,32 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         lastCraftingOutput = currentOutput.copy();
 
         // 2. 如果发生合成，检测消耗并补货
-        int[] craftInputSlots = {1, 2, 3, 4, 46, 47, 48, 49, 50};
         if (craftOccurred) {
             java.util.Map<ItemStack, java.util.List<Integer>> refills = new java.util.HashMap<>();
             
-            for (int slotId : craftInputSlots) {
-                if (slotId >= menu.slots.size()) continue;
-                net.minecraft.world.inventory.Slot slot = menu.getSlot(slotId);
-                ItemStack currentStack = slot.getItem();
-                ItemStack lastStack = lastCraftingStacks.get(slotId);
+            for (Slot slot : menu.slots) {
+                // 动态识别合成输入槽位 (CraftingContainer 且不是结果槽位)
+                if (slot.container instanceof net.minecraft.world.inventory.CraftingContainer && !(slot instanceof ResultSlot)) {
+                    int slotId = slot.index;
+                    ItemStack currentStack = slot.getItem();
+                    ItemStack lastStack = lastCraftingStacks.get(slotId);
 
-                if (lastStack != null && !lastStack.isEmpty()) {
-                    if (currentStack.isEmpty() || (ItemStack.isSameItemSameComponents(currentStack, lastStack) && currentStack.getCount() < lastStack.getCount())) {
-                        // 按物品类型分组（使用 ItemStack 作为键，需要自定义比较逻辑或转换为唯一键）
-                        boolean found = false;
-                        for (ItemStack key : refills.keySet()) {
-                            if (ItemStack.isSameItemSameComponents(key, lastStack)) {
-                                refills.get(key).add(slotId);
-                                found = true;
-                                break;
+                    if (lastStack != null && !lastStack.isEmpty()) {
+                        if (currentStack.isEmpty() || (ItemStack.isSameItemSameComponents(currentStack, lastStack) && currentStack.getCount() < lastStack.getCount())) {
+                            // 按物品类型分组
+                            boolean found = false;
+                            for (ItemStack key : refills.keySet()) {
+                                if (ItemStack.isSameItemSameComponents(key, lastStack)) {
+                                    refills.get(key).add(slotId);
+                                    found = true;
+                                    break;
+                                }
                             }
-                        }
-                        if (!found) {
-                            java.util.List<Integer> list = new java.util.ArrayList<>();
-                            list.add(slotId);
-                            refills.put(lastStack, list);
+                            if (!found) {
+                                java.util.List<Integer> list = new java.util.ArrayList<>();
+                                list.add(slotId);
+                                refills.put(lastStack, list);
+                            }
                         }
                     }
                 }
@@ -409,9 +419,9 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         }
 
         // 3. 更新输入缓存
-        for (int slotId : craftInputSlots) {
-            if (slotId < menu.slots.size()) {
-                lastCraftingStacks.put(slotId, menu.getSlot(slotId).getItem().copy());
+        for (Slot slot : menu.slots) {
+            if (slot.container instanceof net.minecraft.world.inventory.CraftingContainer && !(slot instanceof ResultSlot)) {
+                lastCraftingStacks.put(slot.index, slot.getItem().copy());
             }
         }
     }

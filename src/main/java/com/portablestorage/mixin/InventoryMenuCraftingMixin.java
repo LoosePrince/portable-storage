@@ -51,29 +51,44 @@ public abstract class InventoryMenuCraftingMixin extends AbstractContainerMenu {
         ItemStack stackInSlot = slot.getItem();
         ItemStack resultStack = stackInSlot.copy();
 
-        if (index == 0) { // 合成结果
-            while (slot.hasItem()) {
-                ItemStack currentResult = slot.getItem();
-                ItemStack resultCopy = currentResult.copy();
-                
-                currentResult.getItem().onCraftedBy(currentResult, player.level(), player);
-                
-                if (!this.moveItemStackTo(currentResult, 9, 45, true)) {
-                    break;
-                }
-                
-                slot.onQuickCraft(currentResult, resultCopy);
-                slot.onTake(player, currentResult);
-                
-                if (currentResult.getCount() == resultCopy.getCount()) {
-                    break;
+        // 查找玩家背包范围 (Main + Hotbar)
+        int invStart = -1;
+        int invEnd = -1;
+        for (int i = 0; i < this.slots.size(); i++) {
+            Slot s = this.slots.get(i);
+            if (s.container instanceof Inventory && s.getContainerSlot() < 36) {
+                if (invStart == -1) invStart = i;
+                invEnd = i + 1;
+            }
+        }
+
+        if (slot instanceof ResultSlot) { // 合成结果
+            if (invStart != -1) {
+                while (slot.hasItem()) {
+                    ItemStack currentResult = slot.getItem();
+                    ItemStack resultCopy = currentResult.copy();
+                    
+                    currentResult.getItem().onCraftedBy(currentResult, player.level(), player);
+                    
+                    if (!this.moveItemStackTo(currentResult, invStart, invEnd, true)) {
+                        break;
+                    }
+                    
+                    slot.onQuickCraft(currentResult, resultCopy);
+                    slot.onTake(player, currentResult);
+                    
+                    if (currentResult.getCount() == resultCopy.getCount()) {
+                        break;
+                    }
                 }
             }
             cir.setReturnValue(ItemStack.EMPTY);
-        } else if (index >= 1 && index <= 4 || (index >= 46 && index <= 50)) { // 合成槽位
-            if (!this.moveItemStackTo(stackInSlot, 9, 45, false)) {
-                cir.setReturnValue(ItemStack.EMPTY);
-                return;
+        } else if (slot.container == this.craftSlots) { // 合成槽位
+            if (invStart != -1) {
+                if (!this.moveItemStackTo(stackInSlot, invStart, invEnd, false)) {
+                    cir.setReturnValue(ItemStack.EMPTY);
+                    return;
+                }
             }
             slot.onQuickCraft(stackInSlot, resultStack);
             slot.setChanged();

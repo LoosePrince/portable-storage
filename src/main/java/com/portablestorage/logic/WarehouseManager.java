@@ -8,7 +8,6 @@ import com.portablestorage.util.WarehouseConstants;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.Slot;
@@ -197,14 +196,17 @@ public class WarehouseManager {
         int toTake = (int) Math.min(stackInSlot.getMaxStackSize(), realCount);
         ItemStack resultStack = stackInSlot.copyWithCount(toTake);
 
-        // 动态查找玩家背包范围（解决硬编码 index 问题的一小步）
+        // 动态查找玩家背包范围 (仅限 Main + Hotbar，排除装备和副手)
         int inventoryStart = -1;
         int inventoryEnd = -1;
         for (int i = 0; i < player.containerMenu.slots.size(); i++) {
             Slot slot = player.containerMenu.slots.get(i);
             if (slot.container instanceof Inventory) {
-                if (inventoryStart == -1) inventoryStart = i;
-                inventoryEnd = i + 1;
+                int containerSlot = slot.getContainerSlot();
+                if (containerSlot >= 0 && containerSlot < 36) {
+                    if (inventoryStart == -1) inventoryStart = i;
+                    inventoryEnd = i + 1;
+                }
             }
         }
 
@@ -328,7 +330,8 @@ public class WarehouseManager {
     private static int findEmptyBucket(Player player) {
         for (int i = 0; i < player.containerMenu.slots.size(); i++) {
             Slot slot = player.containerMenu.slots.get(i);
-            if (slot.container instanceof Inventory && slot.getItem().is(Items.BUCKET)) {
+            // 仅搜索玩家主背包和快捷栏
+            if (slot.container instanceof Inventory && slot.getContainerSlot() < 36 && slot.getItem().is(Items.BUCKET)) {
                 return i;
             }
         }

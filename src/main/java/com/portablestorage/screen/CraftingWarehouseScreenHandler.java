@@ -121,15 +121,35 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
         if (slot != null && slot.hasItem()) {
             ItemStack itemStack2 = slot.getItem();
             itemStack = itemStack2.copy();
-            if (index == 0) { // 合成结果
+            
+            // 动态识别各部分槽位范围
+            int invStart = -1, invEnd = -1;
+            int hotbarStart = -1, hotbarEnd = -1;
+            for (int i = 0; i < this.slots.size(); i++) {
+                Slot s = this.slots.get(i);
+                if (s.container instanceof Inventory) {
+                    int containerSlot = s.getContainerSlot();
+                    if (containerSlot >= 9 && containerSlot < 36) {
+                        if (invStart == -1) invStart = i;
+                        invEnd = i + 1;
+                    } else if (containerSlot >= 0 && containerSlot < 9) {
+                        if (hotbarStart == -1) hotbarStart = i;
+                        hotbarEnd = i + 1;
+                    }
+                }
+            }
+            int totalInvStart = Math.min(invStart, hotbarStart);
+            int totalInvEnd = Math.max(invEnd, hotbarEnd);
+
+            if (slot instanceof ResultSlot) { // 合成结果
                 while (slot.hasItem()) {
                     ItemStack currentResult = slot.getItem();
                     ItemStack resultCopy = currentResult.copy();
                     
                     currentResult.getItem().onCraftedBy(currentResult, player.level(), player);
                     
-                    // 尝试移动到玩家背包或快捷栏 (10-46)
-                    if (!this.moveItemStackTo(currentResult, 10, 46, true)) {
+                    // 尝试移动到玩家背包或快捷栏
+                    if (!this.moveItemStackTo(currentResult, totalInvStart, totalInvEnd, true)) {
                         break;
                     }
 
@@ -141,35 +161,37 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
                     }
                 }
                 return ItemStack.EMPTY;
-            } else if (index >= 1 && index < 10) { // 合成槽位
-                if (!this.moveItemStackTo(itemStack2, 10, 46, false)) {
+            } else if (slot.container == this.craftSlots) { // 合成槽位
+                if (!this.moveItemStackTo(itemStack2, totalInvStart, totalInvEnd, false)) {
                     return ItemStack.EMPTY;
                 }
                 this.slotsChanged(this.craftSlots); // 手动触发合成结果更新
-            } else if (index >= 10 && index < 46) { // 玩家背包或快捷栏
-                // 尝试移动到仓库或合成槽位
+            } else if (slot.container instanceof Inventory) { // 玩家背包或快捷栏
+                // 尝试移动到仓库
                 PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
                 if (warehouse.isEnabled() && !warehouse.isFolded() && warehouse.isQuickInteraction()) {
                     ItemStack remaining = WarehouseManager.addFluid(warehouse, itemStack2, player);
                     slot.set(remaining);
                 } else {
                     // 如果仓库不可用，尝试在背包和快捷栏之间移动
-                    if (index < 37) {
-                        if (!this.moveItemStackTo(itemStack2, 37, 46, false)) {
+                    if (index >= invStart && index < invEnd) {
+                        if (!this.moveItemStackTo(itemStack2, hotbarStart, hotbarEnd, false)) {
                             return ItemStack.EMPTY;
                         }
-                    } else if (!this.moveItemStackTo(itemStack2, 10, 37, false)) {
-                        return ItemStack.EMPTY;
+                    } else if (index >= hotbarStart && index < hotbarEnd) {
+                        if (!this.moveItemStackTo(itemStack2, invStart, invEnd, false)) {
+                            return ItemStack.EMPTY;
+                        }
                     }
                 }
-            } else if (index >= 46) { // 仓库槽位
+            } else if (slot.container instanceof PlayerWarehouse) { // 仓库槽位
                 PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
                 if (warehouse.isQuickInteraction()) {
                     return ItemStack.EMPTY; // Shift+点击由 QuickTransferPayload 处理
                 }
                 
                 // 尝试移动到玩家背包
-                if (!this.moveItemStackTo(itemStack2, 10, 46, true)) {
+                if (!this.moveItemStackTo(itemStack2, totalInvStart, totalInvEnd, true)) {
                     return ItemStack.EMPTY;
                 }
                 

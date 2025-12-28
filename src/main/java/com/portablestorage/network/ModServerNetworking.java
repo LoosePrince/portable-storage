@@ -12,7 +12,6 @@ import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import com.portablestorage.component.ModComponents;
 
 public class ModServerNetworking {
 
@@ -70,25 +69,13 @@ public class ModServerNetworking {
     public static void handleQuickTransfer(QuickTransferPayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
             ServerPlayer player = context.player();
-            PlayerWarehouse warehouse = getWarehouse(player);
             
             int slotId = payload.slotId();
             if (slotId < 0 || slotId >= player.containerMenu.slots.size()) return;
             
             Slot slot = player.containerMenu.slots.get(slotId);
-            if (!(slot.container instanceof PlayerWarehouse)) return;
-            
-            // 查找起始索引
-            int warehouseStart = -1;
-            for (int i = 0; i < player.containerMenu.slots.size(); i++) {
-                if (player.containerMenu.slots.get(i).container == warehouse) {
-                    warehouseStart = i;
-                    break;
-                }
-            }
-            
-            if (warehouseStart != -1) {
-                WarehouseManager.tryTransferToInventory(warehouse, slotId - warehouseStart, player);
+            if (slot.container instanceof PlayerWarehouse) {
+                WarehouseManager.tryTransferToInventory((PlayerWarehouse) slot.container, slot.getContainerSlot(), player);
                 syncChanges(player);
             }
         });
