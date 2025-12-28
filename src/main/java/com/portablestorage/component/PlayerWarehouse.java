@@ -1,6 +1,6 @@
 package com.portablestorage.component;
 
-import com.portablestorage.mixin.accessor.AbstractContainerMenuAccessor;
+import com.portablestorage.logic.WarehouseManager;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
@@ -8,8 +8,6 @@ import net.fabricmc.fabric.api.transfer.v1.storage.StorageView;
 import net.fabricmc.fabric.api.transfer.v1.transaction.TransactionContext;
 import net.fabricmc.fabric.api.transfer.v1.transaction.base.SnapshotParticipant;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.inventory.Slot;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -23,6 +21,11 @@ import net.minecraft.world.level.material.Fluids;
 import java.util.*;
 import java.util.function.Consumer;
 
+/**
+ * 玩家仓库数据组件 (CCA Component)
+ * 仅负责数据的持有、持久化 (NBT) 和基本的数据存取接口。
+ * 复杂的业务逻辑（存取规则、流体转换等）应放在 WarehouseManager 中。
+ */
 public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>> implements Container, Storage<FluidVariant> {
     private final List<WarehouseEntry> storage = new ArrayList<>();
     private final Map<FluidVariant, Long> fluidStorage = new LinkedHashMap<>();
@@ -43,13 +46,87 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         this.onChanged = onChanged;
     }
 
+    // --- 数据访问接口 (供逻辑层使用) ---
+
+    public List<WarehouseEntry> getStorageList() {
+        return storage;
+    }
+
+    public Map<FluidVariant, Long> getFluidStorageMap() {
+        return fluidStorage;
+    }
+
+    public void markDirty() {
+        this.sortedCache = null;
+        if (onChanged != null) {
+            onChanged.accept(this);
+        }
+    }
+
+    // --- Container 接口实现 (基础代理) ---
+
+    @Override
+    public int getContainerSize() {
+        return visibleRows * 9;
+            }
+
+    @Override
+    public boolean isEmpty() {
+        return storage.isEmpty() && fluidStorage.isEmpty();
+    }
+
+    @Override
+    public ItemStack getItem(int slot) {
+        List<WarehouseEntry> sorted = getSortedEntries();
+        int actualIndex = slot + (scrollOffset * 9);
+        if (actualIndex >= 0 && actualIndex < sorted.size()) {
+            return sorted.get(actualIndex).getItemStack();
+        }
+        return ItemStack.EMPTY;
+    }
+
+    @Override
+    public ItemStack removeItem(int slot, int amount) {
+        return WarehouseManager.removeItem(this, slot, amount, false);
+    }
+
+    @Override
+    public ItemStack removeItemNoUpdate(int slot) {
+        return WarehouseManager.removeItem(this, slot, Integer.MAX_VALUE, true);
+    }
+
+    @Override
+    public void setItem(int slot, ItemStack stack) {
+        // 仓库内容由自定义点击逻辑和 WarehouseManager 管理。
+        // 忽略原版容器的 setItem 调用，防止在同步过程中数量意外累加。
+    }
+
+    @Override
+    public void setChanged() {
+        this.markDirty();
+    }
+
+    @Override
+    public boolean stillValid(Player player) {
+        return enabled;
+    }
+
+    @Override
+    public void clearContent() {
+        storage.clear();
+        fluidStorage.clear();
+        this.markDirty();
+            }
+
+    // --- Storage<FluidVariant> 接口实现 ---
+
     @Override
     public long insert(FluidVariant resource, long maxAmount, TransactionContext transaction) {
         if (maxAmount <= 0) return 0;
         updateSnapshots(transaction);
         long current = fluidStorage.getOrDefault(resource, 0L);
         fluidStorage.put(resource, current + maxAmount);
-        this.setChanged();
+        this.markDirty();
         return maxAmount;
     }
 
@@ -65,7 +142,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         } else {
             fluidStorage.remove(resource);
         }
-        this.setChanged();
+        this.markDirty();
         return extracted;
     }
 
@@ -94,7 +171,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     @Override
     protected Map<FluidVariant, Long> createSnapshot() {
         return new LinkedHashMap<>(fluidStorage);
-    }
+        }
 
     @Override
     protected void readSnapshot(Map<FluidVariant, Long> snapshot) {
@@ -102,246 +179,71 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         fluidStorage.putAll(snapshot);
     }
 
-    private net.minecraft.world.item.Item getVirtualItemForFluid(FluidVariant fluid) {
-        if (fluid.isOf(Fluids.LAVA)) return com.portablestorage.item.ModItems.VIRTUAL_LAVA;
-        if (fluid.isOf(Fluids.WATER)) return com.portablestorage.item.ModItems.VIRTUAL_WATER;
-        // Milk handled separately for now as it's not a fluid in vanilla
-        return null;
+    // --- 状态控制 Getter/Setter ---
+
+    public int getScrollOffset() { return scrollOffset; }
+    public void setScrollOffset(int offset) {
+        int maxRows = (int) Math.ceil(getSortedEntries().size() / 9.0);
+        int maxOffset = Math.max(0, maxRows - visibleRows);
+        this.scrollOffset = Math.clamp(offset, 0, maxOffset);
+        this.markDirty();
     }
 
-    private FluidVariant getFluidForVirtualItem(net.minecraft.world.item.Item item) {
-        if (item == com.portablestorage.item.ModItems.VIRTUAL_LAVA) return FluidVariant.of(Fluids.LAVA);
-        if (item == com.portablestorage.item.ModItems.VIRTUAL_WATER) return FluidVariant.of(Fluids.WATER);
-        return null;
+    public int getVisibleRows() { return visibleRows; }
+    public void setVisibleRows(int rows) {
+        this.visibleRows = Math.clamp(rows, 1, 12);
+        this.scrollOffset = 0;
+        this.markDirty();
     }
 
-    private net.minecraft.world.item.Item getVirtualFluidForItem(net.minecraft.world.item.Item item) {
-        if (item == net.minecraft.world.item.Items.LAVA_BUCKET) return com.portablestorage.item.ModItems.VIRTUAL_LAVA;
-        if (item == net.minecraft.world.item.Items.WATER_BUCKET) return com.portablestorage.item.ModItems.VIRTUAL_WATER;
-        if (item == net.minecraft.world.item.Items.MILK_BUCKET) return com.portablestorage.item.ModItems.VIRTUAL_MILK;
-        return null;
+    public boolean isFolded() { return isFolded; }
+    public void setFolded(boolean folded) {
+        if (!enabled && !folded) return;
+        this.isFolded = folded;
+        this.markDirty();
     }
 
-    private boolean isVirtualFluid(net.minecraft.world.item.Item item) {
-        return item == com.portablestorage.item.ModItems.VIRTUAL_LAVA || 
-               item == com.portablestorage.item.ModItems.VIRTUAL_WATER || 
-               item == com.portablestorage.item.ModItems.VIRTUAL_MILK;
-    }
+    public int getSortMode() { return sortMode; }
+    public void setSortMode(int mode) { this.sortMode = mode; this.markDirty(); }
 
-    private int findEmptyBucket(Player player) {
-        for (int i = 0; i < player.containerMenu.slots.size(); i++) {
-            Slot slot = player.containerMenu.slots.get(i);
-            if (slot.container instanceof Inventory && slot.getItem().is(net.minecraft.world.item.Items.BUCKET)) {
-                return i;
-            }
-        }
-        return -1;
-    }
+    public boolean isAscending() { return isAscending; }
+    public void setAscending(boolean ascending) { this.isAscending = ascending; this.markDirty(); }
 
-    private ItemStack getFluidBucket(net.minecraft.world.item.Item virtualFluid) {
-        if (virtualFluid == com.portablestorage.item.ModItems.VIRTUAL_LAVA) return new ItemStack(net.minecraft.world.item.Items.LAVA_BUCKET);
-        if (virtualFluid == com.portablestorage.item.ModItems.VIRTUAL_WATER) return new ItemStack(net.minecraft.world.item.Items.WATER_BUCKET);
-        if (virtualFluid == com.portablestorage.item.ModItems.VIRTUAL_MILK) return new ItemStack(net.minecraft.world.item.Items.MILK_BUCKET);
-        return ItemStack.EMPTY;
-    }
+    public boolean isQuickInteraction() { return quickInteraction; }
+    public void setQuickInteraction(boolean quick) { this.quickInteraction = quick; this.markDirty(); }
 
+    public boolean isSmartCollapse() { return smartCollapse; }
+    public void setSmartCollapse(boolean smart) { this.smartCollapse = smart; this.markDirty(); }
+
+    public boolean isCraftRefill() { return craftRefill; }
+    public void setCraftRefill(boolean refill) { this.craftRefill = refill; this.markDirty(); }
+
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; this.markDirty(); }
+
+    public String getSearchText() { return searchText; }
     public void setSearchText(String text) {
         this.searchText = text.toLowerCase();
         this.scrollOffset = 0;
-        this.setChanged();
+        this.markDirty();
     }
 
-    /**
-     * 尝试存入流体并转换桶。
-     * @param stack 流体桶堆叠
-     * @return 转换后应该留在原处（或光标上）的物品（可能是剩余流体桶，或者是空桶，或者是两者的混合 - 混合情况将优先返回剩余流体桶并将空桶尝试放入背包）
-     */
-    public ItemStack addFluid(ItemStack stack, Player player) {
-        if (!enabled || !quickInteraction) {
-            addItemInternal(stack);
-            return stack;
-        }
-
-        // 处理普通物品或 Milk (Milk 暂时保留为虚拟物品)
-        net.minecraft.world.item.Item virtualItem = getVirtualFluidForItem(stack.getItem());
-        if (virtualItem == null) {
-            addItemInternal(stack);
-            return stack;
-        }
-
-        // 如果是 Lava 或 Water，使用 Fluid API 存储
-        FluidVariant fluid = getFluidForVirtualItem(virtualItem);
-        if (fluid != null) {
-            int originalCount = stack.getCount();
-            long toInsert = (long) originalCount * FluidConstants.BUCKET;
-            
-            try (net.fabricmc.fabric.api.transfer.v1.transaction.Transaction transaction = net.fabricmc.fabric.api.transfer.v1.transaction.Transaction.openOuter()) {
-                long inserted = this.insert(fluid, toInsert, transaction);
-                transaction.commit();
-                
-                int bucketsStored = (int) (inserted / FluidConstants.BUCKET);
-                if (bucketsStored > 0) {
-                    ItemStack emptyBuckets = new ItemStack(net.minecraft.world.item.Items.BUCKET, bucketsStored);
-                    stack.shrink(bucketsStored);
-                    
-                    if (stack.isEmpty()) {
-                        return emptyBuckets;
-                    } else {
-                        if (!player.getInventory().add(emptyBuckets)) {
-                            player.drop(emptyBuckets, false);
-                        }
-                        return stack;
-                    }
-                }
-            }
-        } else {
-            // Milk 走原本的虚拟物品逻辑
-            int originalCount = stack.getCount();
-            ItemStack virtualStack = new ItemStack(virtualItem, originalCount);
-            addItemInternal(virtualStack);
-            
-            int stored = originalCount - virtualStack.getCount();
-            if (stored > 0) {
-                ItemStack emptyBuckets = new ItemStack(net.minecraft.world.item.Items.BUCKET, stored);
-                stack.shrink(stored);
-                if (stack.isEmpty()) return emptyBuckets;
-                if (!player.getInventory().add(emptyBuckets)) player.drop(emptyBuckets, false);
-                return stack;
-            }
-        }
-        
-        return stack;
-    }
-
-    public void addItem(ItemStack stack) {
-        // 如果外部直接传入虚拟流体物品（例如通过某些自动化手段），尝试将其转回 FluidStorage
-        FluidVariant fluid = getFluidForVirtualItem(stack.getItem());
-        if (fluid != null) {
-            try (net.fabricmc.fabric.api.transfer.v1.transaction.Transaction transaction = net.fabricmc.fabric.api.transfer.v1.transaction.Transaction.openOuter()) {
-                long toInsert = (long) stack.getCount() * FluidConstants.BUCKET;
-                long inserted = this.insert(fluid, toInsert, transaction);
-                transaction.commit();
-                
-                int bucketsStored = (int) (inserted / FluidConstants.BUCKET);
-                stack.shrink(bucketsStored);
-                if (bucketsStored > 0) this.setChanged();
-            }
-            if (stack.isEmpty()) return;
-        }
-        addItemInternal(stack);
-    }
-
-    private void addItemInternal(ItemStack stack) {
-        if (stack.isEmpty()) return;
-        long limit = com.portablestorage.config.ModConfig.maxItemStackSize;
-        boolean changed = false;
-
-        // 1. 查找是否已有相同条目
-        WarehouseEntry existingEntry = null;
-        for (WarehouseEntry entry : storage) {
-            if (entry.matches(stack)) {
-                existingEntry = entry;
-                break;
-            }
-        }
-
-        if (existingEntry != null) {
-            // 已有该种类：仅尝试合并
-            if (limit > 0) {
-                long current = existingEntry.getCount();
-                long canAdd = Math.max(0, limit - current);
-                if (canAdd > 0) {
-                    int toAdd = (int) Math.min(stack.getCount(), canAdd);
-                    existingEntry.add(toAdd);
-                    stack.shrink(toAdd);
-                    changed = true;
-                }
-            } else {
-                existingEntry.add(stack.getCount());
-                stack.setCount(0);
-                changed = true;
-            }
-        } else {
-            // 没有该种类：检查种类上限并创建新条目
-            int typeLimit = com.portablestorage.config.ModConfig.maxStorageTypes;
-            if (typeLimit < 0 || storage.size() < typeLimit) {
-                if (limit > 0) {
-                    int toAdd = (int) Math.min(stack.getCount(), (int) Math.min(stack.getCount(), limit));
-                    if (toAdd > 0) {
-                        storage.add(new WarehouseEntry(stack.copyWithCount(toAdd), toAdd));
-                        stack.shrink(toAdd);
-                        changed = true;
-            }
-                } else {
-        storage.add(new WarehouseEntry(stack.copy(), stack.getCount()));
-        stack.setCount(0);
-                    changed = true;
-                }
-            }
-        }
-
-        if (changed) {
-        this.setChanged();
-        }
-    }
-
-    public ItemStack removeItem(int slot, int amount) {
-        return removeItem(slot, amount, false);
-    }
-
-    public ItemStack removeItem(int slot, int amount, boolean force) {
+    public long getRealCount(int slotIndex) {
         List<WarehouseEntry> sorted = getSortedEntries();
-        int actualIndex = slot + (scrollOffset * 9);
-        if (actualIndex >= 0 && actualIndex < sorted.size()) {
-            WarehouseEntry entry = sorted.get(actualIndex);
-            
-            // 1. 拦截智能折叠的展示项
-            net.minecraft.world.item.component.CustomData customData = entry.getItemStack().get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
-            boolean isCollapsed = customData != null && customData.copyTag().getBoolean(com.portablestorage.util.WarehouseConstants.SMART_COLLAPSE_TAG);
-            if (!force && smartCollapse && searchText.isEmpty() && isCollapsed) {
-                return ItemStack.EMPTY;
-            }
-
-            // 2. 拦截虚拟流体项（除非强制，例如流体桶提取逻辑）
-            if (!force && isVirtualFluid(entry.getItemStack().getItem())) {
-                return ItemStack.EMPTY;
-            }
-
-            // 3. 处理流体提取
-            FluidVariant fluid = getFluidForVirtualItem(entry.getItemStack().getItem());
-            if (fluid != null) {
-                try (net.fabricmc.fabric.api.transfer.v1.transaction.Transaction transaction = net.fabricmc.fabric.api.transfer.v1.transaction.Transaction.openOuter()) {
-                    long toExtract = (long) amount * FluidConstants.BUCKET;
-                    long extracted = this.extract(fluid, toExtract, transaction);
-                    transaction.commit();
-                    
-                    int bucketsExtracted = (int) (extracted / FluidConstants.BUCKET);
-                    if (bucketsExtracted > 0) {
-                        return entry.getItemStack().copyWithCount(bucketsExtracted);
-                    }
-                }
-                return ItemStack.EMPTY;
-            }
-
-            long toRemove = Math.min(amount, entry.getCount());
-            ItemStack result = entry.getItemStack().copyWithCount((int)toRemove);
-            entry.subtract(toRemove);
-            if (entry.getCount() <= 0) storage.remove(entry);
-            this.setChanged();
-            return result;
-        }
-        return ItemStack.EMPTY;
+        int actualIndex = slotIndex + (scrollOffset * 9);
+        return (actualIndex >= 0 && actualIndex < sorted.size()) ? sorted.get(actualIndex).getCount() : 0;
     }
+
+    // --- 排序与缓存逻辑 ---
 
     public List<WarehouseEntry> getSortedEntries() {
         if (sortedCache == null) {
             List<WarehouseEntry> filtered = new ArrayList<>(storage);
             
-            // 将流体存储转换为虚拟物品展示
+            // 流体转换为展示物品
             for (Map.Entry<FluidVariant, Long> entry : fluidStorage.entrySet()) {
                 net.minecraft.world.item.Item virtualItem = getVirtualItemForFluid(entry.getKey());
                 if (virtualItem != null) {
-                    // 1 桶 = 81000 滴 (Fabric Fluid API 标准)
                     long bucketCount = entry.getValue() / FluidConstants.BUCKET;
                     if (bucketCount > 0) {
                         filtered.add(new WarehouseEntry(new ItemStack(virtualItem), bucketCount));
@@ -354,238 +256,92 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                 boolean exact = query.startsWith("!") && query.endsWith("!") && query.length() > 2;
                 final String finalQuery = exact ? query.substring(1, query.length() - 1) : query;
 
-                filtered = storage.stream()
-                        .filter(entry -> {
-                            ItemStack stack = entry.getItemStack();
-                            // 1. 名称搜索
-                            String name = stack.getHoverName().getString().toLowerCase();
-                            if (exact ? name.equals(finalQuery) : name.contains(finalQuery)) return true;
-
-                            // 2. ID 搜索
-                            String id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString().toLowerCase();
-                            if (exact ? id.equals(finalQuery) : id.contains(finalQuery)) return true;
-
-                            // 3. 描述 (Lore) 搜索
-                            net.minecraft.world.item.component.ItemLore lore = stack.get(net.minecraft.core.component.DataComponents.LORE);
-                            if (lore != null) {
-                                for (net.minecraft.network.chat.Component line : lore.lines()) {
-                                    String lineText = line.getString().toLowerCase();
-                                    if (exact ? lineText.equals(finalQuery) : lineText.contains(finalQuery)) return true;
-                                }
-                            }
-                            return false;
-                        })
+                filtered = filtered.stream()
+                        .filter(entry -> matchesQuery(entry, finalQuery, exact))
                         .toList();
             }
 
             if (smartCollapse && searchText.isEmpty()) {
-                // 按物品类型分组折叠（不同 NBT 但相同 Item）
-                Map<net.minecraft.world.item.Item, List<WarehouseEntry>> groups = new LinkedHashMap<>();
-                for (WarehouseEntry entry : filtered) {
-                    groups.computeIfAbsent(entry.getItemStack().getItem(), k -> new ArrayList<>()).add(entry);
-                }
-
-                List<WarehouseEntry> collapsed = new ArrayList<>();
-                for (Map.Entry<net.minecraft.world.item.Item, List<WarehouseEntry>> group : groups.entrySet()) {
-                    List<WarehouseEntry> entries = group.getValue();
-                    if (entries.size() > 1) {
-                        long totalCount = 0;
-                        long lastUpdated = 0;
-                        for (WarehouseEntry e : entries) {
-                            totalCount += e.getCount();
-                            lastUpdated = Math.max(lastUpdated, e.getLastUpdated());
-                        }
-                        
-                        // 创建一个无 NBT 的展示 ItemStack，并添加光效
-                        ItemStack displayStack = new ItemStack(group.getKey());
-                        displayStack.set(net.minecraft.core.component.DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
-                        
-                        // 使用自定义组件标记这是合并条目
-                        displayStack.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, 
-                            net.minecraft.world.item.component.CustomData.of(new net.minecraft.nbt.CompoundTag() {{
-                                putBoolean(com.portablestorage.util.WarehouseConstants.SMART_COLLAPSE_TAG, true);
-                            }}));
-                        
-                        WarehouseEntry merged = new WarehouseEntry(displayStack, totalCount);
-                        collapsed.add(merged);
-                    } else {
-                        collapsed.add(entries.get(0));
-                    }
-                }
-                sortedCache = new ArrayList<>(collapsed);
-            } else {
-            sortedCache = new ArrayList<>(filtered);
+                filtered = applySmartCollapse(filtered);
             }
             
-            Comparator<WarehouseEntry> comparator = switch (sortMode) {
-                case 0 -> Comparator.comparingLong(WarehouseEntry::getCount);
-                case 1 -> Comparator.comparing(e -> e.getItemStack().getHoverName().getString(), String.CASE_INSENSITIVE_ORDER);
-                case 2 -> Comparator.comparing(e -> BuiltInRegistries.ITEM.getKey(e.getItemStack().getItem()));
-                case 3 -> Comparator.comparingLong(WarehouseEntry::getLastUpdated);
-                default -> (a, b) -> 0;
-            };
-
-            if (!isAscending) comparator = comparator.reversed();
-            
-            // 稳定性排序：如果相等，按 ID 排序
-            comparator = comparator.thenComparing(e -> BuiltInRegistries.ITEM.getKey(e.getItemStack().getItem()));
-            
-            sortedCache.sort(comparator);
+            sortedCache = new ArrayList<>(filtered);
+            applySorting(sortedCache);
         }
         return sortedCache;
     }
 
-    public int getScrollOffset() { return scrollOffset; }
-    public void setScrollOffset(int offset) {
-        int maxRows = (int) Math.ceil(getSortedEntries().size() / 9.0);
-        int maxOffset = Math.max(0, maxRows - visibleRows);
-        this.scrollOffset = Math.clamp(offset, 0, maxOffset);
-        this.setChanged();
+    private boolean matchesQuery(WarehouseEntry entry, String finalQuery, boolean exact) {
+        ItemStack stack = entry.getItemStack();
+        String name = stack.getHoverName().getString().toLowerCase();
+        if (exact ? name.equals(finalQuery) : name.contains(finalQuery)) return true;
+
+        String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString().toLowerCase();
+        if (exact ? id.equals(finalQuery) : id.contains(finalQuery)) return true;
+
+        net.minecraft.world.item.component.ItemLore lore = stack.get(net.minecraft.core.component.DataComponents.LORE);
+        if (lore != null) {
+            for (net.minecraft.network.chat.Component line : lore.lines()) {
+                String lineText = line.getString().toLowerCase();
+                if (exact ? lineText.equals(finalQuery) : lineText.contains(finalQuery)) return true;
+            }
+        }
+        return false;
     }
 
-    public int getVisibleRows() {
-        return visibleRows;
-    }
+    private List<WarehouseEntry> applySmartCollapse(List<WarehouseEntry> filtered) {
+        Map<net.minecraft.world.item.Item, List<WarehouseEntry>> groups = new LinkedHashMap<>();
+        for (WarehouseEntry entry : filtered) {
+            groups.computeIfAbsent(entry.getItemStack().getItem(), k -> new ArrayList<>()).add(entry);
+        }
 
-    public void setVisibleRows(int rows) {
-        this.visibleRows = Math.clamp(rows, 1, 12);
-        this.scrollOffset = 0;
-        this.setChanged();
-    }
-
-    public boolean isFolded() { return isFolded; }
-    public void setFolded(boolean folded) { 
-        if (!enabled && !folded) return; // 禁用时不允许展开
-        this.isFolded = folded; 
-        this.setChanged(); 
-    }
-
-    public int getSortMode() { return sortMode; }
-    public void setSortMode(int mode) { this.sortMode = mode; this.setChanged(); }
-
-    public boolean isAscending() { return isAscending; }
-    public void setAscending(boolean ascending) { this.isAscending = ascending; this.setChanged(); }
-
-    public boolean isQuickInteraction() { return quickInteraction; }
-    public void setQuickInteraction(boolean quick) { this.quickInteraction = quick; this.setChanged(); }
-
-    public boolean isSmartCollapse() { return smartCollapse; }
-    public void setSmartCollapse(boolean smart) { this.smartCollapse = smart; this.setChanged(); }
-
-    public boolean isCraftRefill() { return craftRefill; }
-    public void setCraftRefill(boolean refill) { this.craftRefill = refill; this.setChanged(); }
-
-    public boolean isEnabled() { return enabled; }
-    public void setEnabled(boolean enabled) { this.enabled = enabled; this.setChanged(); }
-
-    public String getSearchText() { return searchText; }
-
-    /**
-     * 服务器端执行：将仓库中的物品快速转移到玩家背包
-     */
-    public void tryTransferToInventory(int slotIndex, Player player) {
-        if (!enabled || !quickInteraction) return;
-
-        List<WarehouseEntry> sorted = getSortedEntries();
-        int actualIndex = slotIndex + (scrollOffset * 9);
-        if (actualIndex < 0 || actualIndex >= sorted.size()) return;
-
-        WarehouseEntry entry = sorted.get(actualIndex);
-        ItemStack stackInSlot = entry.getItemStack();
-        if (stackInSlot.isEmpty()) return;
-
-        // 1. 特殊逻辑：流体提取
-        if (isVirtualFluid(stackInSlot.getItem())) {
-            // 查找玩家背包中是否有空桶
-            int emptyBucketSlot = findEmptyBucket(player);
-            if (emptyBucketSlot != -1) {
-                ItemStack fluidBucket = getFluidBucket(stackInSlot.getItem());
-                if (!fluidBucket.isEmpty()) {
-                    Slot slot = player.containerMenu.getSlot(emptyBucketSlot);
-                    ItemStack bucketStack = slot.getItem();
-                    
-                    // 转换一个空桶
-                    bucketStack.shrink(1);
-                    if (bucketStack.isEmpty()) slot.set(ItemStack.EMPTY);
-                    
-                    // 尝试放入流体桶
-                    if (!player.getInventory().add(fluidBucket)) {
-                        player.drop(fluidBucket, false);
-                    }
-                    
-                    // 消耗仓库流体
-                    this.removeItem(slotIndex, 1, true);
-                    player.containerMenu.broadcastChanges();
+        List<WarehouseEntry> collapsed = new ArrayList<>();
+        for (Map.Entry<net.minecraft.world.item.Item, List<WarehouseEntry>> group : groups.entrySet()) {
+            List<WarehouseEntry> entries = group.getValue();
+            if (entries.size() > 1) {
+                long totalCount = 0;
+                long lastUpdated = 0;
+                for (WarehouseEntry e : entries) {
+                    totalCount += e.getCount();
+                    lastUpdated = Math.max(lastUpdated, e.getLastUpdated());
                 }
-            }
-            return;
-        }
-
-        long realCount = entry.getCount();
-        int toTake = (int) Math.min(stackInSlot.getMaxStackSize(), realCount);
-        ItemStack resultStack = stackInSlot.copyWithCount(toTake);
-
-        // 查找玩家背包在当前菜单中的索引范围
-        int inventoryStart = -1;
-        int inventoryEnd = -1;
-        for (int i = 0; i < player.containerMenu.slots.size(); i++) {
-            Slot slot = player.containerMenu.slots.get(i);
-            if (slot.container instanceof Inventory) {
-                if (inventoryStart == -1) inventoryStart = i;
-                inventoryEnd = i + 1;
+                
+                ItemStack displayStack = new ItemStack(group.getKey());
+                displayStack.set(net.minecraft.core.component.DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
+                displayStack.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, 
+                    net.minecraft.world.item.component.CustomData.of(new net.minecraft.nbt.CompoundTag() {{
+                        putBoolean(com.portablestorage.util.WarehouseConstants.SMART_COLLAPSE_TAG, true);
+                    }}));
+                
+                collapsed.add(new WarehouseEntry(displayStack, totalCount));
+            } else {
+                collapsed.add(entries.get(0));
             }
         }
-
-        if (inventoryStart != -1 && ((AbstractContainerMenuAccessor) player.containerMenu).invokeMoveItemStackTo(resultStack, 
-                inventoryStart, inventoryEnd, true)) {
-            int movedCount = toTake - resultStack.getCount();
-            if (movedCount > 0) {
-                this.removeItem(slotIndex, movedCount);
-            }
-        }
+        return collapsed;
     }
 
-    /**
-     * 服务器端执行：从仓库中取出指定数量的匹配物品
-     * @param template 模板物品
-     * @param amount 数量
-     * @param matchComponents 是否需要完全匹配组件（NBT）
-     */
-    public ItemStack takeMatching(ItemStack template, int amount, boolean matchComponents) {
-        int totalTaken = 0;
-        ItemStack result = template.copyWithCount(0);
-        
-        for (int i = storage.size() - 1; i >= 0; i--) {
-            WarehouseEntry entry = storage.get(i);
-            boolean matches = matchComponents ? entry.matches(template) : entry.getItemStack().is(template.getItem());
-            
-            if (matches) {
-                long canTake = Math.min(amount - totalTaken, entry.getCount());
-                if (canTake > 0) {
-                    entry.subtract(canTake);
-                    totalTaken += (int)canTake;
-                    if (entry.getCount() <= 0) storage.remove(i);
-                }
-            }
-            if (totalTaken >= amount) break;
-        }
-        
-        if (totalTaken > 0) {
-            result.setCount(totalTaken);
-            this.setChanged();
-        }
-        return result;
+    private void applySorting(List<WarehouseEntry> list) {
+        Comparator<WarehouseEntry> comparator = switch (sortMode) {
+            case 0 -> Comparator.comparingLong(WarehouseEntry::getCount);
+            case 1 -> Comparator.comparing(e -> e.getItemStack().getHoverName().getString(), String.CASE_INSENSITIVE_ORDER);
+            case 2 -> Comparator.comparing(e -> BuiltInRegistries.ITEM.getKey(e.getItemStack().getItem()));
+            case 3 -> Comparator.comparingLong(WarehouseEntry::getLastUpdated);
+            default -> (a, b) -> 0;
+        };
+
+        if (!isAscending) comparator = comparator.reversed();
+        comparator = comparator.thenComparing(e -> BuiltInRegistries.ITEM.getKey(e.getItemStack().getItem()));
+        list.sort(comparator);
     }
 
-    public ItemStack takeMatching(ItemStack template, int amount) {
-        return takeMatching(template, amount, true);
+    private net.minecraft.world.item.Item getVirtualItemForFluid(FluidVariant fluid) {
+        if (fluid.isOf(Fluids.LAVA)) return com.portablestorage.item.ModItems.VIRTUAL_LAVA;
+        if (fluid.isOf(Fluids.WATER)) return com.portablestorage.item.ModItems.VIRTUAL_WATER;
+        return null;
     }
 
-    public long getRealCount(int slotIndex) {
-        List<WarehouseEntry> sorted = getSortedEntries();
-        int actualIndex = slotIndex + (scrollOffset * 9);
-        return (actualIndex >= 0 && actualIndex < sorted.size()) ? sorted.get(actualIndex).getCount() : 0;
-    }
+    // --- 持久化逻辑 ---
 
     public void readNbt(CompoundTag tag, HolderLookup.Provider registries) {
         storage.clear();
@@ -602,10 +358,6 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                 net.minecraft.resources.ResourceLocation id = net.minecraft.resources.ResourceLocation.parse(fluidTag.getString("fluid"));
                 Fluid fluid = BuiltInRegistries.FLUID.get(id);
                 
-                net.minecraft.world.item.component.CustomData customData = fluidTag.contains("nbt") ? 
-                    net.minecraft.world.item.component.CustomData.of(fluidTag.getCompound("nbt")) : null;
-                
-                // 1.21 使用 DataComponentPatch
                 net.minecraft.core.component.DataComponentPatch patch = net.minecraft.core.component.DataComponentPatch.EMPTY;
                 if (fluidTag.contains("components")) {
                     patch = net.minecraft.core.component.DataComponentPatch.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, fluidTag.get("components"))
@@ -628,7 +380,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         this.craftRefill = !tag.contains("craftRefill") || tag.getBoolean("craftRefill");
         this.enabled = !tag.contains("enabled") || tag.getBoolean("enabled");
         this.searchText = tag.getString("searchText");
-        this.sortedCache = null;
+        this.markDirty();
     }
 
     public void writeNbt(CompoundTag tag, HolderLookup.Provider registries) {
@@ -640,13 +392,11 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         for (Map.Entry<FluidVariant, Long> entry : fluidStorage.entrySet()) {
             CompoundTag fluidTag = new CompoundTag();
             fluidTag.putString("fluid", BuiltInRegistries.FLUID.getKey(entry.getKey().getFluid()).toString());
-            
             net.minecraft.core.component.DataComponentPatch patch = entry.getKey().getComponents();
             if (!patch.isEmpty()) {
                 fluidTag.put("components", net.minecraft.core.component.DataComponentPatch.CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, patch)
                     .getOrThrow());
             }
-            
             fluidTag.putLong("amount", entry.getValue());
             fluidList.add(fluidTag);
         }
@@ -663,22 +413,4 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         tag.putBoolean("enabled", enabled);
         tag.putString("searchText", searchText);
     }
-
-    @Override public int getContainerSize() { return visibleRows * 9; }
-    @Override public boolean isEmpty() { return storage.isEmpty(); }
-    @Override public ItemStack getItem(int slot) {
-        List<WarehouseEntry> sorted = getSortedEntries();
-        int actualIndex = slot + (scrollOffset * 9);
-        return (actualIndex >= 0 && actualIndex < sorted.size()) ? sorted.get(actualIndex).getItemStack().copyWithCount(1) : ItemStack.EMPTY;
-    }
-    @Override public ItemStack removeItemNoUpdate(int slot) { return removeItem(slot, Integer.MAX_VALUE); }
-    
-    // 仓库内容由 CCA 同步和我们的自定义点击逻辑管理，
-    // 忽略原版容器的 setItem 同步调用，防止数量在客户端意外叠加。
-    @Override public void setItem(int slot, ItemStack stack) { }
-    
-    @Override public void setChanged() { this.sortedCache = null; if (onChanged != null) onChanged.accept(this); }
-    @Override public boolean stillValid(Player player) { return true; }
-    @Override public void clearContent() { storage.clear(); this.setChanged(); }
 }
-

@@ -1,6 +1,7 @@
 package com.portablestorage.mixin;
 
 import com.portablestorage.component.PlayerWarehouse;
+import com.portablestorage.logic.WarehouseManager;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
@@ -47,12 +48,12 @@ public abstract class AbstractContainerMenuMixin {
                         ItemStack cursorStack = menu.getCarried();
                         if (!cursorStack.isEmpty()) {
                             // 存入
-                            ItemStack remaining = warehouse.addFluid(cursorStack, player);
+                            ItemStack remaining = WarehouseManager.addFluid(warehouse, cursorStack, player);
                             menu.setCarried(remaining);
                         } else {
                     // 取出
                     int amount = (button == 1) ? 1 : 64;
-                    ItemStack taken = warehouse.removeItem(slotId - warehouseStart, amount);
+                    ItemStack taken = WarehouseManager.removeItem(warehouse, slotId - warehouseStart, amount, false);
                     menu.setCarried(taken);
                 }
                 ci.cancel();

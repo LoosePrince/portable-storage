@@ -3,6 +3,7 @@ package com.portablestorage.network;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
+import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.screen.CraftingWarehouseScreenHandler;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.chat.Component;
@@ -11,6 +12,7 @@ import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import com.portablestorage.component.ModComponents;
 
 public class ModServerNetworking {
 
@@ -86,7 +88,7 @@ public class ModServerNetworking {
             }
             
             if (warehouseStart != -1) {
-                warehouse.tryTransferToInventory(slotId - warehouseStart, player);
+                WarehouseManager.tryTransferToInventory(warehouse, slotId - warehouseStart, player);
                 syncChanges(player);
             }
         });
@@ -170,7 +172,7 @@ public class ModServerNetworking {
             if (totalNeed <= 0) return;
 
             // 3. 从仓库取出物品（不强制匹配组件，兼容智能折叠）
-            ItemStack taken = warehouse.takeMatching(template, totalNeed, false);
+            ItemStack taken = WarehouseManager.takeMatching(warehouse, template, totalNeed, false);
             if (taken.isEmpty()) return;
 
             // 4. 均分补给

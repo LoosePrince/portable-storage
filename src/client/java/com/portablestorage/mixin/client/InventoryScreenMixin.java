@@ -196,9 +196,9 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                     if (mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY && mouseY < slotY + 16) {
                         clickedSlot = slot;
                         break;
-                    }
-                }
-                
+            }
+        }
+
                 // 检查是否点击在仓库槽位上
                 if (clickedSlot != null && clickedSlot.container instanceof PlayerWarehouse) {
                     // 发送快速转移网络包
@@ -239,15 +239,15 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
 
                 if (!warehouse.isFolded()) {
                     if (showShortcuts) {
-                        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y && mouseY < y + 18) {
+                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y && mouseY < y + 18) {
                              ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.SORT_MODE, (warehouse.getSortMode() + 1) % 4));
-                            return true;
-                        }
-                        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing && mouseY < y + iconSpacing + 18) {
+                        return true;
+                    }
+                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing && mouseY < y + iconSpacing + 18) {
                              ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.SORT_ORDER, warehouse.isAscending() ? 0 : 1));
-                            return true;
-                        }
-                        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 2 && mouseY < y + iconSpacing * 2 + 18) {
+                        return true;
+                    }
+                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 2 && mouseY < y + iconSpacing * 2 + 18) {
                              ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.QUICK_INTERACTION, warehouse.isQuickInteraction() ? 0 : 1));
                              return true;
                          }

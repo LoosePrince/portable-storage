@@ -2,6 +2,7 @@ package com.portablestorage.screen;
 
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
+import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.util.WarehouseConstants;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
@@ -149,7 +150,7 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
                 // 尝试移动到仓库或合成槽位
                 PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
                 if (warehouse.isEnabled() && !warehouse.isFolded() && warehouse.isQuickInteraction()) {
-                    ItemStack remaining = warehouse.addFluid(itemStack2, player);
+                    ItemStack remaining = WarehouseManager.addFluid(warehouse, itemStack2, player);
                     slot.set(remaining);
                 } else {
                     // 如果仓库不可用，尝试在背包和快捷栏之间移动

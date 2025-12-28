@@ -2,6 +2,7 @@ package com.portablestorage.mixin;
 
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
+import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.util.WarehouseConstants;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.Inventory;
@@ -92,11 +93,11 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
                 cir.setReturnValue(ItemStack.EMPTY);
             }
         } else if (index >= WarehouseConstants.PLAYER_INVENTORY_START && index < WarehouseConstants.PLAYER_INVENTORY_END) { // 从玩家背包快速转移到仓库
-                if (warehouse.isQuickInteraction()) {
-                    ItemStack remaining = warehouse.addFluid(stackInSlot, player);
+            if (warehouse.isQuickInteraction()) {
+                    ItemStack remaining = WarehouseManager.addFluid(warehouse, stackInSlot, player);
                     slot.set(remaining);
-                    cir.setReturnValue(ItemStack.EMPTY);
-                }
+                cir.setReturnValue(ItemStack.EMPTY);
             }
+        }
     }
 }
