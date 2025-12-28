@@ -39,7 +39,13 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     private boolean smartCollapse = false;
     private boolean craftRefill = true;
     private boolean enabled = true;
-    private List<WarehouseEntry> sortedCache = null;
+
+    // 多级缓存
+    private List<WarehouseEntry> baseCache = null;      // 原始项 + 流体
+    private List<WarehouseEntry> filteredCache = null;  // 搜索过滤后
+    private List<WarehouseEntry> collapsedCache = null; // 智能折叠后
+    private List<WarehouseEntry> sortedCache = null;    // 最终排序后
+
     private final Consumer<PlayerWarehouse> onChanged;
 
     public PlayerWarehouse(UUID id, Consumer<PlayerWarehouse> onChanged) {
@@ -57,6 +63,9 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     }
 
     public void markDirty() {
+        this.baseCache = null;
+        this.filteredCache = null;
+        this.collapsedCache = null;
         this.sortedCache = null;
         if (onChanged != null) {
             onChanged.accept(this);
@@ -67,6 +76,9 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
      * 仅使 UI 缓存失效，不触发 CCA 同步和持久化
      */
     public void markUIChanged() {
+        // UI 状态改变（如搜索、排序切换）通常只需要从 filtered 级开始失效
+        this.filteredCache = null;
+        this.collapsedCache = null;
         this.sortedCache = null;
     }
 
@@ -193,46 +205,61 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         int maxRows = (int) Math.ceil(getSortedEntries().size() / 9.0);
         int maxOffset = Math.max(0, maxRows - visibleRows);
         this.scrollOffset = Math.clamp(offset, 0, maxOffset);
-        this.markUIChanged();
+        // 滚动不触发任何缓存失效
     }
 
     public int getVisibleRows() { return visibleRows; }
     public void setVisibleRows(int rows) {
         this.visibleRows = Math.clamp(rows, 1, 12);
         this.scrollOffset = 0;
-        this.markDirty(); // 这个建议保留持久化，因为布局设置通常希望被记住
+        this.markDirty(); // 布局改变建议全局更新
     }
 
     public boolean isFolded() { return isFolded; }
     public void setFolded(boolean folded) {
         if (!enabled && !folded) return;
         this.isFolded = folded;
-        this.markDirty();
+        // 折叠不影响数据，仅影响渲染，不触发缓存失效
     }
 
     public int getSortMode() { return sortMode; }
-    public void setSortMode(int mode) { this.sortMode = mode; this.markDirty(); }
+    public void setSortMode(int mode) { 
+        this.sortMode = mode; 
+        this.sortedCache = null; // 仅使最后一级缓存失效
+    }
 
     public boolean isAscending() { return isAscending; }
-    public void setAscending(boolean ascending) { this.isAscending = ascending; this.markDirty(); }
+    public void setAscending(boolean ascending) { 
+        this.isAscending = ascending; 
+        this.sortedCache = null; // 仅使最后一级缓存失效
+    }
 
     public boolean isQuickInteraction() { return quickInteraction; }
-    public void setQuickInteraction(boolean quick) { this.quickInteraction = quick; this.markDirty(); }
+    public void setQuickInteraction(boolean quick) { this.quickInteraction = quick; }
 
     public boolean isSmartCollapse() { return smartCollapse; }
-    public void setSmartCollapse(boolean smart) { this.smartCollapse = smart; this.markDirty(); }
+    public void setSmartCollapse(boolean smart) { 
+        this.smartCollapse = smart; 
+        this.collapsedCache = null; 
+        this.sortedCache = null; 
+    }
 
     public boolean isCraftRefill() { return craftRefill; }
-    public void setCraftRefill(boolean refill) { this.craftRefill = refill; this.markDirty(); }
+    public void setCraftRefill(boolean refill) { this.craftRefill = refill; }
 
     public boolean isEnabled() { return enabled; }
-    public void setEnabled(boolean enabled) { this.enabled = enabled; this.markDirty(); }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
     public String getSearchText() { return searchText; }
     public void setSearchText(String text) {
-        this.searchText = text.toLowerCase();
-        this.scrollOffset = 0;
-        this.markUIChanged();
+        String lower = text.toLowerCase();
+        if (!lower.equals(this.searchText)) {
+            this.searchText = lower;
+            this.scrollOffset = 0;
+            this.filteredCache = null;
+            this.collapsedCache = null;
+            this.sortedCache = null;
+        }
     }
 
     public long getRealCount(int slotIndex) {
@@ -244,37 +271,57 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     // --- 排序与缓存逻辑 ---
 
     public List<WarehouseEntry> getSortedEntries() {
-        if (sortedCache == null) {
-            List<WarehouseEntry> filtered = new ArrayList<>(storage);
-            
-            // 流体转换为展示物品
+        // 第一级：基础缓存 (Raw Items + Fluids)
+        if (baseCache == null) {
+            baseCache = new ArrayList<>(storage);
             for (Map.Entry<FluidVariant, Long> entry : fluidStorage.entrySet()) {
                 net.minecraft.world.item.Item virtualItem = getVirtualItemForFluid(entry.getKey());
                 if (virtualItem != null) {
                     long bucketCount = entry.getValue() / FluidConstants.BUCKET;
                     if (bucketCount > 0) {
-                        filtered.add(new WarehouseEntry(new ItemStack(virtualItem), bucketCount));
+                        baseCache.add(new WarehouseEntry(new ItemStack(virtualItem), bucketCount));
                     }
                 }
             }
+            // 基础层变动，下游全部失效
+            filteredCache = null;
+            collapsedCache = null;
+            sortedCache = null;
+        }
 
-            if (!searchText.isEmpty()) {
+        // 第二级：搜索过滤缓存
+        if (filteredCache == null) {
+            if (searchText.isEmpty()) {
+                filteredCache = baseCache;
+            } else {
                 String query = searchText.toLowerCase().trim();
                 boolean exact = query.startsWith("!") && query.endsWith("!") && query.length() > 2;
                 final String finalQuery = exact ? query.substring(1, query.length() - 1) : query;
 
-                filtered = filtered.stream()
+                filteredCache = baseCache.stream()
                         .filter(entry -> matchesQuery(entry, finalQuery, exact))
                         .toList();
             }
+            collapsedCache = null;
+            sortedCache = null;
+        }
 
+        // 第三级：智能折叠缓存
+        if (collapsedCache == null) {
             if (smartCollapse && searchText.isEmpty()) {
-                filtered = applySmartCollapse(filtered);
+                collapsedCache = applySmartCollapse(filteredCache);
+            } else {
+                collapsedCache = filteredCache;
             }
-            
-            sortedCache = new ArrayList<>(filtered);
+            sortedCache = null;
+        }
+
+        // 第四级：最终排序缓存
+        if (sortedCache == null) {
+            sortedCache = new ArrayList<>(collapsedCache);
             applySorting(sortedCache);
         }
+
         return sortedCache;
     }
 
