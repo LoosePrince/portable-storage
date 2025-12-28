@@ -3,6 +3,7 @@ package com.portablestorage.config;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.network.UpdateSettingsPayload;
+import com.portablestorage.network.UpdateServerConfigPayload;
 import com.portablestorage.util.WarehouseSetting;
 import dev.isxander.yacl3.api.*;
 import dev.isxander.yacl3.api.controller.BooleanControllerBuilder;
@@ -31,9 +32,26 @@ public class YACLConfig {
                 case QUICK_INTERACTION -> warehouse.setQuickInteraction(value == 1);
                 case SMART_COLLAPSE -> warehouse.setSmartCollapse(value == 1);
                 case CRAFT_REFILL -> warehouse.setCraftRefill(value == 1);
+                case FOLD -> warehouse.setFolded(value == 1);
             }
             ClientPlayNetworking.send(new UpdateSettingsPayload(setting, value));
         }
+    }
+
+    private static void updateServerConfig() {
+        if (!ModConfig.allowHotReload) return;
+        ClientPlayNetworking.send(new UpdateServerConfigPayload(
+            ModConfig.enable3x3Crafting,
+            ModConfig.dropStorageOnDeath,
+            ModConfig.maxStorageTypes,
+            ModConfig.maxItemStackSize,
+            ModConfig.baseMaxStorageTypes,
+            ModConfig.baseMaxItemStackSize
+        ));
+    }
+
+    private static boolean canEditServerConfig() {
+        return ModConfig.allowHotReload && Minecraft.getInstance().player != null && Minecraft.getInstance().player.hasPermissions(4);
     }
 
     public static Screen create(Screen parent) {
@@ -130,15 +148,30 @@ public class YACLConfig {
                 .category(ConfigCategory.createBuilder()
                         .name(Component.translatable("gui.portablestorage.settings.tab.server"))
                         .option(Option.<Boolean>createBuilder()
+                                .name(Component.translatable("gui.portablestorage.settings.allow_hot_reload"))
+                                .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.allow_hot_reload.desc")))
+                                .binding(
+                                        false,
+                                        () -> ModConfig.allowHotReload,
+                                        val -> {} // 只读
+                                )
+                                .controller(BooleanControllerBuilder::create)
+                                .available(false)
+                                .build())
+                        .option(Option.<Boolean>createBuilder()
                                 .name(Component.translatable("gui.portablestorage.settings.enable_3x3_crafting"))
                                 .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.enable_3x3_crafting.desc")))
                                 .binding(
                                         true,
                                         () -> ModConfig.is3x3Enabled(),
-                                        val -> {} // 只读
+                                        val -> {
+                                            ModConfig.enable3x3Crafting = val;
+                                            ModConfig.setActive3x3Crafting(val);
+                                            updateServerConfig();
+                                        }
                                 )
                                 .controller(BooleanControllerBuilder::create)
-                                .available(false)
+                                .available(canEditServerConfig())
                                 .build())
                         .option(Option.<Boolean>createBuilder()
                                 .name(Component.translatable("gui.portablestorage.settings.drop_storage_on_death"))
@@ -146,38 +179,69 @@ public class YACLConfig {
                                 .binding(
                                         true,
                                         () -> ModConfig.dropStorageOnDeath,
-                                        val -> {} // 只读
+                                        val -> {
+                                            ModConfig.dropStorageOnDeath = val;
+                                            updateServerConfig();
+                                        }
                                 )
                                 .controller(BooleanControllerBuilder::create)
-                                .available(false)
+                                .available(canEditServerConfig())
                                 .build())
                         .option(Option.<Integer>createBuilder()
                                 .name(Component.translatable("gui.portablestorage.settings.max_storage_types"))
                                 .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.server_limit.desc")))
-                                .binding(-1, () -> ModConfig.maxStorageTypes, val -> {})
+                                .binding(
+                                        -1, 
+                                        () -> ModConfig.maxStorageTypes, 
+                                        val -> {
+                                            ModConfig.maxStorageTypes = val;
+                                            updateServerConfig();
+                                        }
+                                )
                                 .controller(IntegerFieldControllerBuilder::create)
-                                .available(false)
+                                .available(canEditServerConfig())
                                 .build())
                         .option(Option.<Long>createBuilder()
                                 .name(Component.translatable("gui.portablestorage.settings.max_item_stack_size"))
                                 .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.server_limit.desc")))
-                                .binding(-1L, () -> ModConfig.maxItemStackSize, val -> {})
+                                .binding(
+                                        -1L, 
+                                        () -> ModConfig.maxItemStackSize, 
+                                        val -> {
+                                            ModConfig.maxItemStackSize = val;
+                                            updateServerConfig();
+                                        }
+                                )
                                 .controller(LongFieldControllerBuilder::create)
-                                .available(false)
+                                .available(canEditServerConfig())
                                 .build())
                         .option(Option.<Integer>createBuilder()
                                 .name(Component.translatable("gui.portablestorage.settings.base_max_storage_types"))
                                 .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.server_limit.desc")))
-                                .binding(54, () -> ModConfig.baseMaxStorageTypes, val -> {})
+                                .binding(
+                                        54, 
+                                        () -> ModConfig.baseMaxStorageTypes, 
+                                        val -> {
+                                            ModConfig.baseMaxStorageTypes = val;
+                                            updateServerConfig();
+                                        }
+                                )
                                 .controller(IntegerFieldControllerBuilder::create)
-                                .available(false)
+                                .available(canEditServerConfig())
                                 .build())
                         .option(Option.<Long>createBuilder()
                                 .name(Component.translatable("gui.portablestorage.settings.base_max_item_stack_size"))
                                 .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.server_limit.desc")))
-                                .binding(-1L, () -> ModConfig.baseMaxItemStackSize, val -> {})
+                                .binding(
+                                        -1L, 
+                                        () -> ModConfig.baseMaxItemStackSize, 
+                                        val -> {
+                                            ModConfig.baseMaxItemStackSize = val;
+                                            updateServerConfig();
+                                        }
+                                )
                                 .controller(LongFieldControllerBuilder::create)
-                                .available(false)
+                                .available(canEditServerConfig())
                                 .build())
                         .build())
                 .save(ModConfig::save)

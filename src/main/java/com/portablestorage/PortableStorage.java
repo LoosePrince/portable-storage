@@ -30,6 +30,7 @@ public class PortableStorage implements ModInitializer {
             sender.sendPacket(new SyncConfigPayload(
                 ModConfig.enable3x3Crafting, 
                 ModConfig.dropStorageOnDeath,
+                ModConfig.allowHotReload,
                 ModConfig.maxStorageTypes,
                 ModConfig.maxItemStackSize,
                 ModConfig.baseMaxStorageTypes,

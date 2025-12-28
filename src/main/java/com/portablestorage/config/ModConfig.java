@@ -13,6 +13,7 @@ public class ModConfig {
     public static boolean offsetInventory = true;
     public static boolean hideRecipeBook = true;
     public static boolean showSmallIcons = true;
+    public static boolean allowHotReload = false;
     public static boolean enable3x3Crafting = true;
     public static boolean dropStorageOnDeath = true;
     
@@ -44,6 +45,7 @@ public class ModConfig {
         offsetInventory = config.getOrElse("client.offsetInventory", true);
         hideRecipeBook = config.getOrElse("client.hideRecipeBook", true);
         showSmallIcons = config.getOrElse("client.showSmallIcons", false);
+        allowHotReload = config.getOrElse("server.allowHotReload", false);
         enable3x3Crafting = config.getOrElse("server.enable3x3Crafting", true);
         dropStorageOnDeath = config.getOrElse("server.dropStorageOnDeath", true);
         
@@ -70,6 +72,7 @@ public class ModConfig {
         config.set("client.offsetInventory", offsetInventory);
         config.set("client.hideRecipeBook", hideRecipeBook);
         config.set("client.showSmallIcons", showSmallIcons);
+        config.set("server.allowHotReload", allowHotReload);
         config.set("server.enable3x3Crafting", enable3x3Crafting);
         config.set("server.dropStorageOnDeath", dropStorageOnDeath);
         

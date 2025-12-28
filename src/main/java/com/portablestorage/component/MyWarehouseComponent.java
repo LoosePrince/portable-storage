@@ -13,9 +13,9 @@ public class MyWarehouseComponent implements WarehouseComponent {
     private final Scoreboard scoreboard;
     private final MinecraftServer server;
 
-    public MyWarehouseComponent(Scoreboard scoreboard, MinecraftServer server) {
+    public MyWarehouseComponent(Scoreboard scoreboard, MinecraftServer minecraftServer) {
         this.scoreboard = scoreboard;
-        this.server = server;
+        this.server = minecraftServer;
     }
 
     @Override

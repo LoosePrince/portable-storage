@@ -12,6 +12,9 @@ showSmallIcons = true
 # 是否启用 3x3 背包合成功能
 enable3x3Crafting = true
 
+# 是否允许在游戏中热修改服务端配置 (启用后可在设置界面修改服务端项，可能造成非预期情况)
+allowHotReload = false
+
 # 是否在玩家死亡时禁用仓库 (true: 禁用, false: 保留)
 dropStorageOnDeath = true
 

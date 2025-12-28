@@ -99,6 +99,14 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
     }
 
     @Override
+    public void removed() {
+        if (shouldShowWarehouse()) {
+            ClientPlayNetworking.send(new SearchPayload(""));
+        }
+        super.removed();
+    }
+
+    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (!shouldShowWarehouse()) return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
         var player = Minecraft.getInstance().player;

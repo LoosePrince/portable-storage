@@ -9,6 +9,7 @@ public class ModClientNetworking {
             context.client().execute(() -> {
                 ModConfig.setActive3x3Crafting(payload.enable3x3Crafting());
                 ModConfig.dropStorageOnDeath = payload.dropStorageOnDeath();
+                ModConfig.allowHotReload = payload.allowHotReload();
                 ModConfig.maxStorageTypes = payload.maxStorageTypes();
                 ModConfig.maxItemStackSize = payload.maxItemStackSize();
                 ModConfig.baseMaxStorageTypes = payload.baseMaxStorageTypes();

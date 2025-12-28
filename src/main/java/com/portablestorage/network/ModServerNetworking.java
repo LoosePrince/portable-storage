@@ -2,8 +2,8 @@ package com.portablestorage.network;
 
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
+import com.portablestorage.config.ModConfig;
 import com.portablestorage.screen.CraftingWarehouseScreenHandler;
-import com.portablestorage.util.WarehouseSetting;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -88,6 +88,44 @@ public class ModServerNetworking {
             if (warehouseStart != -1) {
                 warehouse.tryTransferToInventory(slotId - warehouseStart, player);
                 syncChanges(player);
+            }
+        });
+    }
+
+    public static void handleUpdateServerConfig(UpdateServerConfigPayload payload, ServerPlayNetworking.Context context) {
+        context.server().execute(() -> {
+            if (!ModConfig.allowHotReload) return;
+            
+            ServerPlayer player = context.player();
+            // 权限验证：仅允许 4 级 OP 修改服务端配置
+            if (!player.hasPermissions(4)) {
+                return;
+            }
+
+            // 更新服务端配置
+            ModConfig.enable3x3Crafting = payload.enable3x3Crafting();
+            ModConfig.dropStorageOnDeath = payload.dropStorageOnDeath();
+            ModConfig.maxStorageTypes = payload.maxStorageTypes();
+            ModConfig.maxItemStackSize = payload.maxItemStackSize();
+            ModConfig.baseMaxStorageTypes = payload.baseMaxStorageTypes();
+            ModConfig.baseMaxItemStackSize = payload.baseMaxItemStackSize();
+
+            // 保存到文件
+            ModConfig.save();
+
+            // 同步给所有玩家
+            SyncConfigPayload sync = new SyncConfigPayload(
+                ModConfig.enable3x3Crafting,
+                ModConfig.dropStorageOnDeath,
+                ModConfig.allowHotReload,
+                ModConfig.maxStorageTypes,
+                ModConfig.maxItemStackSize,
+                ModConfig.baseMaxStorageTypes,
+                ModConfig.baseMaxItemStackSize
+            );
+            
+            for (ServerPlayer p : context.server().getPlayerList().getPlayers()) {
+                ServerPlayNetworking.send(p, sync);
             }
         });
     }

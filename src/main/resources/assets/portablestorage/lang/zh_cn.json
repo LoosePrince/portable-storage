@@ -44,6 +44,8 @@
   "gui.portablestorage.settings.enable_3x3_crafting.desc": "将背包中的 2x2 合成区域升级为 3x3。此项由服务端配置决定，客户端仅能查看。",
   "gui.portablestorage.settings.drop_storage_on_death": "死亡禁用仓库",
   "gui.portablestorage.settings.drop_storage_on_death.desc": "开启后，若游戏规则 keepInventory 为 false，玩家死亡后仓库将被禁用，并掉落钥匙。此项由服务端配置决定。",
+  "gui.portablestorage.settings.allow_hot_reload": "允许在游戏中热修改服务端配置",
+  "gui.portablestorage.settings.allow_hot_reload.desc": "启用后可以在游戏中热修改其它的服务端配置。注意：在游戏中热修改服务端配置可能造成非预期的情况，请不要作为 bug 进行反馈！此项无法在游戏中修改。",
   "gui.portablestorage.settings.max_storage_types": "仓库储存最大种类数",
   "gui.portablestorage.settings.max_item_stack_size": "仓库储存物品最大堆叠数",
   "gui.portablestorage.settings.base_max_storage_types": "基础仓库储存最大种类数",

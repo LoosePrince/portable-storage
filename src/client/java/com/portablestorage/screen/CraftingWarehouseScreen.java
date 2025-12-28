@@ -302,6 +302,12 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
     }
 
     @Override
+    public void removed() {
+        ClientPlayNetworking.send(new SearchPayload(""));
+        super.removed();
+    }
+
+    @Override
     public void onClose() {
         super.onClose();
     }
