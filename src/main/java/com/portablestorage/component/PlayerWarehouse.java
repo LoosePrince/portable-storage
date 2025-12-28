@@ -1,6 +1,9 @@
 package com.portablestorage.component;
 
+import com.portablestorage.mixin.accessor.AbstractContainerMenuAccessor;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -132,6 +135,44 @@ public class PlayerWarehouse implements Container {
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; this.setChanged(); }
+
+    /**
+     * 服务器端执行：将仓库中的物品快速转移到玩家背包
+     */
+    public void tryTransferToInventory(int slotIndex, Player player) {
+        if (!enabled || !quickInteraction) return;
+
+        List<WarehouseEntry> sorted = getSortedEntries();
+        int actualIndex = slotIndex + (scrollOffset * 9);
+        if (actualIndex < 0 || actualIndex >= sorted.size()) return;
+
+        WarehouseEntry entry = sorted.get(actualIndex);
+        ItemStack stackInSlot = entry.getItemStack();
+        if (stackInSlot.isEmpty()) return;
+
+        long realCount = entry.getCount();
+        int toTake = (int) Math.min(stackInSlot.getMaxStackSize(), realCount);
+        ItemStack resultStack = stackInSlot.copyWithCount(toTake);
+
+        // 查找玩家背包在当前菜单中的索引范围
+        int inventoryStart = -1;
+        int inventoryEnd = -1;
+        for (int i = 0; i < player.containerMenu.slots.size(); i++) {
+            Slot slot = player.containerMenu.slots.get(i);
+            if (slot.container instanceof Inventory) {
+                if (inventoryStart == -1) inventoryStart = i;
+                inventoryEnd = i + 1;
+            }
+        }
+
+        if (inventoryStart != -1 && ((AbstractContainerMenuAccessor) player.containerMenu).invokeMoveItemStackTo(resultStack, 
+                inventoryStart, inventoryEnd, true)) {
+            int movedCount = toTake - resultStack.getCount();
+            if (movedCount > 0) {
+                this.removeItem(slotIndex, movedCount);
+            }
+        }
+    }
 
     public long getRealCount(int slotIndex) {
         List<WarehouseEntry> sorted = getSortedEntries();

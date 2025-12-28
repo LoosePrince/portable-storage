@@ -7,7 +7,8 @@
 		"InventoryMenuCraftingMixin",
 		"InventoryMenuMixin",
 		"AbstractContainerMenuMixin",
-		"accessor.SlotAccessor"
+		"accessor.SlotAccessor",
+		"accessor.AbstractContainerMenuAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

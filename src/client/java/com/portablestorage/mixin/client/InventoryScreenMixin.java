@@ -4,6 +4,7 @@ import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
 import com.portablestorage.config.YACLConfig;
+import com.portablestorage.util.WarehouseSetting;
 import com.portablestorage.network.ChangeRowsPayload;
 import com.portablestorage.network.QuickTransferPayload;
 import com.portablestorage.network.ScrollPayload;
@@ -11,7 +12,6 @@ import com.portablestorage.network.SearchPayload;
 import com.portablestorage.network.UpdateSettingsPayload;
 import com.portablestorage.util.WarehouseConstants;
 import com.portablestorage.util.WarehouseRenderer;
-import com.portablestorage.util.WarehouseUtils;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -30,9 +30,6 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Mixin(InventoryScreen.class)
 public abstract class InventoryScreenMixin extends EffectRenderingInventoryScreen<InventoryMenu> {
@@ -135,51 +132,12 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         var player = Minecraft.getInstance().player;
         if (player == null) return;
         PlayerWarehouse warehouse = ModComponents.WAREHOUSE.get(player.level()).getWarehouse(player.getUUID());
-        int rows = warehouse.isFolded() ? 0 : warehouse.getVisibleRows();
-        
-        int warehouseHeight = WarehouseConstants.WAREHOUSE_TITLE_HEIGHT + rows * WarehouseConstants.SLOT_SIZE;
         
         int x = this.leftPos + WarehouseConstants.WAREHOUSE_X_OFFSET; 
         int y = this.topPos + WarehouseConstants.WAREHOUSE_Y_OFFSET;
         
-        if (!warehouse.isFolded()) {
-            WarehouseRenderer.drawNinePatch(graphics, WAREHOUSE_GUI_TEXTURE, x, y, WarehouseConstants.WAREHOUSE_WIDTH, warehouseHeight, WarehouseConstants.WAREHOUSE_CORNER_SIZE);
-            
-            graphics.fill(x + WarehouseConstants.SEARCH_BOX_X_OFFSET, y + WarehouseConstants.SEARCH_BOX_Y_OFFSET, x + WarehouseConstants.SEARCH_BOX_X_OFFSET + WarehouseConstants.SEARCH_BOX_WIDTH, y + WarehouseConstants.SEARCH_BOX_Y_OFFSET + WarehouseConstants.SEARCH_BOX_HEIGHT, WarehouseConstants.SEARCH_BOX_BG_COLOR);
-            graphics.fill(x + WarehouseConstants.SEARCH_BOX_X_OFFSET, y + WarehouseConstants.SEARCH_BOX_Y_OFFSET, x + WarehouseConstants.SEARCH_BOX_X_OFFSET + WarehouseConstants.SEARCH_BOX_WIDTH, y + WarehouseConstants.SEARCH_BOX_Y_OFFSET + 1, WarehouseConstants.SEARCH_BOX_BORDER_DARK);
-            graphics.fill(x + WarehouseConstants.SEARCH_BOX_X_OFFSET, y + WarehouseConstants.SEARCH_BOX_Y_OFFSET, x + WarehouseConstants.SEARCH_BOX_X_OFFSET + 1, y + WarehouseConstants.SEARCH_BOX_Y_OFFSET + WarehouseConstants.SEARCH_BOX_HEIGHT, WarehouseConstants.SEARCH_BOX_BORDER_DARK);
-            graphics.fill(x + WarehouseConstants.SEARCH_BOX_X_OFFSET, y + WarehouseConstants.SEARCH_BOX_Y_OFFSET + WarehouseConstants.SEARCH_BOX_HEIGHT - 1, x + WarehouseConstants.SEARCH_BOX_X_OFFSET + WarehouseConstants.SEARCH_BOX_WIDTH, y + WarehouseConstants.SEARCH_BOX_Y_OFFSET + WarehouseConstants.SEARCH_BOX_HEIGHT, WarehouseConstants.SEARCH_BOX_BORDER_LIGHT);
-            graphics.fill(x + WarehouseConstants.SEARCH_BOX_X_OFFSET + WarehouseConstants.SEARCH_BOX_WIDTH - 1, y + WarehouseConstants.SEARCH_BOX_Y_OFFSET, x + WarehouseConstants.SEARCH_BOX_X_OFFSET + WarehouseConstants.SEARCH_BOX_WIDTH, y + WarehouseConstants.SEARCH_BOX_Y_OFFSET + WarehouseConstants.SEARCH_BOX_HEIGHT, WarehouseConstants.SEARCH_BOX_BORDER_LIGHT);
-
-            WarehouseRenderer.renderPlusMinusButtons(graphics, this.font, x + WarehouseConstants.PLUS_MINUS_X_OFFSET, y + WarehouseConstants.PLUS_MINUS_Y_OFFSET, mouseX, mouseY);
-            
-            int slotStartX = this.leftPos + WarehouseConstants.SLOT_LOGIC_X + WarehouseConstants.SLOT_VISUAL_OFFSET; 
-            int slotStartY = this.topPos + WarehouseConstants.SLOT_LOGIC_Y_BASE + WarehouseConstants.SLOT_VISUAL_OFFSET;
-            for (int row = 0; row < rows; row++) {
-                for (int col = 0; col < WarehouseConstants.SLOTS_PER_ROW; col++) {
-                    graphics.blit(WAREHOUSE_SLOT_TEXTURE, slotStartX + col * WarehouseConstants.SLOT_SIZE, slotStartY + row * WarehouseConstants.SLOT_SIZE, 0, 0, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE);
-                }
-            }
-
-            int scrollbarX = x + WarehouseConstants.SCROLLBAR_X_OFFSET; 
-            int scrollbarY = y + WarehouseConstants.SCROLLBAR_Y_OFFSET;
-            int scrollbarHeight = rows * WarehouseConstants.SLOT_SIZE - WarehouseConstants.SCROLLBAR_PADDING;
-            
-            if (scrollbarHeight > 0) {
-                graphics.fill(scrollbarX, scrollbarY, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, scrollbarY + scrollbarHeight, WarehouseConstants.SCROLLBAR_BG_COLOR);
-                int totalRows = (int) Math.ceil(warehouse.getSortedEntries().size() / (double) WarehouseConstants.SLOTS_PER_ROW);
-                int thumbHeight = (totalRows <= rows) ? scrollbarHeight : Math.max(10, (int) (scrollbarHeight * ((float) rows / totalRows)));
-                int maxOffset = Math.max(0, totalRows - rows);
-                int thumbY = scrollbarY + (maxOffset == 0 ? 0 : (warehouse.getScrollOffset() * (scrollbarHeight - thumbHeight) / maxOffset));
-                int thumbColor = (isDraggingScrollbar || (mouseX >= scrollbarX && mouseX <= scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH && mouseY >= thumbY && mouseY <= thumbY + thumbHeight)) ? WarehouseConstants.SCROLLBAR_THUMB_HOVER_COLOR : WarehouseConstants.SCROLLBAR_THUMB_COLOR;
-                graphics.fill(scrollbarX, thumbY, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, thumbY + thumbHeight, thumbColor);
-                graphics.fill(scrollbarX - 1, thumbY - 1, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, thumbY, WarehouseConstants.SCROLLBAR_BORDER_LIGHT); 
-                graphics.fill(scrollbarX - 1, thumbY, scrollbarX, thumbY + thumbHeight, WarehouseConstants.SCROLLBAR_BORDER_LIGHT); 
-                graphics.fill(scrollbarX, thumbY + thumbHeight, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH + 1, thumbY + thumbHeight + 1, WarehouseConstants.SCROLLBAR_BORDER_DARK); 
-                graphics.fill(scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, thumbY - 1, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH + 1, thumbY + thumbHeight, WarehouseConstants.SCROLLBAR_BORDER_DARK); 
-            }
-        }
-
+        // 使用封装好的渲染逻辑
+        WarehouseRenderer.renderBackground(graphics, x, y, mouseX, mouseY, warehouse, this.font);
         WarehouseRenderer.renderSidebarButtons(graphics, this.leftPos, this.topPos, x + WarehouseConstants.SIDEBAR_X_OFFSET, y, mouseX, mouseY, warehouse);
     }
 
@@ -231,7 +189,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                     if (button == 0) { // 左键
                         boolean newFolded = !warehouse.isFolded();
                         warehouse.setFolded(newFolded);
-                        ClientPlayNetworking.send(new UpdateSettingsPayload(0, newFolded ? 1 : 0));
+                         ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.FOLD, newFolded ? 1 : 0));
                         if (newFolded && this.searchBox != null) this.searchBox.setFocused(false);
                         this.minecraft.setScreen(new InventoryScreen(player));
                         return true;
@@ -243,15 +201,15 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
 
                 if (!warehouse.isFolded()) {
                     if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y && mouseY < y + 18) {
-                        ClientPlayNetworking.send(new UpdateSettingsPayload(1, (warehouse.getSortMode() + 1) % 4));
+                         ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.SORT_MODE, (warehouse.getSortMode() + 1) % 4));
                         return true;
                     }
                     if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing && mouseY < y + iconSpacing + 18) {
-                        ClientPlayNetworking.send(new UpdateSettingsPayload(2, warehouse.isAscending() ? 0 : 1));
+                         ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.SORT_ORDER, warehouse.isAscending() ? 0 : 1));
                         return true;
                     }
                     if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 2 && mouseY < y + iconSpacing * 2 + 18) {
-                        ClientPlayNetworking.send(new UpdateSettingsPayload(3, warehouse.isQuickInteraction() ? 0 : 1));
+                         ClientPlayNetworking.send(new UpdateSettingsPayload(WarehouseSetting.QUICK_INTERACTION, warehouse.isQuickInteraction() ? 0 : 1));
                         return true;
                     }
 
@@ -346,86 +304,8 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
             this.searchBox.active = !warehouse.isFolded();
         }
 
-        renderButtonTooltips(graphics, mouseX, mouseY, warehouse);
-
-        if (warehouse.isFolded()) return; 
-        
-        int startX = this.leftPos + WarehouseConstants.SLOT_LOGIC_X;
-        int startY = this.topPos + WarehouseConstants.SLOT_LOGIC_Y_BASE;
-
-        for (int i = 0; i < warehouse.getVisibleRows() * WarehouseConstants.SLOTS_PER_ROW; i++) {
-            long count = warehouse.getRealCount(i);
-            if (count > 1) { 
-                String countStr = WarehouseUtils.formatCount(count);
-                int row = i / WarehouseConstants.SLOTS_PER_ROW;
-                int col = i % WarehouseConstants.SLOTS_PER_ROW;
-                graphics.pose().pushPose();
-                graphics.pose().translate(0, 0, WarehouseConstants.QUANTITY_TEXT_Z_OFFSET);
-                float scale = WarehouseConstants.QUANTITY_TEXT_SCALE;
-                int textX = startX + col * WarehouseConstants.SLOT_SIZE + WarehouseConstants.QUANTITY_TEXT_X_RELATIVE - (int)(this.font.width(countStr) * scale);
-                int textY = startY + row * WarehouseConstants.SLOT_SIZE + WarehouseConstants.QUANTITY_TEXT_Y_RELATIVE;
-                graphics.pose().translate(textX, textY, 0);
-                graphics.pose().scale(scale, scale, 1.0f);
-                graphics.drawString(this.font, countStr, 0, 0, WarehouseConstants.QUANTITY_TEXT_COLOR, true);
-                graphics.pose().popPose();
-            }
-        }
-    }
-
-    @Unique
-    private void renderButtonTooltips(GuiGraphics graphics, int mouseX, int mouseY, PlayerWarehouse warehouse) {
-        int foldButtonX = this.leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
-        int foldButtonY = this.topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
-        
-        if (mouseX >= foldButtonX && mouseX < foldButtonX + 18 && mouseY >= foldButtonY && mouseY < foldButtonY + 18) {
-            List<Component> tooltip = new ArrayList<>();
-            tooltip.add(Component.translatable(warehouse.isFolded() ? "gui.portablestorage.button.unfold" : "gui.portablestorage.button.fold"));
-            tooltip.add(Component.translatable("gui.portablestorage.button.settings_hint").withStyle(ChatFormatting.DARK_GRAY));
-            graphics.renderComponentTooltip(this.font, tooltip, mouseX, mouseY);
-            return;
-        }
-
-        if (warehouse.isFolded()) return;
-
-        int x = this.leftPos + WarehouseConstants.WAREHOUSE_X_OFFSET;
-        int y = this.topPos + WarehouseConstants.WAREHOUSE_Y_OFFSET;
-        int bx = x + WarehouseConstants.SIDEBAR_X_OFFSET;
-        int iconSpacing = WarehouseConstants.SIDEBAR_BUTTON_SIZE + WarehouseConstants.SIDEBAR_BUTTON_SPACING;
-
-        // 排序模式
-        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y && mouseY < y + 18) {
-            List<Component> tooltip = new ArrayList<>();
-            tooltip.add(Component.translatable("gui.portablestorage.button.sort_mode"));
-            String modeKey = switch (warehouse.getSortMode()) {
-                case 0 -> "gui.portablestorage.sort.count";
-                case 1 -> "gui.portablestorage.sort.name";
-                case 2 -> "gui.portablestorage.sort.id";
-                case 3 -> "gui.portablestorage.sort.time";
-                default -> "gui.portablestorage.sort.id";
-            };
-            tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(modeKey)).withStyle(ChatFormatting.GRAY));
-            graphics.renderComponentTooltip(this.font, tooltip, mouseX, mouseY);
-            return;
-        }
-
-        // 排序顺序
-        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing && mouseY < y + iconSpacing + 18) {
-            List<Component> tooltip = new ArrayList<>();
-            tooltip.add(Component.translatable("gui.portablestorage.button.sort_order"));
-            String orderKey = warehouse.isAscending() ? "gui.portablestorage.order.ascending" : "gui.portablestorage.order.descending";
-            tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(orderKey)).withStyle(ChatFormatting.GRAY));
-            graphics.renderComponentTooltip(this.font, tooltip, mouseX, mouseY);
-            return;
-        }
-
-        // 快速存取
-        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 2 && mouseY < y + iconSpacing * 2 + 18) {
-            List<Component> tooltip = new ArrayList<>();
-            tooltip.add(Component.translatable("gui.portablestorage.button.quick_interaction"));
-            String statusKey = warehouse.isQuickInteraction() ? "gui.portablestorage.on" : "gui.portablestorage.off";
-            tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(statusKey)).withStyle(ChatFormatting.GRAY));
-            graphics.renderComponentTooltip(this.font, tooltip, mouseX, mouseY);
-            return;
-        }
+        // 使用封装好的 Tooltip 和数量渲染
+        WarehouseRenderer.renderAllTooltips(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse);
+        WarehouseRenderer.renderQuantityTexts(graphics, this.font, this.leftPos, this.topPos, warehouse);
     }
 }
