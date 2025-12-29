@@ -3,6 +3,7 @@ package com.portablestorage.config;
 import com.electronwill.nightconfig.core.file.CommentedFileConfig;
 import com.electronwill.nightconfig.core.io.WritingMode;
 import com.electronwill.nightconfig.toml.TomlFormat;
+import com.portablestorage.util.StoragePosition;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.nio.file.Path;
@@ -16,6 +17,7 @@ public class ModConfig {
     public static boolean allowHotReload = false;
     public static boolean enable3x3Crafting = true;
     public static boolean dropStorageOnDeath = true;
+    public static StoragePosition storagePosition = StoragePosition.BOTTOM;
     
     // 仓库限制配置
     public static int maxStorageTypes = -1;
@@ -45,6 +47,11 @@ public class ModConfig {
         offsetInventory = config.getOrElse("client.offsetInventory", true);
         hideRecipeBook = config.getOrElse("client.hideRecipeBook", true);
         showSmallIcons = config.getOrElse("client.showSmallIcons", false);
+        try {
+            storagePosition = StoragePosition.valueOf(config.getOrElse("client.storagePosition", "BOTTOM").toUpperCase());
+        } catch (IllegalArgumentException e) {
+            storagePosition = StoragePosition.BOTTOM;
+        }
         allowHotReload = config.getOrElse("server.allowHotReload", false);
         enable3x3Crafting = config.getOrElse("server.enable3x3Crafting", true);
         dropStorageOnDeath = config.getOrElse("server.dropStorageOnDeath", true);
@@ -57,7 +64,9 @@ public class ModConfig {
         // 初始时设置为本地配置值
         active3x3Crafting = enable3x3Crafting;
 
-        if (offsetInventory) {
+        if (storagePosition.isHorizontal()) {
+            hideRecipeBook = true;
+        } else if (offsetInventory) {
             hideRecipeBook = true;
         }
         
@@ -72,6 +81,7 @@ public class ModConfig {
         config.set("client.offsetInventory", offsetInventory);
         config.set("client.hideRecipeBook", hideRecipeBook);
         config.set("client.showSmallIcons", showSmallIcons);
+        config.set("client.storagePosition", storagePosition.name());
         config.set("server.allowHotReload", allowHotReload);
         config.set("server.enable3x3Crafting", enable3x3Crafting);
         config.set("server.dropStorageOnDeath", dropStorageOnDeath);

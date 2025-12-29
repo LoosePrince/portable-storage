@@ -28,10 +28,29 @@ public class WarehouseConstants {
     public static final int VANILLA_INVENTORY_WIDTH = 176;
     public static final int VANILLA_INVENTORY_HEIGHT = 166;
     public static final int WAREHOUSE_WIDTH = 192;
-    public static final int WAREHOUSE_X_OFFSET = -8; // 相对于 leftPos
     public static final int WAREHOUSE_Y_SPACING = 2; // 背包与仓库之间的间距
-    public static final int WAREHOUSE_Y_OFFSET = VANILLA_INVENTORY_HEIGHT + WAREHOUSE_Y_SPACING; // 170
-    
+    public static final int WAREHOUSE_X_SPACING = 2;
+
+    public static int getWarehouseXOffset() {
+        return switch (com.portablestorage.config.ModConfig.storagePosition) {
+            case TOP, BOTTOM -> -8;
+            case LEFT -> -WAREHOUSE_WIDTH - WAREHOUSE_X_SPACING;
+            case RIGHT -> VANILLA_INVENTORY_WIDTH + WAREHOUSE_X_SPACING;
+        };
+    }
+
+    public static int getWarehouseYOffset(int visibleRows) {
+        StoragePosition pos = com.portablestorage.config.ModConfig.storagePosition;
+        if (pos == StoragePosition.BOTTOM) return VANILLA_INVENTORY_HEIGHT + WAREHOUSE_Y_SPACING;
+        if (pos == StoragePosition.TOP) {
+            int height = WAREHOUSE_TITLE_HEIGHT + visibleRows * SLOT_SIZE;
+            return -height - WAREHOUSE_Y_SPACING;
+        }
+        // 左右侧显示时，实现垂直居中：(背包高度 - 仓库高度) / 2
+        int warehouseHeight = WAREHOUSE_TITLE_HEIGHT + visibleRows * SLOT_SIZE;
+        return (VANILLA_INVENTORY_HEIGHT - warehouseHeight) / 2;
+    }
+
     // 搜索框 (相对于 warehouseX, warehouseY)
     public static final int SEARCH_BOX_X_OFFSET = 16;
     public static final int SEARCH_BOX_Y_OFFSET = 6;
@@ -39,9 +58,19 @@ public class WarehouseConstants {
     public static final int SEARCH_BOX_HEIGHT = 12;
     public static final int SEARCH_BOX_INNER_OFFSET = 2; // 内部文本偏移 1px 以避开描边
 
+    // 槽位逻辑坐标 (相对于 warehouseX, warehouseY)
+    public static final int SLOT_RELATIVE_X = 16;
+    public static final int SLOT_RELATIVE_Y = 21;
+
     // 槽位逻辑坐标 (相对于 leftPos / topPos)
-    public static final int SLOT_LOGIC_X = 8; 
-    public static final int SLOT_LOGIC_Y_BASE = 191; 
+    public static int getSlotLogicX() {
+        return getWarehouseXOffset() + SLOT_RELATIVE_X;
+    }
+
+    public static int getSlotLogicY(int visibleRows) {
+        return getWarehouseYOffset(visibleRows) + SLOT_RELATIVE_Y;
+    }
+
     public static final int SLOT_SIZE = 18;
 
     // 视觉修正：贴图需要比逻辑位置偏移 -1px 才能让物品居中
@@ -54,7 +83,20 @@ public class WarehouseConstants {
     public static final int SCROLLBAR_PADDING = 4; // 滚动条上下边距
 
     // 侧边按钮 (相对于 warehouseX, warehouseY)
-    public static final int SIDEBAR_X_OFFSET = 192;
+    public static int getSidebarXOffset() {
+        if (com.portablestorage.config.ModConfig.storagePosition.isHorizontal()) {
+            return 8; // 水平时显示在下方左侧
+        }
+        return 192;
+    }
+
+    public static int getSidebarYOffset(int visibleRows) {
+        if (com.portablestorage.config.ModConfig.storagePosition.isHorizontal()) {
+            return WAREHOUSE_TITLE_HEIGHT + visibleRows * SLOT_SIZE + 2; // 水平时显示在下方
+        }
+        return 0;
+    }
+
     public static final int SIDEBAR_BUTTON_SIZE = 16;
     public static final int SIDEBAR_BUTTON_SPACING = 1;
 
@@ -73,10 +115,10 @@ public class WarehouseConstants {
     public static final int WAREHOUSE_TITLE_HEIGHT = 27; // 包含搜索框区域的高度
     public static final int WAREHOUSE_FOLDED_HEIGHT = 22; // 折叠时的背景高度
     
-    // 界面偏移计算参数 (yOffset)
-    public static final int OFFSET_FOLDED = 0; // 折叠时回到原位
-    public static final int OFFSET_BASE = 10; // 未折叠时相对于背包的偏移
-    public static final int OFFSET_PER_ROW = 10; // 每行相对于背包的偏移
+    // 界面偏移计算参数
+    public static final int OFFSET_FOLDED = 0; 
+    public static final int OFFSET_BASE = 10; 
+    public static final int OFFSET_PER_ROW = 10; 
 
     // 物品数量显示
     public static final float QUANTITY_TEXT_SCALE = 0.8f;

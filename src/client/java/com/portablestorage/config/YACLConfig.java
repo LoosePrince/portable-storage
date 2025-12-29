@@ -4,6 +4,7 @@ import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.network.C2SUpdateWarehouseStatePayload;
 import com.portablestorage.network.UpdateServerConfigPayload;
+import com.portablestorage.util.StoragePosition;
 import com.portablestorage.util.WarehouseSetting;
 import dev.isxander.yacl3.api.*;
 import dev.isxander.yacl3.api.controller.BooleanControllerBuilder;
@@ -66,6 +67,21 @@ public class YACLConfig {
                 .title(Component.translatable("gui.portablestorage.settings.title"))
                 .category(ConfigCategory.createBuilder()
                         .name(Component.translatable("gui.portablestorage.settings.tab.client"))
+                        .option(Option.<StoragePosition>createBuilder()
+                                .name(Component.translatable("gui.portablestorage.settings.storage_position"))
+                                .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.storage_position.desc")))
+                                .binding(
+                                        StoragePosition.BOTTOM,
+                                        () -> ModConfig.storagePosition,
+                                        val -> {
+                                            ModConfig.storagePosition = val;
+                                            if (val.isHorizontal()) ModConfig.hideRecipeBook = true;
+                                        }
+                                )
+                                .controller(opt -> CyclingListControllerBuilder.<StoragePosition>create(opt)
+                                        .values(Arrays.asList(StoragePosition.values()))
+                                        .formatValue(v -> Component.translatable("gui.portablestorage.settings.storage_position." + v.name().toLowerCase())))
+                                .build())
                         .option(Option.<Boolean>createBuilder()
                                 .name(Component.translatable("gui.portablestorage.settings.offset_inventory"))
                                 .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.offset_inventory.desc")))

@@ -32,8 +32,8 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
     private void addWarehouseSlots(Inventory inventory, boolean active, Player owner, CallbackInfo ci) {
         PlayerWarehouse warehouse = ModComponents.get(owner).getWarehouse(owner.getUUID());
 
-        int startX = WarehouseConstants.SLOT_LOGIC_X; // 8
-        int startY = WarehouseConstants.SLOT_LOGIC_Y_BASE; // 191
+        int startX = WarehouseConstants.getSlotLogicX();
+        int startY = WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows());
         
         // 始终添加最大数量的槽位，但根据 visibleRows 和折叠状态控制激活状态
         for (int row = 0; row < WarehouseConstants.MAX_ROWS; row++) {

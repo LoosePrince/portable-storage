@@ -8,6 +8,9 @@ hideRecipeBook = true
 # 是否显示仓库侧边栏快捷设置按钮
 showSmallIcons = true
 
+# 仓库显示位置 (TOP, BOTTOM, LEFT, RIGHT)
+storagePosition = "BOTTOM"
+
 [server]
 # 是否启用 3x3 背包合成功能
 enable3x3Crafting = true

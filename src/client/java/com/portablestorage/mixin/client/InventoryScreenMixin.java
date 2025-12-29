@@ -4,6 +4,7 @@ import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
 import com.portablestorage.config.YACLConfig;
+import com.portablestorage.util.StoragePosition;
 import com.portablestorage.util.WarehouseSetting;
 import com.portablestorage.network.*;
 import com.portablestorage.util.WarehouseConstants;
@@ -70,9 +71,42 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         int rows = warehouse.isFolded() ? 0 : warehouse.getVisibleRows();
         
-        int yOffset = ModConfig.offsetInventory ? (warehouse.isFolded() ? WarehouseConstants.OFFSET_FOLDED : WarehouseConstants.OFFSET_BASE + rows * WarehouseConstants.OFFSET_PER_ROW) : 0; 
+        // 动态更新槽位位置以匹配当前配置
+        for (Slot slot : this.menu.slots) {
+            if (slot.container instanceof PlayerWarehouse) {
+                int index = slot.getContainerSlot();
+                int row = index / WarehouseConstants.SLOTS_PER_ROW;
+                int col = index % WarehouseConstants.SLOTS_PER_ROW;
+                ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setX(WarehouseConstants.getSlotLogicX() + col * WarehouseConstants.SLOT_SIZE);
+                ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setY(WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows()) + row * WarehouseConstants.SLOT_SIZE);
+            }
+        }
+
+        int xOffset = 0;
+        int yOffset = 0;
+
+        if (ModConfig.offsetInventory) {
+            StoragePosition pos = ModConfig.storagePosition;
+            if (pos.isVertical()) {
+                yOffset = warehouse.isFolded() ? WarehouseConstants.OFFSET_FOLDED : WarehouseConstants.OFFSET_BASE + rows * WarehouseConstants.OFFSET_PER_ROW;
+            } else {
+                xOffset = warehouse.isFolded() ? 0 : WarehouseConstants.WAREHOUSE_WIDTH / 2;
+            }
+        }
+
         if (yOffset > 0) {
+            if (ModConfig.storagePosition == StoragePosition.TOP) {
+                this.topPos += yOffset;
+            } else {
             this.topPos -= yOffset; 
+            }
+        }
+        if (xOffset > 0) {
+            if (ModConfig.storagePosition == StoragePosition.LEFT) {
+                this.leftPos += xOffset;
+            } else {
+                this.leftPos -= xOffset;
+            }
         }
         
         this.imageHeight = WarehouseConstants.VANILLA_INVENTORY_HEIGHT; 
@@ -80,18 +114,29 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         for (GuiEventListener child : this.children()) {
             if (child instanceof AbstractWidget widget) {
                 if (yOffset > 0) {
+                    if (ModConfig.storagePosition == StoragePosition.TOP) {
+                        widget.setY(widget.getY() + yOffset);
+                    } else {
                     widget.setY(widget.getY() - yOffset);
                 }
+                }
+                if (xOffset > 0) {
+                    if (ModConfig.storagePosition == StoragePosition.LEFT) {
+                        widget.setX(widget.getX() + xOffset);
+                    } else {
+                        widget.setX(widget.getX() - xOffset);
+                    }
+                }
 
-                if (ModConfig.hideRecipeBook && widget.getY() == (this.height / 2 - 22 - yOffset)) {
+                if (ModConfig.hideRecipeBook && widget.getY() == (this.height / 2 - 22 - (ModConfig.storagePosition == StoragePosition.TOP ? -yOffset : yOffset))) {
                     widget.visible = false;
                     widget.active = false;
                 }
             }
         }
 
-        int sbX = this.leftPos + WarehouseConstants.WAREHOUSE_X_OFFSET + WarehouseConstants.SEARCH_BOX_X_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET;
-        int sbY = this.topPos + WarehouseConstants.WAREHOUSE_Y_OFFSET + WarehouseConstants.SEARCH_BOX_Y_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET;
+        int sbX = this.leftPos + WarehouseConstants.getWarehouseXOffset() + WarehouseConstants.SEARCH_BOX_X_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET;
+        int sbY = this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.SEARCH_BOX_Y_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET;
         int sbW = WarehouseConstants.SEARCH_BOX_WIDTH - WarehouseConstants.SEARCH_BOX_INNER_OFFSET * 2;
         int sbH = WarehouseConstants.SEARCH_BOX_HEIGHT - WarehouseConstants.SEARCH_BOX_INNER_OFFSET * 2;
         
@@ -127,8 +172,8 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         if (warehouse.isFolded()) return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
 
-        int warehouseX = this.leftPos + WarehouseConstants.WAREHOUSE_X_OFFSET;
-        int warehouseY = this.topPos + WarehouseConstants.WAREHOUSE_Y_OFFSET;
+        int warehouseX = this.leftPos + WarehouseConstants.getWarehouseXOffset();
+        int warehouseY = this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows());
         int warehouseHeight = WarehouseConstants.WAREHOUSE_TITLE_HEIGHT + warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE;
         if (mouseX >= warehouseX && mouseX < warehouseX + WarehouseConstants.WAREHOUSE_WIDTH && mouseY >= warehouseY && mouseY < warehouseY + warehouseHeight) {
             int delta = (int) Math.signum(scrollY);
@@ -153,15 +198,15 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         if (player == null) return;
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         
-        int x = this.leftPos + WarehouseConstants.WAREHOUSE_X_OFFSET; 
-        int y = this.topPos + WarehouseConstants.WAREHOUSE_Y_OFFSET;
+        int x = this.leftPos + WarehouseConstants.getWarehouseXOffset(); 
+        int y = this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows());
         
         // 使用封装好的渲染逻辑
         WarehouseRenderer.renderBackground(graphics, x, y, mouseX, mouseY, warehouse, this.font);
             
         int foldX = this.leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
         int foldY = this.topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
-        WarehouseRenderer.renderSidebarButtons(graphics, foldX, foldY, x + WarehouseConstants.SIDEBAR_X_OFFSET, y, mouseX, mouseY, warehouse);
+        WarehouseRenderer.renderSidebarButtons(graphics, foldX, foldY, x + WarehouseConstants.getSidebarXOffset(), y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows()), mouseX, mouseY, warehouse);
     }
 
     @Override
@@ -185,7 +230,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                     ItemStack stack = clickedSlot.getItem();
                     net.minecraft.world.item.component.CustomData customData = stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
                     boolean isCollapsed = customData != null && customData.copyTag().getBoolean(WarehouseConstants.SMART_COLLAPSE_TAG);
-
+            
                     if (warehouse.isSmartCollapse() && warehouse.getSearchText().isEmpty() && isCollapsed) {
                         String itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
                         String newSearch = "!" + itemId + "!";
@@ -227,8 +272,8 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
             var player = Minecraft.getInstance().player;
             if (player != null) {
                 PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
-                int x = this.leftPos + WarehouseConstants.WAREHOUSE_X_OFFSET;
-                int y = this.topPos + WarehouseConstants.WAREHOUSE_Y_OFFSET;
+                int x = this.leftPos + WarehouseConstants.getWarehouseXOffset();
+                int y = this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows());
                 
                 int foldButtonX = this.leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
                 int foldButtonY = this.topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
@@ -248,37 +293,38 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                     }
                 }
                 
-                int bx = x + WarehouseConstants.SIDEBAR_X_OFFSET;
+                int bx = x + WarehouseConstants.getSidebarXOffset();
+                int by = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows());
                 boolean showShortcuts = ModConfig.showSmallIcons;
                 int iconSpacing = WarehouseConstants.SIDEBAR_BUTTON_SIZE + WarehouseConstants.SIDEBAR_BUTTON_SPACING;
 
                 if (!warehouse.isFolded()) {
                     if (showShortcuts) {
-                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y && mouseY < y + 18) {
+                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= by && mouseY < by + 18) {
                              int newVal = (warehouse.getSortMode() + 1) % 4;
                              warehouse.setSortMode(newVal);
                              ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.SORT_MODE.ordinal()), Optional.of(newVal), Optional.empty()));
                         return true;
                     }
-                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing && mouseY < y + iconSpacing + 18) {
+                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= by + iconSpacing && mouseY < by + iconSpacing + 18) {
                              boolean newVal = !warehouse.isAscending();
                              warehouse.setAscending(newVal);
                              ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.SORT_ORDER.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty()));
                         return true;
                     }
-                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 2 && mouseY < y + iconSpacing * 2 + 18) {
+                    if (mouseX >= bx && mouseX < bx + 18 && mouseY >= by + iconSpacing * 2 && mouseY < by + iconSpacing * 2 + 18) {
                              boolean newVal = !warehouse.isQuickInteraction();
                              warehouse.setQuickInteraction(newVal);
                              ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.QUICK_INTERACTION.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty()));
                              return true;
                          }
-                        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 3 && mouseY < y + iconSpacing * 3 + 18) {
+                        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= by + iconSpacing * 3 && mouseY < by + iconSpacing * 3 + 18) {
                             boolean newVal = !warehouse.isSmartCollapse();
                             warehouse.setSmartCollapse(newVal);
                             ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.SMART_COLLAPSE.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty()));
                             return true;
                         }
-                        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 4 && mouseY < y + iconSpacing * 4 + 18) {
+                        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= by + iconSpacing * 4 && mouseY < by + iconSpacing * 4 + 18) {
                             boolean newVal = !warehouse.isCraftRefill();
                             warehouse.setCraftRefill(newVal);
                             ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.CRAFT_REFILL.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty()));
@@ -286,7 +332,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                         }
                     }
                     
-                    int craftingY = y + (showShortcuts ? (iconSpacing * 5) : 0);
+                    int craftingY = by + (showShortcuts ? (iconSpacing * 5) : 0);
                     if (mouseX >= bx && mouseX < bx + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
                         ClientPlayNetworking.send(new OpenCraftingPayload());
                         return true;
@@ -342,7 +388,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         if (player == null) return;
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         
-        int scrollbarY = this.topPos + WarehouseConstants.WAREHOUSE_Y_OFFSET + WarehouseConstants.SCROLLBAR_Y_OFFSET;
+        int scrollbarY = this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.SCROLLBAR_Y_OFFSET;
         int scrollbarHeight = warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE - WarehouseConstants.SCROLLBAR_PADDING;
         
         int totalRows = (int) Math.ceil(warehouse.getSortedEntries().size() / (double) WarehouseConstants.SLOTS_PER_ROW);
@@ -473,8 +519,8 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
 
         if (this.searchBox != null) {
-            this.searchBox.setX(this.leftPos + WarehouseConstants.WAREHOUSE_X_OFFSET + WarehouseConstants.SEARCH_BOX_X_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET);
-            this.searchBox.setY(this.topPos + WarehouseConstants.WAREHOUSE_Y_OFFSET + WarehouseConstants.SEARCH_BOX_Y_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET);
+            this.searchBox.setX(this.leftPos + WarehouseConstants.getWarehouseXOffset() + WarehouseConstants.SEARCH_BOX_X_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET);
+            this.searchBox.setY(this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.SEARCH_BOX_Y_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET);
             this.searchBox.visible = !warehouse.isFolded();
             this.searchBox.active = !warehouse.isFolded();
         }

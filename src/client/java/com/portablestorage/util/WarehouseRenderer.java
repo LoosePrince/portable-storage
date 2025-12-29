@@ -33,8 +33,8 @@ public class WarehouseRenderer {
 
             renderPlusMinusButtons(graphics, font, x + WarehouseConstants.PLUS_MINUS_X_OFFSET, y + WarehouseConstants.PLUS_MINUS_Y_OFFSET, mouseX, mouseY);
             
-            int slotStartX = x + (WarehouseConstants.SLOT_LOGIC_X - WarehouseConstants.WAREHOUSE_X_OFFSET) + WarehouseConstants.SLOT_VISUAL_OFFSET; 
-            int slotStartY = y + (WarehouseConstants.SLOT_LOGIC_Y_BASE - WarehouseConstants.WAREHOUSE_Y_OFFSET) + WarehouseConstants.SLOT_VISUAL_OFFSET;
+            int slotStartX = x + WarehouseConstants.SLOT_RELATIVE_X + WarehouseConstants.SLOT_VISUAL_OFFSET; 
+            int slotStartY = y + WarehouseConstants.SLOT_RELATIVE_Y + WarehouseConstants.SLOT_VISUAL_OFFSET;
             for (int row = 0; row < rows; row++) {
                 for (int col = 0; col < WarehouseConstants.SLOTS_PER_ROW; col++) {
                     graphics.blit(WAREHOUSE_SLOT_TEXTURE, slotStartX + col * WarehouseConstants.SLOT_SIZE, slotStartY + row * WarehouseConstants.SLOT_SIZE, 0, 0, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE);
@@ -47,6 +47,8 @@ public class WarehouseRenderer {
 
     public static void renderSidebarButtons(GuiGraphics graphics, int foldX, int foldY, int sidebarX, int sidebarY, int mouseX, int mouseY, PlayerWarehouse warehouse) {
         boolean showShortcuts = com.portablestorage.config.ModConfig.showSmallIcons;
+        boolean horizontal = com.portablestorage.config.ModConfig.storagePosition.isHorizontal();
+        
         if (warehouse.isFolded()) {
             renderIconButton(graphics, foldX, foldY, WarehouseConstants.ICON_FOLDED, mouseX, mouseY);
         } else {
@@ -60,34 +62,45 @@ public class WarehouseRenderer {
                 
                 // 排序顺序 (5/6)
                 int orderIconIndex = warehouse.isAscending() ? WarehouseConstants.ICON_ORDER_ASC : WarehouseConstants.ICON_ORDER_DESC;
-                renderIconButton(graphics, sidebarX, sidebarY + iconSpacing, orderIconIndex, mouseX, mouseY);
+                int ox = horizontal ? sidebarX + iconSpacing : sidebarX;
+                int oy = horizontal ? sidebarY : sidebarY + iconSpacing;
+                renderIconButton(graphics, ox, oy, orderIconIndex, mouseX, mouseY);
                 
                 // 快速交互 (9)
-                renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 2, WarehouseConstants.ICON_QUICK_INTERACTION, mouseX, mouseY);
+                int qx = horizontal ? sidebarX + iconSpacing * 2 : sidebarX;
+                int qy = horizontal ? sidebarY : sidebarY + iconSpacing * 2;
+                renderIconButton(graphics, qx, qy, WarehouseConstants.ICON_QUICK_INTERACTION, mouseX, mouseY);
                 
                 // 智能折叠 (10/11)
-                renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 3, warehouse.isSmartCollapse() ? WarehouseConstants.ICON_SMART_COLLAPSE_ON : WarehouseConstants.ICON_SMART_COLLAPSE_OFF, mouseX, mouseY);
+                int sx = horizontal ? sidebarX + iconSpacing * 3 : sidebarX;
+                int sy = horizontal ? sidebarY : sidebarY + iconSpacing * 3;
+                renderIconButton(graphics, sx, sy, warehouse.isSmartCollapse() ? WarehouseConstants.ICON_SMART_COLLAPSE_ON : WarehouseConstants.ICON_SMART_COLLAPSE_OFF, mouseX, mouseY);
                 
                 // 合成补充 (7)
-                renderIconButton(graphics, sidebarX, sidebarY + iconSpacing * 4, WarehouseConstants.ICON_CRAFT_REFILL, mouseX, mouseY);
+                int rx = horizontal ? sidebarX + iconSpacing * 4 : sidebarX;
+                int ry = horizontal ? sidebarY : sidebarY + iconSpacing * 4;
+                renderIconButton(graphics, rx, ry, WarehouseConstants.ICON_CRAFT_REFILL, mouseX, mouseY);
             }
 
-            // 合成台图标 (14) - 如果快捷项隐藏，它会移到第一个位置
-            int craftingY = showShortcuts ? (sidebarY + iconSpacing * 5) : sidebarY;
-            renderIconButton(graphics, sidebarX, craftingY, WarehouseConstants.ICON_CRAFTING_TABLE, mouseX, mouseY);
+            // 合成台图标 (14)
+            int cx = horizontal ? (sidebarX + (showShortcuts ? iconSpacing * 5 : 0)) : sidebarX;
+            int cy = horizontal ? sidebarY : (sidebarY + (showShortcuts ? iconSpacing * 5 : 0));
+            renderIconButton(graphics, cx, cy, WarehouseConstants.ICON_CRAFTING_TABLE, mouseX, mouseY);
         }
     }
 
     public static void renderSidebarTooltips(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX, int mouseY, PlayerWarehouse warehouse) {
         boolean showShortcuts = com.portablestorage.config.ModConfig.showSmallIcons;
-        int x = leftPos + WarehouseConstants.WAREHOUSE_X_OFFSET;
-        int y = topPos + WarehouseConstants.WAREHOUSE_Y_OFFSET;
-        int bx = x + WarehouseConstants.SIDEBAR_X_OFFSET;
+        boolean horizontal = com.portablestorage.config.ModConfig.storagePosition.isHorizontal();
+        int x = leftPos + WarehouseConstants.getWarehouseXOffset();
+        int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows());
+        int bx = x + WarehouseConstants.getSidebarXOffset();
+        int by = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows());
         int iconSpacing = WarehouseConstants.SIDEBAR_BUTTON_SIZE + WarehouseConstants.SIDEBAR_BUTTON_SPACING;
 
         if (showShortcuts) {
             // 排序模式
-            if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y && mouseY < y + 18) {
+            if (mouseX >= bx && mouseX < bx + 18 && mouseY >= by && mouseY < by + 18) {
                 List<Component> tooltip = new ArrayList<>();
                 tooltip.add(Component.translatable("gui.portablestorage.button.sort_mode"));
                 String modeKey = switch (warehouse.getSortMode()) {
@@ -103,7 +116,9 @@ public class WarehouseRenderer {
             }
 
             // 排序顺序
-            if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing && mouseY < y + iconSpacing + 18) {
+            int ox = horizontal ? bx + iconSpacing : bx;
+            int oy = horizontal ? by : by + iconSpacing;
+            if (mouseX >= ox && mouseX < ox + 18 && mouseY >= oy && mouseY < oy + 18) {
                 List<Component> tooltip = new ArrayList<>();
                 tooltip.add(Component.translatable("gui.portablestorage.button.sort_order"));
                 String orderKey = warehouse.isAscending() ? "gui.portablestorage.order.ascending" : "gui.portablestorage.order.descending";
@@ -113,7 +128,9 @@ public class WarehouseRenderer {
             }
 
             // 快速交互
-            if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 2 && mouseY < y + iconSpacing * 2 + 18) {
+            int qx = horizontal ? bx + iconSpacing * 2 : bx;
+            int qy = horizontal ? by : by + iconSpacing * 2;
+            if (mouseX >= qx && mouseX < qx + 18 && mouseY >= qy && mouseY < qy + 18) {
                 List<Component> tooltip = new ArrayList<>();
                 tooltip.add(Component.translatable("gui.portablestorage.button.quick_interaction"));
                 String statusKey = warehouse.isQuickInteraction() ? "gui.portablestorage.on" : "gui.portablestorage.off";
@@ -123,7 +140,9 @@ public class WarehouseRenderer {
             }
 
             // 智能折叠
-            if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 3 && mouseY < y + iconSpacing * 3 + 18) {
+            int sx = horizontal ? bx + iconSpacing * 3 : bx;
+            int sy = horizontal ? by : by + iconSpacing * 3;
+            if (mouseX >= sx && mouseX < sx + 18 && mouseY >= sy && mouseY < sy + 18) {
                 List<Component> tooltip = new ArrayList<>();
                 tooltip.add(Component.translatable("gui.portablestorage.button.smart_collapse"));
                 String statusKey = warehouse.isSmartCollapse() ? "gui.portablestorage.on" : "gui.portablestorage.off";
@@ -133,7 +152,9 @@ public class WarehouseRenderer {
             }
 
             // 合成补充
-            if (mouseX >= bx && mouseX < bx + 18 && mouseY >= y + iconSpacing * 4 && mouseY < y + iconSpacing * 4 + 18) {
+            int rx = horizontal ? bx + iconSpacing * 4 : bx;
+            int ry = horizontal ? by : by + iconSpacing * 4;
+            if (mouseX >= rx && mouseX < rx + 18 && mouseY >= ry && mouseY < ry + 18) {
                 List<Component> tooltip = new ArrayList<>();
                 tooltip.add(Component.translatable("gui.portablestorage.button.craft_refill"));
                 String statusKey = warehouse.isCraftRefill() ? "gui.portablestorage.on" : "gui.portablestorage.off";
@@ -144,8 +165,9 @@ public class WarehouseRenderer {
         }
 
         // 合成台图标
-        int craftingY = y + (showShortcuts ? (iconSpacing * 5) : 0);
-        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
+        int craftingX = horizontal ? (bx + (showShortcuts ? iconSpacing * 5 : 0)) : bx;
+        int craftingY = horizontal ? by : (by + (showShortcuts ? iconSpacing * 5 : 0));
+        if (mouseX >= craftingX && mouseX < craftingX + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
             boolean isCrafting = net.minecraft.client.Minecraft.getInstance().screen instanceof com.portablestorage.screen.CraftingWarehouseScreen;
             List<Component> tooltip = new ArrayList<>();
             tooltip.add(Component.translatable(isCrafting ? "gui.portablestorage.button.back" : "gui.portablestorage.button.open_crafting"));
@@ -200,8 +222,8 @@ public class WarehouseRenderer {
 
     public static void renderQuantityTexts(GuiGraphics graphics, Font font, int leftPos, int topPos, PlayerWarehouse warehouse) {
         if (warehouse.isFolded()) return;
-        int startX = leftPos + WarehouseConstants.SLOT_LOGIC_X;
-        int startY = topPos + WarehouseConstants.SLOT_LOGIC_Y_BASE;
+        int startX = leftPos + WarehouseConstants.getSlotLogicX();
+        int startY = topPos + WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows());
 
         for (int i = 0; i < warehouse.getVisibleRows() * 9; i++) {
             long count = warehouse.getRealCount(i);

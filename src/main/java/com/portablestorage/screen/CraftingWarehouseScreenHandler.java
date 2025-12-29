@@ -56,8 +56,8 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
 
         // 5. 仓库槽位 (Index 46+)
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
-        int startX = WarehouseConstants.SLOT_LOGIC_X;
-        int startY = WarehouseConstants.SLOT_LOGIC_Y_BASE;
+        int startX = WarehouseConstants.getSlotLogicX();
+        int startY = WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows());
         
         for (int row = 0; row < WarehouseConstants.MAX_ROWS; row++) {
             final int currentRow = row;
