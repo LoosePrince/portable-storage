@@ -28,16 +28,32 @@ public class WarehouseConstants {
     public static final int VANILLA_INVENTORY_WIDTH = 176;
     public static final int VANILLA_INVENTORY_HEIGHT = 166;
     
-    public static final int UPGRADE_COLUMN_WIDTH = 22; // 升级槽位列的宽度
-    public static final int WAREHOUSE_WIDTH = 184 + UPGRADE_COLUMN_WIDTH; // 206
+    /**
+     * 动态获取升级列宽度：若未注册任何升级，则宽度为 0
+     */
+    public static int getUpgradeColumnWidth() {
+        return com.portablestorage.upgrade.UpgradeRegistry.getUpgradeCount() > 0 ? 22 : 0;
+    }
+
+    public static int getWarehouseWidth() {
+        return 184 + getUpgradeColumnWidth();
+    }
     
     public static final int WAREHOUSE_Y_SPACING = 2; // 背包与仓库之间的间距
     public static final int WAREHOUSE_X_SPACING = 2;
 
     public static int getWarehouseXOffset() {
+        int columnWidth = getUpgradeColumnWidth();
+        int warehouseWidth = getWarehouseWidth();
+        
         return switch (com.portablestorage.config.ModConfig.storagePosition) {
-            case TOP, BOTTOM -> (VANILLA_INVENTORY_WIDTH - WAREHOUSE_WIDTH) / 2;
-            case LEFT -> -WAREHOUSE_WIDTH - WAREHOUSE_X_SPACING;
+            case TOP, BOTTOM -> {
+                // 核心修复：确保主格网居中。
+                // 主背景(不含升级列)宽度为 184，将其居中所需的偏移是 (176 - 184) / 2 = -4。
+                // 因为升级列在左侧，所以整体需要再向左偏移 columnWidth。
+                yield -4 - columnWidth;
+            }
+            case LEFT -> -warehouseWidth - WAREHOUSE_X_SPACING;
             case RIGHT -> VANILLA_INVENTORY_WIDTH + WAREHOUSE_X_SPACING;
         };
     }
@@ -55,24 +71,24 @@ public class WarehouseConstants {
     }
 
     // 搜索框 (相对于 warehouseX, warehouseY)
-    public static final int SEARCH_BOX_X_OFFSET = 8 + UPGRADE_COLUMN_WIDTH;
+    public static int getSearchBoxXOffset() { return 8 + getUpgradeColumnWidth(); }
     public static final int SEARCH_BOX_Y_OFFSET = 6;
-    public static final int SEARCH_BOX_WIDTH = 143;
+    public static final int SEARCH_BOX_WIDTH = 142;
     public static final int SEARCH_BOX_HEIGHT = 12;
-    public static final int SEARCH_BOX_INNER_OFFSET = 2; // 内部文本偏移 1px 以避开描边
+    public static final int SEARCH_BOX_INNER_OFFSET = 2;
 
     // 升级槽位坐标 (相对于 warehouseX, warehouseY)
     public static final int UPGRADE_SLOT_RELATIVE_X = 8;
     public static final int UPGRADE_SLOT_RELATIVE_Y = 21;
-    public static final int UPGRADE_SCROLLBAR_X_OFFSET = 2; // 升级列的小滚动条位置
+    public static final int UPGRADE_SCROLLBAR_X_OFFSET = 2;
 
     // 仓库槽位逻辑坐标 (相对于 warehouseX, warehouseY)
-    public static final int SLOT_RELATIVE_X = 8 + UPGRADE_COLUMN_WIDTH;
+    public static int getSlotRelativeX() { return 8 + getUpgradeColumnWidth(); }
     public static final int SLOT_RELATIVE_Y = 21;
 
     // 槽位逻辑坐标 (相对于 leftPos / topPos)
     public static int getSlotLogicX() {
-        return getWarehouseXOffset() + SLOT_RELATIVE_X;
+        return getWarehouseXOffset() + getSlotRelativeX();
     }
 
     public static int getSlotLogicY(int visibleRows) {
@@ -80,27 +96,25 @@ public class WarehouseConstants {
     }
 
     public static final int SLOT_SIZE = 18;
-
-    // 视觉修正：贴图需要比逻辑位置偏移 -1px 才能让物品居中
     public static final int SLOT_VISUAL_OFFSET = -1;
 
     // 滚动条 (相对于 warehouseX, warehouseY)
-    public static final int SCROLLBAR_X_OFFSET = 173 + UPGRADE_COLUMN_WIDTH;
+    public static int getScrollbarXOffset() { return 173 + getUpgradeColumnWidth(); }
     public static final int SCROLLBAR_Y_OFFSET = 23;
     public static final int SCROLLBAR_WIDTH = 4;
-    public static final int SCROLLBAR_PADDING = 4; // 滚动条上下边距
+    public static final int SCROLLBAR_PADDING = 4;
 
     // 侧边按钮 (相对于 warehouseX, warehouseY)
     public static int getSidebarXOffset() {
         if (com.portablestorage.config.ModConfig.storagePosition.isHorizontal()) {
-            return 8 + UPGRADE_COLUMN_WIDTH; // 水平时显示在下方左侧
+            return 8 + getUpgradeColumnWidth();
         }
-        return 184 + UPGRADE_COLUMN_WIDTH;
+        return 184 + getUpgradeColumnWidth();
     }
 
     public static int getSidebarYOffset(int visibleRows) {
         if (com.portablestorage.config.ModConfig.storagePosition.isHorizontal()) {
-            return WAREHOUSE_TITLE_HEIGHT + visibleRows * SLOT_SIZE + 2; // 水平时显示在下方
+            return WAREHOUSE_TITLE_HEIGHT + visibleRows * SLOT_SIZE + 2;
         }
         return 0;
     }
@@ -109,19 +123,19 @@ public class WarehouseConstants {
     public static final int SIDEBAR_BUTTON_SPACING = 1;
 
     // +/- 按钮 (相对于 warehouseX, warehouseY)
-    public static final int PLUS_MINUS_X_OFFSET = SEARCH_BOX_WIDTH + 10 + UPGRADE_COLUMN_WIDTH;
+    public static int getPlusMinusXOffset() { return SEARCH_BOX_WIDTH + 10 + getUpgradeColumnWidth(); }
     public static final int PLUS_MINUS_Y_OFFSET = 6;
     public static final int TINY_BUTTON_SIZE = 11;
     public static final int TINY_BUTTON_SPACING = 2;
 
-    // 折叠/展开按钮 (相对于 leftPos, topPos - 副手槽位上方)
+    // 折叠/展开按钮 (相对于 leftPos, topPos)
     public static final int FOLD_BUTTON_X_OFFSET = 76;
     public static final int FOLD_BUTTON_Y_OFFSET = 43;
 
     // 仓库渲染参数
     public static final int WAREHOUSE_CORNER_SIZE = 10;
-    public static final int WAREHOUSE_TITLE_HEIGHT = 27; // 包含搜索框区域的高度
-    public static final int WAREHOUSE_FOLDED_HEIGHT = 22; // 折叠时的背景高度
+    public static final int WAREHOUSE_TITLE_HEIGHT = 27;
+    public static final int WAREHOUSE_FOLDED_HEIGHT = 22;
     
     // 界面偏移计算参数
     public static final int OFFSET_FOLDED = 0; 
@@ -131,8 +145,8 @@ public class WarehouseConstants {
     // 物品数量显示
     public static final float QUANTITY_TEXT_SCALE = 0.8f;
     public static final float QUANTITY_TEXT_Z_OFFSET = 300.0f;
-    public static final int QUANTITY_TEXT_X_RELATIVE = 16; // 相对于槽位左上角的 X 偏移
-    public static final int QUANTITY_TEXT_Y_RELATIVE = 11; // 相对于槽位左上角的 Y 偏移
+    public static final int QUANTITY_TEXT_X_RELATIVE = 16;
+    public static final int QUANTITY_TEXT_Y_RELATIVE = 11;
     public static final int QUANTITY_TEXT_COLOR = 0xFFFFFF;
 
     // 颜色
@@ -164,7 +178,5 @@ public class WarehouseConstants {
     public static final int ICON_CRAFT_REFILL = 7;
     public static final int ICON_CRAFTING_TABLE = 14;
     
-    // 智能折叠虚拟条目标识 (使用自定义 NBT)
     public static final String SMART_COLLAPSE_TAG = "portablestorage_collapsed";
 }
-

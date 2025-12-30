@@ -76,7 +76,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
             if (pos.isVertical()) {
                 yOffset = warehouse.isFolded() ? WarehouseConstants.OFFSET_FOLDED : WarehouseConstants.OFFSET_BASE + rows * WarehouseConstants.OFFSET_PER_ROW;
             } else {
-                xOffset = warehouse.isFolded() ? 0 : WarehouseConstants.WAREHOUSE_WIDTH / 2;
+                xOffset = warehouse.isFolded() ? 0 : WarehouseConstants.getWarehouseWidth() / 2;
             }
         }
         
@@ -97,7 +97,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         }
 
         // 搜索框
-        int sbX = this.leftPos + WarehouseConstants.getWarehouseXOffset() + WarehouseConstants.SEARCH_BOX_X_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET;
+        int sbX = this.leftPos + WarehouseConstants.getWarehouseXOffset() + WarehouseConstants.getSearchBoxXOffset() + WarehouseConstants.SEARCH_BOX_INNER_OFFSET;
         int sbY = this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.SEARCH_BOX_Y_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET;
         int sbW = WarehouseConstants.SEARCH_BOX_WIDTH - WarehouseConstants.SEARCH_BOX_INNER_OFFSET * 2;
         int sbH = WarehouseConstants.SEARCH_BOX_HEIGHT - WarehouseConstants.SEARCH_BOX_INNER_OFFSET * 2;
@@ -374,7 +374,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
                 return true;
             }
 
-            int pmX = x + WarehouseConstants.PLUS_MINUS_X_OFFSET;
+            int pmX = x + WarehouseConstants.getPlusMinusXOffset();
             int pmY = y + WarehouseConstants.PLUS_MINUS_Y_OFFSET;
             if (mouseX >= pmX && mouseX < pmX + WarehouseConstants.TINY_BUTTON_SIZE && mouseY >= pmY && mouseY < pmY + WarehouseConstants.TINY_BUTTON_SIZE) {
                 warehouse.setVisibleRows(warehouse.getVisibleRows() - 1);
@@ -389,7 +389,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
                 return true;
             }
 
-            int sx = x + WarehouseConstants.SCROLLBAR_X_OFFSET;
+            int sx = x + WarehouseConstants.getScrollbarXOffset();
             int sy = y + WarehouseConstants.SCROLLBAR_Y_OFFSET;
             int sh = warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE - WarehouseConstants.SCROLLBAR_PADDING;
             if (mouseX >= sx && mouseX <= sx + WarehouseConstants.SCROLLBAR_WIDTH && mouseY >= sy && mouseY <= sy + sh) {
@@ -464,7 +464,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         int warehouseHeight = WarehouseConstants.WAREHOUSE_TITLE_HEIGHT + warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE;
         
         // 1. 升级列滚动
-        int upgradeColumnWidth = WarehouseConstants.UPGRADE_COLUMN_WIDTH;
+        int upgradeColumnWidth = WarehouseConstants.getUpgradeColumnWidth();
         if (mouseX >= warehouseX && mouseX < warehouseX + upgradeColumnWidth && mouseY >= warehouseY && mouseY < warehouseY + warehouseHeight) {
             int delta = (int) Math.signum(scrollY);
             warehouse.setUpgradeScrollOffset(warehouse.getUpgradeScrollOffset() - delta);
@@ -473,7 +473,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         }
 
         // 2. 主格网滚动
-        if (mouseX >= warehouseX + upgradeColumnWidth && mouseX < warehouseX + WarehouseConstants.WAREHOUSE_WIDTH && mouseY >= warehouseY && mouseY < warehouseY + warehouseHeight) {
+        if (mouseX >= warehouseX + upgradeColumnWidth && mouseX < warehouseX + WarehouseConstants.getWarehouseWidth() && mouseY >= warehouseY && mouseY < warehouseY + warehouseHeight) {
             int delta = (int) Math.signum(scrollY);
             warehouse.setScrollOffset(warehouse.getScrollOffset() - delta);
             ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.of(delta), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));

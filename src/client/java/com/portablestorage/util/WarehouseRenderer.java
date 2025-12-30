@@ -22,39 +22,40 @@ public class WarehouseRenderer {
         int warehouseHeight = WarehouseConstants.WAREHOUSE_TITLE_HEIGHT + rows * WarehouseConstants.SLOT_SIZE;
 
         if (!warehouse.isFolded()) {
-            // 绘制统一的仓库背景 (宽度为 214)
-            drawNinePatch(graphics, WAREHOUSE_GUI_TEXTURE, x, y, WarehouseConstants.WAREHOUSE_WIDTH, warehouseHeight, WarehouseConstants.WAREHOUSE_CORNER_SIZE);
+            // 绘制统一的仓库背景
+            drawNinePatch(graphics, WAREHOUSE_GUI_TEXTURE, x, y, WarehouseConstants.getWarehouseWidth(), warehouseHeight, WarehouseConstants.WAREHOUSE_CORNER_SIZE);
             
             // 绘制升级槽位和图标
-            int upgradeSlotX = x + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X + WarehouseConstants.SLOT_VISUAL_OFFSET;
-            int upgradeSlotY = y + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y + WarehouseConstants.SLOT_VISUAL_OFFSET;
-            List<com.portablestorage.upgrade.UpgradeType> allUpgrades = com.portablestorage.upgrade.UpgradeRegistry.getAllUpgrades();
-            int upgradeOffset = warehouse.getUpgradeScrollOffset();
+            int upgradeColumnWidth = WarehouseConstants.getUpgradeColumnWidth();
+            if (upgradeColumnWidth > 0) {
+                int upgradeSlotX = x + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X + WarehouseConstants.SLOT_VISUAL_OFFSET;
+                int upgradeSlotY = y + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y + WarehouseConstants.SLOT_VISUAL_OFFSET;
+                List<com.portablestorage.upgrade.UpgradeType> allUpgrades = com.portablestorage.upgrade.UpgradeRegistry.getAllUpgrades();
+                int upgradeOffset = warehouse.getUpgradeScrollOffset();
 
-            for (int i = 0; i < rows; i++) {
-                int slotY = upgradeSlotY + i * WarehouseConstants.SLOT_SIZE;
-                // 绘制槽位背景
-                graphics.blit(WAREHOUSE_SLOT_TEXTURE, upgradeSlotX, slotY, 0, 0, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE);
-                
-                // 如果当前索引有对应的升级类型，且槽位为空，绘制图标
-                int upgradeIndex = i + upgradeOffset;
-                if (upgradeIndex < allUpgrades.size()) {
-                    com.portablestorage.upgrade.UpgradeType type = allUpgrades.get(upgradeIndex);
-                    if (warehouse.getUpgrade(type.getId()).isEmpty()) {
-                        graphics.pose().pushPose();
-                        graphics.pose().translate(0, 0, 100);
-                        // 设置半透明色（Alpha 0.5）
-                        graphics.setColor(1.0f, 1.0f, 1.0f, 0.5f);
-                        graphics.blit(type.getIcon(), upgradeSlotX + 1, slotY + 1, 0, 0, 16, 16, 16, 16);
-                        // 还原颜色，防止影响后续渲染
-                        graphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
-                        graphics.pose().popPose();
+                for (int i = 0; i < rows; i++) {
+                    int upgradeIndex = i + upgradeOffset;
+                    // 核心修复：仅当该索引确实存在已注册的升级时，才渲染槽位背景和图标
+                    if (upgradeIndex < allUpgrades.size()) {
+                        int slotY = upgradeSlotY + i * WarehouseConstants.SLOT_SIZE;
+                        // 绘制槽位背景
+                        graphics.blit(WAREHOUSE_SLOT_TEXTURE, upgradeSlotX, slotY, 0, 0, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE);
+                        
+                        com.portablestorage.upgrade.UpgradeType type = allUpgrades.get(upgradeIndex);
+                        if (warehouse.getUpgrade(type.getId()).isEmpty()) {
+                            graphics.pose().pushPose();
+                            graphics.pose().translate(0, 0, 100);
+                            graphics.setColor(1.0f, 1.0f, 1.0f, 0.5f);
+                            graphics.blit(type.getIcon(), upgradeSlotX + 1, slotY + 1, 0, 0, 16, 16, 16, 16);
+                            graphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+                            graphics.pose().popPose();
+                        }
                     }
                 }
             }
 
             // 绘制搜索框背景
-            int sbX = x + WarehouseConstants.SEARCH_BOX_X_OFFSET;
+            int sbX = x + WarehouseConstants.getSearchBoxXOffset();
             int sbY = y + WarehouseConstants.SEARCH_BOX_Y_OFFSET;
             graphics.fill(sbX, sbY, sbX + WarehouseConstants.SEARCH_BOX_WIDTH, sbY + WarehouseConstants.SEARCH_BOX_HEIGHT, WarehouseConstants.SEARCH_BOX_BG_COLOR);
             graphics.fill(sbX, sbY, sbX + WarehouseConstants.SEARCH_BOX_WIDTH, sbY + 1, WarehouseConstants.SEARCH_BOX_BORDER_DARK);
@@ -62,9 +63,9 @@ public class WarehouseRenderer {
             graphics.fill(sbX, sbY + WarehouseConstants.SEARCH_BOX_HEIGHT - 1, sbX + WarehouseConstants.SEARCH_BOX_WIDTH, sbY + WarehouseConstants.SEARCH_BOX_HEIGHT, WarehouseConstants.SEARCH_BOX_BORDER_LIGHT);
             graphics.fill(sbX + WarehouseConstants.SEARCH_BOX_WIDTH - 1, sbY, sbX + WarehouseConstants.SEARCH_BOX_WIDTH, sbY + WarehouseConstants.SEARCH_BOX_HEIGHT, WarehouseConstants.SEARCH_BOX_BORDER_LIGHT);
 
-            renderPlusMinusButtons(graphics, font, x + WarehouseConstants.PLUS_MINUS_X_OFFSET, y + WarehouseConstants.PLUS_MINUS_Y_OFFSET, mouseX, mouseY);
+            renderPlusMinusButtons(graphics, font, x + WarehouseConstants.getPlusMinusXOffset(), y + WarehouseConstants.PLUS_MINUS_Y_OFFSET, mouseX, mouseY);
             
-            int slotStartX = x + WarehouseConstants.SLOT_RELATIVE_X + WarehouseConstants.SLOT_VISUAL_OFFSET; 
+            int slotStartX = x + WarehouseConstants.getSlotRelativeX() + WarehouseConstants.SLOT_VISUAL_OFFSET; 
             int slotStartY = y + WarehouseConstants.SLOT_RELATIVE_Y + WarehouseConstants.SLOT_VISUAL_OFFSET;
             for (int row = 0; row < rows; row++) {
                 for (int col = 0; col < WarehouseConstants.SLOTS_PER_ROW; col++) {
@@ -295,7 +296,7 @@ public class WarehouseRenderer {
 
     public static void renderScrollbar(GuiGraphics graphics, int x, int y, int mouseX, int mouseY, PlayerWarehouse warehouse) {
         int rows = warehouse.getVisibleRows();
-        int scrollbarX = x + WarehouseConstants.SCROLLBAR_X_OFFSET; 
+        int scrollbarX = x + WarehouseConstants.getScrollbarXOffset(); 
         int scrollbarY = y + WarehouseConstants.SCROLLBAR_Y_OFFSET;
         int scrollbarHeight = rows * WarehouseConstants.SLOT_SIZE - WarehouseConstants.SCROLLBAR_PADDING;
         
