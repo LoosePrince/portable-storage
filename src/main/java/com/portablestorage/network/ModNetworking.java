@@ -10,6 +10,7 @@ public class ModNetworking {
         PayloadTypeRegistry.playC2S().register(OpenCraftingPayload.TYPE, OpenCraftingPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(RefillPayload.TYPE, RefillPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(UpdateServerConfigPayload.TYPE, UpdateServerConfigPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(C2SUpgradeInteractionPayload.TYPE, C2SUpgradeInteractionPayload.CODEC);
     }
 
     public static void registerS2CPayloads() {
@@ -22,6 +23,7 @@ public class ModNetworking {
         ServerPlayNetworking.registerGlobalReceiver(OpenCraftingPayload.TYPE, ModServerNetworking::handleOpenCrafting);
         ServerPlayNetworking.registerGlobalReceiver(RefillPayload.TYPE, ModServerNetworking::handleRefill);
         ServerPlayNetworking.registerGlobalReceiver(UpdateServerConfigPayload.TYPE, ModServerNetworking::handleUpdateServerConfig);
+        ServerPlayNetworking.registerGlobalReceiver(C2SUpgradeInteractionPayload.TYPE, ModServerNetworking::handleUpgradeInteraction);
     }
 }
 

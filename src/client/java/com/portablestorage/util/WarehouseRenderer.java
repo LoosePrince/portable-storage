@@ -21,8 +21,38 @@ public class WarehouseRenderer {
         int warehouseHeight = WarehouseConstants.WAREHOUSE_TITLE_HEIGHT + rows * WarehouseConstants.SLOT_SIZE;
 
         if (!warehouse.isFolded()) {
+            // 绘制统一的仓库背景 (宽度为 214)
             drawNinePatch(graphics, WAREHOUSE_GUI_TEXTURE, x, y, WarehouseConstants.WAREHOUSE_WIDTH, warehouseHeight, WarehouseConstants.WAREHOUSE_CORNER_SIZE);
             
+            // 绘制升级槽位和图标
+            int upgradeSlotX = x + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X + WarehouseConstants.SLOT_VISUAL_OFFSET;
+            int upgradeSlotY = y + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y + WarehouseConstants.SLOT_VISUAL_OFFSET;
+            List<com.portablestorage.upgrade.UpgradeType> allUpgrades = com.portablestorage.upgrade.UpgradeRegistry.getAllUpgrades();
+            int upgradeOffset = warehouse.getUpgradeScrollOffset();
+
+            for (int i = 0; i < rows; i++) {
+                int slotY = upgradeSlotY + i * WarehouseConstants.SLOT_SIZE;
+                // 绘制槽位背景
+                graphics.blit(WAREHOUSE_SLOT_TEXTURE, upgradeSlotX, slotY, 0, 0, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE);
+                
+                // 如果当前索引有对应的升级类型，且槽位为空，绘制图标
+                int upgradeIndex = i + upgradeOffset;
+                if (upgradeIndex < allUpgrades.size()) {
+                    com.portablestorage.upgrade.UpgradeType type = allUpgrades.get(upgradeIndex);
+                    if (warehouse.getUpgrade(type.getId()).isEmpty()) {
+                        graphics.pose().pushPose();
+                        graphics.pose().translate(0, 0, 100);
+                        // 设置半透明色（Alpha 0.5）
+                        graphics.setColor(1.0f, 1.0f, 1.0f, 0.5f);
+                        graphics.blit(type.getIcon(), upgradeSlotX + 1, slotY + 1, 0, 0, 16, 16, 16, 16);
+                        // 还原颜色，防止影响后续渲染
+                        graphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+                        graphics.pose().popPose();
+                    }
+                }
+            }
+
+            // 绘制搜索框背景
             int sbX = x + WarehouseConstants.SEARCH_BOX_X_OFFSET;
             int sbY = y + WarehouseConstants.SEARCH_BOX_Y_OFFSET;
             graphics.fill(sbX, sbY, sbX + WarehouseConstants.SEARCH_BOX_WIDTH, sbY + WarehouseConstants.SEARCH_BOX_HEIGHT, WarehouseConstants.SEARCH_BOX_BG_COLOR);
@@ -42,6 +72,31 @@ public class WarehouseRenderer {
             }
 
             renderScrollbar(graphics, x, y, mouseX, mouseY, warehouse);
+            renderUpgradeScrollbar(graphics, x, y, mouseX, mouseY, warehouse);
+        }
+    }
+
+    public static void renderUpgradeScrollbar(GuiGraphics graphics, int x, int y, int mouseX, int mouseY, PlayerWarehouse warehouse) {
+        int rows = warehouse.getVisibleRows();
+        int scrollbarX = x + WarehouseConstants.UPGRADE_SCROLLBAR_X_OFFSET; 
+        int scrollbarY = y + WarehouseConstants.SCROLLBAR_Y_OFFSET;
+        int scrollbarHeight = rows * WarehouseConstants.SLOT_SIZE - WarehouseConstants.SCROLLBAR_PADDING;
+        
+        int totalUpgrades = com.portablestorage.upgrade.UpgradeRegistry.getUpgradeCount();
+        if (scrollbarHeight > 0 && totalUpgrades > rows) {
+            graphics.fill(scrollbarX, scrollbarY, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, scrollbarY + scrollbarHeight, WarehouseConstants.SCROLLBAR_BG_COLOR);
+            int thumbHeight = Math.max(10, (int) (scrollbarHeight * ((float) rows / totalUpgrades)));
+            int maxOffset = totalUpgrades - rows;
+            int thumbY = scrollbarY + (warehouse.getUpgradeScrollOffset() * (scrollbarHeight - thumbHeight) / maxOffset);
+            
+            boolean hovered = mouseX >= scrollbarX && mouseX <= scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH && mouseY >= thumbY && mouseY <= thumbY + thumbHeight;
+            int thumbColor = hovered ? WarehouseConstants.SCROLLBAR_THUMB_HOVER_COLOR : WarehouseConstants.SCROLLBAR_THUMB_COLOR;
+            
+            graphics.fill(scrollbarX, thumbY, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, thumbY + thumbHeight, thumbColor);
+            graphics.fill(scrollbarX - 1, thumbY - 1, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, thumbY, WarehouseConstants.SCROLLBAR_BORDER_LIGHT); 
+            graphics.fill(scrollbarX - 1, thumbY, scrollbarX, thumbY + thumbHeight, WarehouseConstants.SCROLLBAR_BORDER_LIGHT); 
+            graphics.fill(scrollbarX, thumbY + thumbHeight, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH + 1, thumbY + thumbHeight + 1, WarehouseConstants.SCROLLBAR_BORDER_DARK); 
+            graphics.fill(scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, thumbY - 1, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH + 1, thumbY + thumbHeight, WarehouseConstants.SCROLLBAR_BORDER_DARK); 
         }
     }
 

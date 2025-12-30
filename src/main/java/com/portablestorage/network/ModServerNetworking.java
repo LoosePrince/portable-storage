@@ -34,6 +34,7 @@ public class ModServerNetworking {
             payload.scrollDelta().ifPresent(delta -> warehouse.setScrollOffset(warehouse.getScrollOffset() - delta));
             payload.searchText().ifPresent(warehouse::setSearchText);
             payload.rowsDelta().ifPresent(delta -> warehouse.setVisibleRows(warehouse.getVisibleRows() + delta));
+            payload.upgradeScrollDelta().ifPresent(delta -> warehouse.setUpgradeScrollOffset(warehouse.getUpgradeScrollOffset() - delta));
             
             if (payload.settingId().isPresent() && payload.settingValue().isPresent()) {
                 int value = payload.settingValue().get();
@@ -48,10 +49,25 @@ public class ModServerNetworking {
                 }
             }
 
-            // UI 状态改变不需要强制同步整个 NBT（如果客户端已经发过来了）
-            // 但是为了确保服务端逻辑（如排序缓存）更新，我们依然调用 markDirty
-            // 稍后我们会在 PlayerWarehouse 中优化 markDirty 的 IO 行为
             syncChanges(player);
+        });
+    }
+
+    public static void handleUpgradeInteraction(C2SUpgradeInteractionPayload payload, ServerPlayNetworking.Context context) {
+        context.server().execute(() -> {
+            ServerPlayer player = context.player();
+            PlayerWarehouse warehouse = getWarehouse(player);
+            com.portablestorage.upgrade.UpgradeType type = com.portablestorage.upgrade.UpgradeRegistry.get(payload.upgradeId());
+            
+            // 校验：仓库启用、升级类型存在、且该升级确实已在仓库中安装物品
+            if (type != null && warehouse.isEnabled() && !warehouse.getUpgrade(payload.upgradeId()).isEmpty()) {
+                if (payload.button() == 1) { // Right click
+                    type.onRightClick(warehouse, player);
+                } else if (payload.button() == 2) { // Middle click
+                    type.onMiddleClick(warehouse, player);
+                }
+                syncChanges(player);
+            }
         });
     }
 

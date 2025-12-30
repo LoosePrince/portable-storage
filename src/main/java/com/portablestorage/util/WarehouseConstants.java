@@ -27,13 +27,16 @@ public class WarehouseConstants {
     // GUI 基础布局
     public static final int VANILLA_INVENTORY_WIDTH = 176;
     public static final int VANILLA_INVENTORY_HEIGHT = 166;
-    public static final int WAREHOUSE_WIDTH = 192;
+    
+    public static final int UPGRADE_COLUMN_WIDTH = 22; // 升级槽位列的宽度
+    public static final int WAREHOUSE_WIDTH = 184 + UPGRADE_COLUMN_WIDTH; // 206
+    
     public static final int WAREHOUSE_Y_SPACING = 2; // 背包与仓库之间的间距
     public static final int WAREHOUSE_X_SPACING = 2;
 
     public static int getWarehouseXOffset() {
         return switch (com.portablestorage.config.ModConfig.storagePosition) {
-            case TOP, BOTTOM -> -8;
+            case TOP, BOTTOM -> (VANILLA_INVENTORY_WIDTH - WAREHOUSE_WIDTH) / 2;
             case LEFT -> -WAREHOUSE_WIDTH - WAREHOUSE_X_SPACING;
             case RIGHT -> VANILLA_INVENTORY_WIDTH + WAREHOUSE_X_SPACING;
         };
@@ -52,14 +55,19 @@ public class WarehouseConstants {
     }
 
     // 搜索框 (相对于 warehouseX, warehouseY)
-    public static final int SEARCH_BOX_X_OFFSET = 16;
+    public static final int SEARCH_BOX_X_OFFSET = 8 + UPGRADE_COLUMN_WIDTH;
     public static final int SEARCH_BOX_Y_OFFSET = 6;
     public static final int SEARCH_BOX_WIDTH = 143;
     public static final int SEARCH_BOX_HEIGHT = 12;
     public static final int SEARCH_BOX_INNER_OFFSET = 2; // 内部文本偏移 1px 以避开描边
 
-    // 槽位逻辑坐标 (相对于 warehouseX, warehouseY)
-    public static final int SLOT_RELATIVE_X = 16;
+    // 升级槽位坐标 (相对于 warehouseX, warehouseY)
+    public static final int UPGRADE_SLOT_RELATIVE_X = 8;
+    public static final int UPGRADE_SLOT_RELATIVE_Y = 21;
+    public static final int UPGRADE_SCROLLBAR_X_OFFSET = 2; // 升级列的小滚动条位置
+
+    // 仓库槽位逻辑坐标 (相对于 warehouseX, warehouseY)
+    public static final int SLOT_RELATIVE_X = 8 + UPGRADE_COLUMN_WIDTH;
     public static final int SLOT_RELATIVE_Y = 21;
 
     // 槽位逻辑坐标 (相对于 leftPos / topPos)
@@ -77,7 +85,7 @@ public class WarehouseConstants {
     public static final int SLOT_VISUAL_OFFSET = -1;
 
     // 滚动条 (相对于 warehouseX, warehouseY)
-    public static final int SCROLLBAR_X_OFFSET = 181;
+    public static final int SCROLLBAR_X_OFFSET = 173 + UPGRADE_COLUMN_WIDTH;
     public static final int SCROLLBAR_Y_OFFSET = 23;
     public static final int SCROLLBAR_WIDTH = 4;
     public static final int SCROLLBAR_PADDING = 4; // 滚动条上下边距
@@ -85,9 +93,9 @@ public class WarehouseConstants {
     // 侧边按钮 (相对于 warehouseX, warehouseY)
     public static int getSidebarXOffset() {
         if (com.portablestorage.config.ModConfig.storagePosition.isHorizontal()) {
-            return 8; // 水平时显示在下方左侧
+            return 8 + UPGRADE_COLUMN_WIDTH; // 水平时显示在下方左侧
         }
-        return 192;
+        return 184 + UPGRADE_COLUMN_WIDTH;
     }
 
     public static int getSidebarYOffset(int visibleRows) {
@@ -101,7 +109,7 @@ public class WarehouseConstants {
     public static final int SIDEBAR_BUTTON_SPACING = 1;
 
     // +/- 按钮 (相对于 warehouseX, warehouseY)
-    public static final int PLUS_MINUS_X_OFFSET = 162;
+    public static final int PLUS_MINUS_X_OFFSET = SEARCH_BOX_WIDTH + 10 + UPGRADE_COLUMN_WIDTH;
     public static final int PLUS_MINUS_Y_OFFSET = 6;
     public static final int TINY_BUTTON_SIZE = 11;
     public static final int TINY_BUTTON_SPACING = 2;

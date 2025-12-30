@@ -41,6 +41,7 @@ public class YACLConfig {
                 Optional.empty(), 
                 Optional.of(setting.ordinal()), 
                 Optional.of(value), 
+                Optional.empty(),
                 Optional.empty()
             ));
         }

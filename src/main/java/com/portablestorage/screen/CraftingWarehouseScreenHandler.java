@@ -54,8 +54,15 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
             this.addSlot(new Slot(playerInventory, col, 8 + col * 18, 142));
         }
 
-        // 5. 仓库槽位 (Index 46+)
+        // 5. 升级槽位
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+        int upgradeX = WarehouseConstants.getWarehouseXOffset() + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X;
+        int upgradeYBase = WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y;
+        for (int i = 0; i < WarehouseConstants.MAX_ROWS; i++) {
+            this.addSlot(new com.portablestorage.upgrade.UpgradeSlot(warehouse, i, upgradeX, upgradeYBase + i * WarehouseConstants.SLOT_SIZE));
+        }
+
+        // 6. 仓库槽位 (Index 46+)
         int startX = WarehouseConstants.getSlotLogicX();
         int startY = WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows());
         
@@ -141,6 +148,9 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
             int totalInvStart = Math.min(invStart, hotbarStart);
             int totalInvEnd = Math.max(invEnd, hotbarEnd);
 
+            // 获取仓库实例用于后续判定
+            PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+
             if (slot instanceof ResultSlot) { // 合成结果
                 while (slot.hasItem()) {
                     ItemStack currentResult = slot.getItem();
@@ -168,7 +178,6 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
                 this.slotsChanged(this.craftSlots); // 手动触发合成结果更新
             } else if (slot.container instanceof Inventory) { // 玩家背包或快捷栏
                 // 尝试移动到仓库
-                PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
                 if (warehouse.isEnabled() && !warehouse.isFolded() && warehouse.isQuickInteraction()) {
                     ItemStack remaining = WarehouseManager.addFluid(warehouse, itemStack2, player);
                     slot.set(remaining);
@@ -184,8 +193,11 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
                         }
                     }
                 }
+            } else if (slot.container == warehouse.upgradeContainer) { // 从升级槽位取出
+                if (!this.moveItemStackTo(itemStack2, totalInvStart, totalInvEnd, true)) {
+                    return ItemStack.EMPTY;
+                }
             } else if (slot.container instanceof PlayerWarehouse) { // 仓库槽位
-                PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
                 if (warehouse.isQuickInteraction()) {
                     return ItemStack.EMPTY; // Shift+点击由 QuickTransferPayload 处理
                 }

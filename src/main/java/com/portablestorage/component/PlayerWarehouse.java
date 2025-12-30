@@ -1,6 +1,9 @@
 package com.portablestorage.component;
 
 import com.portablestorage.logic.WarehouseManager;
+import com.portablestorage.upgrade.UpgradeRegistry;
+import com.portablestorage.upgrade.UpgradeType;
+import com.portablestorage.util.WarehouseConstants;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
@@ -12,6 +15,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -29,6 +33,78 @@ import java.util.function.Consumer;
 public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>> implements Container, Storage<FluidVariant> {
     private final List<WarehouseEntry> storage = new ArrayList<>();
     private final Map<FluidVariant, Long> fluidStorage = new LinkedHashMap<>();
+
+    // 升级系统数据
+    private final Map<ResourceLocation, ItemStack> upgradeStorage = new LinkedHashMap<>();
+    private int upgradeScrollOffset = 0;
+
+    /**
+     * 专用升级容器，支持滚动窗口映射
+     */
+    public final net.minecraft.world.Container upgradeContainer = new net.minecraft.world.Container() {
+        @Override
+        public int getContainerSize() {
+            return WarehouseConstants.MAX_ROWS;
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return upgradeStorage.isEmpty();
+        }
+
+        @Override
+        public ItemStack getItem(int slot) {
+            List<UpgradeType> all = UpgradeRegistry.getAllUpgrades();
+            int actualIndex = slot + upgradeScrollOffset;
+            if (actualIndex >= 0 && actualIndex < all.size()) {
+                return upgradeStorage.getOrDefault(all.get(actualIndex).getId(), ItemStack.EMPTY);
+            }
+            return ItemStack.EMPTY;
+        }
+
+        @Override
+        public ItemStack removeItem(int slot, int amount) {
+            ItemStack stack = getItem(slot);
+            if (!stack.isEmpty()) {
+                List<UpgradeType> all = UpgradeRegistry.getAllUpgrades();
+                int actualIndex = slot + upgradeScrollOffset;
+                setUpgrade(all.get(actualIndex).getId(), ItemStack.EMPTY);
+                return stack;
+            }
+            return ItemStack.EMPTY;
+        }
+
+        @Override
+        public ItemStack removeItemNoUpdate(int slot) {
+            return removeItem(slot, 1);
+        }
+
+        @Override
+        public void setItem(int slot, ItemStack stack) {
+            List<UpgradeType> all = UpgradeRegistry.getAllUpgrades();
+            int actualIndex = slot + upgradeScrollOffset;
+            if (actualIndex >= 0 && actualIndex < all.size()) {
+                setUpgrade(all.get(actualIndex).getId(), stack);
+            }
+        }
+
+        @Override
+        public void setChanged() {
+            markDirty();
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return enabled;
+        }
+
+        @Override
+        public void clearContent() {
+            upgradeStorage.clear();
+            markDirty();
+        }
+    };
+
     private int scrollOffset = 0;
     private int visibleRows = 6;
     private String searchText = "";
@@ -50,6 +126,46 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     public PlayerWarehouse(UUID id, Consumer<PlayerWarehouse> onChanged) {
         this.onChanged = onChanged;
+    }
+
+    // --- 升级系统接口 ---
+
+    public ItemStack getUpgrade(ResourceLocation id) {
+        return upgradeStorage.getOrDefault(id, ItemStack.EMPTY);
+    }
+
+    public void setUpgrade(ResourceLocation id, ItemStack stack) {
+        ItemStack old = upgradeStorage.getOrDefault(id, ItemStack.EMPTY);
+        UpgradeType type = UpgradeRegistry.get(id);
+
+        // 如果是替换操作，先卸载旧的
+        if (type != null && !old.isEmpty()) {
+            type.onUninstall(this, old);
+        }
+
+        if (stack.isEmpty()) {
+            upgradeStorage.remove(id);
+        } else {
+            upgradeStorage.put(id, stack.copyWithCount(1));
+            // 安装新的
+            if (type != null) {
+                type.onInstall(this, stack);
+            }
+        }
+        this.markDirty();
+    }
+
+    public Map<ResourceLocation, ItemStack> getUpgradeStorage() {
+        return upgradeStorage;
+    }
+
+    public int getUpgradeScrollOffset() {
+        return upgradeScrollOffset;
+    }
+
+    public void setUpgradeScrollOffset(int offset) {
+        int maxOffset = Math.max(0, UpgradeRegistry.getUpgradeCount() - visibleRows);
+        this.upgradeScrollOffset = Math.clamp(offset, 0, maxOffset);
     }
 
     // --- 数据访问接口 (供逻辑层使用) ---
@@ -445,6 +561,22 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         this.smartCollapse = tag.getBoolean("smartCollapse");
         this.craftRefill = !tag.contains("craftRefill") || tag.getBoolean("craftRefill");
         this.enabled = !tag.contains("enabled") || tag.getBoolean("enabled");
+
+        // 升级系统
+        upgradeStorage.clear();
+        if (tag.contains("upgrades")) {
+            ListTag upgradeList = tag.getList("upgrades", Tag.TAG_COMPOUND);
+            for (int i = 0; i < upgradeList.size(); i++) {
+                CompoundTag uTag = upgradeList.getCompound(i);
+                ResourceLocation id = ResourceLocation.parse(uTag.getString("id"));
+                ItemStack stack = ItemStack.parseOptional(registries, uTag.getCompound("item"));
+                if (!stack.isEmpty()) {
+                    upgradeStorage.put(id, stack);
+                }
+            }
+        }
+        this.upgradeScrollOffset = tag.getInt("upgradeScrollOffset");
+
         this.markDirty();
     }
 
@@ -475,5 +607,16 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         tag.putBoolean("smartCollapse", smartCollapse);
         tag.putBoolean("craftRefill", craftRefill);
         tag.putBoolean("enabled", enabled);
+
+        // 升级系统
+        ListTag upgradeList = new ListTag();
+        for (Map.Entry<ResourceLocation, ItemStack> entry : upgradeStorage.entrySet()) {
+            CompoundTag uTag = new CompoundTag();
+            uTag.putString("id", entry.getKey().toString());
+            uTag.put("item", entry.getValue().save(registries));
+            upgradeList.add(uTag);
+        }
+        tag.put("upgrades", upgradeList);
+        tag.putInt("upgradeScrollOffset", upgradeScrollOffset);
     }
 }

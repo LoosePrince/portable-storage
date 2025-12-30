@@ -2,6 +2,7 @@ package com.portablestorage.mixin;
 
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.logic.WarehouseManager;
+import com.portablestorage.mixin.accessor.AbstractContainerMenuAccessor;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
@@ -23,11 +24,10 @@ public abstract class AbstractContainerMenuMixin {
         if (slotId >= menu.slots.size()) return;
 
         Slot slot = menu.slots.get(slotId);
+        
+        // 处理主仓库槽位
         if (slot.container instanceof PlayerWarehouse warehouse) {
-            // 如果仓库被禁用，不响应任何仓库点击逻辑
             if (!warehouse.isEnabled()) return;
-
-            // 查找起始索引以计算相对索引
             int warehouseStart = -1;
             for (int i = 0; i < menu.slots.size(); i++) {
                 if (menu.slots.get(i).container == warehouse) {
@@ -37,23 +37,62 @@ public abstract class AbstractContainerMenuMixin {
             }
             if (warehouseStart == -1) return;
 
-            // 只有被激活的仓库槽位才响应点击
             if (!player.getAbilities().instabuild) {
-                // Shift+点击现在由客户端通过网络包处理，这里只需要拦截防止原版逻辑
                 if (clickType == ClickType.QUICK_MOVE) {
                     ci.cancel();
                     return;
                 }
 
-                        ItemStack cursorStack = menu.getCarried();
-                        if (!cursorStack.isEmpty()) {
-                            // 存入
-                            ItemStack remaining = WarehouseManager.addFluid(warehouse, cursorStack, player);
-                            menu.setCarried(remaining);
-                        } else {
-                    // 取出
+                ItemStack cursorStack = menu.getCarried();
+                if (!cursorStack.isEmpty()) {
+                    ItemStack remaining = WarehouseManager.addFluid(warehouse, cursorStack, player);
+                    menu.setCarried(remaining);
+                } else {
                     int amount = (button == 1) ? 1 : 64;
                     ItemStack taken = WarehouseManager.removeItem(warehouse, slotId - warehouseStart, amount, false);
+                    menu.setCarried(taken);
+                }
+                ci.cancel();
+            }
+        } 
+        // 处理升级槽位
+        else if (slot instanceof com.portablestorage.upgrade.UpgradeSlot) {
+            PlayerWarehouse warehouse = com.portablestorage.component.ModComponents.get(player).getWarehouse(player.getUUID());
+            if (!warehouse.isEnabled()) return;
+
+            if (!player.getAbilities().instabuild) {
+                if (clickType == ClickType.QUICK_MOVE) {
+                    ItemStack stackInSlot = slot.getItem();
+                    if (!stackInSlot.isEmpty()) {
+                        if (((AbstractContainerMenuAccessor)menu).invokeMoveItemStackTo(stackInSlot, 9, 45, true)) {
+                            slot.set(stackInSlot);
+                        }
+                    }
+                    ci.cancel();
+                    return;
+                }
+
+                ItemStack cursorStack = menu.getCarried();
+                if (!cursorStack.isEmpty()) {
+                    if (slot.mayPlace(cursorStack)) {
+                        ItemStack one = cursorStack.copyWithCount(1);
+                        ItemStack old = slot.getItem();
+                        
+                        slot.set(one);
+                        cursorStack.shrink(1);
+                        
+                        if (!old.isEmpty()) {
+                            if (cursorStack.isEmpty()) {
+                                menu.setCarried(old);
+                            } else {
+                                if (!player.getInventory().add(old)) {
+                                    player.drop(old, false);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    ItemStack taken = slot.remove(1);
                     menu.setCarried(taken);
                 }
                 ci.cancel();
@@ -61,4 +100,3 @@ public abstract class AbstractContainerMenuMixin {
         }
     }
 }
-

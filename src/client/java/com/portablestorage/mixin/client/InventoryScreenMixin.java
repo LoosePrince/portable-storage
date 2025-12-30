@@ -31,6 +31,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Optional;
+import java.util.List;
 
 @Mixin(InventoryScreen.class)
 public abstract class InventoryScreenMixin extends EffectRenderingInventoryScreen<InventoryMenu> {
@@ -73,7 +74,13 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         
         // 动态更新槽位位置以匹配当前配置
         for (Slot slot : this.menu.slots) {
-            if (slot.container instanceof PlayerWarehouse) {
+            if (slot instanceof com.portablestorage.upgrade.UpgradeSlot upgradeSlot) {
+                int index = upgradeSlot.getVisualIndex();
+                int upgradeX = WarehouseConstants.getWarehouseXOffset() + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X;
+                int upgradeYBase = WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y;
+                ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setX(upgradeX);
+                ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setY(upgradeYBase + index * WarehouseConstants.SLOT_SIZE);
+            } else if (slot.container instanceof PlayerWarehouse) {
                 int index = slot.getContainerSlot();
                 int row = index / WarehouseConstants.SLOTS_PER_ROW;
                 int col = index % WarehouseConstants.SLOTS_PER_ROW;
@@ -144,8 +151,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         this.searchBox.setResponder(text -> {
             this.pendingSearchText = text;
             this.lastSearchUpdateTime = System.currentTimeMillis();
-            // 立即在客户端预览搜索结果（如果有缓存逻辑的话，这里直接设给仓库）
-            warehouse.setSearchText(text);
+            // 不再立即在客户端设置搜索文本，防止与服务端索引不一致导致取出错误物品
         });
         this.searchBox.setEditable(true);
         this.searchBox.setBordered(false);
@@ -159,7 +165,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
     @Override
     public void removed() {
         if (shouldShowWarehouse()) {
-            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(""), Optional.empty(), Optional.empty(), Optional.empty()));
+            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(""), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
         }
         super.removed();
     }
@@ -175,10 +181,22 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         int warehouseX = this.leftPos + WarehouseConstants.getWarehouseXOffset();
         int warehouseY = this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows());
         int warehouseHeight = WarehouseConstants.WAREHOUSE_TITLE_HEIGHT + warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE;
-        if (mouseX >= warehouseX && mouseX < warehouseX + WarehouseConstants.WAREHOUSE_WIDTH && mouseY >= warehouseY && mouseY < warehouseY + warehouseHeight) {
+        
+        // 1. 升级列滚动
+        int upgradeColumnX = warehouseX;
+        int upgradeColumnWidth = WarehouseConstants.UPGRADE_COLUMN_WIDTH;
+        if (mouseX >= upgradeColumnX && mouseX < upgradeColumnX + upgradeColumnWidth && mouseY >= warehouseY && mouseY < warehouseY + warehouseHeight) {
+            int delta = (int) Math.signum(scrollY);
+            warehouse.setUpgradeScrollOffset(warehouse.getUpgradeScrollOffset() - delta);
+            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(delta)));
+            return true;
+        }
+
+        // 2. 主格网滚动
+        if (mouseX >= warehouseX + upgradeColumnWidth && mouseX < warehouseX + WarehouseConstants.WAREHOUSE_WIDTH && mouseY >= warehouseY && mouseY < warehouseY + warehouseHeight) {
             int delta = (int) Math.signum(scrollY);
             warehouse.setScrollOffset(warehouse.getScrollOffset() - delta); // 客户端立即响应
-            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.of(delta), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.of(delta), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
@@ -212,11 +230,31 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         // 检测仓库槽位的点击
-        if (shouldShowWarehouse() && this.minecraft != null && this.minecraft.player != null && button == 0) { // 左键
+        if (shouldShowWarehouse() && this.minecraft != null && this.minecraft.player != null) {
             PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
             
-            // 1. 处理折叠项的点击（展开搜索）
-            if (!warehouse.isFolded()) {
+            // 处理升级槽位的右键和中键交互
+            if (!warehouse.isFolded() && (button == 1 || button == 2)) {
+                for (Slot slot : this.menu.slots) {
+                    if (slot instanceof com.portablestorage.upgrade.UpgradeSlot) {
+                        int slotX = this.leftPos + slot.x;
+                        int slotY = this.topPos + slot.y;
+                        if (mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY && mouseY < slotY + 16 && slot.hasItem()) {
+                            List<com.portablestorage.upgrade.UpgradeType> all = com.portablestorage.upgrade.UpgradeRegistry.getAllUpgrades();
+                            int visualIndex = ((com.portablestorage.upgrade.UpgradeSlot) slot).getVisualIndex();
+                            int actualIndex = visualIndex + warehouse.getUpgradeScrollOffset();
+                            if (actualIndex >= 0 && actualIndex < all.size()) {
+                                com.portablestorage.upgrade.UpgradeType type = all.get(actualIndex);
+                                ClientPlayNetworking.send(new C2SUpgradeInteractionPayload(type.getId(), button));
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (button == 0) { // 左键
+                // ... (现有逻辑不变)
                 Slot clickedSlot = null;
                 for (Slot slot : this.menu.slots) {
                     int slotX = this.leftPos + slot.x;
@@ -237,7 +275,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                         if (this.searchBox != null) {
                             this.searchBox.setValue(newSearch);
                             warehouse.setSearchText(newSearch);
-                            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(newSearch), Optional.empty(), Optional.empty(), Optional.empty()));
+                            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(newSearch), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
                         }
                         return true; // 拦截，不继续处理 Shift 点击
                     }
@@ -286,7 +324,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                     if (button == 0) { // 左键
                         boolean newFolded = !warehouse.isFolded();
                         warehouse.setFolded(newFolded);
-                         ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.FOLD.ordinal()), Optional.of(newFolded ? 1 : 0), Optional.empty()));
+                         ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.FOLD.ordinal()), Optional.of(newFolded ? 1 : 0), Optional.empty(), Optional.empty()));
                         if (newFolded && this.searchBox != null) this.searchBox.setFocused(false);
                         this.minecraft.setScreen(new InventoryScreen(player));
                         return true;
@@ -303,31 +341,31 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                     if (mouseX >= bx && mouseX < bx + 18 && mouseY >= by && mouseY < by + 18) {
                              int newVal = (warehouse.getSortMode() + 1) % 4;
                              warehouse.setSortMode(newVal);
-                             ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.SORT_MODE.ordinal()), Optional.of(newVal), Optional.empty()));
+                             ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.SORT_MODE.ordinal()), Optional.of(newVal), Optional.empty(), Optional.empty()));
                         return true;
                     }
                     if (mouseX >= bx && mouseX < bx + 18 && mouseY >= by + iconSpacing && mouseY < by + iconSpacing + 18) {
                              boolean newVal = !warehouse.isAscending();
                              warehouse.setAscending(newVal);
-                             ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.SORT_ORDER.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty()));
+                             ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.SORT_ORDER.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty(), Optional.empty()));
                         return true;
                     }
                     if (mouseX >= bx && mouseX < bx + 18 && mouseY >= by + iconSpacing * 2 && mouseY < by + iconSpacing * 2 + 18) {
                              boolean newVal = !warehouse.isQuickInteraction();
                              warehouse.setQuickInteraction(newVal);
-                             ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.QUICK_INTERACTION.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty()));
+                             ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.QUICK_INTERACTION.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty(), Optional.empty()));
                              return true;
                          }
                         if (mouseX >= bx && mouseX < bx + 18 && mouseY >= by + iconSpacing * 3 && mouseY < by + iconSpacing * 3 + 18) {
                             boolean newVal = !warehouse.isSmartCollapse();
                             warehouse.setSmartCollapse(newVal);
-                            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.SMART_COLLAPSE.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty()));
+                            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.SMART_COLLAPSE.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty(), Optional.empty()));
                             return true;
                         }
                         if (mouseX >= bx && mouseX < bx + 18 && mouseY >= by + iconSpacing * 4 && mouseY < by + iconSpacing * 4 + 18) {
                             boolean newVal = !warehouse.isCraftRefill();
                             warehouse.setCraftRefill(newVal);
-                            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.CRAFT_REFILL.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty()));
+                            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.CRAFT_REFILL.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty(), Optional.empty()));
                             return true;
                         }
                     }
@@ -342,13 +380,13 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                     int pmY = y + WarehouseConstants.PLUS_MINUS_Y_OFFSET;
                     if (mouseX >= pmX && mouseX < pmX + WarehouseConstants.TINY_BUTTON_SIZE && mouseY >= pmY && mouseY < pmY + WarehouseConstants.TINY_BUTTON_SIZE) {
                         warehouse.setVisibleRows(warehouse.getVisibleRows() - 1);
-                        ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(-1)));
+                        ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(-1), Optional.empty()));
                         this.minecraft.setScreen(new InventoryScreen(player));
                         return true;
                     }
                     if (mouseX >= pmX + WarehouseConstants.TINY_BUTTON_SIZE + WarehouseConstants.TINY_BUTTON_SPACING && mouseX < pmX + WarehouseConstants.TINY_BUTTON_SIZE * 2 + WarehouseConstants.TINY_BUTTON_SPACING && mouseY >= pmY && mouseY < pmY + WarehouseConstants.TINY_BUTTON_SIZE) {
                         warehouse.setVisibleRows(warehouse.getVisibleRows() + 1);
-                        ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(1)));
+                        ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(1), Optional.empty()));
                         this.minecraft.setScreen(new InventoryScreen(player));
                         return true;
                     }
@@ -402,7 +440,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
             if (newOffset != warehouse.getScrollOffset()) {
                 int delta = warehouse.getScrollOffset() - newOffset;
                 warehouse.setScrollOffset(newOffset);
-                ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.of(delta), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+                ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.of(delta), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
             }
         }
     }
@@ -506,17 +544,18 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
     private void renderWarehouseContent(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         if (!shouldShowWarehouse()) return;
         
-        checkCraftRefill();
-
-        // 处理搜索框防抖
-        if (pendingSearchText != null && System.currentTimeMillis() - lastSearchUpdateTime > 300) {
-            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(pendingSearchText), Optional.empty(), Optional.empty(), Optional.empty()));
-            pendingSearchText = null;
-        }
-        
         var player = Minecraft.getInstance().player;
         if (player == null) return;
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+
+        checkCraftRefill();
+
+        // 处理搜索框防抖
+        if (pendingSearchText != null && System.currentTimeMillis() - lastSearchUpdateTime > 150) {
+            warehouse.setSearchText(pendingSearchText); // 此时再更新本地显示
+            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(pendingSearchText), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+            pendingSearchText = null;
+        }
 
         if (this.searchBox != null) {
             this.searchBox.setX(this.leftPos + WarehouseConstants.getWarehouseXOffset() + WarehouseConstants.SEARCH_BOX_X_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET);

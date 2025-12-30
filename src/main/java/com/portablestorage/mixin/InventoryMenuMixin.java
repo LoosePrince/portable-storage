@@ -35,7 +35,14 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
         int startX = WarehouseConstants.getSlotLogicX();
         int startY = WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows());
         
-        // 始终添加最大数量的槽位，但根据 visibleRows 和折叠状态控制激活状态
+        // 1. 添加升级槽位 (最大 MAX_ROWS 列)
+        int upgradeX = WarehouseConstants.getWarehouseXOffset() + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X;
+        int upgradeYBase = WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y;
+        for (int i = 0; i < WarehouseConstants.MAX_ROWS; i++) {
+            this.addSlot(new com.portablestorage.upgrade.UpgradeSlot(warehouse, i, upgradeX, upgradeYBase + i * WarehouseConstants.SLOT_SIZE));
+        }
+
+        // 2. 始终添加最大数量的仓库槽位
         for (int row = 0; row < WarehouseConstants.MAX_ROWS; row++) {
             final int currentRow = row;
             for (int col = 0; col < WarehouseConstants.SLOTS_PER_ROW; col++) {
@@ -79,6 +86,13 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
                 // 如果快捷交互未开启，按住 Shift 点击仓库物品时，我们也应该拦截它
                 cir.setReturnValue(ItemStack.EMPTY);
             }
+        } else if (slot.container == warehouse.upgradeContainer) { // 从升级槽位取出
+            if (!this.moveItemStackTo(stackInSlot, 9, 45, true)) {
+                cir.setReturnValue(ItemStack.EMPTY);
+                return;
+            }
+            slot.setChanged();
+            cir.setReturnValue(ItemStack.EMPTY);
         } else if (slot.container instanceof Inventory) { // 从玩家背包快速转移到仓库
             // 排除装备栏和副手槽位
             // Inventory.items 是 0-35 (Main + Hotbar)

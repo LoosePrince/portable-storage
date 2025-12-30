@@ -20,10 +20,11 @@ public class PortableStorage implements ModInitializer {
         return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
     }
 
-	@Override
+    @Override
 	public void onInitialize() {
         ModConfig.load();
         ModItems.registerModItems();
+        com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.ExampleUpgrade());
         ModScreenHandlers.register();
         ModNetworking.registerC2SPayloads();
         ModNetworking.registerS2CPayloads();

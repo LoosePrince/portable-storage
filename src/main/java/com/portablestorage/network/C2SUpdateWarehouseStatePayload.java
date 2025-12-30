@@ -11,7 +11,8 @@ public record C2SUpdateWarehouseStatePayload(
     Optional<String> searchText,
     Optional<Integer> settingId,
     Optional<Integer> settingValue,
-    Optional<Integer> rowsDelta
+    Optional<Integer> rowsDelta,
+    Optional<Integer> upgradeScrollDelta
 ) implements CustomPacketPayload {
     public static final Type<C2SUpdateWarehouseStatePayload> TYPE = new Type<>(PortableStorage.id("update_state"));
 
@@ -22,10 +23,12 @@ public record C2SUpdateWarehouseStatePayload(
             buf.writeOptional(payload.settingId(), FriendlyByteBuf::writeInt);
             buf.writeOptional(payload.settingValue(), FriendlyByteBuf::writeInt);
             buf.writeOptional(payload.rowsDelta(), FriendlyByteBuf::writeInt);
+            buf.writeOptional(payload.upgradeScrollDelta(), FriendlyByteBuf::writeInt);
         },
         buf -> new C2SUpdateWarehouseStatePayload(
             buf.readOptional(FriendlyByteBuf::readInt),
             buf.readOptional(buf2 -> buf2.readUtf(32767)),
+            buf.readOptional(FriendlyByteBuf::readInt),
             buf.readOptional(FriendlyByteBuf::readInt),
             buf.readOptional(FriendlyByteBuf::readInt),
             buf.readOptional(FriendlyByteBuf::readInt)
