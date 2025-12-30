@@ -372,7 +372,9 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                     
                     int craftingY = by + (showShortcuts ? (iconSpacing * 5) : 0);
                     if (mouseX >= bx && mouseX < bx + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
-                        ClientPlayNetworking.send(new OpenCraftingPayload());
+                        if (!warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
+                            ClientPlayNetworking.send(new OpenCraftingPayload());
+                        }
                         return true;
                     }
 

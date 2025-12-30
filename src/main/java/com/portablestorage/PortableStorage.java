@@ -29,6 +29,7 @@ public class PortableStorage implements ModInitializer {
         
         // 注册升级
         com.portablestorage.upgrade.UpgradeRegistry.register(new TrashCanUpgrade());
+        com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.WorkbenchUpgrade());
         
         ModScreenHandlers.register();
         ModNetworking.registerC2SPayloads();

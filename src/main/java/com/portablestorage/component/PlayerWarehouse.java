@@ -64,19 +64,27 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
         @Override
         public ItemStack removeItem(int slot, int amount) {
-            ItemStack stack = getItem(slot);
-            if (!stack.isEmpty()) {
-                List<UpgradeType> all = UpgradeRegistry.getAllUpgrades();
-                int actualIndex = slot + upgradeScrollOffset;
-                setUpgrade(all.get(actualIndex).getId(), ItemStack.EMPTY);
-                return stack;
+            List<UpgradeType> all = UpgradeRegistry.getAllUpgrades();
+            int actualIndex = slot + upgradeScrollOffset;
+            if (actualIndex >= 0 && actualIndex < all.size()) {
+                ResourceLocation id = all.get(actualIndex).getId();
+                ItemStack stack = upgradeStorage.get(id);
+                if (stack != null && !stack.isEmpty()) {
+                    ItemStack result = stack.split(amount);
+                    if (stack.isEmpty()) {
+                        setUpgrade(id, ItemStack.EMPTY);
+                    } else {
+                        markDirty();
+                    }
+                    return result;
+                }
             }
             return ItemStack.EMPTY;
         }
 
         @Override
         public ItemStack removeItemNoUpdate(int slot) {
-            return removeItem(slot, 1);
+            return removeItem(slot, 64);
         }
 
         @Override
@@ -146,7 +154,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         if (stack.isEmpty()) {
             upgradeStorage.remove(id);
         } else {
-            upgradeStorage.put(id, stack.copyWithCount(1));
+            upgradeStorage.put(id, stack.copy());
             // 安装新的
             if (type != null) {
                 type.onInstall(this, stack);

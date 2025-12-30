@@ -1,5 +1,6 @@
 package com.portablestorage.util;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.portablestorage.PortableStorage;
 import com.portablestorage.component.PlayerWarehouse;
 import net.minecraft.ChatFormatting;
@@ -44,10 +45,27 @@ public class WarehouseRenderer {
                         com.portablestorage.upgrade.UpgradeType type = allUpgrades.get(upgradeIndex);
                         if (warehouse.getUpgrade(type.getId()).isEmpty()) {
                             graphics.pose().pushPose();
+                            // 基础层级抬高 100
                             graphics.pose().translate(0, 0, 100);
-                            graphics.setColor(1.0f, 1.0f, 1.0f, 0.5f);
-                            graphics.blit(type.getIcon(), upgradeSlotX + 1, slotY + 1, 0, 0, 16, 16, 16, 16);
-                            graphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+                            
+                            ItemStack iconStack = type.getIconStack();
+                            if (!iconStack.isEmpty()) {
+                                // 渲染物品图标
+                                graphics.renderFakeItem(iconStack, upgradeSlotX + 1, slotY + 1);
+                            } else {
+                                ResourceLocation icon = type.getIcon();
+                                if (icon != null) {
+                                    // 渲染贴图图标（不再使用 setShaderColor，保持原始亮度）
+                                    graphics.blit(icon, upgradeSlotX + 1, slotY + 1, 0, 0, 16, 16, 16, 16);
+                                }
+                            }
+                            
+                            // 统一在该槽位上方叠加白色半透明遮罩，层级设为 200 确保覆盖物品
+                            graphics.pose().pushPose();
+                            graphics.pose().translate(0, 0, 200);
+                            graphics.fill(upgradeSlotX + 1, slotY + 1, upgradeSlotX + 17, slotY + 17, 0x80FFFFFF);
+                            graphics.pose().popPose();
+                            
                             graphics.pose().popPose();
                         }
                     }
@@ -140,9 +158,11 @@ public class WarehouseRenderer {
             }
 
             // 合成台图标 (14)
-            int cx = horizontal ? (sidebarX + (showShortcuts ? iconSpacing * 5 : 0)) : sidebarX;
-            int cy = horizontal ? sidebarY : (sidebarY + (showShortcuts ? iconSpacing * 5 : 0));
-            renderIconButton(graphics, cx, cy, WarehouseConstants.ICON_CRAFTING_TABLE, mouseX, mouseY);
+            if (!warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
+                int cx = horizontal ? (sidebarX + (showShortcuts ? iconSpacing * 5 : 0)) : sidebarX;
+                int cy = horizontal ? sidebarY : (sidebarY + (showShortcuts ? iconSpacing * 5 : 0));
+                renderIconButton(graphics, cx, cy, WarehouseConstants.ICON_CRAFTING_TABLE, mouseX, mouseY);
+            }
         }
     }
 
@@ -222,14 +242,16 @@ public class WarehouseRenderer {
         }
 
         // 合成台图标
-        int craftingX = horizontal ? (bx + (showShortcuts ? iconSpacing * 5 : 0)) : bx;
-        int craftingY = horizontal ? by : (by + (showShortcuts ? iconSpacing * 5 : 0));
-        if (mouseX >= craftingX && mouseX < craftingX + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
-            boolean isCrafting = net.minecraft.client.Minecraft.getInstance().screen instanceof com.portablestorage.screen.CraftingWarehouseScreen;
-            List<Component> tooltip = new ArrayList<>();
-            tooltip.add(Component.translatable(isCrafting ? "gui.portablestorage.button.back" : "gui.portablestorage.button.open_crafting"));
-            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
-            return;
+        if (!warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
+            int craftingX = horizontal ? (bx + (showShortcuts ? iconSpacing * 5 : 0)) : bx;
+            int craftingY = horizontal ? by : (by + (showShortcuts ? iconSpacing * 5 : 0));
+            if (mouseX >= craftingX && mouseX < craftingX + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
+                boolean isCrafting = net.minecraft.client.Minecraft.getInstance().screen instanceof com.portablestorage.screen.CraftingWarehouseScreen;
+                List<Component> tooltip = new ArrayList<>();
+                tooltip.add(Component.translatable(isCrafting ? "gui.portablestorage.button.back" : "gui.portablestorage.button.open_crafting"));
+                graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+                return;
+            }
         }
     }
 

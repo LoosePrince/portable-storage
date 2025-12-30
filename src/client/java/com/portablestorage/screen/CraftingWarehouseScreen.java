@@ -370,7 +370,9 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
             // 2. 合成按钮变为返回背包
             int craftingY = by + (showShortcuts ? (iconSpacing * 5) : 0);
             if (mouseX >= bx && mouseX < bx + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
-                this.minecraft.setScreen(new InventoryScreen(this.minecraft.player));
+                if (!warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
+                    this.minecraft.setScreen(new InventoryScreen(this.minecraft.player));
+                }
                 return true;
             }
 

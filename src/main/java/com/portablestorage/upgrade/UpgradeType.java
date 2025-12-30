@@ -25,6 +25,13 @@ public abstract class UpgradeType {
     public ResourceLocation getId() { return id; }
     public ResourceLocation getIcon() { return icon; }
 
+    /**
+     * 获取用于显示的物品图标。如果返回非空，则渲染器优先使用物品图标。
+     */
+    public ItemStack getIconStack() {
+        return ItemStack.EMPTY;
+    }
+
     public boolean isItemValid(ItemStack stack) {
         return validator.test(stack);
     }
