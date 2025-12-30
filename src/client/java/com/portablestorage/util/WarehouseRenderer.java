@@ -7,6 +7,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -248,7 +249,48 @@ public class WarehouseRenderer {
         }
 
         if (warehouse.isFolded()) return;
+        
+        // 渲染升级槽位提示
+        renderUpgradeTooltips(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse);
+        
         renderSidebarTooltips(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse);
+    }
+
+    public static void renderUpgradeTooltips(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX, int mouseY, PlayerWarehouse warehouse) {
+        int x = leftPos + WarehouseConstants.getWarehouseXOffset();
+        int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows());
+        int upgradeSlotX = x + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X;
+        int upgradeSlotY = y + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y;
+        int rows = warehouse.getVisibleRows();
+        
+        List<com.portablestorage.upgrade.UpgradeType> allUpgrades = com.portablestorage.upgrade.UpgradeRegistry.getAllUpgrades();
+        int upgradeOffset = warehouse.getUpgradeScrollOffset();
+
+        for (int i = 0; i < rows; i++) {
+            int slotY = upgradeSlotY + i * WarehouseConstants.SLOT_SIZE;
+            if (mouseX >= upgradeSlotX && mouseX < upgradeSlotX + 16 && mouseY >= slotY && mouseY < slotY + 16) {
+                int upgradeIndex = i + upgradeOffset;
+                if (upgradeIndex < allUpgrades.size()) {
+                    com.portablestorage.upgrade.UpgradeType type = allUpgrades.get(upgradeIndex);
+                    ItemStack stack = warehouse.getUpgrade(type.getId());
+                    
+                    List<Component> finalTooltip = new ArrayList<>();
+                    if (!stack.isEmpty()) {
+                        // 如果有物品，先获取物品的原版提示
+                        finalTooltip.addAll(net.minecraft.client.gui.screens.Screen.getTooltipFromItem(net.minecraft.client.Minecraft.getInstance(), stack));
+                        finalTooltip.add(Component.literal(" ")); // 分隔符
+                    }
+                    
+                    // 添加升级自定义提示
+                    finalTooltip.addAll(type.getTooltip(warehouse, stack));
+                    
+                    if (!finalTooltip.isEmpty()) {
+                        graphics.renderComponentTooltip(font, finalTooltip, mouseX, mouseY);
+                    }
+                }
+                break;
+            }
+        }
     }
 
     public static void renderScrollbar(GuiGraphics graphics, int x, int y, int mouseX, int mouseY, PlayerWarehouse warehouse) {

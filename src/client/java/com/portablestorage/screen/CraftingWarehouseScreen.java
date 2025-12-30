@@ -115,9 +115,16 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
     }
 
     @Override
+    protected void renderTooltip(GuiGraphics graphics, int x, int y) {
+        if (this.hoveredSlot instanceof com.portablestorage.upgrade.UpgradeSlot) {
+            return; // 拦截
+        }
+        super.renderTooltip(graphics, x, y);
+    }
+
+    @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
         super.render(graphics, mouseX, mouseY, delta);
-        this.renderTooltip(graphics, mouseX, mouseY);
         
         PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
         checkCraftRefill();
@@ -227,6 +234,9 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         }
         
         if (!warehouse.isFolded()) {
+            // 渲染升级槽位提示
+            WarehouseRenderer.renderUpgradeTooltips(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse);
+            
             WarehouseRenderer.renderSidebarTooltips(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse);
         }
     }

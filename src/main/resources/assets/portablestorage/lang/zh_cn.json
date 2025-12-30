@@ -66,5 +66,9 @@
   "item.portablestorage.lava": "岩浆 (储量)",
   "item.portablestorage.water": "水 (储量)",
   "item.portablestorage.milk": "牛奶 (储量)",
-  "tooltip.portablestorage.fluid_take_hint": "开启快速存取后背包中有空桶时按住 Shift 点击以取出"
+  "tooltip.portablestorage.fluid_take_hint": "开启快速存取后背包中有空桶时按住 Shift 点击以取出",
+  "upgrade.portablestorage.trash_can.name": "垃圾桶升级",
+  "upgrade.portablestorage.trash_can.desc": "放入不需要的物品以销毁它们。",
+  "upgrade.portablestorage.trash_can.clear_hint": "右键点击以清空垃圾桶",
+  "upgrade.portablestorage.trash_can.cleared": "垃圾桶已清空"
 }

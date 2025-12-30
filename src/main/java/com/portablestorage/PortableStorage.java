@@ -6,9 +6,11 @@ import com.portablestorage.item.ModItems;
 import com.portablestorage.network.ModNetworking;
 import com.portablestorage.network.SyncConfigPayload;
 import com.portablestorage.screen.ModScreenHandlers;
+import com.portablestorage.upgrade.TrashCanUpgrade;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,7 +26,10 @@ public class PortableStorage implements ModInitializer {
 	public void onInitialize() {
         ModConfig.load();
         ModItems.registerModItems();
-        com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.ExampleUpgrade());
+        
+        // 注册升级
+        com.portablestorage.upgrade.UpgradeRegistry.register(new TrashCanUpgrade());
+        
         ModScreenHandlers.register();
         ModNetworking.registerC2SPayloads();
         ModNetworking.registerS2CPayloads();
@@ -42,6 +47,17 @@ public class PortableStorage implements ModInitializer {
                 ModConfig.baseMaxStorageTypes,
                 ModConfig.baseMaxItemStackSize
             ));
+        });
+
+        // 玩家登出时清空垃圾桶升级中的物品
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            var player = handler.getPlayer();
+            if (player != null) {
+                var warehouse = com.portablestorage.component.ModComponents.get(player).getWarehouse(player.getUUID());
+                if (!warehouse.getUpgrade(TrashCanUpgrade.ID).isEmpty()) {
+                    warehouse.setUpgrade(TrashCanUpgrade.ID, ItemStack.EMPTY);
+                }
+            }
         });
 
         LOGGER.info("Portable Storage Initialized!");

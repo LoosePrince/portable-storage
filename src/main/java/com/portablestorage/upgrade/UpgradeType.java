@@ -5,6 +5,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.List;
 import java.util.function.Predicate;
 
 /**
@@ -26,6 +27,25 @@ public abstract class UpgradeType {
 
     public boolean isItemValid(ItemStack stack) {
         return validator.test(stack);
+    }
+
+    /**
+     * 获取该升级槽位的悬停提示信息
+     * @param warehouse 仓库实例
+     * @param stack 当前槽位中的物品
+     * @return 提示信息列表
+     */
+    public List<net.minecraft.network.chat.Component> getTooltip(PlayerWarehouse warehouse, ItemStack stack) {
+        List<net.minecraft.network.chat.Component> tooltips = new java.util.ArrayList<>();
+        tooltips.add(net.minecraft.network.chat.Component.translatable("upgrade." + id.getNamespace() + "." + id.getPath().replace("/", ".") + ".name").withStyle(net.minecraft.ChatFormatting.GOLD));
+        return tooltips;
+    }
+
+    /**
+     * 允许升级定义该槽位的最大堆叠数，默认为 1
+     */
+    public int getMaxStackSize() {
+        return 1;
     }
 
     // --- 事件钩子 ---

@@ -26,6 +26,11 @@ public abstract class AbstractContainerScreenMixin {
 
     @Inject(method = "renderTooltip", at = @At("HEAD"), cancellable = true)
     private void onRenderTooltip(GuiGraphics graphics, int x, int y, CallbackInfo ci) {
+        if (this.hoveredSlot instanceof com.portablestorage.upgrade.UpgradeSlot) {
+            ci.cancel(); // 拦截升级槽位的原版提示，由 WarehouseRenderer 接管
+            return;
+        }
+
         var player = Minecraft.getInstance().player;
         if (player == null || player.getAbilities().instabuild) return;
 

@@ -33,7 +33,8 @@ public class UpgradeSlot extends Slot {
 
     @Override
     public int getMaxStackSize() {
-        return 1;
+        UpgradeType type = getUpgradeType();
+        return type != null ? type.getMaxStackSize() : 1;
     }
 
     @Override
