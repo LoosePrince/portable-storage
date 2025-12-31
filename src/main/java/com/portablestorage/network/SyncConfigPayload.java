@@ -12,7 +12,8 @@ public record SyncConfigPayload(
     int maxStorageTypes,
     long maxItemStackSize,
     int baseMaxStorageTypes,
-    long baseMaxItemStackSize
+    long baseMaxItemStackSize,
+    String unconditionalWarehouse
 ) implements CustomPacketPayload {
     public static final Type<SyncConfigPayload> TYPE = new Type<>(PortableStorage.id("sync_config"));
 
@@ -25,6 +26,7 @@ public record SyncConfigPayload(
             buf.writeLong(payload.maxItemStackSize);
             buf.writeInt(payload.baseMaxStorageTypes);
             buf.writeLong(payload.baseMaxItemStackSize);
+            buf.writeUtf(payload.unconditionalWarehouse);
         },
         buf -> new SyncConfigPayload(
             buf.readBoolean(), 
@@ -33,7 +35,8 @@ public record SyncConfigPayload(
             buf.readInt(),
             buf.readLong(),
             buf.readInt(),
-            buf.readLong()
+            buf.readLong(),
+            buf.readUtf()
         )
     );
 

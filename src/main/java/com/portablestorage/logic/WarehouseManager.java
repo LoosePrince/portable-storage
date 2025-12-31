@@ -2,7 +2,6 @@ package com.portablestorage.logic;
 
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.component.WarehouseEntry;
-import com.portablestorage.config.ModConfig;
 import com.portablestorage.mixin.accessor.AbstractContainerMenuAccessor;
 import com.portablestorage.util.WarehouseConstants;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants;
@@ -110,7 +109,7 @@ public class WarehouseManager {
      */
     private static void addItemInternal(PlayerWarehouse warehouse, ItemStack stack) {
         if (stack.isEmpty()) return;
-        long limit = ModConfig.maxItemStackSize;
+        long limit = warehouse.getMaxItemStackSize();
         boolean changed = false;
 
         List<WarehouseEntry> storage = warehouse.getStorageList();
@@ -138,7 +137,7 @@ public class WarehouseManager {
                 changed = true;
             }
         } else {
-            int typeLimit = ModConfig.maxStorageTypes;
+            int typeLimit = warehouse.getMaxStorageTypes();
             if (typeLimit < 0 || storage.size() < typeLimit) {
                 if (limit > 0) {
                     int toAdd = (int) Math.min(stack.getCount(), limit);

@@ -14,6 +14,7 @@ public class ModClientNetworking {
                 ModConfig.maxItemStackSize = payload.maxItemStackSize();
                 ModConfig.baseMaxStorageTypes = payload.baseMaxStorageTypes();
                 ModConfig.baseMaxItemStackSize = payload.baseMaxItemStackSize();
+                ModConfig.unconditionalWarehouse = payload.unconditionalWarehouse();
             });
         });
     }

@@ -21,6 +21,9 @@ allowHotReload = false
 # 是否在玩家死亡时禁用仓库 (true: 禁用, false: 保留)
 dropStorageOnDeath = true
 
+# 无条件启用仓库 (NONE: 需要激活, BASE: 自动激活基础版, FULL: 自动激活完整版)
+unconditionalWarehouse = "NONE"
+
 # 仓库储存最大种类数 (-1: 不限制)
 maxStorageTypes = -1
 

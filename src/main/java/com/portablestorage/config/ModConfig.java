@@ -17,6 +17,7 @@ public class ModConfig {
     public static boolean allowHotReload = false;
     public static boolean enable3x3Crafting = true;
     public static boolean dropStorageOnDeath = true;
+    public static String unconditionalWarehouse = "NONE";
     public static StoragePosition storagePosition = StoragePosition.BOTTOM;
     
     // 仓库限制配置
@@ -55,6 +56,7 @@ public class ModConfig {
         allowHotReload = config.getOrElse("server.allowHotReload", false);
         enable3x3Crafting = config.getOrElse("server.enable3x3Crafting", true);
         dropStorageOnDeath = config.getOrElse("server.dropStorageOnDeath", true);
+        unconditionalWarehouse = config.getOrElse("server.unconditionalWarehouse", "NONE").toUpperCase();
         
         maxStorageTypes = ((Number) config.getOrElse("server.maxStorageTypes", -1)).intValue();
         maxItemStackSize = ((Number) config.getOrElse("server.maxItemStackSize", -1L)).longValue();
@@ -85,6 +87,7 @@ public class ModConfig {
         config.set("server.allowHotReload", allowHotReload);
         config.set("server.enable3x3Crafting", enable3x3Crafting);
         config.set("server.dropStorageOnDeath", dropStorageOnDeath);
+        config.set("server.unconditionalWarehouse", unconditionalWarehouse);
         
         config.set("server.maxStorageTypes", maxStorageTypes);
         config.set("server.maxItemStackSize", maxItemStackSize);

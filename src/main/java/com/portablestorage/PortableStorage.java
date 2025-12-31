@@ -36,7 +36,8 @@ public class PortableStorage implements ModInitializer {
         ModNetworking.registerS2CPayloads();
         ModNetworking.registerServerReceivers();
         PlayerDeathEventHandler.register();
-
+        com.portablestorage.event.WarehouseActivationHandler.register();
+        
         // 玩家加入时同步服务端配置
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             sender.sendPacket(new SyncConfigPayload(
@@ -46,7 +47,8 @@ public class PortableStorage implements ModInitializer {
                 ModConfig.maxStorageTypes,
                 ModConfig.maxItemStackSize,
                 ModConfig.baseMaxStorageTypes,
-                ModConfig.baseMaxItemStackSize
+                ModConfig.baseMaxItemStackSize,
+                ModConfig.unconditionalWarehouse
             ));
         });
 

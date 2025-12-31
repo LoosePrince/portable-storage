@@ -54,6 +54,8 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
 
     @Unique
     private boolean lastWorkbenchStatus = false;
+    @Unique
+    private boolean lastEnabledStatus = false;
 
     public InventoryScreenMixin(InventoryMenu menu, net.minecraft.world.entity.player.Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
@@ -74,6 +76,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         if (player == null) return;
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         this.lastWorkbenchStatus = com.portablestorage.util.WarehouseUtils.is3x3Enabled(player);
+        this.lastEnabledStatus = warehouse.isEnabled();
         int rows = warehouse.isFolded() ? 0 : warehouse.getVisibleRows();
         
         // 动态更新槽位位置以匹配当前配置
@@ -554,11 +557,19 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         if (player == null) return;
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         
-        // 检查工作台升级状态变化，若发生变化则刷新屏幕以重构 InventoryMenu 槽位
+        // 检查状态变化，若发生变化（如死亡禁用、激活等）则刷新屏幕以重构布局
+        if (warehouse.isEnabled() != lastEnabledStatus) {
+            this.lastEnabledStatus = warehouse.isEnabled();
+            this.minecraft.setScreen(new InventoryScreen(player));
+            return;
+        }
+
         if (com.portablestorage.util.WarehouseUtils.is3x3Enabled(player) != lastWorkbenchStatus) {
             this.minecraft.setScreen(new InventoryScreen(player));
             return;
         }
+
+        if (!shouldShowWarehouse()) return;
 
         checkCraftRefill();
 

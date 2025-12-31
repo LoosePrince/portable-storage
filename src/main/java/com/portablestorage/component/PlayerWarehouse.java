@@ -31,12 +31,17 @@ import java.util.function.Consumer;
  * 复杂的业务逻辑（存取规则、流体转换等）应放在 WarehouseManager 中。
  */
 public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>> implements Container, Storage<FluidVariant> {
+    public enum WarehouseType {
+        NONE, BASE, FULL
+    }
+
     private final List<WarehouseEntry> storage = new ArrayList<>();
     private final Map<FluidVariant, Long> fluidStorage = new LinkedHashMap<>();
 
     // 升级系统数据
     private final Map<ResourceLocation, ItemStack> upgradeStorage = new LinkedHashMap<>();
     private int upgradeScrollOffset = 0;
+    private WarehouseType type = WarehouseType.NONE;
 
     /**
      * 专用升级容器，支持滚动窗口映射
@@ -122,7 +127,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     private boolean quickInteraction = true;
     private boolean smartCollapse = false;
     private boolean craftRefill = true;
-    private boolean enabled = true;
+    private boolean enabled = false;
 
     // 多级缓存
     private List<WarehouseEntry> baseCache = null;      // 原始项 + 流体
@@ -134,6 +139,10 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     public PlayerWarehouse(UUID id, Consumer<PlayerWarehouse> onChanged) {
         this.onChanged = onChanged;
+        // 如果服务端配置为无条件开启，则初始设为启用状态
+        if (!"NONE".equals(com.portablestorage.config.ModConfig.unconditionalWarehouse)) {
+            this.enabled = true;
+        }
     }
 
     // --- 升级系统接口 ---
@@ -371,8 +380,33 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     public boolean isCraftRefill() { return craftRefill; }
     public void setCraftRefill(boolean refill) { this.craftRefill = refill; }
 
-    public boolean isEnabled() { return enabled; }
-    public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    public boolean isEnabled() { 
+        if (!enabled) return false;
+        WarehouseType effectiveType = getEffectiveType();
+        return effectiveType != WarehouseType.NONE;
+    }
+
+    public WarehouseType getType() { return type; }
+    public void setType(WarehouseType type) { this.type = type; markDirty(); }
+
+    public WarehouseType getEffectiveType() {
+        String configType = com.portablestorage.config.ModConfig.unconditionalWarehouse;
+        if ("FULL".equals(configType)) return WarehouseType.FULL;
+        if ("BASE".equals(configType)) return WarehouseType.BASE;
+        return this.type;
+    }
+
+    public void setEnabled(boolean enabled) { this.enabled = enabled; markDirty(); }
+
+    public int getMaxStorageTypes() {
+        if (getEffectiveType() == WarehouseType.BASE) return com.portablestorage.config.ModConfig.baseMaxStorageTypes;
+        return com.portablestorage.config.ModConfig.maxStorageTypes;
+    }
+
+    public long getMaxItemStackSize() {
+        if (getEffectiveType() == WarehouseType.BASE) return com.portablestorage.config.ModConfig.baseMaxItemStackSize;
+        return com.portablestorage.config.ModConfig.maxItemStackSize;
+    }
 
     /**
      * 检查是否安装了工作台升级
@@ -576,6 +610,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         this.smartCollapse = tag.getBoolean("smartCollapse");
         this.craftRefill = !tag.contains("craftRefill") || tag.getBoolean("craftRefill");
         this.enabled = !tag.contains("enabled") || tag.getBoolean("enabled");
+        this.type = tag.contains("activationType") ? WarehouseType.values()[tag.getInt("activationType")] : WarehouseType.NONE;
 
         // 升级系统
         upgradeStorage.clear();
@@ -622,6 +657,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         tag.putBoolean("smartCollapse", smartCollapse);
         tag.putBoolean("craftRefill", craftRefill);
         tag.putBoolean("enabled", enabled);
+        tag.putInt("activationType", type.ordinal());
 
         // 升级系统
         ListTag upgradeList = new ListTag();

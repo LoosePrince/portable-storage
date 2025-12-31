@@ -106,6 +106,7 @@ public class ModServerNetworking {
             ModConfig.maxItemStackSize = payload.maxItemStackSize();
             ModConfig.baseMaxStorageTypes = payload.baseMaxStorageTypes();
             ModConfig.baseMaxItemStackSize = payload.baseMaxItemStackSize();
+            ModConfig.unconditionalWarehouse = payload.unconditionalWarehouse();
 
             // 保存到文件
             ModConfig.save();
@@ -118,7 +119,8 @@ public class ModServerNetworking {
                 ModConfig.maxStorageTypes,
                 ModConfig.maxItemStackSize,
                 ModConfig.baseMaxStorageTypes,
-                ModConfig.baseMaxItemStackSize
+                ModConfig.baseMaxItemStackSize,
+                ModConfig.unconditionalWarehouse
             );
             
             for (ServerPlayer p : context.server().getPlayerList().getPlayers()) {

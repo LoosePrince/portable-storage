@@ -55,7 +55,8 @@ public class YACLConfig {
             ModConfig.maxStorageTypes,
             ModConfig.maxItemStackSize,
             ModConfig.baseMaxStorageTypes,
-            ModConfig.baseMaxItemStackSize
+            ModConfig.baseMaxItemStackSize,
+            ModConfig.unconditionalWarehouse
         ));
     }
 
@@ -209,6 +210,22 @@ public class YACLConfig {
                                         }
                                 )
                                 .controller(BooleanControllerBuilder::create)
+                                .available(canEditServerConfig())
+                                .build())
+                        .option(Option.<String>createBuilder()
+                                .name(Component.translatable("gui.portablestorage.settings.unconditional_warehouse"))
+                                .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.unconditional_warehouse.desc")))
+                                .binding(
+                                        "NONE",
+                                        () -> ModConfig.unconditionalWarehouse,
+                                        val -> {
+                                            ModConfig.unconditionalWarehouse = val;
+                                            updateServerConfig();
+                                        }
+                                )
+                                .controller(opt -> CyclingListControllerBuilder.<String>create(opt)
+                                        .values(Arrays.asList("NONE", "BASE", "FULL"))
+                                        .formatValue(v -> Component.translatable("gui.portablestorage.settings.unconditional_warehouse." + v.toLowerCase())))
                                 .available(canEditServerConfig())
                                 .build())
                         .option(Option.<Integer>createBuilder()
