@@ -52,6 +52,9 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
     @Unique
     private String pendingSearchText = null;
 
+    @Unique
+    private boolean lastWorkbenchStatus = false;
+
     public InventoryScreenMixin(InventoryMenu menu, net.minecraft.world.entity.player.Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
     }
@@ -70,6 +73,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         var player = Minecraft.getInstance().player;
         if (player == null) return;
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+        this.lastWorkbenchStatus = com.portablestorage.util.WarehouseUtils.is3x3Enabled(player);
         int rows = warehouse.isFolded() ? 0 : warehouse.getVisibleRows();
         
         // 动态更新槽位位置以匹配当前配置
@@ -373,7 +377,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                     int craftingY = by + (showShortcuts ? (iconSpacing * 5) : 0);
                     if (mouseX >= bx && mouseX < bx + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
                         if (!warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
-                            ClientPlayNetworking.send(new OpenCraftingPayload());
+                        ClientPlayNetworking.send(new OpenCraftingPayload());
                         }
                         return true;
                     }
@@ -549,6 +553,12 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         var player = Minecraft.getInstance().player;
         if (player == null) return;
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+        
+        // 检查工作台升级状态变化，若发生变化则刷新屏幕以重构 InventoryMenu 槽位
+        if (com.portablestorage.util.WarehouseUtils.is3x3Enabled(player) != lastWorkbenchStatus) {
+            this.minecraft.setScreen(new InventoryScreen(player));
+            return;
+        }
 
         checkCraftRefill();
 

@@ -72,5 +72,8 @@
   "upgrade.portablestorage.trash_can.clear_hint": "右键点击以清空垃圾桶",
   "upgrade.portablestorage.trash_can.cleared": "垃圾桶已清空",
   "upgrade.portablestorage.workbench.name": "工作台升级",
-  "upgrade.portablestorage.workbench.desc": "允许在仓库界面侧边栏打开合成界面"
+  "upgrade.portablestorage.workbench.desc": "允许在仓库界面侧边栏打开合成界面",
+  "upgrade.portablestorage.workbench.status": "3x3 合成: %s",
+  "upgrade.portablestorage.workbench.toggle_hint": "右键点击以切换状态",
+  "upgrade.portablestorage.workbench.toggled": "3x3 合成状态已切换为: %s"
 }

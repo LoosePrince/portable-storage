@@ -65,7 +65,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
                 ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setY(WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows()) + row * WarehouseConstants.SLOT_SIZE);
             }
         }
-
+        
         // 1. 支持 offsetInventory 属性
         int rows = warehouse.isFolded() ? 0 : warehouse.getVisibleRows();
         int xOffset = 0;
@@ -371,7 +371,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
             int craftingY = by + (showShortcuts ? (iconSpacing * 5) : 0);
             if (mouseX >= bx && mouseX < bx + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
                 if (!warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
-                    this.minecraft.setScreen(new InventoryScreen(this.minecraft.player));
+                this.minecraft.setScreen(new InventoryScreen(this.minecraft.player));
                 }
                 return true;
             }

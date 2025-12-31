@@ -374,6 +374,13 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
+    /**
+     * 检查是否安装了工作台升级
+     */
+    public boolean hasWorkbenchUpgrade() {
+        return !getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty();
+    }
+
     public String getSearchText() { return searchText; }
     public void setSearchText(String text) {
         String lower = text.toLowerCase();

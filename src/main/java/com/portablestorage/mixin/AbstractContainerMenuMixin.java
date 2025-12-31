@@ -43,18 +43,18 @@ public abstract class AbstractContainerMenuMixin {
                     return;
                 }
 
-                ItemStack cursorStack = menu.getCarried();
-                if (!cursorStack.isEmpty()) {
-                    ItemStack remaining = WarehouseManager.addFluid(warehouse, cursorStack, player);
-                    menu.setCarried(remaining);
-                } else {
+                        ItemStack cursorStack = menu.getCarried();
+                        if (!cursorStack.isEmpty()) {
+                            ItemStack remaining = WarehouseManager.addFluid(warehouse, cursorStack, player);
+                            menu.setCarried(remaining);
+                        } else {
                     int amount = (button == 1) ? 1 : 64;
                     ItemStack taken = WarehouseManager.removeItem(warehouse, slotId - warehouseStart, amount, false);
                     menu.setCarried(taken);
                 }
                 ci.cancel();
             }
-        } 
+        }
         // 处理升级槽位
         else if (slot instanceof com.portablestorage.upgrade.UpgradeSlot) {
             PlayerWarehouse warehouse = com.portablestorage.component.ModComponents.get(player).getWarehouse(player.getUUID());
@@ -66,8 +66,8 @@ public abstract class AbstractContainerMenuMixin {
                     if (!stackInSlot.isEmpty()) {
                         if (((AbstractContainerMenuAccessor)menu).invokeMoveItemStackTo(stackInSlot, 9, 45, true)) {
                             slot.set(stackInSlot);
-                        }
-                    }
+    }
+}
                     ci.cancel();
                     return;
                 }

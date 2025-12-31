@@ -1,6 +1,5 @@
 package com.portablestorage.mixin.client;
 
-import com.portablestorage.config.ModConfig;
 import com.portablestorage.mixin.accessor.SlotAccessor;
 import com.portablestorage.util.WarehouseConstants;
 import net.minecraft.client.gui.GuiGraphics;
@@ -25,9 +24,13 @@ public abstract class InventoryScreenCraftingMixin extends net.minecraft.client.
 
     @Inject(method = "init", at = @At("RETURN"))
     protected void onInitCrafting(CallbackInfo ci) {
-        if (!ModConfig.is3x3Enabled()) return;
+        if (!com.portablestorage.util.WarehouseUtils.is3x3Enabled(this.minecraft.player)) return;
 
-        int[] craftIndices = {1, 2, 3, 4, 46, 47, 48, 49, 50};
+        // 槽位索引说明：
+        // 1, 2, 3, 4 是原版 2x2 的四个槽位，现在映射到 3x3 容器的 (0,0), (0,1), (1,0), (1,1)
+        // 46, 47, 48, 49, 50 是我们补全 3x3 矩阵添加的 5 个槽位
+        // 排列顺序为 Row 0: 1, 2, 46 | Row 1: 3, 4, 47 | Row 2: 48, 49, 50
+        int[] craftIndices = {1, 2, 46, 3, 4, 47, 48, 49, 50};
         for (int i = 0; i < craftIndices.length; i++) {
             var slot = this.getMenu().slots.get(craftIndices[i]);
             ((SlotAccessor) slot).setX(WarehouseConstants.CRAFT_3X3_X + (i % 3) * 18);
@@ -41,7 +44,7 @@ public abstract class InventoryScreenCraftingMixin extends net.minecraft.client.
 
     @Inject(method = "renderBg", at = @At("RETURN"))
     protected void onRenderBgCrafting(GuiGraphics graphics, float partialTick, int mouseX, int mouseY, CallbackInfo ci) {
-        if (!ModConfig.is3x3Enabled()) return;
+        if (!com.portablestorage.util.WarehouseUtils.is3x3Enabled(this.minecraft.player)) return;
 
         int cx = this.leftPos + WarehouseConstants.CRAFT_3X3_X - 1;
         int cy = this.topPos + WarehouseConstants.CRAFT_3X3_Y - 1;

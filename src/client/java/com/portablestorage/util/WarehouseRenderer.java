@@ -246,11 +246,11 @@ public class WarehouseRenderer {
             int craftingX = horizontal ? (bx + (showShortcuts ? iconSpacing * 5 : 0)) : bx;
             int craftingY = horizontal ? by : (by + (showShortcuts ? iconSpacing * 5 : 0));
             if (mouseX >= craftingX && mouseX < craftingX + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
-                boolean isCrafting = net.minecraft.client.Minecraft.getInstance().screen instanceof com.portablestorage.screen.CraftingWarehouseScreen;
-                List<Component> tooltip = new ArrayList<>();
-                tooltip.add(Component.translatable(isCrafting ? "gui.portablestorage.button.back" : "gui.portablestorage.button.open_crafting"));
-                graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
-                return;
+            boolean isCrafting = net.minecraft.client.Minecraft.getInstance().screen instanceof com.portablestorage.screen.CraftingWarehouseScreen;
+            List<Component> tooltip = new ArrayList<>();
+            tooltip.add(Component.translatable(isCrafting ? "gui.portablestorage.button.back" : "gui.portablestorage.button.open_crafting"));
+            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+            return;
             }
         }
     }

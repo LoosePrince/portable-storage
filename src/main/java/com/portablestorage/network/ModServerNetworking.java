@@ -19,6 +19,9 @@ public class ModServerNetworking {
     public static void handleOpenCrafting(OpenCraftingPayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
             ServerPlayer player = context.player();
+            PlayerWarehouse warehouse = getWarehouse(player);
+            if (!warehouse.hasWorkbenchUpgrade()) return;
+
             player.openMenu(new SimpleMenuProvider(
                 (syncId, inventory, p) -> new CraftingWarehouseScreenHandler(syncId, inventory, ContainerLevelAccess.create(player.level(), player.blockPosition())),
                 Component.translatable("container.crafting")

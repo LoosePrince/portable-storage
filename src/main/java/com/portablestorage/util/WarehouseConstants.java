@@ -12,7 +12,13 @@ public class WarehouseConstants {
     public static final int EXTRA_CRAFTING_SLOTS = CRAFTING_INPUT_COUNT - VANILLA_CRAFTING_INPUT_COUNT; // 5个新槽位
     
     public static int getWarehouseSlotStart() {
-        return 46 + (com.portablestorage.config.ModConfig.is3x3Enabled() ? EXTRA_CRAFTING_SLOTS : 0);
+        // 始终从 51 开始 (46 原版 + 5 额外合成槽位)
+        return 51;
+    }
+
+    public static int getWarehouseMainSlotStart() {
+        // 仓库主格网从 63 开始 (51 + 12 升级槽位)
+        return 63;
     }
 
     public static final int PLAYER_INVENTORY_START = 9;

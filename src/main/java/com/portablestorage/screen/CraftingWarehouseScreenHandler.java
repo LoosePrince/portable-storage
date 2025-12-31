@@ -118,7 +118,8 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return true; // 随身仓库始终有效
+        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+        return warehouse.hasWorkbenchUpgrade();
     }
 
     @Override

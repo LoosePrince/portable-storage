@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(value = InventoryMenu.class, priority = 1500)
+@Mixin(value = InventoryMenu.class, priority = 2000)
 public abstract class InventoryMenuMixin extends AbstractContainerMenu {
 
     @Shadow @Final private Player owner;
