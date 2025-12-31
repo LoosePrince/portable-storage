@@ -19,6 +19,12 @@ public class ModClientNetworking {
                 ModConfig.hopperFrequency = payload.hopperFrequency();
             });
         });
+
+        ClientPlayNetworking.registerGlobalReceiver(S2COpenHopperFilterPayload.TYPE, (payload, context) -> {
+            context.client().execute(() -> {
+                context.client().setScreen(com.portablestorage.config.YACLConfig.createHopperFilterScreen(context.client().screen, payload.filters()));
+            });
+        });
     }
 }
 

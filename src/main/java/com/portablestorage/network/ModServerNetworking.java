@@ -210,6 +210,13 @@ public class ModServerNetworking {
         });
     }
 
+    public static void handleUpdateHopperFilters(C2SUpdateHopperFiltersPayload payload, ServerPlayNetworking.Context context) {
+        context.server().execute(() -> {
+            PlayerWarehouse warehouse = getWarehouse(context.player());
+            warehouse.setHopperFilters(payload.filters());
+        });
+    }
+
     private static PlayerWarehouse getWarehouse(ServerPlayer player) {
         return ModComponents.get(player).getWarehouse(player.getUUID());
     }

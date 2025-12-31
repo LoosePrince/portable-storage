@@ -11,6 +11,7 @@ import dev.isxander.yacl3.api.controller.BooleanControllerBuilder;
 import dev.isxander.yacl3.api.controller.IntegerFieldControllerBuilder;
 import dev.isxander.yacl3.api.controller.LongFieldControllerBuilder;
 import dev.isxander.yacl3.api.controller.CyclingListControllerBuilder;
+import dev.isxander.yacl3.api.controller.StringControllerBuilder;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -64,6 +65,35 @@ public class YACLConfig {
 
     private static boolean canEditServerConfig() {
         return ModConfig.allowHotReload && Minecraft.getInstance().player != null && Minecraft.getInstance().player.hasPermissions(4);
+    }
+
+    public static Screen createHopperFilterScreen(Screen parent, java.util.List<String> currentFilters) {
+        java.util.List<String> filters = new java.util.ArrayList<>(currentFilters);
+        
+        return YetAnotherConfigLib.createBuilder()
+                .title(Component.translatable("gui.portablestorage.hopper_filter.title"))
+                .category(ConfigCategory.createBuilder()
+                        .name(Component.translatable("gui.portablestorage.hopper_filter.category"))
+                        .option(ListOption.<String>createBuilder()
+                                .name(Component.translatable("gui.portablestorage.hopper_filter.list"))
+                                .description(OptionDescription.of(Component.translatable("gui.portablestorage.hopper_filter.list.desc")))
+                                .binding(
+                                        new java.util.ArrayList<>(),
+                                        () -> filters,
+                                        val -> {
+                                            filters.clear();
+                                            filters.addAll(val);
+                                        }
+                                )
+                                .controller(StringControllerBuilder::create)
+                                .initial("")
+                                .build())
+                        .build())
+                .save(() -> {
+                    ClientPlayNetworking.send(new com.portablestorage.network.C2SUpdateHopperFiltersPayload(new java.util.ArrayList<>(filters)));
+                })
+                .build()
+                .generateScreen(parent);
     }
 
     public static Screen create(Screen parent) {

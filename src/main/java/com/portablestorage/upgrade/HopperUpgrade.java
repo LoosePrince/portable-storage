@@ -14,9 +14,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.phys.AABB;
 
 import java.util.List;
 
@@ -53,6 +53,7 @@ public class HopperUpgrade extends UpgradeType {
         ).withStyle(ChatFormatting.YELLOW));
         
         tooltips.add(Component.translatable("upgrade.portablestorage.hopper.toggle_hint").withStyle(ChatFormatting.DARK_GRAY));
+        tooltips.add(Component.translatable("upgrade.portablestorage.hopper.filter_hint").withStyle(ChatFormatting.DARK_GRAY));
         
         // 显示当前配置信息
         tooltips.add(Component.literal(" "));
@@ -78,25 +79,43 @@ public class HopperUpgrade extends UpgradeType {
     }
 
     @Override
-    public void serverTick(PlayerWarehouse warehouse, net.minecraft.server.level.ServerPlayer player) {
+    public void onMiddleClick(PlayerWarehouse warehouse, Player player) {
+        if (player instanceof ServerPlayer serverPlayer) {
+            net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(serverPlayer, new com.portablestorage.network.S2COpenHopperFilterPayload(warehouse.getHopperFilters()));
+        }
+    }
+
+    @Override
+    public void serverTick(PlayerWarehouse warehouse, ServerPlayer player) {
         // 关键：从仓库获取最新的漏斗物品堆叠
         ItemStack hopperStack = warehouse.getUpgrade(ID);
         if (hopperStack.isEmpty() || !isHopperEnabled(hopperStack)) return;
 
-        // 频率控制：使用玩家的 tickCount 替代 NBT 存储，避免写回失败
+        // 频率控制
         int interval = (int) (ModConfig.hopperFrequency * 20);
         if (interval < 1) interval = 1;
         if (player.tickCount % interval != 0) return;
 
         double range = ModConfig.hopperRange;
-        // 使用与旧项目一致的 Box 构建方式：以玩家脚底为中心
         AABB area = new AABB(
             player.getX() - range, player.getY() - range, player.getZ() - range,
             player.getX() + range, player.getY() + range, player.getZ() + range
         );
         
+        // 获取过滤列表
+        List<String> filters = warehouse.getHopperFilters();
+        
         // 获取区域内的所有活跃掉落物
-        List<ItemEntity> items = player.serverLevel().getEntitiesOfClass(ItemEntity.class, area, entity -> entity.isAlive());
+        List<ItemEntity> items = player.serverLevel().getEntitiesOfClass(ItemEntity.class, area, entity -> {
+            if (!entity.isAlive()) return false;
+            
+            ItemStack itemStack = entity.getItem();
+            String itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(itemStack.getItem()).toString();
+            for (String rule : filters) {
+                if (matchRule(itemId, rule)) return false;
+            }
+            return true;
+        });
 
         boolean pickedAny = false;
         for (ItemEntity itemEntity : items) {
@@ -105,10 +124,9 @@ public class HopperUpgrade extends UpgradeType {
 
             int originalCount = itemStack.getCount();
             
-            // 1. 尝试流体转换（如拾取到岩浆桶，会自动变为仓库流体储量）
+            // 1. 尝试流体转换
             ItemStack processedStack = WarehouseManager.addFluid(warehouse, itemStack, player);
             
-            // 如果数量变了或物品变了（说明被 addFluid 处理了）
             if (processedStack != itemStack || processedStack.getCount() != originalCount) {
                 pickedAny = true;
                 if (processedStack.isEmpty()) {
@@ -133,10 +151,29 @@ public class HopperUpgrade extends UpgradeType {
 
         if (pickedAny) {
             warehouse.markDirty();
-            // 播放拾取反馈音效
             player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(), 
                 SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 0.2f, 
                 ((player.getRandom().nextFloat() - player.getRandom().nextFloat()) * 0.7f + 1.0f) * 2.0f);
+        }
+    }
+
+    private boolean matchRule(String text, String rule) {
+        if (rule.isEmpty()) return false;
+        
+        // 1. 精确匹配 !minecraft:dirt!
+        if (rule.startsWith("!") && rule.endsWith("!") && rule.length() > 1) {
+            return text.equals(rule.substring(1, rule.length() - 1));
+        }
+        
+        // 2. 模糊匹配
+        try {
+            String regex = rule.replace(".", "\\.").replace("*", ".*");
+            if (!rule.contains("*")) {
+                return text.contains(rule);
+            }
+            return text.matches(regex);
+        } catch (Exception e) {
+            return text.contains(rule);
         }
     }
 
@@ -157,19 +194,4 @@ public class HopperUpgrade extends UpgradeType {
             }
         });
     }
-
-    private static long getLastTick(ItemStack stack) {
-        CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
-        if (customData != null) {
-            return customData.copyTag().getLong("lastTick");
-        }
-        return 0;
-    }
-
-    private static void setLastTick(ItemStack stack, long tick) {
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
-            tag.putLong("lastTick", tick);
-        });
-    }
 }
-

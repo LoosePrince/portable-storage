@@ -42,6 +42,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     private final Map<ResourceLocation, ItemStack> upgradeStorage = new LinkedHashMap<>();
     private int upgradeScrollOffset = 0;
     private WarehouseType type = WarehouseType.NONE;
+    private final List<String> hopperFilters = new ArrayList<>();
 
     /**
      * 专用升级容器，支持滚动窗口映射
@@ -183,6 +184,16 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     public void setUpgradeScrollOffset(int offset) {
         int maxOffset = Math.max(0, UpgradeRegistry.getUpgradeCount() - visibleRows);
         this.upgradeScrollOffset = Math.clamp(offset, 0, maxOffset);
+    }
+
+    public List<String> getHopperFilters() {
+        return hopperFilters;
+    }
+
+    public void setHopperFilters(List<String> filters) {
+        this.hopperFilters.clear();
+        this.hopperFilters.addAll(filters);
+        this.markDirty();
     }
 
     // --- 数据访问接口 (供逻辑层使用) ---
@@ -627,6 +638,14 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         }
         this.upgradeScrollOffset = tag.getInt("upgradeScrollOffset");
 
+        this.hopperFilters.clear();
+        if (tag.contains("hopperFilters")) {
+            ListTag filterList = tag.getList("hopperFilters", Tag.TAG_STRING);
+            for (int i = 0; i < filterList.size(); i++) {
+                this.hopperFilters.add(filterList.getString(i));
+            }
+        }
+
         this.markDirty();
     }
 
@@ -669,5 +688,11 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         }
         tag.put("upgrades", upgradeList);
         tag.putInt("upgradeScrollOffset", upgradeScrollOffset);
+
+        ListTag filterList = new ListTag();
+        for (String filter : hopperFilters) {
+            filterList.add(net.minecraft.nbt.StringTag.valueOf(filter));
+        }
+        tag.put("hopperFilters", filterList);
     }
 }

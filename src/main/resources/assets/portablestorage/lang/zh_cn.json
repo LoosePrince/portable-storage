@@ -97,5 +97,10 @@
   "upgrade.portablestorage.hopper.toggle_hint": "右键点击以开启/关闭",
   "upgrade.portablestorage.hopper.toggled": "自动拾取状态已切换为: %s",
   "upgrade.portablestorage.hopper.config_range": "拾取范围: %d 格",
-  "upgrade.portablestorage.hopper.config_frequency": "拾取频率: %.1f 秒"
+  "upgrade.portablestorage.hopper.config_frequency": "拾取频率: %.1f 秒",
+  "upgrade.portablestorage.hopper.filter_hint": "中键点击以编辑过滤列表",
+  "gui.portablestorage.hopper_filter.title": "漏斗拾取过滤",
+  "gui.portablestorage.hopper_filter.category": "黑名单设置",
+  "gui.portablestorage.hopper_filter.list": "忽略的物品 ID 列表",
+  "gui.portablestorage.hopper_filter.list.desc": "在列表中的物品将不会被自动拾取。支持 * (模糊) 和 !id! (精确) 匹配。"
 }
