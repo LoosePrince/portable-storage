@@ -6,8 +6,10 @@ import com.portablestorage.item.ModItems;
 import com.portablestorage.network.ModNetworking;
 import com.portablestorage.network.SyncConfigPayload;
 import com.portablestorage.screen.ModScreenHandlers;
+import com.portablestorage.upgrade.HopperUpgrade;
 import com.portablestorage.upgrade.TrashCanUpgrade;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -30,6 +32,7 @@ public class PortableStorage implements ModInitializer {
         // 注册升级
         com.portablestorage.upgrade.UpgradeRegistry.register(new TrashCanUpgrade());
         com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.WorkbenchUpgrade());
+        com.portablestorage.upgrade.UpgradeRegistry.register(new HopperUpgrade());
         
         ModScreenHandlers.register();
         ModNetworking.registerC2SPayloads();
@@ -38,6 +41,21 @@ public class PortableStorage implements ModInitializer {
         PlayerDeathEventHandler.register();
         com.portablestorage.event.WarehouseActivationHandler.register();
         
+        // 漏斗升级 Tick 处理
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            for (net.minecraft.server.level.ServerPlayer player : server.getPlayerList().getPlayers()) {
+                var warehouse = com.portablestorage.component.ModComponents.get(player).getWarehouse(player.getUUID());
+                if (warehouse.isEnabled()) {
+                    for (java.util.Map.Entry<ResourceLocation, ItemStack> entry : warehouse.getUpgradeStorage().entrySet()) {
+                        com.portablestorage.upgrade.UpgradeType type = com.portablestorage.upgrade.UpgradeRegistry.get(entry.getKey());
+                        if (type != null) {
+                            type.serverTick(warehouse, player);
+                        }
+                    }
+                }
+            }
+        });
+
         // 玩家加入时同步服务端配置
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             sender.sendPacket(new SyncConfigPayload(
@@ -48,7 +66,9 @@ public class PortableStorage implements ModInitializer {
                 ModConfig.maxItemStackSize,
                 ModConfig.baseMaxStorageTypes,
                 ModConfig.baseMaxItemStackSize,
-                ModConfig.unconditionalWarehouse
+                ModConfig.unconditionalWarehouse,
+                ModConfig.hopperRange,
+                ModConfig.hopperFrequency
             ));
         });
 

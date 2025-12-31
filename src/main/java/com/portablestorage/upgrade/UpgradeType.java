@@ -62,5 +62,10 @@ public abstract class UpgradeType {
     // --- 交互钩子 ---
     public void onRightClick(PlayerWarehouse warehouse, Player player) {}
     public void onMiddleClick(PlayerWarehouse warehouse, Player player) {}
+
+    /**
+     * 服务端每 Tick 调用 (仅在已安装此升级且仓库启用时)
+     */
+    public void serverTick(PlayerWarehouse warehouse, net.minecraft.server.level.ServerPlayer player) {}
 }
 

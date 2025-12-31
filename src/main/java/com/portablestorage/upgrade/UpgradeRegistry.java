@@ -29,5 +29,13 @@ public class UpgradeRegistry {
     public static int getUpgradeCount() {
         return UPGRADES.size();
     }
+
+    public static UpgradeType getByItem(net.minecraft.world.item.ItemStack stack) {
+        if (stack.isEmpty()) return null;
+        for (UpgradeType type : UPGRADES.values()) {
+            if (type.isItemValid(stack)) return type;
+        }
+        return null;
+    }
 }
 

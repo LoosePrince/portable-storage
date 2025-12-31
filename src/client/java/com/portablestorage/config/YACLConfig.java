@@ -56,7 +56,9 @@ public class YACLConfig {
             ModConfig.maxItemStackSize,
             ModConfig.baseMaxStorageTypes,
             ModConfig.baseMaxItemStackSize,
-            ModConfig.unconditionalWarehouse
+            ModConfig.unconditionalWarehouse,
+            ModConfig.hopperRange,
+            ModConfig.hopperFrequency
         ));
     }
 
@@ -227,6 +229,37 @@ public class YACLConfig {
                                         .values(Arrays.asList("NONE", "BASE", "FULL"))
                                         .formatValue(v -> Component.translatable("gui.portablestorage.settings.unconditional_warehouse." + v.toLowerCase())))
                                 .available(canEditServerConfig())
+                                .build())
+                        .group(OptionGroup.createBuilder()
+                                .name(Component.translatable("gui.portablestorage.settings.group.hopper"))
+                                .option(Option.<Integer>createBuilder()
+                                        .name(Component.translatable("gui.portablestorage.settings.hopper_range"))
+                                        .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.hopper_range.desc")))
+                                        .binding(
+                                                5,
+                                                () -> ModConfig.hopperRange,
+                                                val -> {
+                                                    ModConfig.hopperRange = val;
+                                                    updateServerConfig();
+                                                }
+                                        )
+                                        .controller(opt -> IntegerFieldControllerBuilder.create(opt).range(2, 20))
+                                        .available(canEditServerConfig())
+                                        .build())
+                                .option(Option.<Double>createBuilder()
+                                        .name(Component.translatable("gui.portablestorage.settings.hopper_frequency"))
+                                        .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.hopper_frequency.desc")))
+                                        .binding(
+                                                1.0,
+                                                () -> ModConfig.hopperFrequency,
+                                                val -> {
+                                                    ModConfig.hopperFrequency = val;
+                                                    updateServerConfig();
+                                                }
+                                        )
+                                        .controller(opt -> dev.isxander.yacl3.api.controller.DoubleFieldControllerBuilder.create(opt).range(0.2, 5.0))
+                                        .available(canEditServerConfig())
+                                        .build())
                                 .build())
                         .option(Option.<Integer>createBuilder()
                                 .name(Component.translatable("gui.portablestorage.settings.max_storage_types"))

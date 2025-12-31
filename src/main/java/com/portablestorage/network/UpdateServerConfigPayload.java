@@ -12,7 +12,9 @@ public record UpdateServerConfigPayload(
     long maxItemStackSize,
     int baseMaxStorageTypes,
     long baseMaxItemStackSize,
-    String unconditionalWarehouse
+    String unconditionalWarehouse,
+    int hopperRange,
+    double hopperFrequency
 ) implements CustomPacketPayload {
     public static final Type<UpdateServerConfigPayload> TYPE = new Type<>(PortableStorage.id("update_server_config"));
 
@@ -25,6 +27,8 @@ public record UpdateServerConfigPayload(
             buf.writeInt(payload.baseMaxStorageTypes);
             buf.writeLong(payload.baseMaxItemStackSize);
             buf.writeUtf(payload.unconditionalWarehouse);
+            buf.writeInt(payload.hopperRange);
+            buf.writeDouble(payload.hopperFrequency);
         },
         buf -> new UpdateServerConfigPayload(
             buf.readBoolean(),
@@ -33,7 +37,9 @@ public record UpdateServerConfigPayload(
             buf.readLong(),
             buf.readInt(),
             buf.readLong(),
-            buf.readUtf()
+            buf.readUtf(),
+            buf.readInt(),
+            buf.readDouble()
         )
     );
 

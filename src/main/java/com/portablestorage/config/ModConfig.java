@@ -26,6 +26,10 @@ public class ModConfig {
     public static int baseMaxStorageTypes = 54;
     public static long baseMaxItemStackSize = -1;
     
+    // 漏斗升级配置
+    public static int hopperRange = 5;
+    public static double hopperFrequency = 1.0;
+    
     // 运行时启用的 3x3 合成状态，由服务端下发决定
     private static boolean active3x3Crafting = true;
 
@@ -62,6 +66,8 @@ public class ModConfig {
         maxItemStackSize = ((Number) config.getOrElse("server.maxItemStackSize", -1L)).longValue();
         baseMaxStorageTypes = ((Number) config.getOrElse("server.baseMaxStorageTypes", 54)).intValue();
         baseMaxItemStackSize = ((Number) config.getOrElse("server.baseMaxItemStackSize", -1L)).longValue();
+        hopperRange = ((Number) config.getOrElse("server.hopperRange", 5)).intValue();
+        hopperFrequency = ((Number) config.getOrElse("server.hopperFrequency", 1.0)).doubleValue();
         
         // 初始时设置为本地配置值
         active3x3Crafting = enable3x3Crafting;
@@ -93,6 +99,8 @@ public class ModConfig {
         config.set("server.maxItemStackSize", maxItemStackSize);
         config.set("server.baseMaxStorageTypes", baseMaxStorageTypes);
         config.set("server.baseMaxItemStackSize", baseMaxItemStackSize);
+        config.set("server.hopperRange", hopperRange);
+        config.set("server.hopperFrequency", hopperFrequency);
         
         config.save();
         config.close();
