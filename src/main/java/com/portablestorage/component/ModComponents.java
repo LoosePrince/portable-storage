@@ -23,4 +23,12 @@ public class ModComponents {
     public static WarehouseComponent get(Entity entity) {
         return WAREHOUSE.get(entity.level().getScoreboard());
     }
+
+    /**
+     * 从服务器获取指定 UUID 的玩家仓库
+     */
+    public static PlayerWarehouse getWarehouse(net.minecraft.server.MinecraftServer server, java.util.UUID uuid) {
+        if (server == null) return null;
+        return WAREHOUSE.get(server.getScoreboard()).getWarehouse(uuid);
+    }
 }

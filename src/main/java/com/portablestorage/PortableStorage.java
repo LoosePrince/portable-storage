@@ -27,12 +27,15 @@ public class PortableStorage implements ModInitializer {
     @Override
 	public void onInitialize() {
         ModConfig.load();
+        com.portablestorage.block.ModBlocks.registerModBlocks();
+        com.portablestorage.block.entity.ModBlockEntities.registerModBlockEntities();
         ModItems.registerModItems();
         
         // 注册升级
         com.portablestorage.upgrade.UpgradeRegistry.register(new TrashCanUpgrade());
         com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.WorkbenchUpgrade());
         com.portablestorage.upgrade.UpgradeRegistry.register(new HopperUpgrade());
+        com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.BarrelUpgrade());
         
         ModScreenHandlers.register();
         ModNetworking.registerC2SPayloads();

@@ -2,6 +2,7 @@ package com.portablestorage;
 
 import com.portablestorage.network.ModClientNetworking;
 import com.portablestorage.screen.CraftingWarehouseScreen;
+import com.portablestorage.screen.BoundBarrelScreen;
 import com.portablestorage.screen.ModScreenHandlers;
 import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.gui.screens.MenuScreens;
@@ -11,5 +12,6 @@ public class PortableStorageClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		ModClientNetworking.registerClientReceivers();
 		MenuScreens.register(ModScreenHandlers.CRAFTING_WAREHOUSE, CraftingWarehouseScreen::new);
+		MenuScreens.register(ModScreenHandlers.BOUND_BARREL, BoundBarrelScreen::new);
 	}
 }

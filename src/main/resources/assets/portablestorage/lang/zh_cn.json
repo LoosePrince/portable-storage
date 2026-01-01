@@ -102,5 +102,12 @@
   "gui.portablestorage.hopper_filter.title": "漏斗拾取过滤",
   "gui.portablestorage.hopper_filter.category": "黑名单设置",
   "gui.portablestorage.hopper_filter.list": "忽略的物品 ID 列表",
-  "gui.portablestorage.hopper_filter.list.desc": "在列表中的物品将不会被自动拾取。支持 * (模糊) 和 !id! (精确) 匹配。"
+  "gui.portablestorage.hopper_filter.list.desc": "在列表中的物品将不会被自动拾取。支持 * (模糊) 和 !id! (精确) 匹配。",
+  "upgrade.portablestorage.barrel.name": "木桶升级",
+  "upgrade.portablestorage.barrel.desc": "放入木桶后变为绑定木桶，放置后可远程存取仓库物品。",
+  "upgrade.portablestorage.barrel.bound_to": "已绑定至: %s",
+  "block.portablestorage.bound_barrel": "绑定木桶",
+  "container.portablestorage.bound_barrel": "绑定木桶 (%s)",
+  "container.portablestorage.bound_barrel_unbound": "未绑定的木桶",
+  "message.portablestorage.bound_barrel_no_permission": "你没有权限打开别人的绑定木桶"
 }

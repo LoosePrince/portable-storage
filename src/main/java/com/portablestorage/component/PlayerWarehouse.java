@@ -137,13 +137,19 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     private List<WarehouseEntry> sortedCache = null;    // 最终排序后
 
     private final Consumer<PlayerWarehouse> onChanged;
+    private final UUID ownerUuid;
 
     public PlayerWarehouse(UUID id, Consumer<PlayerWarehouse> onChanged) {
+        this.ownerUuid = id;
         this.onChanged = onChanged;
         // 如果服务端配置为无条件开启，则初始设为启用状态
         if (!"NONE".equals(com.portablestorage.config.ModConfig.unconditionalWarehouse)) {
             this.enabled = true;
         }
+    }
+
+    public UUID getOwnerUuid() {
+        return ownerUuid;
     }
 
     // --- 升级系统接口 ---
