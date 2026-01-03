@@ -330,6 +330,16 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     public void clearContent() {
         storage.clear();
         fluidStorage.clear();
+        
+        // 卸载并清除所有升级物品
+        for (Map.Entry<ResourceLocation, ItemStack> entry : new HashMap<>(upgradeStorage).entrySet()) {
+            UpgradeType type = UpgradeRegistry.get(entry.getKey());
+            if (type != null && !entry.getValue().isEmpty()) {
+                type.onUninstall(this, entry.getValue());
+            }
+        }
+        upgradeStorage.clear();
+        
         this.markDirty();
             }
 

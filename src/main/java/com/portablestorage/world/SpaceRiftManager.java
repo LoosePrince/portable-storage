@@ -36,8 +36,8 @@ public class SpaceRiftManager {
 
         ServerLevel currentLevel = player.serverLevel();
         if (currentLevel.dimension().equals(DIMENSION_KEY)) {
-            // 退出裂隙
-            exitRift(player, warehouse);
+            // 退出裂隙 (正常退出，保存位置)
+            exitRift(player, warehouse, false);
         } else {
             // 进入裂隙
             enterRift(player, warehouse);
@@ -49,11 +49,13 @@ public class SpaceRiftManager {
         ServerLevel riftLevel = getWorld(server);
         if (riftLevel == null) return;
 
-        // 保存返回点
-        warehouse.setRiftReturnDim(player.level().dimension().location());
-        warehouse.setRiftReturnPos(player.blockPosition());
-        warehouse.setRiftReturnYaw(player.getYRot());
-        warehouse.setRiftReturnPitch(player.getXRot());
+        // 保存返回点 (仅当当前不在裂隙维度时才保存)
+        if (!player.level().dimension().equals(DIMENSION_KEY)) {
+            warehouse.setRiftReturnDim(player.level().dimension().location());
+            warehouse.setRiftReturnPos(player.blockPosition());
+            warehouse.setRiftReturnYaw(player.getYRot());
+            warehouse.setRiftReturnPitch(player.getXRot());
+        }
 
         // 分配或获取地块
         if (!warehouse.hasRiftPlot()) {
@@ -76,13 +78,18 @@ public class SpaceRiftManager {
         applyPersonalBorder(player, warehouse);
     }
 
-    private static void exitRift(ServerPlayer player, PlayerWarehouse warehouse) {
+    private static void exitRift(ServerPlayer player, PlayerWarehouse warehouse, boolean isVoidFall) {
         MinecraftServer server = player.getServer();
         
-        // 保存裂隙内的位置
-        warehouse.setRiftLastPos(player.blockPosition());
-        warehouse.setRiftLastYaw(player.getYRot());
-        warehouse.setRiftLastPitch(player.getXRot());
+        if (isVoidFall) {
+            // 掉入虚空，清除裂隙内的记录位置，下次进入回到默认点
+            warehouse.setRiftLastPos(null);
+        } else {
+            // 正常退出，保存裂隙内的位置
+            warehouse.setRiftLastPos(player.blockPosition());
+            warehouse.setRiftLastYaw(player.getYRot());
+            warehouse.setRiftLastPitch(player.getXRot());
+        }
 
         ResourceLocation returnDimId = warehouse.getRiftReturnDim();
         BlockPos returnPos = warehouse.getRiftReturnPos();
@@ -100,20 +107,29 @@ public class SpaceRiftManager {
             returnPos = targetLevel.getSharedSpawnPos();
         }
 
+        // 传送回返回点，并重置速度（防止虚空掉落时的惯性）
         player.teleportTo(targetLevel, returnPos.getX() + 0.5, returnPos.getY(), returnPos.getZ() + 0.5, warehouse.getRiftReturnYaw(), warehouse.getRiftReturnPitch());
+        player.setDeltaMovement(0, 0, 0);
+        player.fallDistance = 0;
         
         // 重置边界
         resetToWorldBorder(player);
     }
 
     public static void handleVoidFall(ServerPlayer player, PlayerWarehouse warehouse) {
-        if (player.getY() < player.level().getMinBuildHeight()) {
-            exitRift(player, warehouse);
+        if (player.getY() < player.level().getMinBuildHeight() - 1) {
+            exitRift(player, warehouse, true);
         }
     }
 
     public static void checkAndTeleportBack(ServerPlayer player, PlayerWarehouse warehouse) {
         if (player.isCreative() || player.isSpectator()) return;
+        
+        // 关键：必须确保玩家还在裂隙维度，否则主世界的坐标会触发边界回传
+        if (!player.level().dimension().equals(DIMENSION_KEY)) return;
+        
+        // 如果玩家已经在虚空高度，交给 handleVoidFall 处理，不要回传以免坐标冲突
+        if (player.getY() < player.level().getMinBuildHeight()) return;
         
         if (isOutsideBorder(null, warehouse, player.blockPosition())) {
             ChunkPos origin = new ChunkPos(warehouse.getRiftPlotX(), warehouse.getRiftPlotZ());
@@ -146,18 +162,11 @@ public class SpaceRiftManager {
         world.getChunk(origin.x, origin.z);
 
         BlockState stone = Blocks.SMOOTH_STONE.defaultBlockState();
-        int chunkSize = ModConfig.riftChunkSize;
-        int minX = origin.getMinBlockX();
-        int minZ = origin.getMinBlockZ();
-        int maxX = minX + 16 * chunkSize - 1;
-        int maxZ = minZ + 16 * chunkSize - 1;
-
-        // 每次进入都刷新脚下的平滑石头 (根据要求)
-        for (int x = minX; x <= maxX; x++) {
-            for (int z = minZ; z <= maxZ; z++) {
-                world.setBlockAndUpdate(new BlockPos(x, FLOOR_Y, z), stone);
-            }
-        }
+        
+        // 仅刷新默认位置那一个点的方块 (根据要求)
+        BlockPos centerPos = getPlotCenterBlock(origin);
+        world.setBlockAndUpdate(centerPos, stone);
+        
         warehouse.setRiftInitialized(true);
     }
 
