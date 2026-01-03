@@ -14,6 +14,7 @@ public class ModConfig {
     public static boolean offsetInventory = true;
     public static boolean hideRecipeBook = true;
     public static boolean showSmallIcons = true;
+    public static boolean removeExperimentalWarning = true;
     public static boolean allowHotReload = false;
     public static boolean enable3x3Crafting = true;
     public static boolean dropStorageOnDeath = true;
@@ -56,6 +57,7 @@ public class ModConfig {
         offsetInventory = config.getOrElse("client.offsetInventory", true);
         hideRecipeBook = config.getOrElse("client.hideRecipeBook", true);
         showSmallIcons = config.getOrElse("client.showSmallIcons", false);
+        removeExperimentalWarning = config.getOrElse("client.removeExperimentalWarning", true);
         try {
             storagePosition = StoragePosition.valueOf(config.getOrElse("client.storagePosition", "BOTTOM").toUpperCase());
         } catch (IllegalArgumentException e) {
@@ -95,6 +97,7 @@ public class ModConfig {
         config.set("client.offsetInventory", offsetInventory);
         config.set("client.hideRecipeBook", hideRecipeBook);
         config.set("client.showSmallIcons", showSmallIcons);
+        config.set("client.removeExperimentalWarning", removeExperimentalWarning);
         config.set("client.storagePosition", storagePosition.name());
         config.set("server.allowHotReload", allowHotReload);
         config.set("server.enable3x3Crafting", enable3x3Crafting);

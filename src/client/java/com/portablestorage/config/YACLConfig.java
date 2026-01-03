@@ -151,6 +151,16 @@ public class YACLConfig {
                                 )
                                 .controller(BooleanControllerBuilder::create)
                                 .build())
+                        .option(Option.<Boolean>createBuilder()
+                                .name(Component.translatable("gui.portablestorage.settings.remove_experimental_warning"))
+                                .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.remove_experimental_warning.desc")))
+                                .binding(
+                                        true,
+                                        () -> ModConfig.removeExperimentalWarning,
+                                        val -> ModConfig.removeExperimentalWarning = val
+                                )
+                                .controller(BooleanControllerBuilder::create)
+                                .build())
                         .group(OptionGroup.createBuilder()
                                 .name(Component.translatable("gui.portablestorage.settings.group.warehouse"))
                                 .option(Option.<Integer>createBuilder()
