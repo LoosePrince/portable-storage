@@ -44,6 +44,18 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     private WarehouseType type = WarehouseType.NONE;
     private final List<String> hopperFilters = new ArrayList<>();
 
+    // 裂隙升级数据
+    private ResourceLocation riftReturnDim = null;
+    private net.minecraft.core.BlockPos riftReturnPos = null;
+    private float riftReturnYaw = 0;
+    private float riftReturnPitch = 0;
+    private int riftPlotX = Integer.MIN_VALUE;
+    private int riftPlotZ = Integer.MIN_VALUE;
+    private boolean riftInitialized = false;
+    private net.minecraft.core.BlockPos riftLastPos = null;
+    private float riftLastYaw = 0;
+    private float riftLastPitch = 0;
+
     /**
      * 专用升级容器，支持滚动窗口映射
      */
@@ -201,6 +213,40 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         this.hopperFilters.addAll(filters);
         this.markDirty();
     }
+
+    // --- 裂隙升级数据接口 ---
+
+    public ResourceLocation getRiftReturnDim() { return riftReturnDim; }
+    public void setRiftReturnDim(ResourceLocation dim) { this.riftReturnDim = dim; markDirty(); }
+
+    public net.minecraft.core.BlockPos getRiftReturnPos() { return riftReturnPos; }
+    public void setRiftReturnPos(net.minecraft.core.BlockPos pos) { this.riftReturnPos = pos; markDirty(); }
+
+    public float getRiftReturnYaw() { return riftReturnYaw; }
+    public void setRiftReturnYaw(float yaw) { this.riftReturnYaw = yaw; markDirty(); }
+
+    public float getRiftReturnPitch() { return riftReturnPitch; }
+    public void setRiftReturnPitch(float pitch) { this.riftReturnPitch = pitch; markDirty(); }
+
+    public int getRiftPlotX() { return riftPlotX; }
+    public void setRiftPlotX(int x) { this.riftPlotX = x; markDirty(); }
+
+    public int getRiftPlotZ() { return riftPlotZ; }
+    public void setRiftPlotZ(int z) { this.riftPlotZ = z; markDirty(); }
+
+    public boolean isRiftInitialized() { return riftInitialized; }
+    public void setRiftInitialized(boolean initialized) { this.riftInitialized = initialized; markDirty(); }
+
+    public net.minecraft.core.BlockPos getRiftLastPos() { return riftLastPos; }
+    public void setRiftLastPos(net.minecraft.core.BlockPos pos) { this.riftLastPos = pos; markDirty(); }
+
+    public float getRiftLastYaw() { return riftLastYaw; }
+    public void setRiftLastYaw(float yaw) { this.riftLastYaw = yaw; markDirty(); }
+
+    public float getRiftLastPitch() { return riftLastPitch; }
+    public void setRiftLastPitch(float pitch) { this.riftLastPitch = pitch; markDirty(); }
+
+    public boolean hasRiftPlot() { return riftPlotX != Integer.MIN_VALUE; }
 
     // --- 数据访问接口 (供逻辑层使用) ---
 
@@ -652,6 +698,23 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             }
         }
 
+        // 裂隙升级数据
+        if (tag.contains("riftReturnDim")) {
+            this.riftReturnDim = ResourceLocation.parse(tag.getString("riftReturnDim"));
+            this.riftReturnPos = net.minecraft.nbt.NbtUtils.readBlockPos(tag, "riftReturnPos").orElse(null);
+            this.riftReturnYaw = tag.getFloat("riftReturnYaw");
+            this.riftReturnPitch = tag.getFloat("riftReturnPitch");
+        } else {
+            this.riftReturnDim = null;
+            this.riftReturnPos = null;
+        }
+        this.riftPlotX = tag.contains("riftPlotX") ? tag.getInt("riftPlotX") : Integer.MIN_VALUE;
+        this.riftPlotZ = tag.contains("riftPlotZ") ? tag.getInt("riftPlotZ") : Integer.MIN_VALUE;
+        this.riftInitialized = tag.getBoolean("riftInitialized");
+        this.riftLastPos = net.minecraft.nbt.NbtUtils.readBlockPos(tag, "riftLastPos").orElse(null);
+        this.riftLastYaw = tag.getFloat("riftLastYaw");
+        this.riftLastPitch = tag.getFloat("riftLastPitch");
+
         this.markDirty();
     }
 
@@ -700,5 +763,23 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             filterList.add(net.minecraft.nbt.StringTag.valueOf(filter));
         }
         tag.put("hopperFilters", filterList);
+
+        // 裂隙升级数据
+        if (riftReturnDim != null) {
+            tag.putString("riftReturnDim", riftReturnDim.toString());
+            if (riftReturnPos != null) {
+                tag.put("riftReturnPos", net.minecraft.nbt.NbtUtils.writeBlockPos(riftReturnPos));
+            }
+            tag.putFloat("riftReturnYaw", riftReturnYaw);
+            tag.putFloat("riftReturnPitch", riftReturnPitch);
+        }
+        tag.putInt("riftPlotX", riftPlotX);
+        tag.putInt("riftPlotZ", riftPlotZ);
+        tag.putBoolean("riftInitialized", riftInitialized);
+        if (riftLastPos != null) {
+            tag.put("riftLastPos", net.minecraft.nbt.NbtUtils.writeBlockPos(riftLastPos));
+            tag.putFloat("riftLastYaw", riftLastYaw);
+            tag.putFloat("riftLastPitch", riftLastPitch);
+        }
     }
 }

@@ -109,5 +109,13 @@
   "block.portablestorage.bound_barrel": "绑定木桶",
   "container.portablestorage.bound_barrel": "绑定木桶 (%s)",
   "container.portablestorage.bound_barrel_unbound": "未绑定的木桶",
-  "message.portablestorage.bound_barrel_no_permission": "你没有权限打开别人的绑定木桶"
+  "message.portablestorage.bound_barrel_no_permission": "你没有权限打开别人的绑定木桶",
+  "upgrade.portablestorage.rift.name": "裂隙升级",
+  "upgrade.portablestorage.rift.desc": "利用龙蛋撕开虚空的裂隙。右键点击进入或退出你的私人虚空空间。",
+  "gui.portablestorage.settings.group.rift": "裂隙升级设置",
+  "gui.portablestorage.settings.rift_upgrade_item": "裂隙升级物品",
+  "gui.portablestorage.settings.rift_upgrade_item.desc": "设置用于裂隙升级的物品 ID。默认为龙蛋。",
+  "gui.portablestorage.settings.rift_chunk_size": "裂隙空间大小",
+  "gui.portablestorage.settings.rift_chunk_size.desc": "设置玩家私人裂隙空间的区块边长。默认为 1 (即 1x1 区块)。",
+  "message.portablestorage.rift_outside_border": "§c你不能离开自己的裂隙区域！§r"
 }

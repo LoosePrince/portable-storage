@@ -109,6 +109,8 @@ public class ModServerNetworking {
             ModConfig.unconditionalWarehouse = payload.unconditionalWarehouse();
             ModConfig.hopperRange = payload.hopperRange();
             ModConfig.hopperFrequency = payload.hopperFrequency();
+            ModConfig.riftUpgradeItem = payload.riftUpgradeItem();
+            ModConfig.riftChunkSize = payload.riftChunkSize();
 
             // 保存到文件
             ModConfig.save();
@@ -124,7 +126,9 @@ public class ModServerNetworking {
                 ModConfig.baseMaxItemStackSize,
                 ModConfig.unconditionalWarehouse,
                 ModConfig.hopperRange,
-                ModConfig.hopperFrequency
+                ModConfig.hopperFrequency,
+                ModConfig.riftUpgradeItem,
+                ModConfig.riftChunkSize
             );
             
             for (ServerPlayer p : context.server().getPlayerList().getPlayers()) {

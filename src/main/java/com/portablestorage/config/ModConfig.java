@@ -30,6 +30,10 @@ public class ModConfig {
     public static int hopperRange = 5;
     public static double hopperFrequency = 1.0;
     
+    // 裂隙升级配置
+    public static String riftUpgradeItem = "minecraft:dragon_egg";
+    public static int riftChunkSize = 1;
+    
     // 运行时启用的 3x3 合成状态，由服务端下发决定
     private static boolean active3x3Crafting = true;
 
@@ -68,6 +72,8 @@ public class ModConfig {
         baseMaxItemStackSize = ((Number) config.getOrElse("server.baseMaxItemStackSize", -1L)).longValue();
         hopperRange = ((Number) config.getOrElse("server.hopperRange", 5)).intValue();
         hopperFrequency = ((Number) config.getOrElse("server.hopperFrequency", 1.0)).doubleValue();
+        riftUpgradeItem = config.getOrElse("server.riftUpgradeItem", "minecraft:dragon_egg");
+        riftChunkSize = ((Number) config.getOrElse("server.riftChunkSize", 1)).intValue();
         
         // 初始时设置为本地配置值
         active3x3Crafting = enable3x3Crafting;
@@ -101,6 +107,8 @@ public class ModConfig {
         config.set("server.baseMaxItemStackSize", baseMaxItemStackSize);
         config.set("server.hopperRange", hopperRange);
         config.set("server.hopperFrequency", hopperFrequency);
+        config.set("server.riftUpgradeItem", riftUpgradeItem);
+        config.set("server.riftChunkSize", riftChunkSize);
         
         config.save();
         config.close();

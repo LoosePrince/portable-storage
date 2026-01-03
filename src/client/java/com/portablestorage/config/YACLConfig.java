@@ -59,7 +59,9 @@ public class YACLConfig {
             ModConfig.baseMaxItemStackSize,
             ModConfig.unconditionalWarehouse,
             ModConfig.hopperRange,
-            ModConfig.hopperFrequency
+            ModConfig.hopperFrequency,
+            ModConfig.riftUpgradeItem,
+            ModConfig.riftChunkSize
         ));
     }
 
@@ -288,6 +290,37 @@ public class YACLConfig {
                                                 }
                                         )
                                         .controller(opt -> dev.isxander.yacl3.api.controller.DoubleFieldControllerBuilder.create(opt).range(0.2, 5.0))
+                                        .available(canEditServerConfig())
+                                        .build())
+                                .build())
+                        .group(OptionGroup.createBuilder()
+                                .name(Component.translatable("gui.portablestorage.settings.group.rift"))
+                                .option(Option.<String>createBuilder()
+                                        .name(Component.translatable("gui.portablestorage.settings.rift_upgrade_item"))
+                                        .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.rift_upgrade_item.desc")))
+                                        .binding(
+                                                "minecraft:dragon_egg",
+                                                () -> ModConfig.riftUpgradeItem,
+                                                val -> {
+                                                    ModConfig.riftUpgradeItem = val;
+                                                    updateServerConfig();
+                                                }
+                                        )
+                                        .controller(StringControllerBuilder::create)
+                                        .available(canEditServerConfig())
+                                        .build())
+                                .option(Option.<Integer>createBuilder()
+                                        .name(Component.translatable("gui.portablestorage.settings.rift_chunk_size"))
+                                        .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.rift_chunk_size.desc")))
+                                        .binding(
+                                                1,
+                                                () -> ModConfig.riftChunkSize,
+                                                val -> {
+                                                    ModConfig.riftChunkSize = val;
+                                                    updateServerConfig();
+                                                }
+                                        )
+                                        .controller(opt -> IntegerFieldControllerBuilder.create(opt).range(1, 10))
                                         .available(canEditServerConfig())
                                         .build())
                                 .build())

@@ -15,7 +15,9 @@ public record SyncConfigPayload(
     long baseMaxItemStackSize,
     String unconditionalWarehouse,
     int hopperRange,
-    double hopperFrequency
+    double hopperFrequency,
+    String riftUpgradeItem,
+    int riftChunkSize
 ) implements CustomPacketPayload {
     public static final Type<SyncConfigPayload> TYPE = new Type<>(PortableStorage.id("sync_config"));
 
@@ -31,6 +33,8 @@ public record SyncConfigPayload(
             buf.writeUtf(payload.unconditionalWarehouse);
             buf.writeInt(payload.hopperRange);
             buf.writeDouble(payload.hopperFrequency);
+            buf.writeUtf(payload.riftUpgradeItem);
+            buf.writeInt(payload.riftChunkSize);
         },
         buf -> new SyncConfigPayload(
             buf.readBoolean(), 
@@ -42,7 +46,9 @@ public record SyncConfigPayload(
             buf.readLong(),
             buf.readUtf(),
             buf.readInt(),
-            buf.readDouble()
+            buf.readDouble(),
+            buf.readUtf(),
+            buf.readInt()
         )
     );
 

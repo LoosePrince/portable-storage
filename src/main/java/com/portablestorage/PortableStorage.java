@@ -36,6 +36,7 @@ public class PortableStorage implements ModInitializer {
         com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.WorkbenchUpgrade());
         com.portablestorage.upgrade.UpgradeRegistry.register(new HopperUpgrade());
         com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.BarrelUpgrade());
+        com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.RiftUpgrade());
         
         ModScreenHandlers.register();
         ModNetworking.registerC2SPayloads();
@@ -43,6 +44,19 @@ public class PortableStorage implements ModInitializer {
         ModNetworking.registerServerReceivers();
         PlayerDeathEventHandler.register();
         com.portablestorage.event.WarehouseActivationHandler.register();
+        com.portablestorage.event.SpaceRiftEventHandler.register();
+        
+        // 玩家加入时重置裂隙边界 (延迟几秒发送以确保客户端加载完成)
+        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            var player = handler.getPlayer();
+            if (player.level().dimension().equals(com.portablestorage.world.SpaceRiftManager.DIMENSION_KEY)) {
+                // 在下一刻或几秒后发送，确保客户端已经进入维度
+                server.execute(() -> {
+                    var warehouse = com.portablestorage.component.ModComponents.get(player).getWarehouse(player.getUUID());
+                    com.portablestorage.world.SpaceRiftManager.applyPersonalBorder(player, warehouse);
+                });
+            }
+        });
         
         // 漏斗升级 Tick 处理
         ServerTickEvents.END_SERVER_TICK.register(server -> {
@@ -71,7 +85,9 @@ public class PortableStorage implements ModInitializer {
                 ModConfig.baseMaxItemStackSize,
                 ModConfig.unconditionalWarehouse,
                 ModConfig.hopperRange,
-                ModConfig.hopperFrequency
+                ModConfig.hopperFrequency,
+                ModConfig.riftUpgradeItem,
+                ModConfig.riftChunkSize
             ));
         });
 
