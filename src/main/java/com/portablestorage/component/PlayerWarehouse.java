@@ -55,6 +55,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     private net.minecraft.core.BlockPos riftLastPos = null;
     private float riftLastYaw = 0;
     private float riftLastPitch = 0;
+    private UUID avatarUuid = null;
 
     /**
      * 专用升级容器，支持滚动窗口映射
@@ -245,6 +246,9 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     public float getRiftLastPitch() { return riftLastPitch; }
     public void setRiftLastPitch(float pitch) { this.riftLastPitch = pitch; markDirty(); }
+
+    public UUID getAvatarUuid() { return avatarUuid; }
+    public void setAvatarUuid(UUID uuid) { this.avatarUuid = uuid; markDirty(); }
 
     public boolean hasRiftPlot() { return riftPlotX != Integer.MIN_VALUE; }
 
@@ -724,6 +728,11 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         this.riftLastPos = net.minecraft.nbt.NbtUtils.readBlockPos(tag, "riftLastPos").orElse(null);
         this.riftLastYaw = tag.getFloat("riftLastYaw");
         this.riftLastPitch = tag.getFloat("riftLastPitch");
+        if (tag.hasUUID("avatarUuid")) {
+            this.avatarUuid = tag.getUUID("avatarUuid");
+        } else {
+            this.avatarUuid = null;
+        }
 
         this.markDirty();
     }
@@ -790,6 +799,9 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             tag.put("riftLastPos", net.minecraft.nbt.NbtUtils.writeBlockPos(riftLastPos));
             tag.putFloat("riftLastYaw", riftLastYaw);
             tag.putFloat("riftLastPitch", riftLastPitch);
+        }
+        if (avatarUuid != null) {
+            tag.putUUID("avatarUuid", avatarUuid);
         }
     }
 }

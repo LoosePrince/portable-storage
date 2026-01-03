@@ -76,6 +76,9 @@ public class SpaceRiftManager {
         
         // 应用个人边界
         applyPersonalBorder(player, warehouse);
+        
+        // 移除复制体
+        removeAvatar(player);
     }
 
     private static void exitRift(ServerPlayer player, PlayerWarehouse warehouse, boolean isVoidFall) {
@@ -84,11 +87,15 @@ public class SpaceRiftManager {
         if (isVoidFall) {
             // 掉入虚空，清除裂隙内的记录位置，下次进入回到默认点
             warehouse.setRiftLastPos(null);
+            removeAvatar(player);
         } else {
             // 正常退出，保存裂隙内的位置
             warehouse.setRiftLastPos(player.blockPosition());
             warehouse.setRiftLastYaw(player.getYRot());
             warehouse.setRiftLastPitch(player.getXRot());
+            
+            // 创建复制体
+            spawnAvatar(player, warehouse);
         }
 
         ResourceLocation returnDimId = warehouse.getRiftReturnDim();
@@ -210,6 +217,42 @@ public class SpaceRiftManager {
         int maxZ = minZ + 16 * chunkSize - 1;
 
         return pos.getX() < minX || pos.getX() > maxX || pos.getZ() < minZ || pos.getZ() > maxZ;
+    }
+
+    public static void spawnAvatar(ServerPlayer player, PlayerWarehouse warehouse) {
+        MinecraftServer server = player.getServer();
+        if (server == null) return;
+        ServerLevel riftLevel = getWorld(server);
+        if (riftLevel == null) return;
+
+        removeAvatar(player);
+
+        com.portablestorage.entity.RiftAvatarEntity avatar = new com.portablestorage.entity.RiftAvatarEntity(com.portablestorage.entity.ModEntities.RIFT_AVATAR, riftLevel);
+        avatar.setOwnerId(player.getUUID());
+        BlockPos pos = player.blockPosition();
+        avatar.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, player.getYRot(), player.getXRot());
+        avatar.setCustomName(net.minecraft.network.chat.Component.translatable("entity.portablestorage.rift_avatar", player.getScoreboardName()));
+        
+        riftLevel.addFreshEntity(avatar);
+        warehouse.setAvatarUuid(avatar.getUUID());
+    }
+
+    public static void removeAvatar(ServerPlayer player) {
+        var warehouse = com.portablestorage.component.ModComponents.get(player).getWarehouse(player.getUUID());
+        UUID avatarUuid = warehouse.getAvatarUuid();
+        
+        MinecraftServer server = player.getServer();
+        if (server == null) return;
+        ServerLevel riftLevel = getWorld(server);
+        if (riftLevel == null) return;
+
+        if (avatarUuid != null) {
+            net.minecraft.world.entity.Entity e = riftLevel.getEntity(avatarUuid);
+            if (e != null) {
+                e.discard();
+            }
+            warehouse.setAvatarUuid(null);
+        }
     }
 
     public static void updatePlotForcedLoading(ServerPlayer player, PlayerWarehouse warehouse, boolean forced) {

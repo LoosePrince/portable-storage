@@ -29,6 +29,8 @@ public class PortableStorage implements ModInitializer {
         ModConfig.load();
         com.portablestorage.block.ModBlocks.registerModBlocks();
         com.portablestorage.block.entity.ModBlockEntities.registerModBlockEntities();
+        com.portablestorage.entity.ModEntities.registerModEntities();
+        net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry.register(com.portablestorage.entity.ModEntities.RIFT_AVATAR, com.portablestorage.entity.RiftAvatarEntity.createAttributes());
         ModItems.registerModItems();
         
         // 注册升级
@@ -55,6 +57,9 @@ public class PortableStorage implements ModInitializer {
             com.portablestorage.world.SpaceRiftManager.updatePlotForcedLoading(player, warehouse, true);
 
             if (player.level().dimension().equals(com.portablestorage.world.SpaceRiftManager.DIMENSION_KEY)) {
+                // 移除在线时的复制体
+                com.portablestorage.world.SpaceRiftManager.removeAvatar(player);
+
                 // 在下一刻或几秒后发送，确保客户端已经进入维度
                 server.execute(() -> {
                     com.portablestorage.world.SpaceRiftManager.applyPersonalBorder(player, warehouse);
@@ -102,6 +107,11 @@ public class PortableStorage implements ModInitializer {
                 
                 // 停止强制加载
                 com.portablestorage.world.SpaceRiftManager.updatePlotForcedLoading(player, warehouse, false);
+
+                // 如果在裂隙维度，创建复制体
+                if (player.level().dimension().equals(com.portablestorage.world.SpaceRiftManager.DIMENSION_KEY)) {
+                    com.portablestorage.world.SpaceRiftManager.spawnAvatar(player, warehouse);
+                }
 
                 if (!warehouse.getUpgrade(TrashCanUpgrade.ID).isEmpty()) {
                     warehouse.setUpgrade(TrashCanUpgrade.ID, ItemStack.EMPTY);

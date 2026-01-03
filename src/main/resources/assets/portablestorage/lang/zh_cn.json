@@ -123,5 +123,6 @@
   "gui.portablestorage.settings.enable_rift_forced_loading.desc": "开启后，在线玩家对应的裂隙地块区块将被强制加载，确保自动化设备正常工作。",
   "gui.portablestorage.settings.rift_forced_loading_range": "强加载范围",
   "gui.portablestorage.settings.rift_forced_loading_range.desc": "设置地块周围强加载的区块半径。默认为 1 (即加载中心区块周围一圈)。",
-  "message.portablestorage.rift_outside_border": "§c你不能离开自己的裂隙区域！§r"
+  "message.portablestorage.rift_outside_border": "§c你不能离开自己的裂隙区域！§r",
+  "entity.portablestorage.rift_avatar": "%s 的复制体"
 }
