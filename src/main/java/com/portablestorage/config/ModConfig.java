@@ -34,6 +34,8 @@ public class ModConfig {
     // 裂隙升级配置
     public static String riftUpgradeItem = "minecraft:dragon_egg";
     public static int riftChunkSize = 1;
+    public static boolean enableRiftForcedLoading = true;
+    public static int riftForcedLoadingRange = 1;
     
     // 运行时启用的 3x3 合成状态，由服务端下发决定
     private static boolean active3x3Crafting = true;
@@ -76,6 +78,8 @@ public class ModConfig {
         hopperFrequency = ((Number) config.getOrElse("server.hopperFrequency", 1.0)).doubleValue();
         riftUpgradeItem = config.getOrElse("server.riftUpgradeItem", "minecraft:dragon_egg");
         riftChunkSize = ((Number) config.getOrElse("server.riftChunkSize", 1)).intValue();
+        enableRiftForcedLoading = config.getOrElse("server.enableRiftForcedLoading", true);
+        riftForcedLoadingRange = ((Number) config.getOrElse("server.riftForcedLoadingRange", 1)).intValue();
         
         // 初始时设置为本地配置值
         active3x3Crafting = enable3x3Crafting;
@@ -112,6 +116,8 @@ public class ModConfig {
         config.set("server.hopperFrequency", hopperFrequency);
         config.set("server.riftUpgradeItem", riftUpgradeItem);
         config.set("server.riftChunkSize", riftChunkSize);
+        config.set("server.enableRiftForcedLoading", enableRiftForcedLoading);
+        config.set("server.riftForcedLoadingRange", riftForcedLoadingRange);
         
         config.save();
         config.close();

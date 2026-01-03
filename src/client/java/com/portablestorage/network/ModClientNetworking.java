@@ -19,6 +19,8 @@ public class ModClientNetworking {
                 ModConfig.hopperFrequency = payload.hopperFrequency();
                 ModConfig.riftUpgradeItem = payload.riftUpgradeItem();
                 ModConfig.riftChunkSize = payload.riftChunkSize();
+                ModConfig.enableRiftForcedLoading = payload.enableRiftForcedLoading();
+                ModConfig.riftForcedLoadingRange = payload.riftForcedLoadingRange();
             });
         });
 

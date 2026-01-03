@@ -202,5 +202,36 @@ public class SpaceRiftManager {
 
         return pos.getX() < minX || pos.getX() > maxX || pos.getZ() < minZ || pos.getZ() > maxZ;
     }
+
+    public static void updatePlotForcedLoading(ServerPlayer player, PlayerWarehouse warehouse, boolean forced) {
+        MinecraftServer server = player.getServer();
+        if (server == null) return;
+        ServerLevel riftLevel = getWorld(server);
+        if (riftLevel == null) return;
+
+        if (!warehouse.hasRiftPlot()) return;
+
+        ChunkPos origin = new ChunkPos(warehouse.getRiftPlotX(), warehouse.getRiftPlotZ());
+        
+        // 先清理可能存在的旧强制加载区块 (清理最大范围 5)
+        for (int x = -5; x <= 5; x++) {
+            for (int z = -5; z <= 5; z++) {
+                try {
+                    riftLevel.setChunkForced(origin.x + x, origin.z + z, false);
+                } catch (Exception ignored) {}
+            }
+        }
+
+        if (forced && ModConfig.enableRiftForcedLoading) {
+            int range = ModConfig.riftForcedLoadingRange;
+            for (int x = -range; x <= range; x++) {
+                for (int z = -range; z <= range; z++) {
+                    try {
+                        riftLevel.setChunkForced(origin.x + x, origin.z + z, true);
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+    }
 }
 

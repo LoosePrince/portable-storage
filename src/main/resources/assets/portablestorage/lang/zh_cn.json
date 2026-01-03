@@ -119,5 +119,9 @@
   "gui.portablestorage.settings.rift_upgrade_item.desc": "设置用于裂隙升级的物品 ID。默认为龙蛋。",
   "gui.portablestorage.settings.rift_chunk_size": "裂隙空间大小",
   "gui.portablestorage.settings.rift_chunk_size.desc": "设置玩家私人裂隙空间的区块边长。默认为 1 (即 1x1 区块)。",
+  "gui.portablestorage.settings.enable_rift_forced_loading": "启用裂隙区块强加载",
+  "gui.portablestorage.settings.enable_rift_forced_loading.desc": "开启后，在线玩家对应的裂隙地块区块将被强制加载，确保自动化设备正常工作。",
+  "gui.portablestorage.settings.rift_forced_loading_range": "强加载范围",
+  "gui.portablestorage.settings.rift_forced_loading_range.desc": "设置地块周围强加载的区块半径。默认为 1 (即加载中心区块周围一圈)。",
   "message.portablestorage.rift_outside_border": "§c你不能离开自己的裂隙区域！§r"
 }

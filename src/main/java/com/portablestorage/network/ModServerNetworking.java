@@ -111,9 +111,17 @@ public class ModServerNetworking {
             ModConfig.hopperFrequency = payload.hopperFrequency();
             ModConfig.riftUpgradeItem = payload.riftUpgradeItem();
             ModConfig.riftChunkSize = payload.riftChunkSize();
+            ModConfig.enableRiftForcedLoading = payload.enableRiftForcedLoading();
+            ModConfig.riftForcedLoadingRange = payload.riftForcedLoadingRange();
 
             // 保存到文件
             ModConfig.save();
+
+            // 更新在线玩家的强制加载状态
+            for (ServerPlayer p : context.server().getPlayerList().getPlayers()) {
+                var warehouse = getWarehouse(p);
+                com.portablestorage.world.SpaceRiftManager.updatePlotForcedLoading(p, warehouse, true);
+            }
 
             // 同步给所有玩家
             SyncConfigPayload sync = new SyncConfigPayload(
@@ -128,7 +136,9 @@ public class ModServerNetworking {
                 ModConfig.hopperRange,
                 ModConfig.hopperFrequency,
                 ModConfig.riftUpgradeItem,
-                ModConfig.riftChunkSize
+                ModConfig.riftChunkSize,
+                ModConfig.enableRiftForcedLoading,
+                ModConfig.riftForcedLoadingRange
             );
             
             for (ServerPlayer p : context.server().getPlayerList().getPlayers()) {

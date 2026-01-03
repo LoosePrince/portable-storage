@@ -61,7 +61,9 @@ public class YACLConfig {
             ModConfig.hopperRange,
             ModConfig.hopperFrequency,
             ModConfig.riftUpgradeItem,
-            ModConfig.riftChunkSize
+            ModConfig.riftChunkSize,
+            ModConfig.enableRiftForcedLoading,
+            ModConfig.riftForcedLoadingRange
         ));
     }
 
@@ -331,6 +333,34 @@ public class YACLConfig {
                                                 }
                                         )
                                         .controller(opt -> IntegerFieldControllerBuilder.create(opt).range(1, 10))
+                                        .available(canEditServerConfig())
+                                        .build())
+                                .option(Option.<Boolean>createBuilder()
+                                        .name(Component.translatable("gui.portablestorage.settings.enable_rift_forced_loading"))
+                                        .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.enable_rift_forced_loading.desc")))
+                                        .binding(
+                                                true,
+                                                () -> ModConfig.enableRiftForcedLoading,
+                                                val -> {
+                                                    ModConfig.enableRiftForcedLoading = val;
+                                                    updateServerConfig();
+                                                }
+                                        )
+                                        .controller(BooleanControllerBuilder::create)
+                                        .available(canEditServerConfig())
+                                        .build())
+                                .option(Option.<Integer>createBuilder()
+                                        .name(Component.translatable("gui.portablestorage.settings.rift_forced_loading_range"))
+                                        .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.rift_forced_loading_range.desc")))
+                                        .binding(
+                                                1,
+                                                () -> ModConfig.riftForcedLoadingRange,
+                                                val -> {
+                                                    ModConfig.riftForcedLoadingRange = val;
+                                                    updateServerConfig();
+                                                }
+                                        )
+                                        .controller(opt -> IntegerFieldControllerBuilder.create(opt).range(0, 5))
                                         .available(canEditServerConfig())
                                         .build())
                                 .build())
