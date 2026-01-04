@@ -38,7 +38,7 @@ public class WarehouseConstants {
      * 动态获取升级列宽度：若未注册任何升级，则宽度为 0
      */
     public static int getUpgradeColumnWidth() {
-        return com.portablestorage.upgrade.UpgradeRegistry.getUpgradeCount() > 0 ? 22 : 0;
+        return com.portablestorage.upgrade.UpgradeRegistry.getUpgradeCount() > 0 ? 30 : 0;
     }
 
     public static int getWarehouseWidth() {
@@ -86,7 +86,7 @@ public class WarehouseConstants {
     // 升级槽位坐标 (相对于 warehouseX, warehouseY)
     public static final int UPGRADE_SLOT_RELATIVE_X = 8;
     public static final int UPGRADE_SLOT_RELATIVE_Y = 21;
-    public static final int UPGRADE_SCROLLBAR_X_OFFSET = 2;
+    public static final int UPGRADE_SCROLLBAR_X_OFFSET = 28;
 
     // 仓库槽位逻辑坐标 (相对于 warehouseX, warehouseY)
     public static int getSlotRelativeX() { return 8 + getUpgradeColumnWidth(); }

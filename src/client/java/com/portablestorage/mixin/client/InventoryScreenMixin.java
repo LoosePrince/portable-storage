@@ -46,6 +46,8 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
 
     @Unique
     private boolean isDraggingScrollbar = false;
+    @Unique
+    private boolean isDraggingUpgradeScrollbar = false;
 
     @Unique
     private long lastSearchUpdateTime = 0;
@@ -408,6 +410,14 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                         this.updateScrollFromMouse(mouseY);
                         return true;
                     }
+
+                    // 升级槽位滚动条点击
+                    int usx = x + WarehouseConstants.UPGRADE_SCROLLBAR_X_OFFSET;
+                    if (mouseX >= usx && mouseX <= usx + WarehouseConstants.SCROLLBAR_WIDTH && mouseY >= sy && mouseY <= sy + sh) {
+                        this.isDraggingUpgradeScrollbar = true;
+                        this.updateUpgradeScrollFromMouse(mouseY);
+                        return true;
+                    }
                 }
             }
         }
@@ -417,16 +427,49 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         this.isDraggingScrollbar = false;
+        this.isDraggingUpgradeScrollbar = false;
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (this.isDraggingScrollbar && shouldShowWarehouse()) {
-            this.updateScrollFromMouse(mouseY);
-            return true;
+        if (shouldShowWarehouse()) {
+            if (this.isDraggingScrollbar) {
+                this.updateScrollFromMouse(mouseY);
+                return true;
+            }
+            if (this.isDraggingUpgradeScrollbar) {
+                this.updateUpgradeScrollFromMouse(mouseY);
+                return true;
+            }
         }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Unique
+    private void updateUpgradeScrollFromMouse(double mouseY) {
+        var player = Minecraft.getInstance().player;
+        if (player == null) return;
+        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+        
+        int scrollbarY = this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.SCROLLBAR_Y_OFFSET;
+        int scrollbarHeight = warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE - WarehouseConstants.SCROLLBAR_PADDING;
+        
+        int totalUpgrades = com.portablestorage.upgrade.UpgradeRegistry.getUpgradeCount();
+        int visibleRows = warehouse.getVisibleRows();
+        int maxOffset = Math.max(0, totalUpgrades - visibleRows);
+        
+        if (maxOffset > 0) {
+            int thumbHeight = Math.max(10, (int) (scrollbarHeight * ((float) visibleRows / totalUpgrades)));
+            double relativeY = Math.clamp(mouseY - scrollbarY - thumbHeight / 2.0, 0, scrollbarHeight - thumbHeight);
+            int newOffset = (int) Math.round((relativeY * maxOffset) / (scrollbarHeight - thumbHeight));
+            if (newOffset != warehouse.getUpgradeScrollOffset()) {
+                int currentOffset = warehouse.getUpgradeScrollOffset();
+                int delta = newOffset - currentOffset;
+                warehouse.setUpgradeScrollOffset(newOffset);
+                ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(delta)));
+            }
+        }
     }
 
     @Unique

@@ -1,0 +1,62 @@
+package com.portablestorage.mixin;
+
+import com.portablestorage.component.ModComponents;
+import com.portablestorage.component.PlayerWarehouse;
+import com.portablestorage.logic.WarehouseManager;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.BowItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+@Mixin(BowItem.class)
+public abstract class BowItemMixin {
+
+    @Inject(method = "releaseUsing", at = @At("HEAD"))
+    private void onStoppedUsing(ItemStack stack, Level level, LivingEntity user, int remainingUseTicks, CallbackInfo ci) {
+        if (level.isClientSide) return;
+        if (!(user instanceof ServerPlayer player)) return;
+        if (player.getAbilities().instabuild) return;
+
+        // 如果玩家背包有箭，优先消耗背包的（原版逻辑会处理）
+        if (hasAnyArrow(player)) return;
+
+        PlayerWarehouse warehouse = ModComponents.getWarehouse(player.getServer(), player.getUUID());
+        if (warehouse == null || !warehouse.isEnabled()) return;
+
+        // 查找合适的箭进行扣除
+        ItemStack matchedArrow = null;
+        for (var entry : warehouse.getStorageList()) {
+            ItemStack s = entry.getItemStack();
+            if (isArrow(s)) {
+                if (s.is(Items.ARROW)) {
+                    matchedArrow = s;
+                    break;
+                }
+                if (matchedArrow == null) matchedArrow = s;
+            }
+        }
+
+        if (matchedArrow != null) {
+            WarehouseManager.takeMatching(warehouse, matchedArrow, 1, true);
+        }
+    }
+
+    private boolean hasAnyArrow(ServerPlayer player) {
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            ItemStack s = player.getInventory().getItem(i);
+            if (!s.isEmpty() && (s.is(Items.ARROW) || s.is(Items.TIPPED_ARROW) || s.is(Items.SPECTRAL_ARROW))) return true;
+        }
+        return false;
+    }
+
+    private boolean isArrow(ItemStack stack) {
+        return !stack.isEmpty() && (stack.is(Items.ARROW) || stack.is(Items.TIPPED_ARROW) || stack.is(Items.SPECTRAL_ARROW));
+    }
+}
+

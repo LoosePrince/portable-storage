@@ -26,6 +26,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
     private static final ResourceLocation CRAFTING_TABLE_TEXTURE = ResourceLocation.withDefaultNamespace("textures/gui/container/crafting_table.png");
     private EditBox searchBox;
     private boolean isDraggingScrollbar = false;
+    private boolean isDraggingUpgradeScrollbar = false;
 
     // 搜索防抖
     private long lastSearchUpdateTime = 0;
@@ -398,6 +399,13 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
                 this.isDraggingScrollbar = true;
                 return true;
             }
+
+            // 升级槽位滚动条点击
+            int usx = x + WarehouseConstants.UPGRADE_SCROLLBAR_X_OFFSET;
+            if (mouseX >= usx && mouseX <= usx + WarehouseConstants.SCROLLBAR_WIDTH && mouseY >= sy && mouseY <= sy + sh) {
+                this.isDraggingUpgradeScrollbar = true;
+                return true;
+            }
         }
 
         return super.mouseClicked(mouseX, mouseY, button);
@@ -427,6 +435,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         this.isDraggingScrollbar = false;
+        this.isDraggingUpgradeScrollbar = false;
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
@@ -449,6 +458,28 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
                     int delta = warehouse.getScrollOffset() - newOffset;
                     warehouse.setScrollOffset(newOffset);
                     ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.of(delta), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+                }
+            }
+            return true;
+        }
+        if (this.isDraggingUpgradeScrollbar) {
+            PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
+            int scrollbarY = this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.SCROLLBAR_Y_OFFSET;
+            int scrollbarHeight = warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE - WarehouseConstants.SCROLLBAR_PADDING;
+            
+            int totalUpgrades = com.portablestorage.upgrade.UpgradeRegistry.getUpgradeCount();
+            int visibleRows = warehouse.getVisibleRows();
+            int maxOffset = Math.max(0, totalUpgrades - visibleRows);
+            
+            if (maxOffset > 0) {
+                int thumbHeight = Math.max(10, (int) (scrollbarHeight * ((float) visibleRows / totalUpgrades)));
+                double relativeY = Math.clamp(mouseY - scrollbarY - thumbHeight / 2.0, 0, scrollbarHeight - thumbHeight);
+                int newOffset = (int) Math.round((relativeY * maxOffset) / (scrollbarHeight - thumbHeight));
+                if (newOffset != warehouse.getUpgradeScrollOffset()) {
+                    int currentOffset = warehouse.getUpgradeScrollOffset();
+                    int delta = newOffset - currentOffset;
+                    warehouse.setUpgradeScrollOffset(newOffset);
+                    ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(delta)));
                 }
             }
             return true;

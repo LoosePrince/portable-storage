@@ -12,6 +12,9 @@
 		"AbstractArrowMixin",
 		"ServerPlayerGameModeMixin",
 		"ServerPlayerMixin",
+		"PlayerProjectileMixin",
+		"BowItemMixin",
+		"CrossbowItemMixin",
 		"accessor.SlotAccessor",
 		"accessor.AbstractContainerMenuAccessor"
 	],
