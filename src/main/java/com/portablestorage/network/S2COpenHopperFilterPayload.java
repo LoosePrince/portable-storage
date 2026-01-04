@@ -7,14 +7,15 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 import java.util.List;
 
-public record S2COpenHopperFilterPayload(List<String> filters) implements CustomPacketPayload {
+public record S2COpenHopperFilterPayload(List<String> filters, boolean blacklist) implements CustomPacketPayload {
     public static final Type<S2COpenHopperFilterPayload> TYPE = new Type<>(PortableStorage.id("open_hopper_filter"));
 
     public static final StreamCodec<FriendlyByteBuf, S2COpenHopperFilterPayload> CODEC = StreamCodec.of(
         (buf, payload) -> {
             buf.writeCollection(payload.filters, FriendlyByteBuf::writeUtf);
+            buf.writeBoolean(payload.blacklist);
         },
-        buf -> new S2COpenHopperFilterPayload(buf.readList(FriendlyByteBuf::readUtf))
+        buf -> new S2COpenHopperFilterPayload(buf.readList(FriendlyByteBuf::readUtf), buf.readBoolean())
     );
 
     @Override
@@ -22,4 +23,3 @@ public record S2COpenHopperFilterPayload(List<String> filters) implements Custom
         return TYPE;
     }
 }
-

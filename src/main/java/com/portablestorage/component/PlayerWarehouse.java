@@ -43,7 +43,9 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     private int upgradeScrollOffset = 0;
     private WarehouseType type = WarehouseType.NONE;
     private final List<String> hopperFilters = new ArrayList<>();
+    private boolean hopperFilterBlacklist = true;
     private final List<String> foodFilters = new ArrayList<>();
+    private boolean foodFilterBlacklist = true;
     private long experience = 0; // 瓶装经验 (XP points)
 
     // 裂隙升级数据
@@ -211,9 +213,14 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         return hopperFilters;
     }
 
-    public void setHopperFilters(List<String> filters) {
+    public boolean isHopperFilterBlacklist() {
+        return hopperFilterBlacklist;
+    }
+
+    public void setHopperFilters(List<String> filters, boolean blacklist) {
         this.hopperFilters.clear();
         this.hopperFilters.addAll(filters);
+        this.hopperFilterBlacklist = blacklist;
         this.markDirty();
     }
 
@@ -221,9 +228,14 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         return foodFilters;
     }
 
-    public void setFoodFilters(List<String> filters) {
+    public boolean isFoodFilterBlacklist() {
+        return foodFilterBlacklist;
+    }
+
+    public void setFoodFilters(List<String> filters, boolean blacklist) {
         this.foodFilters.clear();
         this.foodFilters.addAll(filters);
+        this.foodFilterBlacklist = blacklist;
         this.markDirty();
     }
 
@@ -756,19 +768,27 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         this.upgradeScrollOffset = tag.getInt("upgradeScrollOffset");
 
         this.hopperFilters.clear();
+        this.hopperFilterBlacklist = tag.getBoolean("hopperFilterBlacklist");
         if (tag.contains("hopperFilters")) {
             ListTag filterList = tag.getList("hopperFilters", Tag.TAG_STRING);
             for (int i = 0; i < filterList.size(); i++) {
                 this.hopperFilters.add(filterList.getString(i));
             }
+        } else {
+            // 默认黑名单
+            this.hopperFilterBlacklist = true;
         }
 
         this.foodFilters.clear();
+        this.foodFilterBlacklist = tag.getBoolean("foodFilterBlacklist");
         if (tag.contains("foodFilters")) {
             ListTag filterList = tag.getList("foodFilters", Tag.TAG_STRING);
             for (int i = 0; i < filterList.size(); i++) {
                 this.foodFilters.add(filterList.getString(i));
             }
+        } else {
+            // 默认黑名单
+            this.foodFilterBlacklist = true;
         }
 
         // 裂隙升级数据
@@ -842,12 +862,14 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             filterList.add(net.minecraft.nbt.StringTag.valueOf(filter));
         }
         tag.put("hopperFilters", filterList);
+        tag.putBoolean("hopperFilterBlacklist", hopperFilterBlacklist);
 
         ListTag foodFilterList = new ListTag();
         for (String filter : foodFilters) {
             foodFilterList.add(net.minecraft.nbt.StringTag.valueOf(filter));
         }
         tag.put("foodFilters", foodFilterList);
+        tag.putBoolean("foodFilterBlacklist", foodFilterBlacklist);
 
         // 裂隙升级数据
         if (riftReturnDim != null) {

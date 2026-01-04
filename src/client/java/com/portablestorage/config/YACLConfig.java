@@ -71,13 +71,25 @@ public class YACLConfig {
         return ModConfig.allowHotReload && Minecraft.getInstance().player != null && Minecraft.getInstance().player.hasPermissions(4);
     }
 
-    public static Screen createHopperFilterScreen(Screen parent, java.util.List<String> currentFilters) {
+    public static Screen createHopperFilterScreen(Screen parent, java.util.List<String> currentFilters, boolean isBlacklist) {
         java.util.List<String> filters = new java.util.ArrayList<>(currentFilters);
+        final boolean[] blacklist = {isBlacklist};
         
         return YetAnotherConfigLib.createBuilder()
                 .title(Component.translatable("gui.portablestorage.hopper_filter.title"))
                 .category(ConfigCategory.createBuilder()
                         .name(Component.translatable("gui.portablestorage.hopper_filter.category"))
+                        .option(Option.<Boolean>createBuilder()
+                                .name(Component.translatable("gui.portablestorage.filter_mode"))
+                                .binding(
+                                        true,
+                                        () -> blacklist[0],
+                                        val -> blacklist[0] = val
+                                )
+                                .controller(opt -> CyclingListControllerBuilder.<Boolean>create(opt)
+                                        .values(Arrays.asList(true, false))
+                                        .formatValue(v -> Component.translatable(v ? "gui.portablestorage.filter_mode.blacklist" : "gui.portablestorage.filter_mode.whitelist")))
+                                .build())
                         .option(ListOption.<String>createBuilder()
                                 .name(Component.translatable("gui.portablestorage.hopper_filter.list"))
                                 .description(OptionDescription.of(Component.translatable("gui.portablestorage.hopper_filter.list.desc")))
@@ -94,7 +106,7 @@ public class YACLConfig {
                                 .build())
                         .build())
                 .save(() -> {
-                    ClientPlayNetworking.send(new com.portablestorage.network.C2SUpdateHopperFiltersPayload(new java.util.ArrayList<>(filters)));
+                    ClientPlayNetworking.send(new com.portablestorage.network.C2SUpdateHopperFiltersPayload(new java.util.ArrayList<>(filters), blacklist[0]));
                 })
                 .build()
                 .generateScreen(parent);
@@ -426,13 +438,25 @@ public class YACLConfig {
                 .generateScreen(parent);
     }
 
-    public static Screen createFoodFilterScreen(Screen parent, java.util.List<String> currentFilters) {
+    public static Screen createFoodFilterScreen(Screen parent, java.util.List<String> currentFilters, boolean isBlacklist) {
         java.util.List<String> filters = new java.util.ArrayList<>(currentFilters);
+        final boolean[] blacklist = {isBlacklist};
         
         return YetAnotherConfigLib.createBuilder()
                 .title(Component.translatable("gui.portablestorage.food_filter.title"))
                 .category(ConfigCategory.createBuilder()
                         .name(Component.translatable("gui.portablestorage.food_filter.category"))
+                        .option(Option.<Boolean>createBuilder()
+                                .name(Component.translatable("gui.portablestorage.filter_mode"))
+                                .binding(
+                                        true,
+                                        () -> blacklist[0],
+                                        val -> blacklist[0] = val
+                                )
+                                .controller(opt -> CyclingListControllerBuilder.<Boolean>create(opt)
+                                        .values(Arrays.asList(true, false))
+                                        .formatValue(v -> Component.translatable(v ? "gui.portablestorage.filter_mode.blacklist" : "gui.portablestorage.filter_mode.whitelist")))
+                                .build())
                         .option(ListOption.<String>createBuilder()
                                 .name(Component.translatable("gui.portablestorage.food_filter.list"))
                                 .description(OptionDescription.of(Component.translatable("gui.portablestorage.food_filter.list.desc")))
@@ -449,7 +473,7 @@ public class YACLConfig {
                                 .build())
                         .build())
                 .save(() -> {
-                    ClientPlayNetworking.send(new com.portablestorage.network.C2SUpdateFoodFiltersPayload(new java.util.ArrayList<>(filters)));
+                    ClientPlayNetworking.send(new com.portablestorage.network.C2SUpdateFoodFiltersPayload(new java.util.ArrayList<>(filters), blacklist[0]));
                 })
                 .build()
                 .generateScreen(parent);

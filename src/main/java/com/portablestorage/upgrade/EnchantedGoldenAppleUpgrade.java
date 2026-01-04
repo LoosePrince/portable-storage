@@ -79,7 +79,7 @@ public class EnchantedGoldenAppleUpgrade extends UpgradeType {
     @Override
     public void onMiddleClick(PlayerWarehouse warehouse, Player player) {
         if (player instanceof ServerPlayer serverPlayer) {
-            ServerPlayNetworking.send(serverPlayer, new S2COpenFoodFilterPayload(warehouse.getFoodFilters()));
+            ServerPlayNetworking.send(serverPlayer, new S2COpenFoodFilterPayload(warehouse.getFoodFilters(), warehouse.isFoodFilterBlacklist()));
         }
     }
 
@@ -99,6 +99,7 @@ public class EnchantedGoldenAppleUpgrade extends UpgradeType {
     private void autoEat(PlayerWarehouse warehouse, ServerPlayer player) {
         List<WarehouseEntry> storage = warehouse.getStorageList();
         List<String> filters = warehouse.getFoodFilters();
+        boolean blacklist = warehouse.isFoodFilterBlacklist();
         
          WarehouseEntry bestFood = null;
         long maxCount = 0;
@@ -108,7 +109,7 @@ public class EnchantedGoldenAppleUpgrade extends UpgradeType {
             FoodProperties food = foodStack.get(DataComponents.FOOD);
             if (food != null) {
                 String itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(foodStack.getItem()).toString();
-                if (shouldAutoEat(itemId, filters) && entry.getCount() > maxCount) {
+                if (shouldAutoEat(itemId, filters, blacklist) && entry.getCount() > maxCount) {
                     maxCount = entry.getCount();
                     bestFood = entry;
                 }
@@ -135,12 +136,15 @@ public class EnchantedGoldenAppleUpgrade extends UpgradeType {
         }
     }
 
-    private boolean shouldAutoEat(String itemId, List<String> filters) {
-        if (filters.isEmpty()) return true;
+    private boolean shouldAutoEat(String itemId, List<String> filters, boolean blacklist) {
+        boolean match = false;
         for (String rule : filters) {
-            if (matchRule(itemId, rule)) return false; // 逻辑同漏斗，黑名单
+            if (matchRule(itemId, rule)) {
+                match = true;
+                break;
+            }
         }
-        return true;
+        return blacklist ? !match : match;
     }
 
     private boolean matchRule(String text, String rule) {

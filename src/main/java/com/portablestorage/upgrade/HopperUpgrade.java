@@ -81,7 +81,7 @@ public class HopperUpgrade extends UpgradeType {
     @Override
     public void onMiddleClick(PlayerWarehouse warehouse, Player player) {
         if (player instanceof ServerPlayer serverPlayer) {
-            net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(serverPlayer, new com.portablestorage.network.S2COpenHopperFilterPayload(warehouse.getHopperFilters()));
+            net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(serverPlayer, new com.portablestorage.network.S2COpenHopperFilterPayload(warehouse.getHopperFilters(), warehouse.isHopperFilterBlacklist()));
         }
     }
 
@@ -102,8 +102,9 @@ public class HopperUpgrade extends UpgradeType {
             player.getX() + range, player.getY() + range, player.getZ() + range
         );
         
-        // 获取过滤列表
+        // 获取过滤列表和模式
         List<String> filters = warehouse.getHopperFilters();
+        boolean blacklist = warehouse.isHopperFilterBlacklist();
         
         // 获取区域内的所有活跃掉落物
         List<ItemEntity> items = player.serverLevel().getEntitiesOfClass(ItemEntity.class, area, entity -> {
@@ -111,10 +112,15 @@ public class HopperUpgrade extends UpgradeType {
             
             ItemStack itemStack = entity.getItem();
             String itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(itemStack.getItem()).toString();
+            boolean match = false;
             for (String rule : filters) {
-                if (matchRule(itemId, rule)) return false;
+                if (matchRule(itemId, rule)) {
+                    match = true;
+                    break;
+                }
             }
-            return true;
+            // 如果是黑名单，匹配到规则则不拾取；如果是白名单，未匹配到规则则不拾取
+            return blacklist ? !match : match;
         });
 
         boolean pickedAny = false;

@@ -227,14 +227,14 @@ public class ModServerNetworking {
     public static void handleUpdateHopperFilters(C2SUpdateHopperFiltersPayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
             PlayerWarehouse warehouse = getWarehouse(context.player());
-            warehouse.setHopperFilters(payload.filters());
+            warehouse.setHopperFilters(payload.filters(), payload.blacklist());
         });
     }
 
     public static void handleUpdateFoodFilters(C2SUpdateFoodFiltersPayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
             PlayerWarehouse warehouse = getWarehouse(context.player());
-            warehouse.setFoodFilters(payload.filters());
+            warehouse.setFoodFilters(payload.filters(), payload.blacklist());
         });
     }
 
