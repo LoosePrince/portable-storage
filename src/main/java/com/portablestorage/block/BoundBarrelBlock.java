@@ -85,6 +85,49 @@ public class BoundBarrelBlock extends BaseEntityBlock {
         }
     }
 
+    @Override
+    public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        if (blockEntity instanceof BoundBarrelBlockEntity boundBarrel) {
+            if (!level.isClientSide && !player.isCreative()) {
+                boundBarrel.setHandledByPlayer(true); // 标记已由玩家处理掉落
+                ItemStack drop;
+                // 只有所有者在 Shift (蹲下) 时破坏才掉落绑定木桶，否则掉落普通木桶
+                if (player.isSecondaryUseActive() && player.getUUID().equals(boundBarrel.getOwnerUuid())) {
+                    drop = new ItemStack(com.portablestorage.item.ModItems.BOUND_BARREL);
+                    // 保存所有者信息到物品
+                    net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+                    tag.putUUID("owner", boundBarrel.getOwnerUuid());
+                    tag.putString("ownerName", boundBarrel.getOwnerName());
+                    drop.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(tag));
+                } else {
+                    drop = new ItemStack(net.minecraft.world.item.Items.BARREL);
+                }
+                
+                popResource(level, pos, drop);
+                net.minecraft.world.Containers.dropContents(level, pos, boundBarrel.getInventory());
+            }
+        }
+        return super.playerWillDestroy(level, pos, state, player);
+    }
+
+    @Override
+    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
+        if (!state.is(newState.getBlock())) {
+            BlockEntity blockEntity = level.getBlockEntity(pos);
+            if (blockEntity instanceof BoundBarrelBlockEntity boundBarrel) {
+                // 如果不是由玩家破坏（例如爆炸、活塞），则掉落普通木桶和内部物品
+                if (!boundBarrel.isHandledByPlayer()) {
+                    if (!level.isClientSide) {
+                        popResource(level, pos, new ItemStack(net.minecraft.world.item.Items.BARREL));
+                        net.minecraft.world.Containers.dropContents(level, pos, boundBarrel.getInventory());
+                    }
+                }
+            }
+            super.onRemove(state, level, pos, newState, moved);
+        }
+    }
+
     @Nullable
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {

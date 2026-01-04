@@ -35,6 +35,15 @@ public class BoundBarrelBlockEntity extends BlockEntity implements SidedStorageB
     
     // 缓存仓库引用以提高性能
     private PlayerWarehouse cachedWarehouse;
+    private boolean handledByPlayer = false;
+
+    public void setHandledByPlayer(boolean handled) {
+        this.handledByPlayer = handled;
+    }
+
+    public boolean isHandledByPlayer() {
+        return handledByPlayer;
+    }
 
     public BoundBarrelBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.BOUND_BARREL, pos, state);
