@@ -9,6 +9,9 @@
 		"AbstractContainerMenuMixin",
 		"ExperimentalFeaturesMixin",
 		"BeaconBlockEntityMixin",
+		"AbstractArrowMixin",
+		"ServerPlayerGameModeMixin",
+		"ServerPlayerMixin",
 		"accessor.SlotAccessor",
 		"accessor.AbstractContainerMenuAccessor"
 	],

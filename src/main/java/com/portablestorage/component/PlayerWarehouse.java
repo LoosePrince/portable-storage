@@ -43,6 +43,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     private int upgradeScrollOffset = 0;
     private WarehouseType type = WarehouseType.NONE;
     private final List<String> hopperFilters = new ArrayList<>();
+    private long experience = 0; // 瓶装经验 (XP points)
 
     // 裂隙升级数据
     private ResourceLocation riftReturnDim = null;
@@ -212,6 +213,22 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     public void setHopperFilters(List<String> filters) {
         this.hopperFilters.clear();
         this.hopperFilters.addAll(filters);
+        this.markDirty();
+    }
+
+    // --- 经验系统接口 ---
+
+    public long getExperience() {
+        return experience;
+    }
+
+    public void setExperience(long experience) {
+        this.experience = experience;
+        this.markDirty();
+    }
+
+    public void addExperience(long amount) {
+        this.experience += amount;
         this.markDirty();
     }
 
@@ -525,6 +542,28 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                     }
                 }
             }
+            
+            // 经验系统
+            if (!getUpgrade(com.portablestorage.upgrade.ExperienceUpgrade.ID).isEmpty()) {
+                ItemStack xpStack = new ItemStack(com.portablestorage.item.ModItems.BOTTLED_EXPERIENCE);
+                // 添加动态提示信息
+                List<net.minecraft.network.chat.Component> lore = new ArrayList<>();
+                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_1", experience).withStyle(net.minecraft.ChatFormatting.GRAY));
+                lore.add(net.minecraft.network.chat.Component.literal(" "));
+                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_2").withStyle(net.minecraft.ChatFormatting.BLUE));
+                
+                ItemStack upgradeStack = getUpgrade(com.portablestorage.upgrade.ExperienceUpgrade.ID);
+                int step = com.portablestorage.upgrade.ExperienceUpgrade.getStep(upgradeStack);
+                
+                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_3", step).withStyle(net.minecraft.ChatFormatting.GRAY));
+                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_4", step).withStyle(net.minecraft.ChatFormatting.GRAY));
+                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_5").withStyle(net.minecraft.ChatFormatting.GRAY));
+                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_6").withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
+                
+                xpStack.set(net.minecraft.core.component.DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(lore));
+                baseCache.add(new WarehouseEntry(xpStack, experience));
+            }
+
             // 基础层变动，下游全部失效
             filteredCache = null;
             collapsedCache = null;
@@ -688,6 +727,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         this.craftRefill = !tag.contains("craftRefill") || tag.getBoolean("craftRefill");
         this.enabled = !tag.contains("enabled") || tag.getBoolean("enabled");
         this.type = tag.contains("activationType") ? WarehouseType.values()[tag.getInt("activationType")] : WarehouseType.NONE;
+        this.experience = tag.getLong("experience");
 
         // 升级系统
         upgradeStorage.clear();
@@ -765,6 +805,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         tag.putBoolean("craftRefill", craftRefill);
         tag.putBoolean("enabled", enabled);
         tag.putInt("activationType", type.ordinal());
+        tag.putLong("experience", experience);
 
         // 升级系统
         ListTag upgradeList = new ListTag();

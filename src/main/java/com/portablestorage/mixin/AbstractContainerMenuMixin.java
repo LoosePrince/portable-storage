@@ -3,11 +3,13 @@ package com.portablestorage.mixin;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.mixin.accessor.AbstractContainerMenuAccessor;
+import com.portablestorage.upgrade.ExperienceUpgrade;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -43,7 +45,14 @@ public abstract class AbstractContainerMenuMixin {
                     return;
                 }
 
-                        ItemStack cursorStack = menu.getCarried();
+                // 处理经验升级交互
+                if (slot.hasItem() && slot.getItem().is(com.portablestorage.item.ModItems.BOTTLED_EXPERIENCE)) {
+                    handleExperienceClick(warehouse, slotId - warehouseStart, button, clickType, player);
+                    ci.cancel();
+                    return;
+                }
+
+                ItemStack cursorStack = menu.getCarried();
                         if (!cursorStack.isEmpty()) {
                             ItemStack remaining = WarehouseManager.addFluid(warehouse, cursorStack, player);
                             menu.setCarried(remaining);
@@ -104,6 +113,54 @@ public abstract class AbstractContainerMenuMixin {
                     menu.setCarried(taken);
                 }
                 ci.cancel();
+            }
+        }
+    }
+
+    private void handleExperienceClick(PlayerWarehouse warehouse, int slotIndex, int button, ClickType clickType, Player player) {
+        if (player.level().isClientSide) return;
+        
+        ItemStack upgradeStack = warehouse.getUpgrade(ExperienceUpgrade.ID);
+        if (upgradeStack.isEmpty()) return;
+        
+        int levels = ExperienceUpgrade.getStep(upgradeStack);
+        ItemStack cursorStack = player.containerMenu.getCarried();
+        
+        if (cursorStack.isEmpty()) {
+            if (button == 1) { // Right click: Deposit
+                long currentXp = ExperienceUpgrade.getTotalExperience(player);
+                int targetLevel = Math.max(0, player.experienceLevel - levels);
+                long targetXp = ExperienceUpgrade.getExperienceForLevel(targetLevel);
+                long toStore = currentXp - targetXp;
+                if (toStore > 0) {
+                    warehouse.addExperience(toStore);
+                    ExperienceUpgrade.addExperience(player, (int)-toStore);
+                }
+            } else if (button == 0) { // Left click: Withdraw
+                int targetLevel = player.experienceLevel + levels;
+                long currentXp = ExperienceUpgrade.getTotalExperience(player);
+                long targetXp = ExperienceUpgrade.getExperienceForLevel(targetLevel);
+                long toTake = Math.min(targetXp - currentXp, warehouse.getExperience());
+                if (toTake > 0) {
+                    warehouse.addExperience(-toTake);
+                    ExperienceUpgrade.addExperience(player, (int)toTake);
+                }
+            }
+        } else if (cursorStack.is(Items.GLASS_BOTTLE) && button == 1) {
+            int canConvert = (int)(warehouse.getExperience() / 11);
+            int toConvert = Math.min(cursorStack.getCount(), canConvert);
+            
+            if (toConvert > 0) {
+                warehouse.addExperience(-(long)toConvert * 11);
+                ItemStack bottles = new ItemStack(Items.EXPERIENCE_BOTTLE, toConvert);
+                cursorStack.shrink(toConvert);
+                if (!player.getInventory().add(bottles)) {
+                    player.drop(bottles, false);
+                }
+            }
+            
+            if (!cursorStack.isEmpty() && canConvert < cursorStack.getCount()) {
+                WarehouseManager.addItem(warehouse, cursorStack);
             }
         }
     }

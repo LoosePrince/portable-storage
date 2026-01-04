@@ -4,7 +4,6 @@ import com.portablestorage.PortableStorage;
 import com.portablestorage.block.ModBlocks;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 
 public class ModItems {
@@ -17,6 +16,7 @@ public class ModItems {
     public static final Item VIRTUAL_LAVA = register("lava", new VirtualFluidItem(new Item.Properties()));
     public static final Item VIRTUAL_WATER = register("water", new VirtualFluidItem(new Item.Properties()));
     public static final Item VIRTUAL_MILK = register("milk", new VirtualFluidItem(new Item.Properties()));
+    public static final Item BOTTLED_EXPERIENCE = register("bottled_experience", new Item(new Item.Properties().stacksTo(64)));
 
     private static <T extends Item> T register(String name, T item) {
         return Registry.register(BuiltInRegistries.ITEM, PortableStorage.id(name), item);

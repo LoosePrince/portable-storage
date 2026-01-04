@@ -39,6 +39,10 @@ public class PortableStorage implements ModInitializer {
         com.portablestorage.upgrade.UpgradeRegistry.register(new HopperUpgrade());
         com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.BarrelUpgrade());
         com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.RiftUpgrade());
+        com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.SpectralArrowUpgrade());
+        com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.BedUpgrade());
+        com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.ExperienceUpgrade());
+        com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.PistonUpgrade());
         
         ModScreenHandlers.register();
         ModNetworking.registerC2SPayloads();
