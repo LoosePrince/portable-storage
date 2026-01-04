@@ -9,12 +9,14 @@ import java.util.List;
 
 public class UpgradeSlot extends Slot {
     private final PlayerWarehouse warehouse;
+    private final Player player;
     private final int visualIndex; // 在当前列中的视觉位置 (0 到 MAX_ROWS-1)
 
-    public UpgradeSlot(PlayerWarehouse warehouse, int visualIndex, int x, int y) {
+    public UpgradeSlot(PlayerWarehouse warehouse, Player player, int visualIndex, int x, int y) {
         // 使用固定索引 visualIndex，不再覆盖 getContainerSlot()
         super(warehouse.upgradeContainer, visualIndex, x, y); 
         this.warehouse = warehouse;
+        this.player = player;
         this.visualIndex = visualIndex;
     }
 
@@ -45,6 +47,7 @@ public class UpgradeSlot extends Slot {
 
     @Override
     public boolean isActive() {
+        if (player.getAbilities().instabuild) return false;
         return visualIndex < warehouse.getVisibleRows() && getUpgradeType() != null && warehouse.isEnabled() && !warehouse.isFolded();
     }
 

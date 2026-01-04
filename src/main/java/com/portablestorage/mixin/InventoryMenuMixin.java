@@ -39,7 +39,7 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
         int upgradeX = WarehouseConstants.getWarehouseXOffset() + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X;
         int upgradeYBase = WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y;
         for (int i = 0; i < WarehouseConstants.MAX_ROWS; i++) {
-            this.addSlot(new com.portablestorage.upgrade.UpgradeSlot(warehouse, i, upgradeX, upgradeYBase + i * WarehouseConstants.SLOT_SIZE));
+            this.addSlot(new com.portablestorage.upgrade.UpgradeSlot(warehouse, owner, i, upgradeX, upgradeYBase + i * WarehouseConstants.SLOT_SIZE));
         }
 
         // 2. 始终添加最大数量的仓库槽位
@@ -52,7 +52,8 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
 
                     @Override
                     public boolean isActive() {
-                        // 1. 非创造模式 2. 仓库未折叠 3. 仓库已启用 4. 在当前可见行范围内
+                        // 核心修复：1. 非创造模式 2. 仓库未折叠 3. 仓库已启用 4. 在当前可见行范围内
+                        // 注意：创造模式下 owner.getAbilities().instabuild 为 true，此时该槽位应被禁用，防止拦截点击和悬停
                         return !owner.getAbilities().instabuild && !warehouse.isFolded() && warehouse.isEnabled() && currentRow < warehouse.getVisibleRows();
                     }
                 });

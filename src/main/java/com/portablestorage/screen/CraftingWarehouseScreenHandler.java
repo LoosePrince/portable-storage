@@ -59,7 +59,7 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
         int upgradeX = WarehouseConstants.getWarehouseXOffset() + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X;
         int upgradeYBase = WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y;
         for (int i = 0; i < WarehouseConstants.MAX_ROWS; i++) {
-            this.addSlot(new com.portablestorage.upgrade.UpgradeSlot(warehouse, i, upgradeX, upgradeYBase + i * WarehouseConstants.SLOT_SIZE));
+            this.addSlot(new com.portablestorage.upgrade.UpgradeSlot(warehouse, player, i, upgradeX, upgradeYBase + i * WarehouseConstants.SLOT_SIZE));
         }
 
         // 6. 仓库槽位 (Index 46+)

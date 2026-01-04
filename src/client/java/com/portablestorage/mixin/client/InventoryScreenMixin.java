@@ -65,6 +65,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
 
     @Unique
     private boolean shouldShowWarehouse() {
+        // 核心修复：如果是创造模式，始终不显示仓库，避免与创造模式复杂的 UI 重叠
         if (this.minecraft == null || this.minecraft.player == null || this.minecraft.player.getAbilities().instabuild) return false;
         var warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
         return warehouse.isEnabled();
