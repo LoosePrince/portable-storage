@@ -30,6 +30,10 @@ public class ModConfig {
     // 漏斗升级配置
     public static int hopperRange = 5;
     public static double hopperFrequency = 1.0;
+
+    // 无限流体配置
+    public static long lavaInfiniteThreshold = 10000;
+    public static long waterInfiniteThreshold = 2;
     
     // 裂隙升级配置
     public static String riftUpgradeItem = "minecraft:dragon_egg";
@@ -76,6 +80,8 @@ public class ModConfig {
         baseMaxItemStackSize = ((Number) config.getOrElse("server.baseMaxItemStackSize", -1L)).longValue();
         hopperRange = ((Number) config.getOrElse("server.hopperRange", 5)).intValue();
         hopperFrequency = ((Number) config.getOrElse("server.hopperFrequency", 1.0)).doubleValue();
+        lavaInfiniteThreshold = ((Number) config.getOrElse("server.lavaInfiniteThreshold", 10000L)).longValue();
+        waterInfiniteThreshold = ((Number) config.getOrElse("server.waterInfiniteThreshold", 2L)).longValue();
         riftUpgradeItem = config.getOrElse("server.riftUpgradeItem", "minecraft:dragon_egg");
         riftChunkSize = ((Number) config.getOrElse("server.riftChunkSize", 1)).intValue();
         enableRiftForcedLoading = config.getOrElse("server.enableRiftForcedLoading", true);
@@ -114,6 +120,8 @@ public class ModConfig {
         config.set("server.baseMaxItemStackSize", baseMaxItemStackSize);
         config.set("server.hopperRange", hopperRange);
         config.set("server.hopperFrequency", hopperFrequency);
+        config.set("server.lavaInfiniteThreshold", lavaInfiniteThreshold);
+        config.set("server.waterInfiniteThreshold", waterInfiniteThreshold);
         config.set("server.riftUpgradeItem", riftUpgradeItem);
         config.set("server.riftChunkSize", riftChunkSize);
         config.set("server.enableRiftForcedLoading", enableRiftForcedLoading);

@@ -60,6 +60,8 @@ public class YACLConfig {
             ModConfig.unconditionalWarehouse,
             ModConfig.hopperRange,
             ModConfig.hopperFrequency,
+            ModConfig.lavaInfiniteThreshold,
+            ModConfig.waterInfiniteThreshold,
             ModConfig.riftUpgradeItem,
             ModConfig.riftChunkSize,
             ModConfig.enableRiftForcedLoading,
@@ -313,7 +315,38 @@ public class YACLConfig {
                                                     updateServerConfig();
                                                 }
                                         )
-                                        .controller(opt -> dev.isxander.yacl3.api.controller.DoubleFieldControllerBuilder.create(opt).range(0.2, 5.0))
+                                .controller(opt -> dev.isxander.yacl3.api.controller.DoubleFieldControllerBuilder.create(opt).range(0.2, 5.0))
+                                .available(canEditServerConfig())
+                                .build())
+                        .build())
+                        .group(OptionGroup.createBuilder()
+                                .name(Component.translatable("gui.portablestorage.settings.group.fluid"))
+                                .option(Option.<Long>createBuilder()
+                                        .name(Component.translatable("gui.portablestorage.settings.lava_infinite_threshold"))
+                                        .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.lava_infinite_threshold.desc")))
+                                        .binding(
+                                                10000L,
+                                                () -> ModConfig.lavaInfiniteThreshold,
+                                                val -> {
+                                                    ModConfig.lavaInfiniteThreshold = val;
+                                                    updateServerConfig();
+                                                }
+                                        )
+                                        .controller(LongFieldControllerBuilder::create)
+                                        .available(canEditServerConfig())
+                                        .build())
+                                .option(Option.<Long>createBuilder()
+                                        .name(Component.translatable("gui.portablestorage.settings.water_infinite_threshold"))
+                                        .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.water_infinite_threshold.desc")))
+                                        .binding(
+                                                2L,
+                                                () -> ModConfig.waterInfiniteThreshold,
+                                                val -> {
+                                                    ModConfig.waterInfiniteThreshold = val;
+                                                    updateServerConfig();
+                                                }
+                                        )
+                                        .controller(LongFieldControllerBuilder::create)
                                         .available(canEditServerConfig())
                                         .build())
                                 .build())

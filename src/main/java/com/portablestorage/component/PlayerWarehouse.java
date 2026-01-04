@@ -392,6 +392,12 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     @Override
     public long insert(FluidVariant resource, long maxAmount, TransactionContext transaction) {
         if (maxAmount <= 0) return 0;
+        
+        // 无限流体检查
+        if (isInfinite(resource, fluidStorage.getOrDefault(resource, 0L))) {
+            return maxAmount; // 假装存入了，但实际不改变数值
+        }
+
         updateSnapshots(transaction);
         long current = fluidStorage.getOrDefault(resource, 0L);
         fluidStorage.put(resource, current + maxAmount);
@@ -404,6 +410,12 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         if (maxAmount <= 0) return 0;
         long current = fluidStorage.getOrDefault(resource, 0L);
         if (current <= 0) return 0;
+
+        // 无限流体检查
+        if (isInfinite(resource, current)) {
+            return maxAmount; // 假装提取了，但实际不改变数值
+        }
+
         updateSnapshots(transaction);
         long extracted = Math.min(current, maxAmount);
         if (current - extracted > 0) {
@@ -413,6 +425,18 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         }
         this.markDirty();
         return extracted;
+    }
+
+    private boolean isInfinite(FluidVariant fluid, long amount) {
+        if (fluid.isOf(Fluids.LAVA)) {
+            long threshold = com.portablestorage.config.ModConfig.lavaInfiniteThreshold;
+            return threshold >= 0 && amount >= threshold * FluidConstants.BUCKET;
+        }
+        if (fluid.isOf(Fluids.WATER)) {
+            long threshold = com.portablestorage.config.ModConfig.waterInfiniteThreshold;
+            return threshold >= 0 && amount >= threshold * FluidConstants.BUCKET;
+        }
+        return false;
     }
 
     @Override
@@ -559,9 +583,19 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             for (Map.Entry<FluidVariant, Long> entry : fluidStorage.entrySet()) {
                 net.minecraft.world.item.Item virtualItem = getVirtualItemForFluid(entry.getKey());
                 if (virtualItem != null) {
-                    long bucketCount = entry.getValue() / FluidConstants.BUCKET;
-                    if (bucketCount > 0) {
-                        baseCache.add(new WarehouseEntry(new ItemStack(virtualItem), bucketCount));
+                    long amount = entry.getValue();
+                    boolean infinite = isInfinite(entry.getKey(), amount);
+                    long bucketCount = infinite ? WarehouseConstants.INFINITE_COUNT : (amount / FluidConstants.BUCKET);
+                    
+                    if (bucketCount > 0 || infinite) {
+                        ItemStack fluidStack = new ItemStack(virtualItem);
+                        if (infinite) {
+                            fluidStack.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, 
+                                net.minecraft.world.item.component.CustomData.of(new net.minecraft.nbt.CompoundTag() {{
+                                    putBoolean(WarehouseConstants.INFINITE_TAG, true);
+                                }}));
+                        }
+                        baseCache.add(new WarehouseEntry(fluidStack, bucketCount));
                     }
                 }
             }

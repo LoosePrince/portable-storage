@@ -82,6 +82,8 @@ public class PortableStorage implements ModInitializer {
                 ModConfig.unconditionalWarehouse,
                 ModConfig.hopperRange,
                 ModConfig.hopperFrequency,
+                ModConfig.lavaInfiniteThreshold,
+                ModConfig.waterInfiniteThreshold,
                 ModConfig.riftUpgradeItem,
                 ModConfig.riftChunkSize,
                 ModConfig.enableRiftForcedLoading,

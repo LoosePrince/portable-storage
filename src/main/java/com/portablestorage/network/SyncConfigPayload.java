@@ -16,6 +16,8 @@ public record SyncConfigPayload(
     String unconditionalWarehouse,
     int hopperRange,
     double hopperFrequency,
+    long lavaInfiniteThreshold,
+    long waterInfiniteThreshold,
     String riftUpgradeItem,
     int riftChunkSize,
     boolean enableRiftForcedLoading,
@@ -35,6 +37,8 @@ public record SyncConfigPayload(
             buf.writeUtf(payload.unconditionalWarehouse);
             buf.writeInt(payload.hopperRange);
             buf.writeDouble(payload.hopperFrequency);
+            buf.writeLong(payload.lavaInfiniteThreshold);
+            buf.writeLong(payload.waterInfiniteThreshold);
             buf.writeUtf(payload.riftUpgradeItem);
             buf.writeInt(payload.riftChunkSize);
             buf.writeBoolean(payload.enableRiftForcedLoading);
@@ -51,6 +55,8 @@ public record SyncConfigPayload(
             buf.readUtf(),
             buf.readInt(),
             buf.readDouble(),
+            buf.readLong(),
+            buf.readLong(),
             buf.readUtf(),
             buf.readInt(),
             buf.readBoolean(),

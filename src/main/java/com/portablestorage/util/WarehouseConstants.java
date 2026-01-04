@@ -185,4 +185,6 @@ public class WarehouseConstants {
     public static final int ICON_CRAFTING_TABLE = 14;
     
     public static final String SMART_COLLAPSE_TAG = "portablestorage_collapsed";
+    public static final String INFINITE_TAG = "portablestorage_infinite";
+    public static final long INFINITE_COUNT = 999_999_999_999L;
 }

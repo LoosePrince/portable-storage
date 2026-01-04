@@ -17,6 +17,8 @@ public class ModClientNetworking {
                 ModConfig.unconditionalWarehouse = payload.unconditionalWarehouse();
                 ModConfig.hopperRange = payload.hopperRange();
                 ModConfig.hopperFrequency = payload.hopperFrequency();
+                ModConfig.lavaInfiniteThreshold = payload.lavaInfiniteThreshold();
+                ModConfig.waterInfiniteThreshold = payload.waterInfiniteThreshold();
                 ModConfig.riftUpgradeItem = payload.riftUpgradeItem();
                 ModConfig.riftChunkSize = payload.riftChunkSize();
                 ModConfig.enableRiftForcedLoading = payload.enableRiftForcedLoading();

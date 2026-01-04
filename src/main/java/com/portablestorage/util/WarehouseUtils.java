@@ -7,7 +7,7 @@ public class WarehouseUtils {
      * 格式化大额物品数量（k/M/G）
      */
     public static String formatCount(long count) {
-        if (count == Long.MAX_VALUE) return "∞";
+        if (count == Long.MAX_VALUE || count >= WarehouseConstants.INFINITE_COUNT) return "∞";
         
         String[] units = {"", "k", "M", "G", "T", "P", "E"};
         double value = count;
