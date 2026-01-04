@@ -136,11 +136,15 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
             ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(pendingSearchText), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
             pendingSearchText = null;
         }
+
+        // 核心修复：渲染提示和文本（即使在创造模式，在合成界面也要渲染）
+        WarehouseRenderer.renderAllTooltips(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse);
+        WarehouseRenderer.renderQuantityTexts(graphics, this.font, this.leftPos, this.topPos, warehouse);
         
         // 特殊处理合成界面的 Tooltip 偏移
         renderCraftingTooltips(graphics, mouseX, mouseY, warehouse);
         
-        WarehouseRenderer.renderQuantityTexts(graphics, this.font, this.leftPos, this.topPos, warehouse);
+        this.renderTooltip(graphics, mouseX, mouseY);
     }
 
     @Override

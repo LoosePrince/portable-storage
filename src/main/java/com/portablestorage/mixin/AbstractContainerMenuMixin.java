@@ -62,6 +62,9 @@ public abstract class AbstractContainerMenuMixin {
                     menu.setCarried(taken);
                 }
                 ci.cancel();
+            } else {
+                // 创造模式下：拦截所有点击，停用存取交互
+                ci.cancel();
             }
         }
         // 处理升级槽位
@@ -73,10 +76,10 @@ public abstract class AbstractContainerMenuMixin {
                 if (clickType == ClickType.QUICK_MOVE) {
                     ItemStack stackInSlot = slot.getItem();
                     if (!stackInSlot.isEmpty()) {
-                        if (((AbstractContainerMenuAccessor)menu).invokeMoveItemStackTo(stackInSlot, 9, 45, true)) {
+                        if (((AbstractContainerMenuAccessor) menu).invokeMoveItemStackTo(stackInSlot, 9, 45, true)) {
                             slot.set(stackInSlot);
-    }
-}
+                        }
+                    }
                     ci.cancel();
                     return;
                 }
@@ -112,6 +115,9 @@ public abstract class AbstractContainerMenuMixin {
                     ItemStack taken = slot.remove(amount);
                     menu.setCarried(taken);
                 }
+                ci.cancel();
+            } else {
+                // 创造模式下：拦截升级槽位交互
                 ci.cancel();
             }
         }

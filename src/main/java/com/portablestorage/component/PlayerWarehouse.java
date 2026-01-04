@@ -885,7 +885,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         for (Map.Entry<ResourceLocation, ItemStack> entry : upgradeStorage.entrySet()) {
             CompoundTag uTag = new CompoundTag();
             uTag.putString("id", entry.getKey().toString());
-            uTag.put("item", entry.getValue().save(registries));
+            uTag.put("item", entry.getValue().saveOptional(registries)); // 使用 saveOptional
             upgradeList.add(uTag);
         }
         tag.put("upgrades", upgradeList);

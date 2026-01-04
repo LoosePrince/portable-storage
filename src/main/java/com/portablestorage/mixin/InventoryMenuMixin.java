@@ -39,7 +39,13 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
         int upgradeX = WarehouseConstants.getWarehouseXOffset() + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X;
         int upgradeYBase = WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y;
         for (int i = 0; i < WarehouseConstants.MAX_ROWS; i++) {
-            this.addSlot(new com.portablestorage.upgrade.UpgradeSlot(warehouse, owner, i, upgradeX, upgradeYBase + i * WarehouseConstants.SLOT_SIZE));
+            this.addSlot(new com.portablestorage.upgrade.UpgradeSlot(warehouse, owner, i, upgradeX, upgradeYBase + i * WarehouseConstants.SLOT_SIZE) {
+                @Override
+                public boolean isActive() {
+                    // 仅在原版背包菜单中，创造模式禁用升级槽位
+                    return !owner.getAbilities().instabuild && super.isActive();
+                }
+            });
         }
 
         // 2. 始终添加最大数量的仓库槽位

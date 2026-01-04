@@ -1,6 +1,5 @@
 package com.portablestorage.util;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.portablestorage.PortableStorage;
 import com.portablestorage.component.PlayerWarehouse;
 import net.minecraft.ChatFormatting;
@@ -266,9 +265,13 @@ public class WarehouseRenderer {
         int foldButtonX = leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
         int foldButtonY = topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
         
+        // 如果是自定义合成界面，折叠按钮位置不同，这里做一个简单的范围判定或特殊处理
+        // 或者让调用者确保只在合适的时候调用
         if (mouseX >= foldButtonX && mouseX < foldButtonX + 18 && mouseY >= foldButtonY && mouseY < foldButtonY + 18) {
-            renderFoldTooltip(graphics, font, mouseX, mouseY, warehouse);
-            return;
+            if (net.minecraft.client.Minecraft.getInstance().screen instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen) {
+                renderFoldTooltip(graphics, font, mouseX, mouseY, warehouse);
+                return;
+            }
         }
 
         if (warehouse.isFolded()) return;

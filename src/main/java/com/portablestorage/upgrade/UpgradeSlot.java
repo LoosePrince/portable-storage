@@ -47,7 +47,6 @@ public class UpgradeSlot extends Slot {
 
     @Override
     public boolean isActive() {
-        if (player.getAbilities().instabuild) return false;
         return visualIndex < warehouse.getVisibleRows() && getUpgradeType() != null && warehouse.isEnabled() && !warehouse.isFolded();
     }
 

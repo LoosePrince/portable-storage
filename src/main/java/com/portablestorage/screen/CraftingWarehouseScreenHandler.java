@@ -75,7 +75,8 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
 
                     @Override
                     public boolean isActive() {
-                        return !player.getAbilities().instabuild && !warehouse.isFolded() && warehouse.isEnabled() && currentRow < warehouse.getVisibleRows();
+                        // 在专门的合成界面中，不需要判定创造模式，始终允许使用
+                        return !warehouse.isFolded() && warehouse.isEnabled() && currentRow < warehouse.getVisibleRows();
                     }
                 });
             }

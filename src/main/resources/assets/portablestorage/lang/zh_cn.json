@@ -160,5 +160,7 @@
   "gui.portablestorage.food_filter.title": "自动喂食筛选配置",
   "gui.portablestorage.food_filter.category": "食物筛选规则",
   "gui.portablestorage.food_filter.list": "筛选食物 ID 列表",
-  "gui.portablestorage.food_filter.list.desc": "根据筛选规则食用或忽略食物。支持 * (模糊) 和 !id! (精确) 匹配。"
+  "gui.portablestorage.food_filter.list.desc": "根据筛选规则食用或忽略食物。支持 * (模糊) 和 !id! (精确) 匹配。",
+  "key.portablestorage.open_crafting": "直接打开仓库合成界面",
+  "key.categories.portablestorage": "随身仓库"
 }

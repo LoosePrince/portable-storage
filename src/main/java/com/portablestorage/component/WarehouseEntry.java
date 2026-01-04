@@ -36,7 +36,7 @@ public class WarehouseEntry {
 
     public CompoundTag toNbt(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
-        tag.put("item", itemStack.save(registries));
+        tag.put("item", itemStack.saveOptional(registries)); // 使用 saveOptional 防止 1.21 崩溃
         tag.putLong("count", count);
         tag.putLong("lastUpdated", lastUpdated);
         return tag;
