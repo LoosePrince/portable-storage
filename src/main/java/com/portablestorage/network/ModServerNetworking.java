@@ -231,6 +231,13 @@ public class ModServerNetworking {
         });
     }
 
+    public static void handleUpdateFoodFilters(C2SUpdateFoodFiltersPayload payload, ServerPlayNetworking.Context context) {
+        context.server().execute(() -> {
+            PlayerWarehouse warehouse = getWarehouse(context.player());
+            warehouse.setFoodFilters(payload.filters());
+        });
+    }
+
     private static PlayerWarehouse getWarehouse(ServerPlayer player) {
         return ModComponents.get(player).getWarehouse(player.getUUID());
     }

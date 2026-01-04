@@ -12,11 +12,13 @@ public class ModNetworking {
         PayloadTypeRegistry.playC2S().register(UpdateServerConfigPayload.TYPE, UpdateServerConfigPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(C2SUpgradeInteractionPayload.TYPE, C2SUpgradeInteractionPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(C2SUpdateHopperFiltersPayload.TYPE, C2SUpdateHopperFiltersPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(C2SUpdateFoodFiltersPayload.TYPE, C2SUpdateFoodFiltersPayload.CODEC);
     }
 
     public static void registerS2CPayloads() {
         PayloadTypeRegistry.playS2C().register(SyncConfigPayload.TYPE, SyncConfigPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(S2COpenHopperFilterPayload.TYPE, S2COpenHopperFilterPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(S2COpenFoodFilterPayload.TYPE, S2COpenFoodFilterPayload.CODEC);
     }
 
     public static void registerServerReceivers() {
@@ -27,6 +29,7 @@ public class ModNetworking {
         ServerPlayNetworking.registerGlobalReceiver(UpdateServerConfigPayload.TYPE, ModServerNetworking::handleUpdateServerConfig);
         ServerPlayNetworking.registerGlobalReceiver(C2SUpgradeInteractionPayload.TYPE, ModServerNetworking::handleUpgradeInteraction);
         ServerPlayNetworking.registerGlobalReceiver(C2SUpdateHopperFiltersPayload.TYPE, ModServerNetworking::handleUpdateHopperFilters);
+        ServerPlayNetworking.registerGlobalReceiver(C2SUpdateFoodFiltersPayload.TYPE, ModServerNetworking::handleUpdateFoodFilters);
     }
 }
 

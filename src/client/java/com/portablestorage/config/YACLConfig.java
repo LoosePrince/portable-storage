@@ -425,5 +425,34 @@ public class YACLConfig {
                 .build()
                 .generateScreen(parent);
     }
+
+    public static Screen createFoodFilterScreen(Screen parent, java.util.List<String> currentFilters) {
+        java.util.List<String> filters = new java.util.ArrayList<>(currentFilters);
+        
+        return YetAnotherConfigLib.createBuilder()
+                .title(Component.translatable("gui.portablestorage.food_filter.title"))
+                .category(ConfigCategory.createBuilder()
+                        .name(Component.translatable("gui.portablestorage.food_filter.category"))
+                        .option(ListOption.<String>createBuilder()
+                                .name(Component.translatable("gui.portablestorage.food_filter.list"))
+                                .description(OptionDescription.of(Component.translatable("gui.portablestorage.food_filter.list.desc")))
+                                .binding(
+                                        new java.util.ArrayList<>(),
+                                        () -> filters,
+                                        val -> {
+                                            filters.clear();
+                                            filters.addAll(val);
+                                        }
+                                )
+                                .controller(StringControllerBuilder::create)
+                                .initial("")
+                                .build())
+                        .build())
+                .save(() -> {
+                    ClientPlayNetworking.send(new com.portablestorage.network.C2SUpdateFoodFiltersPayload(new java.util.ArrayList<>(filters)));
+                })
+                .build()
+                .generateScreen(parent);
+    }
 }
 

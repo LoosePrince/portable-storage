@@ -29,6 +29,12 @@ public class ModClientNetworking {
                 context.client().setScreen(com.portablestorage.config.YACLConfig.createHopperFilterScreen(context.client().screen, payload.filters()));
             });
         });
+
+        ClientPlayNetworking.registerGlobalReceiver(S2COpenFoodFilterPayload.TYPE, (payload, context) -> {
+            context.client().execute(() -> {
+                context.client().setScreen(com.portablestorage.config.YACLConfig.createFoodFilterScreen(context.client().screen, payload.filters()));
+            });
+        });
     }
 }
 

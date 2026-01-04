@@ -46,7 +46,7 @@
   "gui.portablestorage.settings.craft_refill": "合成补充",
   "gui.portablestorage.settings.unconditional_warehouse": "无条件启用仓库",
   "gui.portablestorage.settings.unconditional_warehouse.desc": "设置新玩家是否默认启用仓库。NONE: 需要激活, BASE: 自动启用基础版, FULL: 自动启用完整版。",
-  "gui.portablestorage.settings.unconditional_warehouse.none": "无 (需要激活)",
+  "gui.portablestorage.settings.unconditional_warehouse.none": "无仓库 (需要激活)",
   "gui.portablestorage.settings.unconditional_warehouse.base": "基础版 (自动激活)",
   "gui.portablestorage.settings.unconditional_warehouse.full": "完整版 (自动激活)",
   "gui.portablestorage.settings.group.hopper": "漏斗升级设置",
@@ -142,5 +142,15 @@
   "upgrade.portablestorage.experience.access_level": "当前存取等级: §f%s §r级 (右键升级切换)",
   "upgrade.portablestorage.experience.maintain": "等级维持: %s §r(中键升级切换)",
   "upgrade.portablestorage.piston.name": "活塞升级",
-  "upgrade.portablestorage.piston.desc": "仓库自动化升级。自动补充主副手消耗品；手持活塞（或粘性活塞）左键点击方块可使其顺时针旋转。"
+  "upgrade.portablestorage.piston.desc": "仓库自动化升级。自动补充主副手消耗品；手持活塞（或粘性活塞）左键点击方块可使其顺时针旋转。",
+  "upgrade.portablestorage.enchanted_golden_apple.name": "附魔金苹果升级",
+  "upgrade.portablestorage.enchanted_golden_apple.desc": "自动喂食升级。当你的饥饿值低于设定阈值时，自动从仓库中寻找并食用食物。",
+  "upgrade.portablestorage.enchanted_golden_apple.threshold": "当前自动喂食阈值: %s",
+  "upgrade.portablestorage.enchanted_golden_apple.toggle_hint": "右键点击以切换喂食阈值 (2-20 或关闭)",
+  "upgrade.portablestorage.enchanted_golden_apple.filter_hint": "中键点击以编辑过滤列表",
+  "upgrade.portablestorage.enchanted_golden_apple.auto_eat": "自动食用了: %s",
+  "gui.portablestorage.food_filter.title": "自动喂食过滤",
+  "gui.portablestorage.food_filter.category": "黑名单设置",
+  "gui.portablestorage.food_filter.list": "忽略的食物 ID 列表",
+  "gui.portablestorage.food_filter.list.desc": "在列表中的食物将不会被自动喂食。支持 * (模糊) 和 !id! (精确) 匹配。"
 }

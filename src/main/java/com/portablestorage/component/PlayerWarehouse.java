@@ -43,6 +43,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     private int upgradeScrollOffset = 0;
     private WarehouseType type = WarehouseType.NONE;
     private final List<String> hopperFilters = new ArrayList<>();
+    private final List<String> foodFilters = new ArrayList<>();
     private long experience = 0; // 瓶装经验 (XP points)
 
     // 裂隙升级数据
@@ -213,6 +214,16 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     public void setHopperFilters(List<String> filters) {
         this.hopperFilters.clear();
         this.hopperFilters.addAll(filters);
+        this.markDirty();
+    }
+
+    public List<String> getFoodFilters() {
+        return foodFilters;
+    }
+
+    public void setFoodFilters(List<String> filters) {
+        this.foodFilters.clear();
+        this.foodFilters.addAll(filters);
         this.markDirty();
     }
 
@@ -752,6 +763,14 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             }
         }
 
+        this.foodFilters.clear();
+        if (tag.contains("foodFilters")) {
+            ListTag filterList = tag.getList("foodFilters", Tag.TAG_STRING);
+            for (int i = 0; i < filterList.size(); i++) {
+                this.foodFilters.add(filterList.getString(i));
+            }
+        }
+
         // 裂隙升级数据
         if (tag.contains("riftReturnDim")) {
             this.riftReturnDim = ResourceLocation.parse(tag.getString("riftReturnDim"));
@@ -823,6 +842,12 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             filterList.add(net.minecraft.nbt.StringTag.valueOf(filter));
         }
         tag.put("hopperFilters", filterList);
+
+        ListTag foodFilterList = new ListTag();
+        for (String filter : foodFilters) {
+            foodFilterList.add(net.minecraft.nbt.StringTag.valueOf(filter));
+        }
+        tag.put("foodFilters", foodFilterList);
 
         // 裂隙升级数据
         if (riftReturnDim != null) {
