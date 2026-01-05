@@ -691,7 +691,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         if (startExact && endExact) return target.equals(query);
         if (startExact) return target.startsWith(query);
         if (endExact) return target.endsWith(query);
-        return target.contains(query);
+        return com.portablestorage.util.PinyinUtils.matches(target, query);
     }
 
     private List<WarehouseEntry> applySmartCollapse(List<WarehouseEntry> filtered) {

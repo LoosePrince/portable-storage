@@ -12,6 +12,7 @@ base {
 
 repositories {
 	// Add repositories to retrieve artifacts from in here.
+	mavenCentral()
 	maven {
 		name = "Ladysnake Libs"
 		url = "https://maven.ladysnake.org/releases"
@@ -74,6 +75,9 @@ dependencies {
 	// Yet Another Config Lib
 	modImplementation "dev.isxander:yet-another-config-lib:${project.yacl_version}"
 	
+	// JPinyin for Pinyin search (supports polyphones)
+	implementation "com.github.stuxuhai:jpinyin:${project.jpinyin_version}"
+	include "com.github.stuxuhai:jpinyin:${project.jpinyin_version}"
 }
 
 processResources {
