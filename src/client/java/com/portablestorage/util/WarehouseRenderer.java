@@ -406,4 +406,29 @@ public class WarehouseRenderer {
         int textY = y + 2;
         graphics.drawString(font, text, textX, textY, 0xFFFFFF, false);
     }
+
+    public static void renderPinnedOverlays(GuiGraphics graphics, int leftPos, int topPos, PlayerWarehouse warehouse) {
+        if (warehouse.isFolded()) return;
+        int startX = leftPos + WarehouseConstants.getSlotLogicX();
+        int startY = topPos + WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows());
+        
+        List<com.portablestorage.component.WarehouseEntry> sorted = warehouse.getSortedEntries();
+        int visibleSlots = warehouse.getVisibleRows() * 9;
+        int scrollOffset = warehouse.getScrollOffset() * 9;
+
+        for (int i = 0; i < visibleSlots; i++) {
+            int actualIndex = i + scrollOffset;
+            if (actualIndex >= 0 && actualIndex < sorted.size()) {
+                if (sorted.get(actualIndex).isPinned()) {
+                    int row = i / 9;
+                    int col = i % 9;
+                    int x = startX + col * WarehouseConstants.SLOT_SIZE;
+                    int y = startY + row * WarehouseConstants.SLOT_SIZE;
+                    // 渲染半透明黄色覆盖层 (0x80FFFF00)
+                    // 偏移 1 像素以覆盖物品渲染区域 (16x16)
+                    graphics.fill(x, y, x + 16, y + 16, 0x50FFFF00);
+                }
+            }
+        }
+    }
 }

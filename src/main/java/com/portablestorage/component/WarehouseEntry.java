@@ -8,16 +8,20 @@ public class WarehouseEntry {
     private final ItemStack itemStack; // 用于存储 Item 和 NBT
     private long count;
     private long lastUpdated;
+    private boolean pinned;
 
     public WarehouseEntry(ItemStack stack, long count) {
         this.itemStack = stack.copyWithCount(1);
         this.count = count;
         this.lastUpdated = System.currentTimeMillis();
+        this.pinned = false;
     }
 
     public ItemStack getItemStack() { return itemStack; }
     public long getCount() { return count; }
     public long getLastUpdated() { return lastUpdated; }
+    public boolean isPinned() { return pinned; }
+    public void setPinned(boolean pinned) { this.pinned = pinned; }
 
     public void add(long amount) {
         this.count += amount;
@@ -39,6 +43,7 @@ public class WarehouseEntry {
         tag.put("item", itemStack.saveOptional(registries)); // 使用 saveOptional 防止 1.21 崩溃
         tag.putLong("count", count);
         tag.putLong("lastUpdated", lastUpdated);
+        tag.putBoolean("pinned", pinned);
         return tag;
     }
 
@@ -47,6 +52,7 @@ public class WarehouseEntry {
         long count = tag.getLong("count");
         WarehouseEntry entry = new WarehouseEntry(stack, count);
         entry.lastUpdated = tag.getLong("lastUpdated");
+        entry.pinned = tag.getBoolean("pinned");
         return entry;
     }
 }

@@ -242,6 +242,14 @@ public class ModServerNetworking {
         });
     }
 
+    public static void handleTogglePinned(C2STogglePinnedPayload payload, ServerPlayNetworking.Context context) {
+        context.server().execute(() -> {
+            PlayerWarehouse warehouse = getWarehouse(context.player());
+            warehouse.togglePinned(payload.slotId());
+            syncChanges(context.player());
+        });
+    }
+
     private static PlayerWarehouse getWarehouse(ServerPlayer player) {
         return ModComponents.get(player).getWarehouse(player.getUUID());
     }

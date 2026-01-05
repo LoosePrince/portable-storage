@@ -138,6 +138,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         }
 
         // 核心修复：渲染提示和文本（即使在创造模式，在合成界面也要渲染）
+        WarehouseRenderer.renderPinnedOverlays(graphics, this.leftPos, this.topPos, warehouse);
         WarehouseRenderer.renderAllTooltips(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse);
         WarehouseRenderer.renderQuantityTexts(graphics, this.font, this.leftPos, this.topPos, warehouse);
         
@@ -312,6 +313,23 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
             }
             if (clickedSlot != null && clickedSlot.container instanceof PlayerWarehouse) {
                 ClientPlayNetworking.send(new QuickTransferPayload(clickedSlot.index));
+                return true;
+            }
+        }
+
+        // 处理中键置顶
+        if (button == 2 && !warehouse.isFolded()) {
+            Slot clickedSlot = null;
+            for (Slot slot : this.menu.slots) {
+                int slotX = this.leftPos + slot.x;
+                int slotY = this.topPos + slot.y;
+                if (mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY && mouseY < slotY + 16) {
+                    clickedSlot = slot;
+                    break;
+                }
+            }
+            if (clickedSlot != null && clickedSlot.container instanceof PlayerWarehouse && clickedSlot.hasItem()) {
+                ClientPlayNetworking.send(new com.portablestorage.network.C2STogglePinnedPayload(clickedSlot.getContainerSlot()));
                 return true;
             }
         }

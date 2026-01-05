@@ -294,6 +294,22 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
 
             // 2. 检测 Shift 键状态
             boolean isShiftPressed = net.minecraft.client.gui.screens.Screen.hasShiftDown();
+
+            if (button == 2) { // 中键置顶
+                Slot clickedSlot = null;
+                for (Slot slot : this.menu.slots) {
+                    int slotX = this.leftPos + slot.x;
+                    int slotY = this.topPos + slot.y;
+                    if (mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY && mouseY < slotY + 16) {
+                        clickedSlot = slot;
+                        break;
+                    }
+                }
+                if (clickedSlot != null && clickedSlot.container instanceof PlayerWarehouse && clickedSlot.hasItem()) {
+                    ClientPlayNetworking.send(new com.portablestorage.network.C2STogglePinnedPayload(clickedSlot.getContainerSlot()));
+                    return true;
+                }
+            }
             
             if (isShiftPressed && warehouse.isQuickInteraction() && !warehouse.isFolded()) {
                 // 手动查找被点击的槽位
@@ -632,6 +648,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         }
 
         // 使用封装好的 Tooltip 和数量渲染
+        WarehouseRenderer.renderPinnedOverlays(graphics, this.leftPos, this.topPos, warehouse);
         WarehouseRenderer.renderAllTooltips(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse);
         WarehouseRenderer.renderQuantityTexts(graphics, this.font, this.leftPos, this.topPos, warehouse);
     }

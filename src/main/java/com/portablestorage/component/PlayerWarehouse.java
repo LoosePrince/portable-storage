@@ -502,6 +502,30 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         this.sortedCache = null; // 仅使最后一级缓存失效
     }
 
+    public void togglePinned(int slotIndex) {
+        List<WarehouseEntry> sorted = getSortedEntries();
+        int actualIndex = slotIndex + (scrollOffset * 9);
+        if (actualIndex >= 0 && actualIndex < sorted.size()) {
+            WarehouseEntry entry = sorted.get(actualIndex);
+            boolean newState = !entry.isPinned();
+            
+            // 如果是折叠后的项，我们需要找到所有原始项并同步状态
+            net.minecraft.world.item.component.CustomData customData = entry.getItemStack().get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+            boolean isCollapsed = customData != null && customData.copyTag().getBoolean(com.portablestorage.util.WarehouseConstants.SMART_COLLAPSE_TAG);
+            
+            if (isCollapsed) {
+                for (WarehouseEntry e : storage) {
+                    if (e.getItemStack().getItem() == entry.getItemStack().getItem()) {
+                        e.setPinned(newState);
+                    }
+                }
+            } else {
+                entry.setPinned(newState);
+            }
+            markDirty();
+        }
+    }
+
     public boolean isAscending() { return isAscending; }
     public void setAscending(boolean ascending) { 
         this.isAscending = ascending; 
@@ -706,9 +730,11 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             if (entries.size() > 1) {
                 long totalCount = 0;
                 long lastUpdated = 0;
+                boolean pinned = false;
                 for (WarehouseEntry e : entries) {
                     totalCount += e.getCount();
                     lastUpdated = Math.max(lastUpdated, e.getLastUpdated());
+                    if (e.isPinned()) pinned = true;
                 }
                 
                 ItemStack displayStack = new ItemStack(group.getKey());
@@ -718,7 +744,9 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                         putBoolean(com.portablestorage.util.WarehouseConstants.SMART_COLLAPSE_TAG, true);
                     }}));
                 
-                collapsed.add(new WarehouseEntry(displayStack, totalCount));
+                WarehouseEntry collapsedEntry = new WarehouseEntry(displayStack, totalCount);
+                collapsedEntry.setPinned(pinned);
+                collapsed.add(collapsedEntry);
             } else {
                 collapsed.add(entries.get(0));
             }
@@ -736,8 +764,13 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         };
 
         if (!isAscending) comparator = comparator.reversed();
-        comparator = comparator.thenComparing(e -> BuiltInRegistries.ITEM.getKey(e.getItemStack().getItem()));
-        list.sort(comparator);
+        
+        // 置顶逻辑：置顶项排在最前面
+        Comparator<WarehouseEntry> finalComparator = Comparator.<WarehouseEntry, Boolean>comparing(WarehouseEntry::isPinned).reversed()
+                .thenComparing(comparator)
+                .thenComparing(e -> BuiltInRegistries.ITEM.getKey(e.getItemStack().getItem()));
+        
+        list.sort(finalComparator);
     }
 
     private net.minecraft.world.item.Item getVirtualItemForFluid(FluidVariant fluid) {
