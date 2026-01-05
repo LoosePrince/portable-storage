@@ -536,5 +536,24 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
+
+    public int getWarehouseX() {
+        return this.leftPos + WarehouseConstants.getWarehouseXOffset();
+    }
+
+    public int getWarehouseY() {
+        PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
+        return this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows());
+    }
+
+    public int getWarehouseWidth() {
+        return WarehouseConstants.getWarehouseWidth();
+    }
+
+    public int getWarehouseHeight() {
+        PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
+        if (warehouse.isFolded()) return WarehouseConstants.WAREHOUSE_FOLDED_HEIGHT;
+        return WarehouseConstants.WAREHOUSE_TITLE_HEIGHT + warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE;
+    }
 }
 

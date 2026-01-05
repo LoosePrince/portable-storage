@@ -24,6 +24,9 @@
 		],
 		"cardinal-components-scoreboard": [
 			"com.portablestorage.component.ModComponentRegistration"
+		],
+		"jei_mod_plugin": [
+			"com.portablestorage.jei.PortableStorageJeiPlugin"
 		]
 	},
 	"custom": {

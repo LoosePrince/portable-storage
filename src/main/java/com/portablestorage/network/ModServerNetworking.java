@@ -10,6 +10,7 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -254,6 +255,103 @@ public class ModServerNetworking {
             PlayerWarehouse warehouse = getWarehouse(context.player());
             warehouse.togglePinned(payload.slotId());
             syncChanges(context.player());
+        });
+    }
+
+    public static void handleRecipeTransfer(C2SRecipeTransferPayload payload, ServerPlayNetworking.Context context) {
+        context.server().execute(() -> {
+            ServerPlayer player = context.player();
+            net.minecraft.world.inventory.AbstractContainerMenu menu = player.containerMenu;
+            
+            boolean isWarehouseCrafting = menu instanceof CraftingWarehouseScreenHandler;
+            boolean isVanillaInventory = menu instanceof net.minecraft.world.inventory.InventoryMenu;
+
+            if (!isWarehouseCrafting && !isVanillaInventory) return;
+
+            net.minecraft.world.item.crafting.RecipeHolder<?> recipeHolder = player.server.getRecipeManager().byKey(payload.recipeId()).orElse(null);
+            if (recipeHolder == null || !(recipeHolder.value() instanceof net.minecraft.world.item.crafting.CraftingRecipe recipe)) return;
+
+            PlayerWarehouse warehouse = getWarehouse(player);
+            if (!warehouse.isEnabled()) return;
+
+            // 动态判断当前格网大小
+            boolean is3x3 = isWarehouseCrafting || (isVanillaInventory && com.portablestorage.util.WarehouseUtils.is3x3Enabled(player));
+            int gridWidth = is3x3 ? 3 : 2;
+            int gridHeight = is3x3 ? 3 : 2;
+            int containerStride = 3; // 无论合成界面还是背包，底层都是 3x3 容器
+
+            // 1. 清空当前合成槽位到仓库
+            for (Slot slot : menu.slots) {
+                if (slot.container instanceof net.minecraft.world.inventory.CraftingContainer && !(slot instanceof net.minecraft.world.inventory.ResultSlot)) {
+                    if (slot.hasItem()) {
+                        ItemStack stack = slot.getItem();
+                        WarehouseManager.addItem(warehouse, stack);
+                        slot.set(stack);
+                    }
+                }
+            }
+
+            // 2. 获取配料表和形状
+            java.util.List<net.minecraft.world.item.crafting.Ingredient> ingredients = recipe.getIngredients();
+            int recipeWidth = gridWidth;
+            int recipeHeight = gridHeight;
+
+            if (recipe instanceof net.minecraft.world.item.crafting.ShapedRecipe shaped) {
+                recipeWidth = shaped.getWidth();
+                recipeHeight = shaped.getHeight();
+            } else {
+                // Shapeless recipe
+                recipeWidth = (ingredients.size() <= 4 && !is3x3) ? 2 : 3;
+                recipeHeight = (int) Math.ceil((double) ingredients.size() / recipeWidth);
+            }
+
+            // 校验配方是否放得下
+            if (recipeWidth > gridWidth || recipeHeight > gridHeight) return;
+
+            // 3. 尝试从仓库和玩家背包获取物品填充
+            for (int r = 0; r < recipeHeight; r++) {
+                for (int c = 0; c < recipeWidth; c++) {
+                    int ingredientIdx = r * recipeWidth + c;
+                    if (ingredientIdx >= ingredients.size()) continue;
+                    
+                    net.minecraft.world.item.crafting.Ingredient ingredient = ingredients.get(ingredientIdx);
+                    if (ingredient == null || ingredient.isEmpty()) continue;
+
+                    ItemStack found = ItemStack.EMPTY;
+                    
+                    // 优先从仓库查找
+                    for (net.minecraft.world.item.ItemStack stack : ingredient.getItems()) {
+                        found = WarehouseManager.takeMatching(warehouse, stack, 1, false);
+                        if (!found.isEmpty()) break;
+                    }
+                    
+                    // 如果仓库没有，从玩家背包查找
+                    if (found.isEmpty()) {
+                        for (int invIdx = 0; invIdx < player.getInventory().getContainerSize(); invIdx++) {
+                            ItemStack invStack = player.getInventory().getItem(invIdx);
+                            if (ingredient.test(invStack)) {
+                                found = player.getInventory().removeItem(invIdx, 1);
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!found.isEmpty()) {
+                        int targetContainerSlot = r * containerStride + c;
+                        for (Slot slot : menu.slots) {
+                            if (slot.container instanceof net.minecraft.world.inventory.CraftingContainer && 
+                                !(slot instanceof net.minecraft.world.inventory.ResultSlot) && 
+                                slot.getContainerSlot() == targetContainerSlot) {
+                                slot.set(found);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            menu.broadcastChanges();
+            syncChanges(player);
         });
     }
 

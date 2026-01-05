@@ -14,6 +14,7 @@ public class ModNetworking {
         PayloadTypeRegistry.playC2S().register(C2SUpdateHopperFiltersPayload.TYPE, C2SUpdateHopperFiltersPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(C2SUpdateFoodFiltersPayload.TYPE, C2SUpdateFoodFiltersPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(C2STogglePinnedPayload.TYPE, C2STogglePinnedPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(C2SRecipeTransferPayload.TYPE, C2SRecipeTransferPayload.CODEC);
     }
 
     public static void registerS2CPayloads() {
@@ -32,6 +33,7 @@ public class ModNetworking {
         ServerPlayNetworking.registerGlobalReceiver(C2SUpdateHopperFiltersPayload.TYPE, ModServerNetworking::handleUpdateHopperFilters);
         ServerPlayNetworking.registerGlobalReceiver(C2SUpdateFoodFiltersPayload.TYPE, ModServerNetworking::handleUpdateFoodFilters);
         ServerPlayNetworking.registerGlobalReceiver(C2STogglePinnedPayload.TYPE, ModServerNetworking::handleTogglePinned);
+        ServerPlayNetworking.registerGlobalReceiver(C2SRecipeTransferPayload.TYPE, ModServerNetworking::handleRecipeTransfer);
     }
 }
 
