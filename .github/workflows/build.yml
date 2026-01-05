@@ -1,30 +1,133 @@
-# Automatically build the project and run any configured tests for every push
-# and submitted pull request. This can help catch issues that only occur on
-# certain platforms or Java versions, and provides a first line of defence
-# against bad commits.
+# 自动构建项目并在每次 push 或 PR 时运行测试，防止坏提交。
+# 如果版本号有更新，则自动创建 release。
 
 name: build
-on: [pull_request, push]
+on:
+  push:
+    branches:
+      - 1.21
+    paths-ignore:
+      - '**/*.md'
+      - '.github/workflows/**'
+  pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - '.github/workflows/**'
 
 jobs:
   build:
     runs-on: ubuntu-24.04
+    outputs:
+      version_changed: ${{ steps.check_version.outputs.changed }}
+      new_version: ${{ steps.check_version.outputs.new_version }}
+      changelog: ${{ steps.check_version.outputs.changelog }}
     steps:
       - name: checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # 需要获取足够的提交历史来比较版本变更
+      
       - name: validate gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
+      
       - name: setup jdk
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'microsoft'
+      
       - name: make gradle wrapper executable
         run: chmod +x ./gradlew
+      
+      - name: check version changes
+        id: check_version
+        run: |
+          # 获取当前提交和前一个提交的gradle.properties文件
+          CURRENT_VERSION=$(grep "mod_version=" gradle.properties | cut -d'=' -f2)
+          echo "Current version: $CURRENT_VERSION"
+          
+          # 检查是否是版本文件变更
+          if git diff HEAD~1 HEAD --name-only | grep -q "gradle.properties"; then
+            PREVIOUS_VERSION=$(git show HEAD~1:gradle.properties | grep "mod_version=" | cut -d'=' -f2)
+            echo "Previous version: $PREVIOUS_VERSION"
+            
+            if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
+              echo "Version changed from $PREVIOUS_VERSION to $CURRENT_VERSION"
+              echo "changed=true" >> $GITHUB_OUTPUT
+              echo "new_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+              
+              # 获取提交信息作为更新说明
+              COMMIT_MESSAGE=$(git log -1 --pretty=format:"%s")
+              echo "Commit message: $COMMIT_MESSAGE"
+              echo "changelog<<EOF" >> $GITHUB_OUTPUT
+              echo "$COMMIT_MESSAGE" >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
+            else
+              echo "No version change detected"
+              echo "changed=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "gradle.properties not modified"
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+      
       - name: build
         run: ./gradlew build
+      
       - name: capture build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Artifacts
+          name: build-artifacts
           path: build/libs/
+          retention-days: 1  # 只在需要时保留，节省存储空间
+
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    if: needs.build.outputs.version_changed == 'true' && github.event_name == 'push'
+    permissions:
+      contents: write  # 需要写入权限来创建release
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+      
+      - name: download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: build/libs/
+      
+      - name: publish to platforms
+        uses: Kira-NT/mc-publish@v3.3.0
+        with:
+          # 文件路径
+          files: build/libs/portable-storage-${{ needs.build.outputs.new_version }}.jar
+          
+          # 版本信息
+          name: Portable Storage ${{ needs.build.outputs.new_version }} [Fabric 1.21]
+          version: ${{ needs.build.outputs.new_version }}
+          version-type: release
+          changelog: ${{ needs.build.outputs.changelog }}
+          
+          # 通用配置
+          loaders: fabric
+          game-versions: 1.21
+          java: 21
+          
+          # CurseForge 配置
+          curseforge-id: 1365553
+          curseforge-token: ${{ secrets.CURSEFORGE_API_TOKEN }}
+          
+          # Modrinth 配置
+          modrinth-id: fgNKEUno
+          modrinth-token: ${{ secrets.MODRINTH_API_TOKEN }}
+          
+          # GitHub 发布配置
+          github-tag: v${{ needs.build.outputs.new_version }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-changelog: |
+            ## Portable Storage ${{ needs.build.outputs.new_version }}
+
+            ### 更新内容
+            ${{ needs.build.outputs.changelog }}
