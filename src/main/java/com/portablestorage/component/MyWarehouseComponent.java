@@ -21,14 +21,23 @@ public class MyWarehouseComponent implements WarehouseComponent {
     @Override
     public PlayerWarehouse getWarehouse(UUID uuid) {
         // 确保同一个 UUID 始终返回同一个 PlayerWarehouse 实例
-        return warehouses.computeIfAbsent(uuid, k -> new PlayerWarehouse(k, (warehouse) -> {
-            sync();
-        }));
+        return warehouses.computeIfAbsent(uuid, k -> {
+            PlayerWarehouse pw = new PlayerWarehouse(k, (warehouse) -> {
+                sync();
+            });
+            pw.setParentComponent(this);
+            return pw;
+        });
     }
 
     @Override
     public void syncForPlayer(UUID uuid) {
         sync();
+    }
+
+    @Override
+    public java.util.Collection<PlayerWarehouse> getAllWarehouses() {
+        return warehouses.values();
     }
 
     private void sync() {

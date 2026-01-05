@@ -24,6 +24,7 @@ import net.minecraft.world.level.material.Fluids;
 
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.Objects;
 
 /**
  * 玩家仓库数据组件 (CCA Component)
@@ -155,6 +156,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     private final Consumer<PlayerWarehouse> onChanged;
     private final UUID ownerUuid;
+    private WarehouseComponent parentComponent;
 
     public PlayerWarehouse(UUID id, Consumer<PlayerWarehouse> onChanged) {
         this.ownerUuid = id;
@@ -165,8 +167,65 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         }
     }
 
+    public void setParentComponent(WarehouseComponent parent) {
+        this.parentComponent = parent;
+    }
+
     public UUID getOwnerUuid() {
         return ownerUuid;
+    }
+
+    public UUID getBarrelOwnerUuid() {
+        ItemStack barrel = getUpgrade(com.portablestorage.upgrade.BarrelUpgrade.ID);
+        if (!barrel.isEmpty() && barrel.is(com.portablestorage.item.ModItems.BOUND_BARREL)) {
+            net.minecraft.world.item.component.CustomData customData = barrel.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+            if (customData != null && customData.copyTag().hasUUID("owner")) {
+                return customData.copyTag().getUUID("owner");
+            }
+        }
+        return null;
+    }
+
+    public List<PlayerWarehouse> getSharedGroupWarehouses() {
+        List<PlayerWarehouse> group = new ArrayList<>();
+        group.add(this);
+
+        if (getEffectiveType() != WarehouseType.FULL || parentComponent == null) {
+            return group;
+        }
+
+        Set<UUID> groupUuids = new HashSet<>();
+        groupUuids.add(this.ownerUuid);
+
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (PlayerWarehouse pw : parentComponent.getAllWarehouses()) {
+                if (pw.getEffectiveType() != WarehouseType.FULL) continue;
+                
+                UUID owner = pw.getOwnerUuid();
+                UUID target = pw.getBarrelOwnerUuid();
+
+                if (groupUuids.contains(owner)) {
+                    if (target != null && groupUuids.add(target)) {
+                        changed = true;
+                    }
+                }
+                if (target != null && groupUuids.contains(target)) {
+                    if (groupUuids.add(owner)) {
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        groupUuids.remove(this.ownerUuid);
+        for (UUID uuid : groupUuids) {
+            PlayerWarehouse pw = parentComponent.getWarehouse(uuid);
+            if (pw != null) group.add(pw);
+        }
+
+        return group;
     }
 
     // --- 升级系统接口 ---
@@ -303,12 +362,30 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     }
 
     public void markDirty() {
+        markDirtyInternal(new HashSet<>());
+        if (onChanged != null) {
+            onChanged.accept(this);
+        }
+    }
+
+    private void markDirtyInternal(Set<UUID> visited) {
+        if (!visited.add(this.ownerUuid)) return;
+
         this.baseCache = null;
         this.filteredCache = null;
         this.collapsedCache = null;
         this.sortedCache = null;
-        if (onChanged != null) {
-            onChanged.accept(this);
+
+        // 通知组内其他成员失效缓存
+        if (parentComponent != null) {
+            for (PlayerWarehouse pw : getSharedGroupWarehouses()) {
+                if (pw != this) {
+                    pw.baseCache = null;
+                    pw.filteredCache = null;
+                    pw.collapsedCache = null;
+                    pw.sortedCache = null;
+                }
+            }
         }
     }
 
@@ -393,6 +470,21 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     public long insert(FluidVariant resource, long maxAmount, TransactionContext transaction) {
         if (maxAmount <= 0) return 0;
         
+        List<PlayerWarehouse> group = getSharedGroupWarehouses();
+        long totalInserted = 0;
+        long remaining = maxAmount;
+
+        for (PlayerWarehouse pw : group) {
+            if (remaining <= 0) break;
+            long inserted = pw.insertInternal(resource, remaining, transaction);
+            totalInserted += inserted;
+            remaining -= inserted;
+        }
+
+        return totalInserted;
+    }
+
+    private long insertInternal(FluidVariant resource, long maxAmount, TransactionContext transaction) {
         // 无限流体检查
         if (isInfinite(resource, fluidStorage.getOrDefault(resource, 0L))) {
             return maxAmount; // 假装存入了，但实际不改变数值
@@ -408,6 +500,22 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     @Override
     public long extract(FluidVariant resource, long maxAmount, TransactionContext transaction) {
         if (maxAmount <= 0) return 0;
+        
+        List<PlayerWarehouse> group = getSharedGroupWarehouses();
+        long totalExtracted = 0;
+        long remaining = maxAmount;
+
+        for (PlayerWarehouse pw : group) {
+            if (remaining <= 0) break;
+            long extracted = pw.extractInternal(resource, remaining, transaction);
+            totalExtracted += extracted;
+            remaining -= extracted;
+        }
+
+        return totalExtracted;
+    }
+
+    private long extractInternal(FluidVariant resource, long maxAmount, TransactionContext transaction) {
         long current = fluidStorage.getOrDefault(resource, 0L);
         if (current <= 0) return 0;
 
@@ -441,24 +549,38 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     @Override
     public Iterator<StorageView<FluidVariant>> iterator() {
-        return fluidStorage.entrySet().stream().map(e -> (StorageView<FluidVariant>) new StorageView<FluidVariant>() {
-            @Override
-            public long extract(FluidVariant resource, long maxAmount, TransactionContext transaction) {
-                if (resource.equals(e.getKey())) {
-                    return PlayerWarehouse.this.extract(resource, maxAmount, transaction);
-                }
-                return 0;
+        List<PlayerWarehouse> group = getSharedGroupWarehouses();
+        List<StorageView<FluidVariant>> views = new ArrayList<>();
+        
+        // 聚合所有仓库的流体视图
+        Map<FluidVariant, Long> merged = new LinkedHashMap<>();
+        for (PlayerWarehouse pw : group) {
+            for (Map.Entry<FluidVariant, Long> e : pw.fluidStorage.entrySet()) {
+                merged.put(e.getKey(), merged.getOrDefault(e.getKey(), 0L) + e.getValue());
             }
+        }
 
-            @Override
-            public boolean isResourceBlank() { return e.getKey().isBlank(); }
-            @Override
-            public FluidVariant getResource() { return e.getKey(); }
-            @Override
-            public long getAmount() { return e.getValue(); }
-            @Override
-            public long getCapacity() { return Long.MAX_VALUE; }
-        }).iterator();
+        for (Map.Entry<FluidVariant, Long> e : merged.entrySet()) {
+            views.add(new StorageView<FluidVariant>() {
+                @Override
+                public long extract(FluidVariant resource, long maxAmount, TransactionContext transaction) {
+                    if (resource.equals(e.getKey())) {
+                        return PlayerWarehouse.this.extract(resource, maxAmount, transaction);
+                    }
+                    return 0;
+                }
+
+                @Override
+                public boolean isResourceBlank() { return e.getKey().isBlank(); }
+                @Override
+                public FluidVariant getResource() { return e.getKey(); }
+                @Override
+                public long getAmount() { return e.getValue(); }
+                @Override
+                public long getCapacity() { return Long.MAX_VALUE; }
+            });
+        }
+        return views.iterator();
     }
 
     @Override
@@ -603,16 +725,48 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     public List<WarehouseEntry> getSortedEntries() {
         // 第一级：基础缓存 (Raw Items + Fluids)
         if (baseCache == null) {
-            baseCache = new ArrayList<>(storage);
-            for (Map.Entry<FluidVariant, Long> entry : fluidStorage.entrySet()) {
-                net.minecraft.world.item.Item virtualItem = getVirtualItemForFluid(entry.getKey());
-                if (virtualItem != null) {
-                    long amount = entry.getValue();
-                    boolean infinite = isInfinite(entry.getKey(), amount);
-                    long bucketCount = infinite ? WarehouseConstants.INFINITE_COUNT : (amount / FluidConstants.BUCKET);
-                    
-                    if (bucketCount > 0 || infinite) {
+            List<PlayerWarehouse> group = getSharedGroupWarehouses();
+            
+            // 聚合所有仓库的物品
+            Map<WarehouseEntryKey, Long> mergedItems = new LinkedHashMap<>();
+            Map<WarehouseEntryKey, Boolean> pinnedItems = new HashMap<>();
+            Map<FluidVariant, Long> mergedFluids = new LinkedHashMap<>();
+            long mergedExperience = 0;
+
+            for (PlayerWarehouse pw : group) {
+                // 物品
+                for (WarehouseEntry entry : pw.getStorageList()) {
+                    WarehouseEntryKey key = new WarehouseEntryKey(entry.getItemStack());
+                    mergedItems.put(key, mergedItems.getOrDefault(key, 0L) + entry.getCount());
+                    if (entry.isPinned()) pinnedItems.put(key, true);
+                }
+                // 流体
+                for (Map.Entry<FluidVariant, Long> entry : pw.getFluidStorageMap().entrySet()) {
+                    mergedFluids.put(entry.getKey(), mergedFluids.getOrDefault(entry.getKey(), 0L) + entry.getValue());
+                }
+                // 经验
+                mergedExperience += pw.getExperience();
+            }
+
+            baseCache = new ArrayList<>();
+            // 将聚合后的物品转回 WarehouseEntry
+            for (Map.Entry<WarehouseEntryKey, Long> e : mergedItems.entrySet()) {
+                WarehouseEntry entry = new WarehouseEntry(e.getKey().toStack(), e.getValue());
+                if (pinnedItems.getOrDefault(e.getKey(), false)) entry.setPinned(true);
+                baseCache.add(entry);
+            }
+            // 将聚合后的流体转回 WarehouseEntry
+            for (Map.Entry<FluidVariant, Long> e : mergedFluids.entrySet()) {
+                FluidVariant variant = e.getKey();
+                long amount = e.getValue();
+                boolean infinite = isInfinite(variant, amount);
+                long bucketCount = infinite ? WarehouseConstants.INFINITE_COUNT : (amount / FluidConstants.BUCKET);
+                
+                if (bucketCount > 0 || infinite) {
+                    net.minecraft.world.item.Item virtualItem = getVirtualItemForFluid(variant);
+                    if (virtualItem != null) {
                         ItemStack fluidStack = new ItemStack(virtualItem);
+                        fluidStack.applyComponents(variant.getComponents());
                         if (infinite) {
                             fluidStack.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, 
                                 net.minecraft.world.item.component.CustomData.of(new net.minecraft.nbt.CompoundTag() {{
@@ -624,25 +778,26 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                 }
             }
             
-            // 经验系统
-            if (!getUpgrade(com.portablestorage.upgrade.ExperienceUpgrade.ID).isEmpty()) {
+            // 经验系统 (如果组内有人开启了经验升级)
+            boolean hasExperienceUpgrade = group.stream().anyMatch(pw -> !pw.getUpgrade(com.portablestorage.upgrade.ExperienceUpgrade.ID).isEmpty());
+            if (hasExperienceUpgrade) {
                 ItemStack xpStack = new ItemStack(com.portablestorage.item.ModItems.BOTTLED_EXPERIENCE);
-                // 添加动态提示信息
                 List<net.minecraft.network.chat.Component> lore = new ArrayList<>();
-                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_1", experience).withStyle(net.minecraft.ChatFormatting.GRAY));
+                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_1", mergedExperience).withStyle(net.minecraft.ChatFormatting.GRAY));
                 lore.add(net.minecraft.network.chat.Component.literal(" "));
                 lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_2").withStyle(net.minecraft.ChatFormatting.BLUE));
                 
+                // 取当前仓库的升级阶数显示，或者取组内最高？取当前的吧。
                 ItemStack upgradeStack = getUpgrade(com.portablestorage.upgrade.ExperienceUpgrade.ID);
-                int step = com.portablestorage.upgrade.ExperienceUpgrade.getStep(upgradeStack);
+                int step = upgradeStack.isEmpty() ? 0 : com.portablestorage.upgrade.ExperienceUpgrade.getStep(upgradeStack);
                 
                 lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_3", step).withStyle(net.minecraft.ChatFormatting.GRAY));
                 lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_4", step).withStyle(net.minecraft.ChatFormatting.GRAY));
-                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_5").withStyle(net.minecraft.ChatFormatting.GRAY));
+                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_5", step).withStyle(net.minecraft.ChatFormatting.GRAY));
                 lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_6").withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
                 
                 xpStack.set(net.minecraft.core.component.DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(lore));
-                baseCache.add(new WarehouseEntry(xpStack, experience));
+                baseCache.add(new WarehouseEntry(xpStack, mergedExperience));
             }
 
             // 基础层变动，下游全部失效
@@ -957,6 +1112,35 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         }
         if (avatarUuid != null) {
             tag.putUUID("avatarUuid", avatarUuid);
+        }
+    }
+
+    private static class WarehouseEntryKey {
+        private final net.minecraft.world.item.Item item;
+        private final net.minecraft.core.component.DataComponentPatch patch;
+
+        public WarehouseEntryKey(ItemStack stack) {
+            this.item = stack.getItem();
+            this.patch = stack.getComponentsPatch();
+        }
+
+        public ItemStack toStack() {
+            ItemStack stack = new ItemStack(item);
+            stack.applyComponents(patch);
+            return stack;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            WarehouseEntryKey that = (WarehouseEntryKey) o;
+            return item == that.item && Objects.equals(patch, that.patch);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(item, patch);
         }
     }
 }

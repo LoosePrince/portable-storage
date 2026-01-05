@@ -85,6 +85,13 @@ public class ModServerNetworking {
             if (slot.container instanceof PlayerWarehouse) {
                 WarehouseManager.tryTransferToInventory((PlayerWarehouse) slot.container, slot.getContainerSlot(), player);
                 syncChanges(player);
+            } else if (slot.container instanceof net.minecraft.world.entity.player.Inventory) {
+                ItemStack stack = slot.getItem();
+                if (!stack.isEmpty()) {
+                    WarehouseManager.addItem(getWarehouse(player), stack);
+                    slot.set(stack);
+                    syncChanges(player);
+                }
             }
         });
     }

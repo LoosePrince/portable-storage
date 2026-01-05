@@ -264,12 +264,11 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
             }
 
             if (button == 0) { // 左键
-                // ... (现有逻辑不变)
                 Slot clickedSlot = null;
                 for (Slot slot : this.menu.slots) {
                     int slotX = this.leftPos + slot.x;
                     int slotY = this.topPos + slot.y;
-                    if (mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY && mouseY < slotY + 16) {
+                    if (mouseX >= slotX && mouseX < slotX + 18 && mouseY >= slotY && mouseY < slotY + 18) {
                         clickedSlot = slot;
                         break;
                     }
@@ -300,7 +299,7 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                 for (Slot slot : this.menu.slots) {
                     int slotX = this.leftPos + slot.x;
                     int slotY = this.topPos + slot.y;
-                    if (mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY && mouseY < slotY + 16) {
+                    if (mouseX >= slotX && mouseX < slotX + 18 && mouseY >= slotY && mouseY < slotY + 18) {
                         clickedSlot = slot;
                         break;
                     }
@@ -317,14 +316,14 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                 for (Slot slot : this.menu.slots) {
                     int slotX = this.leftPos + slot.x;
                     int slotY = this.topPos + slot.y;
-                    if (mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY && mouseY < slotY + 16) {
+                    if (mouseX >= slotX && mouseX < slotX + 18 && mouseY >= slotY && mouseY < slotY + 18) {
                         clickedSlot = slot;
                         break;
-            }
-        }
+                    }
+                }
 
-                // 检查是否点击在仓库槽位上
-                if (clickedSlot != null && clickedSlot.container instanceof PlayerWarehouse) {
+                // 检查是否点击在仓库槽位或背包槽位上
+                if (clickedSlot != null && (clickedSlot.container instanceof PlayerWarehouse || clickedSlot.container instanceof net.minecraft.world.entity.player.Inventory)) {
                     // 发送快速转移网络包
                     ClientPlayNetworking.send(new QuickTransferPayload(clickedSlot.index));
                     return true;

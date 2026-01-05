@@ -277,7 +277,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
             for (Slot slot : this.menu.slots) {
                 int slotX = this.leftPos + slot.x;
                 int slotY = this.topPos + slot.y;
-                if (mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY && mouseY < slotY + 16) {
+                if (mouseX >= slotX && mouseX < slotX + 18 && mouseY >= slotY && mouseY < slotY + 18) {
                     clickedSlot = slot;
                     break;
                 }
@@ -306,12 +306,12 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
             for (Slot slot : this.menu.slots) {
                 int slotX = this.leftPos + slot.x;
                 int slotY = this.topPos + slot.y;
-                if (mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY && mouseY < slotY + 16) {
+                if (mouseX >= slotX && mouseX < slotX + 18 && mouseY >= slotY && mouseY < slotY + 18) {
                     clickedSlot = slot;
                     break;
                 }
             }
-            if (clickedSlot != null && clickedSlot.container instanceof PlayerWarehouse) {
+            if (clickedSlot != null && (clickedSlot.container instanceof PlayerWarehouse || clickedSlot.container instanceof net.minecraft.world.entity.player.Inventory)) {
                 ClientPlayNetworking.send(new QuickTransferPayload(clickedSlot.index));
                 return true;
             }
@@ -323,7 +323,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
             for (Slot slot : this.menu.slots) {
                 int slotX = this.leftPos + slot.x;
                 int slotY = this.topPos + slot.y;
-                if (mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY && mouseY < slotY + 16) {
+                if (mouseX >= slotX && mouseX < slotX + 18 && mouseY >= slotY && mouseY < slotY + 18) {
                     clickedSlot = slot;
                     break;
                 }

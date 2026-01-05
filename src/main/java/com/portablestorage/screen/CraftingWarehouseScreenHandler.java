@@ -200,6 +200,13 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
                     return ItemStack.EMPTY;
                 }
             } else if (slot.container instanceof PlayerWarehouse) { // 仓库槽位
+                if (itemStack2.is(com.portablestorage.item.ModItems.BOTTLED_EXPERIENCE) || 
+                    itemStack2.is(com.portablestorage.item.ModItems.VIRTUAL_LAVA) || 
+                    itemStack2.is(com.portablestorage.item.ModItems.VIRTUAL_WATER) || 
+                    itemStack2.is(com.portablestorage.item.ModItems.VIRTUAL_MILK)) {
+                    return ItemStack.EMPTY;
+                }
+
                 if (warehouse.isQuickInteraction()) {
                     return ItemStack.EMPTY; // Shift+点击由 QuickTransferPayload 处理
                 }

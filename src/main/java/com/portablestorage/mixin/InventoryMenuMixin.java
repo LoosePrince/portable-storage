@@ -86,6 +86,14 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
         if (warehouse.isFolded()) return;
 
         if (slot.container instanceof PlayerWarehouse) { // 从仓库快速转移到背包
+            if (stackInSlot.is(com.portablestorage.item.ModItems.BOTTLED_EXPERIENCE) || 
+                stackInSlot.is(com.portablestorage.item.ModItems.VIRTUAL_LAVA) || 
+                stackInSlot.is(com.portablestorage.item.ModItems.VIRTUAL_WATER) || 
+                stackInSlot.is(com.portablestorage.item.ModItems.VIRTUAL_MILK)) {
+                cir.setReturnValue(ItemStack.EMPTY);
+                return;
+            }
+
             if (warehouse.isQuickInteraction()) {
                 // Shift+点击由 QuickTransferPayload 处理
                 cir.setReturnValue(ItemStack.EMPTY);

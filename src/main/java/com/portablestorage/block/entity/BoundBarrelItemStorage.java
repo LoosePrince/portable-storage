@@ -56,19 +56,23 @@ public class BoundBarrelItemStorage implements Storage<ItemVariant> {
     public long extract(ItemVariant resource, long maxAmount, TransactionContext transaction) {
         if (!isAllowed(resource)) return 0;
 
-        // 检查仓库中是否有足够的物品
-        long count = 0;
-        for (WarehouseEntry entry : warehouse.getStorageList()) {
-            if (resource.matches(entry.getItemStack())) {
-                count += entry.getCount();
+        // 检查共享组中是否有足够的物品
+        long totalCount = 0;
+        List<PlayerWarehouse> group = warehouse.getSharedGroupWarehouses();
+        for (PlayerWarehouse pw : group) {
+            for (WarehouseEntry entry : pw.getStorageList()) {
+                if (resource.matches(entry.getItemStack())) {
+                    totalCount += entry.getCount();
+                }
             }
         }
 
-        long toExtract = Math.min(count, maxAmount);
+        long toExtract = Math.min(totalCount, maxAmount);
         if (toExtract <= 0) return 0;
 
         transaction.addCloseCallback((context, result) -> {
             if (result.wasCommitted()) {
+                // takeMatching 已经支持共享组
                 WarehouseManager.takeMatching(warehouse, resource.toStack(1), (int) toExtract, true);
             }
         });
@@ -79,28 +83,40 @@ public class BoundBarrelItemStorage implements Storage<ItemVariant> {
     @Override
     public Iterator<StorageView<ItemVariant>> iterator() {
         List<StorageView<ItemVariant>> views = new ArrayList<>();
-        for (WarehouseEntry entry : warehouse.getStorageList()) {
-            ItemVariant variant = ItemVariant.of(entry.getItemStack());
-            if (isAllowed(variant)) {
-                views.add(new WarehouseItemStorageView(warehouse, entry));
+        List<PlayerWarehouse> group = warehouse.getSharedGroupWarehouses();
+        
+        // 聚合组内所有物品
+        java.util.Map<ItemVariant, Long> merged = new java.util.LinkedHashMap<>();
+        for (PlayerWarehouse pw : group) {
+            for (WarehouseEntry entry : pw.getStorageList()) {
+                ItemVariant variant = ItemVariant.of(entry.getItemStack());
+                if (isAllowed(variant)) {
+                    merged.put(variant, merged.getOrDefault(variant, 0L) + entry.getCount());
+                }
             }
+        }
+
+        for (java.util.Map.Entry<ItemVariant, Long> e : merged.entrySet()) {
+            views.add(new WarehouseItemStorageView(warehouse, e.getKey(), e.getValue()));
         }
         return views.iterator();
     }
 
     private static class WarehouseItemStorageView implements StorageView<ItemVariant> {
         private final PlayerWarehouse warehouse;
-        private final WarehouseEntry entry;
+        private final ItemVariant variant;
+        private final long amount;
 
-        public WarehouseItemStorageView(PlayerWarehouse warehouse, WarehouseEntry entry) {
+        public WarehouseItemStorageView(PlayerWarehouse warehouse, ItemVariant variant, long amount) {
             this.warehouse = warehouse;
-            this.entry = entry;
+            this.variant = variant;
+            this.amount = amount;
         }
 
         @Override
         public long extract(ItemVariant resource, long maxAmount, TransactionContext transaction) {
-            if (!resource.matches(entry.getItemStack())) return 0;
-            long toExtract = Math.min(entry.getCount(), maxAmount);
+            if (!resource.equals(variant)) return 0;
+            long toExtract = Math.min(amount, maxAmount);
             
             transaction.addCloseCallback((context, result) -> {
                 if (result.wasCommitted()) {
@@ -112,17 +128,17 @@ public class BoundBarrelItemStorage implements Storage<ItemVariant> {
 
         @Override
         public boolean isResourceBlank() {
-            return entry.getItemStack().isEmpty();
+            return variant.isBlank();
         }
 
         @Override
         public ItemVariant getResource() {
-            return ItemVariant.of(entry.getItemStack());
+            return variant;
         }
 
         @Override
         public long getAmount() {
-            return entry.getCount();
+            return amount;
         }
 
         @Override
