@@ -4,11 +4,18 @@ import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
 import com.portablestorage.item.StorageKeyItem;
+import com.portablestorage.world.SpaceRiftManager;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.Level;
 
 public class PlayerDeathEventHandler {
     public static void register() {
@@ -30,8 +37,8 @@ public class PlayerDeathEventHandler {
                 newWarehouse.setEnabled(false);
                 newWarehouse.setFolded(true);
                 
-                // 在死亡位置掉落钥匙
-                dropKey((ServerPlayer) oldPlayer);
+                // 掉落钥匙 (如果是裂隙内死亡，则掉落在返回点)
+                dropKey((ServerPlayer) oldPlayer, oldWarehouse);
             } else {
                 // 否则保持（或恢复）启用状态
                 newWarehouse.setEnabled(oldWarehouse.isEnabled());
@@ -44,12 +51,34 @@ public class PlayerDeathEventHandler {
         });
     }
 
-    private static void dropKey(ServerPlayer player) {
+    private static void dropKey(ServerPlayer player, PlayerWarehouse warehouse) {
         ItemStack keyStack = StorageKeyItem.create(player);
-        ItemEntity itemEntity = new ItemEntity(player.level(), player.getX(), player.getY(), player.getZ(), keyStack);
+        
+        Level dropLevel = player.level();
+        double x = player.getX();
+        double y = player.getY();
+        double z = player.getZ();
+
+        // 如果在裂隙维度死亡，且开启了死亡掉落钥匙，
+        // 则将钥匙掉落在进入裂隙前的返回点（通常是主世界坐标），防止玩家因失去仓库访问权而导致钥匙永久丢失在裂隙中。
+        if (dropLevel.dimension().equals(SpaceRiftManager.DIMENSION_KEY)) {
+            ResourceLocation returnDimId = warehouse.getRiftReturnDim();
+            BlockPos returnPos = warehouse.getRiftReturnPos();
+            if (returnDimId != null && returnPos != null) {
+                ServerLevel targetLevel = player.getServer().getLevel(ResourceKey.create(Registries.DIMENSION, returnDimId));
+                if (targetLevel != null) {
+                    dropLevel = targetLevel;
+                    x = returnPos.getX() + 0.5;
+                    y = returnPos.getY() + 0.5;
+                    z = returnPos.getZ() + 0.5;
+                }
+            }
+        }
+        
+        ItemEntity itemEntity = new ItemEntity(dropLevel, x, y, z, keyStack);
         itemEntity.setDeltaMovement(0, 0.2, 0);
         itemEntity.setPickUpDelay(40);
-        player.level().addFreshEntity(itemEntity);
+        dropLevel.addFreshEntity(itemEntity);
     }
 }
 
