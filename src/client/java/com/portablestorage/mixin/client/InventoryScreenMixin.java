@@ -639,6 +639,13 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
         if (player == null) return;
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         
+        // 处理 Shift+Ctrl 静态模式切换
+        boolean isPressed = net.minecraft.client.gui.screens.Screen.hasShiftDown() && net.minecraft.client.gui.screens.Screen.hasControlDown();
+        if (isPressed != warehouse.isFrozen()) {
+            warehouse.setFrozen(isPressed);
+            ClientPlayNetworking.send(new C2SUpdateFrozenStatePayload(isPressed));
+        }
+
         // 检查状态变化，若发生变化（如死亡禁用、激活等）则刷新屏幕以重构布局
         if (warehouse.isEnabled() != lastEnabledStatus) {
             this.lastEnabledStatus = warehouse.isEnabled();

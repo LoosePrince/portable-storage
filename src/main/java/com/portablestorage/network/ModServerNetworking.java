@@ -281,6 +281,14 @@ public class ModServerNetworking {
         });
     }
 
+    public static void handleUpdateFrozenState(C2SUpdateFrozenStatePayload payload, ServerPlayNetworking.Context context) {
+        context.server().execute(() -> {
+            PlayerWarehouse warehouse = getWarehouse(context.player());
+            warehouse.setFrozen(payload.frozen());
+            syncChanges(context.player());
+        });
+    }
+
     public static void handleTogglePinned(C2STogglePinnedPayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
             PlayerWarehouse warehouse = getWarehouse(context.player());

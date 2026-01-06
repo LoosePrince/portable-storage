@@ -432,13 +432,13 @@ public class WarehouseManager {
         return null;
     }
 
-    private static boolean isVirtualFluid(net.minecraft.world.item.Item item) {
+    public static boolean isVirtualFluid(net.minecraft.world.item.Item item) {
         return item == com.portablestorage.item.ModItems.VIRTUAL_LAVA ||
                 item == com.portablestorage.item.ModItems.VIRTUAL_WATER ||
                 item == com.portablestorage.item.ModItems.VIRTUAL_MILK;
     }
 
-    private static FluidVariant getFluidForVirtualItem(net.minecraft.world.item.Item item) {
+    public static FluidVariant getFluidForVirtualItem(net.minecraft.world.item.Item item) {
         if (item == com.portablestorage.item.ModItems.VIRTUAL_LAVA) return FluidVariant.of(Fluids.LAVA);
         if (item == com.portablestorage.item.ModItems.VIRTUAL_WATER) return FluidVariant.of(Fluids.WATER);
         return null;

@@ -356,7 +356,11 @@ public class WarehouseRenderer {
 
         for (int i = 0; i < warehouse.getVisibleRows() * 9; i++) {
             long count = warehouse.getRealCount(i);
-            if (count > 1) { 
+            // 1. 正常渲染：数量 > 1
+            // 2. 静态锁定模式：如果该槽位原本有物品（getItem 不为空）且当前数量为 0，则显示灰色的 0
+            boolean shouldShowZero = count == 0 && warehouse.isFrozen() && !warehouse.getItem(i).isEmpty();
+            
+            if (count > 1 || shouldShowZero) { 
                 String countStr = WarehouseUtils.formatCount(count);
                 int row = i / 9;
                 int col = i % 9;
@@ -367,7 +371,9 @@ public class WarehouseRenderer {
                 int textY = startY + row * WarehouseConstants.SLOT_SIZE + WarehouseConstants.QUANTITY_TEXT_Y_RELATIVE;
                 graphics.pose().translate(textX, textY, 0);
                 graphics.pose().scale(scale, scale, 1.0f);
-                graphics.drawString(font, countStr, 0, 0, WarehouseConstants.QUANTITY_TEXT_COLOR, true);
+                
+                int color = shouldShowZero ? 0xFFAAAAAA : WarehouseConstants.QUANTITY_TEXT_COLOR;
+                graphics.drawString(font, countStr, 0, 0, color, true);
                 graphics.pose().popPose();
             }
         }

@@ -154,6 +154,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     private List<WarehouseEntry> filteredCache = null;  // 搜索过滤后
     private List<WarehouseEntry> collapsedCache = null; // 智能折叠后
     private List<WarehouseEntry> sortedCache = null;    // 最终排序后
+    private List<WarehouseEntry> frozenCache = null;    // 锁定渲染缓存
 
     private final Consumer<PlayerWarehouse> onChanged;
     private final UUID ownerUuid;
@@ -166,6 +167,30 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         // 如果服务端配置为无条件开启，则初始设为启用状态
         if (!"NONE".equals(com.portablestorage.config.ModConfig.unconditionalWarehouse)) {
             this.enabled = true;
+        }
+    }
+
+    public boolean isFrozen() {
+        return frozenCache != null;
+    }
+
+    public void setFrozen(boolean frozen) {
+        if (frozen) {
+            if (frozenCache == null) {
+                // 锁定当前排序后的列表快照
+                List<WarehouseEntry> current = getSortedEntries();
+                frozenCache = new ArrayList<>();
+                for (WarehouseEntry entry : current) {
+                    // 创建深拷贝的条目，但指向同一个 ItemStack，初始数量保持一致
+                    WarehouseEntry snapshot = new WarehouseEntry(entry.getItemStack(), entry.getCount());
+                    snapshot.setPinned(entry.isPinned());
+                    frozenCache.add(snapshot);
+                }
+            }
+        } else {
+            frozenCache = null;
+            // 解冻时使缓存失效以触发一次全量重排
+            markDirty();
         }
     }
 
@@ -431,6 +456,10 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     public Map<FluidVariant, Long> getFluidStorageMap() {
         return fluidStorage;
+    }
+
+    public long getFluidAmount(FluidVariant variant) {
+        return fluidStorage.getOrDefault(variant, 0L);
     }
 
     public void markDirty() {
@@ -794,14 +823,61 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     }
 
     public long getRealCount(int slotIndex) {
-        List<WarehouseEntry> sorted = getSortedEntries();
+        List<WarehouseEntry> entries = getSortedEntries();
         int actualIndex = slotIndex + (scrollOffset * 9);
-        return (actualIndex >= 0 && actualIndex < sorted.size()) ? sorted.get(actualIndex).getCount() : 0;
+        if (actualIndex < 0 || actualIndex >= entries.size()) return 0;
+
+        WarehouseEntry entry = entries.get(actualIndex);
+        if (frozenCache != null) {
+            // 冻结模式：查询该物品在当前仓库组中的实时聚合数量
+            return getLiveCount(entry.getItemStack());
+        }
+        return entry.getCount();
+    }
+
+    /**
+     * 获取指定物品在整个共享组中的实时聚合数量
+     */
+    public long getLiveCount(ItemStack template) {
+        if (getEffectiveType() == WarehouseType.NONE) return 0;
+        
+        long total = 0;
+        // 特殊处理：流体
+        if (WarehouseManager.isVirtualFluid(template.getItem())) {
+            FluidVariant fluid = WarehouseManager.getFluidForVirtualItem(template.getItem());
+            if (fluid != null) {
+                for (PlayerWarehouse pw : getSharedGroupWarehouses()) {
+                    total += pw.getFluidAmount(fluid);
+                }
+                return total / net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants.BUCKET;
+            }
+        }
+        
+        // 特殊处理：经验
+        if (template.is(com.portablestorage.item.ModItems.BOTTLED_EXPERIENCE)) {
+            for (PlayerWarehouse pw : getSharedGroupWarehouses()) {
+                total += pw.getExperience();
+            }
+            return total;
+        }
+
+        // 普通物品
+        for (PlayerWarehouse pw : getSharedGroupWarehouses()) {
+            for (WarehouseEntry entry : pw.getStorageList()) {
+                if (entry.matches(template)) {
+                    total += entry.getCount();
+                }
+            }
+        }
+        return total;
     }
 
     // --- 排序与缓存逻辑 ---
 
     public List<WarehouseEntry> getSortedEntries() {
+        if (frozenCache != null) {
+            return frozenCache;
+        }
         // 第一级：基础缓存 (Raw Items + Fluids)
         if (baseCache == null) {
             List<PlayerWarehouse> group = getSharedGroupWarehouses();

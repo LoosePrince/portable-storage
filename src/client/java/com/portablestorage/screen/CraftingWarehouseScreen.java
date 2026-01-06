@@ -128,6 +128,14 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         super.render(graphics, mouseX, mouseY, delta);
         
         PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
+        
+        // 处理 Shift+Ctrl 静态模式切换
+        boolean isPressed = hasShiftDown() && hasControlDown();
+        if (isPressed != warehouse.isFrozen()) {
+            warehouse.setFrozen(isPressed);
+            ClientPlayNetworking.send(new C2SUpdateFrozenStatePayload(isPressed));
+        }
+
         checkCraftRefill();
 
         // 搜索防抖

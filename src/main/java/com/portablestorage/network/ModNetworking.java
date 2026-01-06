@@ -17,6 +17,7 @@ public class ModNetworking {
         PayloadTypeRegistry.playC2S().register(C2SRecipeTransferPayload.TYPE, C2SRecipeTransferPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(C2SUpdateForbiddenPlayersPayload.TYPE, C2SUpdateForbiddenPlayersPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(C2SDropWarehouseItemPayload.TYPE, C2SDropWarehouseItemPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(C2SUpdateFrozenStatePayload.TYPE, C2SUpdateFrozenStatePayload.CODEC);
     }
 
     public static void registerS2CPayloads() {
@@ -38,6 +39,7 @@ public class ModNetworking {
         ServerPlayNetworking.registerGlobalReceiver(C2SRecipeTransferPayload.TYPE, ModServerNetworking::handleRecipeTransfer);
         ServerPlayNetworking.registerGlobalReceiver(C2SUpdateForbiddenPlayersPayload.TYPE, ModServerNetworking::handleUpdateForbiddenPlayers);
         ServerPlayNetworking.registerGlobalReceiver(C2SDropWarehouseItemPayload.TYPE, ModServerNetworking::handleDropWarehouseItem);
+        ServerPlayNetworking.registerGlobalReceiver(C2SUpdateFrozenStatePayload.TYPE, ModServerNetworking::handleUpdateFrozenState);
     }
 }
 
