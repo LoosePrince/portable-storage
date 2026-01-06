@@ -45,10 +45,11 @@ public class StorageKeyItem extends Item {
             return InteractionResultHolder.fail(stack);
         }
 
-        PlayerWarehouse warehouse = ModComponents.get(level).getWarehouse(player.getUUID());
+        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         if (warehouse.isEnabled()) {
             player.displayClientMessage(Component.translatable("message.portablestorage.already_enabled").withStyle(ChatFormatting.YELLOW), false);
-            return InteractionResultHolder.fail(stack);
+            stack.shrink(1);
+            return InteractionResultHolder.success(stack);
         }
 
         // 恢复仓库
@@ -57,6 +58,33 @@ public class StorageKeyItem extends Item {
 
         player.displayClientMessage(Component.translatable("message.portablestorage.reactivated").withStyle(ChatFormatting.GREEN), false);
         return InteractionResultHolder.success(user.getItemInHand(hand));
+    }
+
+    @Override
+    public void inventoryTick(ItemStack stack, Level level, net.minecraft.world.entity.Entity entity, int slotId, boolean isSelected) {
+        if (level.isClientSide || !(entity instanceof ServerPlayer player)) return;
+        if (stack.isEmpty() || player.getAbilities().instabuild) return;
+
+        CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
+        if (customData == null) return;
+
+        CompoundTag tag = customData.copyTag();
+        if (!tag.hasUUID(NBT_OWNER_UUID)) return;
+
+        UUID ownerUuid = tag.getUUID(NBT_OWNER_UUID);
+        if (ownerUuid.equals(player.getUUID())) {
+            PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+            // 核心功能：仓库钥匙进入绑定者玩家背包时自动使用并消耗
+            if (!warehouse.isEnabled()) {
+                warehouse.setEnabled(true);
+                stack.shrink(1);
+                player.displayClientMessage(Component.translatable("message.portablestorage.reactivated").withStyle(ChatFormatting.GREEN), false);
+            } else {
+                // 如果仓库已经开启，进入背包也自动消耗（对应“激活状态下进入也消耗”的逻辑一致性）
+                stack.shrink(1);
+                player.displayClientMessage(Component.translatable("message.portablestorage.already_enabled").withStyle(ChatFormatting.YELLOW), false);
+            }
+        }
     }
 
     @Override
