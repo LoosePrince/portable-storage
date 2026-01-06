@@ -134,22 +134,34 @@ public abstract class AbstractContainerMenuMixin {
         
         if (cursorStack.isEmpty()) {
             if (button == 1) { // Right click: Deposit
-                long currentXp = ExperienceUpgrade.getTotalExperience(player);
-                int targetLevel = Math.max(0, player.experienceLevel - levels);
-                long targetXp = ExperienceUpgrade.getExperienceForLevel(targetLevel);
-                long toStore = currentXp - targetXp;
-                if (toStore > 0) {
-                    warehouse.addExperience(toStore);
-                    ExperienceUpgrade.addExperience(player, (int)-toStore);
+                // 按步长存入/取出完整的等级经验，而不是简单的到达目标等级
+                // 如果当前进度超过了这一级的一半，存入量会感觉更准，但为了简单统一，直接按当前等级的步长计算
+                int levelsToMove = levels;
+                long totalToStore = 0;
+                for (int i = 0; i < levelsToMove; i++) {
+                    int lvl = Math.max(0, player.experienceLevel - i);
+                    totalToStore += (ExperienceUpgrade.getExperienceForLevel(lvl) - ExperienceUpgrade.getExperienceForLevel(Math.max(0, lvl - 1)));
+                }
+                
+                // 额外存入当前等级的进度
+                long currentProgressXp = Math.round(player.experienceProgress * player.getXpNeededForNextLevel());
+                totalToStore += currentProgressXp;
+
+                if (totalToStore > 0) {
+                    warehouse.addExperience(totalToStore);
+                    ExperienceUpgrade.addExperience(player, (int)-totalToStore);
                 }
             } else if (button == 0) { // Left click: Withdraw
-                int targetLevel = player.experienceLevel + levels;
-                long currentXp = ExperienceUpgrade.getTotalExperience(player);
-                long targetXp = ExperienceUpgrade.getExperienceForLevel(targetLevel);
-                long toTake = Math.min(targetXp - currentXp, warehouse.getExperience());
-                if (toTake > 0) {
-                    warehouse.addExperience(-toTake);
-                    ExperienceUpgrade.addExperience(player, (int)toTake);
+                long totalToTake = 0;
+                for (int i = 0; i < levels; i++) {
+                    int lvl = player.experienceLevel + i;
+                    totalToTake += (ExperienceUpgrade.getExperienceForLevel(lvl + 1) - ExperienceUpgrade.getExperienceForLevel(lvl));
+                }
+                
+                long canTake = Math.min(totalToTake, warehouse.getExperience());
+                if (canTake > 0) {
+                    warehouse.addExperience(-canTake);
+                    ExperienceUpgrade.addExperience(player, (int)canTake);
                 }
             }
         } else if (cursorStack.is(Items.GLASS_BOTTLE) && button == 1) {

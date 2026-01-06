@@ -88,8 +88,9 @@ public class ModServerNetworking {
             } else if (slot.container instanceof net.minecraft.world.entity.player.Inventory) {
                 ItemStack stack = slot.getItem();
                 if (!stack.isEmpty()) {
-                    WarehouseManager.addItem(getWarehouse(player), stack);
-                    slot.set(stack);
+                    // 存入时使用 addFluid 而非 addItem，以支持流体桶的自动分离
+                    ItemStack remaining = WarehouseManager.addFluid(getWarehouse(player), stack, player);
+                    slot.set(remaining);
                     syncChanges(player);
                 }
             }
