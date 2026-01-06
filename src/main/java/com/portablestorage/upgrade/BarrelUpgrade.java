@@ -79,12 +79,18 @@ public class BarrelUpgrade extends UpgradeType {
         if (stack.is(ModItems.BOUND_BARREL)) {
             CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
             if (customData != null) {
-                String currentName = customData.copyTag().getString("ownerName");
-                if ("Player".equals(currentName) || !player.getScoreboardName().equals(currentName)) {
-                    CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
-                        tag.putString("ownerName", player.getScoreboardName());
-                    });
-                    warehouse.markDirty();
+                var tag = customData.copyTag();
+                if (tag.hasUUID("owner")) {
+                    java.util.UUID ownerUuid = tag.getUUID("owner");
+                    if (ownerUuid.equals(player.getUUID())) {
+                        String currentName = tag.getString("ownerName");
+                        if ("Player".equals(currentName) || !player.getScoreboardName().equals(currentName)) {
+                            CustomData.update(DataComponents.CUSTOM_DATA, stack, t -> {
+                                t.putString("ownerName", player.getScoreboardName());
+                            });
+                            warehouse.markDirty();
+                        }
+                    }
                 }
             }
         }

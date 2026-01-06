@@ -451,8 +451,10 @@ public class WarehouseRenderer {
         boolean isShared = group.size() > 1;
 
         int statusX = baseStatusX;
-        if (hasBarrel && !isFull) {
-            pointColor = 0xFFFF0000; // 红色：有问题（有木桶但不是 FULL 类型）
+        boolean hasConflict = warehouse.isSharingConflict();
+
+        if ((hasBarrel && !isFull) || hasConflict) {
+            pointColor = 0xFFFF0000; // 红色：有问题
             borderColor = 0xFF550000;
         } else if (isShared) {
             pointColor = 0xFF00FF00; // 绿色：共享中
@@ -530,9 +532,13 @@ public class WarehouseRenderer {
             boolean isFull = warehouse.getEffectiveType() == com.portablestorage.component.PlayerWarehouse.WarehouseType.FULL;
             List<PlayerWarehouse> group = warehouse.getSharedGroupWarehouses();
             boolean isShared = group.size() > 1;
+            boolean hasConflict = warehouse.isSharingConflict();
 
             if (hasBarrel && !isFull) {
                 tooltip.add(Component.translatable("gui.portablestorage.status.problem"));
+            } else if (hasConflict) {
+                tooltip.add(Component.translatable("gui.portablestorage.status.conflict"));
+                tooltip.add(Component.translatable("gui.portablestorage.status.conflict.desc"));
             } else if (isShared) {
                 tooltip.add(Component.translatable("gui.portablestorage.status.shared"));
                 

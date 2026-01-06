@@ -207,46 +207,81 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             return group;
         }
 
-        Set<UUID> groupUuids = new HashSet<>();
-        groupUuids.add(this.ownerUuid);
+        UUID myUuid = this.ownerUuid;
+        UUID myTarget = this.getBarrelOwnerUuid();
 
-        boolean changed = true;
-        while (changed) {
-            changed = false;
-            for (PlayerWarehouse pw : parentComponent.getAllWarehouses()) {
-                if (pw.getEffectiveType() != WarehouseType.FULL) continue;
-                
-                UUID owner = pw.getOwnerUuid();
-                UUID target = pw.getBarrelOwnerUuid();
-                
-                // 检查是否互相屏蔽：如果 A 屏蔽了 B，或者 B 屏蔽了 A，则不建立共享联系
-                if (target != null) {
-                    PlayerWarehouse targetPw = parentComponent.getWarehouse(target);
-                    if (pw.isForbidden(target) || (targetPw != null && targetPw.isForbidden(owner))) {
-                        continue;
+        // 1. 检查我自己是否正在提供共享给别人
+        boolean amIProviding = false;
+        for (PlayerWarehouse pw : parentComponent.getAllWarehouses()) {
+            if (pw == this || pw.getEffectiveType() != WarehouseType.FULL) continue;
+            if (myUuid.equals(pw.getBarrelOwnerUuid())) {
+                amIProviding = true;
+                break;
+            }
+        }
+
+        // 2. 如果发生了连锁共享（既是提供者又是消费者），则所有外部连接失效
+        if (myTarget != null && amIProviding) {
+            return group; // 仅保留自己
+        }
+
+        // 3. 构建共享组
+        // 模式 A：我是消费者（我持有别人的木桶），且对方不是消费者（对方没有木桶）
+        if (myTarget != null) {
+            PlayerWarehouse provider = parentComponent.getWarehouse(myTarget);
+            if (provider != null && provider.getEffectiveType() == WarehouseType.FULL) {
+                // 对方必须纯粹是提供者（不能持有别人的木桶）
+                if (provider.getBarrelOwnerUuid() == null) {
+                    // 检查屏蔽逻辑
+                    if (!this.isForbidden(myTarget) && !provider.isForbidden(myUuid)) {
+                        group.add(provider);
+                        
+                        // 同时加入该提供者的所有其他信任的消费者
+                        for (PlayerWarehouse other : parentComponent.getAllWarehouses()) {
+                            if (other == this || other == provider || other.getEffectiveType() != WarehouseType.FULL) continue;
+                            if (myTarget.equals(other.getBarrelOwnerUuid())) {
+                                if (!provider.isForbidden(other.getOwnerUuid()) && !other.isForbidden(myTarget)) {
+                                    group.add(other);
+                                }
+                            }
+                        }
                     }
                 }
-
-                if (groupUuids.contains(owner)) {
-                    if (target != null && groupUuids.add(target)) {
-                        changed = true;
-                    }
-                }
-                if (target != null && groupUuids.contains(target)) {
-                    if (groupUuids.add(owner)) {
-                        changed = true;
+            }
+        }
+        // 模式 B：我是纯粹提供者（我没有持有别人的木桶），寻找所有持有我木桶的玩家
+        else if (amIProviding) {
+            for (PlayerWarehouse consumer : parentComponent.getAllWarehouses()) {
+                if (consumer == this || consumer.getEffectiveType() != WarehouseType.FULL) continue;
+                if (myUuid.equals(consumer.getBarrelOwnerUuid())) {
+                    // 该消费者不能同时也持有别人的木桶（不能发生连锁）
+                    // 虽然在逻辑上连锁的消费者会被模式 A 排除，但这里双向校验更稳健
+                    if (!this.isForbidden(consumer.getOwnerUuid()) && !consumer.isForbidden(myUuid)) {
+                        group.add(consumer);
                     }
                 }
             }
         }
 
-        groupUuids.remove(this.ownerUuid);
-        for (UUID uuid : groupUuids) {
-            PlayerWarehouse pw = parentComponent.getWarehouse(uuid);
-            if (pw != null) group.add(pw);
-        }
-
         return group;
+    }
+
+    /**
+     * 检查是否存在连锁共享冲突
+     */
+    public boolean isSharingConflict() {
+        if (parentComponent == null) return false;
+        UUID myUuid = this.ownerUuid;
+        UUID myTarget = this.getBarrelOwnerUuid();
+        if (myTarget == null) return false;
+
+        for (PlayerWarehouse pw : parentComponent.getAllWarehouses()) {
+            if (pw == this || pw.getEffectiveType() != WarehouseType.FULL) continue;
+            if (myUuid.equals(pw.getBarrelOwnerUuid())) {
+                return true; // 既持有别人的桶，又有人持有我的桶
+            }
+        }
+        return false;
     }
 
     // --- 升级系统接口 ---

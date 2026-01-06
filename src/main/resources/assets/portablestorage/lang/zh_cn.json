@@ -114,6 +114,8 @@
   "gui.portablestorage.filter_mode.whitelist": "白名单 (仅生效列表中的物品)",
   "gui.portablestorage.status.title": "仓库共享状态",
   "gui.portablestorage.status.problem": "§c出现问题：未激活完整版仓库",
+  "gui.portablestorage.status.conflict": "§c出现问题：检测到连锁共享",
+  "gui.portablestorage.status.conflict.desc": "§7阻断：你不能在加入共享的同时提供共享。",
   "gui.portablestorage.status.shared": "§a处于共享状态",
   "gui.portablestorage.status.shared_with": "正在与以下 %d 个玩家共享：",
   "gui.portablestorage.status.not_shared": "§7未处于共享状态",
