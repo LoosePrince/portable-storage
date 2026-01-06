@@ -539,8 +539,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
                 double relativeY = Math.clamp(mouseY - scrollbarY - thumbHeight / 2.0, 0, scrollbarHeight - thumbHeight);
                 int newOffset = (int) Math.round((relativeY * maxOffset) / (scrollbarHeight - thumbHeight));
                 if (newOffset != warehouse.getUpgradeScrollOffset()) {
-                    int currentOffset = warehouse.getUpgradeScrollOffset();
-                    int delta = newOffset - currentOffset;
+                    int delta = warehouse.getUpgradeScrollOffset() - newOffset;
                     warehouse.setUpgradeScrollOffset(newOffset);
                     ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(delta)));
                 }
