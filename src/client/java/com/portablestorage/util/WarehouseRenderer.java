@@ -182,6 +182,7 @@ public class WarehouseRenderer {
             if (mouseX >= bx && mouseX < bx + 18 && mouseY >= by && mouseY < by + 18) {
                 List<Component> tooltip = new ArrayList<>();
                 tooltip.add(Component.translatable("gui.portablestorage.button.sort_mode"));
+                tooltip.add(Component.literal(" "));
                 String modeKey = switch (warehouse.getSortMode()) {
                     case 0 -> "gui.portablestorage.sort.count";
                     case 1 -> "gui.portablestorage.sort.name";
@@ -189,7 +190,9 @@ public class WarehouseRenderer {
                     case 3 -> "gui.portablestorage.sort.time";
                     default -> "gui.portablestorage.sort.id";
                 };
-                tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(modeKey)).withStyle(ChatFormatting.GRAY));
+                tooltip.add(Component.translatable("gui.portablestorage.current", 
+                    Component.translatable(modeKey).withStyle(ChatFormatting.WHITE)
+                ).withStyle(ChatFormatting.YELLOW));
                 graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
                 return;
             }
@@ -200,8 +203,11 @@ public class WarehouseRenderer {
             if (mouseX >= ox && mouseX < ox + 18 && mouseY >= oy && mouseY < oy + 18) {
                 List<Component> tooltip = new ArrayList<>();
                 tooltip.add(Component.translatable("gui.portablestorage.button.sort_order"));
+                tooltip.add(Component.literal(" "));
                 String orderKey = warehouse.isAscending() ? "gui.portablestorage.order.ascending" : "gui.portablestorage.order.descending";
-                tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(orderKey)).withStyle(ChatFormatting.GRAY));
+                tooltip.add(Component.translatable("gui.portablestorage.current", 
+                    Component.translatable(orderKey).withStyle(ChatFormatting.WHITE)
+                ).withStyle(ChatFormatting.YELLOW));
                 graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
                 return;
             }
@@ -212,8 +218,12 @@ public class WarehouseRenderer {
             if (mouseX >= qx && mouseX < qx + 18 && mouseY >= qy && mouseY < qy + 18) {
                 List<Component> tooltip = new ArrayList<>();
                 tooltip.add(Component.translatable("gui.portablestorage.button.quick_interaction"));
-                String statusKey = warehouse.isQuickInteraction() ? "gui.portablestorage.on" : "gui.portablestorage.off";
-                tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(statusKey)).withStyle(ChatFormatting.GRAY));
+                tooltip.add(Component.literal(" "));
+                boolean on = warehouse.isQuickInteraction();
+                tooltip.add(Component.translatable("gui.portablestorage.current", 
+                    Component.translatable(on ? "gui.portablestorage.on" : "gui.portablestorage.off")
+                        .withStyle(on ? ChatFormatting.GREEN : ChatFormatting.RED)
+                ).withStyle(ChatFormatting.YELLOW));
                 graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
                 return;
             }
@@ -224,8 +234,12 @@ public class WarehouseRenderer {
             if (mouseX >= sx && mouseX < sx + 18 && mouseY >= sy && mouseY < sy + 18) {
                 List<Component> tooltip = new ArrayList<>();
                 tooltip.add(Component.translatable("gui.portablestorage.button.smart_collapse"));
-                String statusKey = warehouse.isSmartCollapse() ? "gui.portablestorage.on" : "gui.portablestorage.off";
-                tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(statusKey)).withStyle(ChatFormatting.GRAY));
+                tooltip.add(Component.literal(" "));
+                boolean on = warehouse.isSmartCollapse();
+                tooltip.add(Component.translatable("gui.portablestorage.current", 
+                    Component.translatable(on ? "gui.portablestorage.on" : "gui.portablestorage.off")
+                        .withStyle(on ? ChatFormatting.GREEN : ChatFormatting.RED)
+                ).withStyle(ChatFormatting.YELLOW));
                 graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
                 return;
             }
@@ -236,8 +250,12 @@ public class WarehouseRenderer {
             if (mouseX >= rx && mouseX < rx + 18 && mouseY >= ry && mouseY < ry + 18) {
                 List<Component> tooltip = new ArrayList<>();
                 tooltip.add(Component.translatable("gui.portablestorage.button.craft_refill"));
-                String statusKey = warehouse.isCraftRefill() ? "gui.portablestorage.on" : "gui.portablestorage.off";
-                tooltip.add(Component.translatable("gui.portablestorage.current", Component.translatable(statusKey)).withStyle(ChatFormatting.GRAY));
+                tooltip.add(Component.literal(" "));
+                boolean on = warehouse.isCraftRefill();
+                tooltip.add(Component.translatable("gui.portablestorage.current", 
+                    Component.translatable(on ? "gui.portablestorage.on" : "gui.portablestorage.off")
+                        .withStyle(on ? ChatFormatting.GREEN : ChatFormatting.RED)
+                ).withStyle(ChatFormatting.YELLOW));
                 graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
                 return;
             }
@@ -260,6 +278,7 @@ public class WarehouseRenderer {
     public static void renderFoldTooltip(GuiGraphics graphics, Font font, int mouseX, int mouseY, PlayerWarehouse warehouse) {
         List<Component> tooltip = new ArrayList<>();
         tooltip.add(Component.translatable(warehouse.isFolded() ? "gui.portablestorage.button.unfold" : "gui.portablestorage.button.fold"));
+        tooltip.add(Component.literal(" "));
         tooltip.add(Component.translatable("gui.portablestorage.button.settings_hint").withStyle(ChatFormatting.DARK_GRAY));
         graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
     }
@@ -533,6 +552,7 @@ public class WarehouseRenderer {
         if (isOverSharingStatus(mouseX, mouseY, leftPos, topPos, warehouse)) {
             List<Component> tooltip = new ArrayList<>();
             tooltip.add(Component.translatable("gui.portablestorage.status.title"));
+            tooltip.add(Component.literal(" "));
             
             boolean hasBarrel = !warehouse.getUpgrade(com.portablestorage.upgrade.BarrelUpgrade.ID).isEmpty();
             boolean isFull = warehouse.getEffectiveType() == com.portablestorage.component.PlayerWarehouse.WarehouseType.FULL;
@@ -559,7 +579,7 @@ public class WarehouseRenderer {
                     if (uuid.equals(localPlayerUuid)) continue;
 
                     if (count >= 5) {
-                        tooltip.add(Component.literal(" ...").withStyle(ChatFormatting.DARK_GRAY));
+                        tooltip.add(Component.literal("  ...").withStyle(ChatFormatting.DARK_GRAY));
                         break;
                     }
 
@@ -575,7 +595,7 @@ public class WarehouseRenderer {
                     }
                     
                     ChatFormatting nameColor = isOnline ? ChatFormatting.WHITE : ChatFormatting.GRAY;
-                    tooltip.add(Component.literal(" - ").withStyle(ChatFormatting.DARK_GRAY).append(Component.literal(name).withStyle(nameColor)));
+                    tooltip.add(Component.literal("  - ").withStyle(ChatFormatting.DARK_GRAY).append(Component.literal(name).withStyle(nameColor)));
                     count++;
                 }
             } else {

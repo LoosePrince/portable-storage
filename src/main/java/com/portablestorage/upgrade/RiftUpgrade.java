@@ -35,6 +35,8 @@ public class RiftUpgrade extends UpgradeType {
     public java.util.List<net.minecraft.network.chat.Component> getTooltip(PlayerWarehouse warehouse, net.minecraft.world.item.ItemStack stack) {
         java.util.List<net.minecraft.network.chat.Component> tooltips = super.getTooltip(warehouse, stack);
         tooltips.add(net.minecraft.network.chat.Component.translatable("upgrade.portablestorage.rift.desc").withStyle(net.minecraft.ChatFormatting.GRAY));
+        tooltips.add(net.minecraft.network.chat.Component.literal(" "));
+        tooltips.add(net.minecraft.network.chat.Component.translatable("upgrade.portablestorage.rift.interaction_hint").withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
         return tooltips;
     }
 

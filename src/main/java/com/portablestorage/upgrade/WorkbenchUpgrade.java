@@ -41,6 +41,7 @@ public class WorkbenchUpgrade extends UpgradeType {
                 .withStyle(enabled ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.RED)
         ).withStyle(net.minecraft.ChatFormatting.YELLOW));
         
+        tooltips.add(Component.literal(" "));
         tooltips.add(Component.translatable("upgrade.portablestorage.workbench.toggle_hint").withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
         
         return tooltips;

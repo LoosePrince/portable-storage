@@ -13,7 +13,8 @@ public class VirtualFluidItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag type) {
-        tooltip.add(Component.translatable("tooltip.portablestorage.fluid_take_hint"));
+        tooltip.add(Component.literal(" "));
+        tooltip.add(Component.translatable("tooltip.portablestorage.fluid_take_hint").withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
         super.appendHoverText(stack, context, tooltip, type);
     }
 }

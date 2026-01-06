@@ -42,9 +42,7 @@ public class BarrelUpgrade extends UpgradeType {
         if (customData != null && customData.copyTag().hasUUID("owner")) {
             String ownerName = customData.copyTag().getString("ownerName");
             tooltips.add(Component.literal(" "));
-            tooltips.add(Component.translatable("upgrade.portablestorage.barrel.bound_to", 
-                Component.literal(ownerName).withStyle(ChatFormatting.WHITE)
-            ).withStyle(ChatFormatting.YELLOW));
+            tooltips.add(Component.translatable("upgrade.portablestorage.barrel.bound_to", ownerName).withStyle(ChatFormatting.YELLOW));
         }
         
         return tooltips;

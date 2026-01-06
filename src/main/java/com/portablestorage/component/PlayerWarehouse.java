@@ -938,18 +938,18 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             if (hasExperienceUpgrade) {
                 ItemStack xpStack = new ItemStack(com.portablestorage.item.ModItems.BOTTLED_EXPERIENCE);
                 List<net.minecraft.network.chat.Component> lore = new ArrayList<>();
-                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_1", mergedExperience).withStyle(net.minecraft.ChatFormatting.GRAY));
+                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience.stored", mergedExperience).withStyle(net.minecraft.ChatFormatting.GRAY));
                 lore.add(net.minecraft.network.chat.Component.literal(" "));
-                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_2").withStyle(net.minecraft.ChatFormatting.BLUE));
+                // lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience.interaction_title").withStyle(net.minecraft.ChatFormatting.BLUE));
                 
-                // 取当前仓库的升级阶数显示，或者取组内最高？取当前的吧。
+                // 取当前仓库的升级阶数显示
                 ItemStack upgradeStack = getUpgrade(com.portablestorage.upgrade.ExperienceUpgrade.ID);
                 int step = upgradeStack.isEmpty() ? 0 : com.portablestorage.upgrade.ExperienceUpgrade.getStep(upgradeStack);
                 
-                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_3", step).withStyle(net.minecraft.ChatFormatting.GRAY));
-                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_4", step).withStyle(net.minecraft.ChatFormatting.GRAY));
-                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_5", step).withStyle(net.minecraft.ChatFormatting.GRAY));
-                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience_desc_6").withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
+                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience.withdraw", step).withStyle(net.minecraft.ChatFormatting.GRAY));
+                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience.deposit", step).withStyle(net.minecraft.ChatFormatting.GRAY));
+                lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience.exchange").withStyle(net.minecraft.ChatFormatting.GRAY));
+                // lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience.exchange_desc").withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
                 
                 xpStack.set(net.minecraft.core.component.DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(lore));
                 baseCache.add(new WarehouseEntry(xpStack, mergedExperience));

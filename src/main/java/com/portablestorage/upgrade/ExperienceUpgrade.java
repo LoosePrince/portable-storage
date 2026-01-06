@@ -52,6 +52,10 @@ public class ExperienceUpgrade extends UpgradeType {
             .withStyle(maintain ? ChatFormatting.GREEN : ChatFormatting.RED)
         ).withStyle(ChatFormatting.YELLOW));
         
+        tooltips.add(Component.literal(" "));
+        tooltips.add(Component.translatable("upgrade.portablestorage.experience.toggle_hint").withStyle(ChatFormatting.DARK_GRAY));
+        tooltips.add(Component.translatable("upgrade.portablestorage.experience.maintain_hint").withStyle(ChatFormatting.DARK_GRAY));
+        
         return tooltips;
     }
 

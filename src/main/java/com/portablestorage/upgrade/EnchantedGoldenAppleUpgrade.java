@@ -47,6 +47,7 @@ public class EnchantedGoldenAppleUpgrade extends UpgradeType {
         Component statusText = threshold == 0 ? Component.translatable("gui.portablestorage.off").withStyle(ChatFormatting.RED) : Component.literal(String.valueOf(threshold)).withStyle(ChatFormatting.GREEN);
         tooltips.add(Component.translatable("upgrade.portablestorage.enchanted_golden_apple.threshold", statusText).withStyle(ChatFormatting.YELLOW));
         
+        tooltips.add(Component.literal(" "));
         tooltips.add(Component.translatable("upgrade.portablestorage.enchanted_golden_apple.toggle_hint").withStyle(ChatFormatting.DARK_GRAY));
         tooltips.add(Component.translatable("upgrade.portablestorage.enchanted_golden_apple.filter_hint").withStyle(ChatFormatting.DARK_GRAY));
         

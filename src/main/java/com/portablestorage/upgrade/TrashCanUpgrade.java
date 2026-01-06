@@ -34,7 +34,7 @@ public class TrashCanUpgrade extends UpgradeType {
         tooltips.add(net.minecraft.network.chat.Component.translatable("upgrade.portablestorage.trash_can.desc").withStyle(net.minecraft.ChatFormatting.GRAY));
         if (!stack.isEmpty()) {
             tooltips.add(net.minecraft.network.chat.Component.literal(" "));
-            tooltips.add(net.minecraft.network.chat.Component.translatable("upgrade.portablestorage.trash_can.clear_hint").withStyle(net.minecraft.ChatFormatting.YELLOW));
+            tooltips.add(net.minecraft.network.chat.Component.translatable("upgrade.portablestorage.trash_can.clear_hint").withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
         }
         return tooltips;
     }

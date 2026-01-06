@@ -52,13 +52,13 @@ public class HopperUpgrade extends UpgradeType {
                 .withStyle(enabled ? ChatFormatting.GREEN : ChatFormatting.RED)
         ).withStyle(ChatFormatting.YELLOW));
         
-        tooltips.add(Component.translatable("upgrade.portablestorage.hopper.toggle_hint").withStyle(ChatFormatting.DARK_GRAY));
-        tooltips.add(Component.translatable("upgrade.portablestorage.hopper.filter_hint").withStyle(ChatFormatting.DARK_GRAY));
-        
-        // 显示当前配置信息
         tooltips.add(Component.literal(" "));
         tooltips.add(Component.translatable("upgrade.portablestorage.hopper.config_range", ModConfig.hopperRange).withStyle(ChatFormatting.BLUE));
         tooltips.add(Component.translatable("upgrade.portablestorage.hopper.config_frequency", ModConfig.hopperFrequency).withStyle(ChatFormatting.BLUE));
+        
+        tooltips.add(Component.literal(" "));
+        tooltips.add(Component.translatable("upgrade.portablestorage.hopper.toggle_hint").withStyle(ChatFormatting.DARK_GRAY));
+        tooltips.add(Component.translatable("upgrade.portablestorage.hopper.filter_hint").withStyle(ChatFormatting.DARK_GRAY));
         
         return tooltips;
     }

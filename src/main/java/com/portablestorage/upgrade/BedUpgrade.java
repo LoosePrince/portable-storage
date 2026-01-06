@@ -46,6 +46,8 @@ public class BedUpgrade extends UpgradeType {
     public List<Component> getTooltip(PlayerWarehouse warehouse, ItemStack stack) {
         List<Component> tooltips = super.getTooltip(warehouse, stack);
         tooltips.add(Component.translatable("upgrade.portablestorage.bed.desc").withStyle(net.minecraft.ChatFormatting.GRAY));
+        tooltips.add(Component.literal(" "));
+        tooltips.add(Component.translatable("upgrade.portablestorage.bed.interaction_hint").withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
         return tooltips;
     }
 

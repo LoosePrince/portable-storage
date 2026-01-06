@@ -56,8 +56,10 @@ public abstract class AbstractContainerScreenMixin {
                     if (realCount > 1) {
                         // 获取原版 Tooltip 列表
                         List<Component> tooltip = new ArrayList<>(this.getTooltipFromContainerItem(this.hoveredSlot.getItem()));
-                        // 插入数量信息
-                        tooltip.add(1, Component.translatable("gui.portablestorage.count", String.format("%,d", realCount)).withStyle(ChatFormatting.GRAY));
+                        // 插入数量信息 (使用统一规范：黄色标题，白色数值)
+                        tooltip.add(1, Component.translatable("gui.portablestorage.count", 
+                            Component.literal(String.format("%,d", realCount)).withStyle(ChatFormatting.WHITE)
+                        ).withStyle(ChatFormatting.YELLOW));
                         // 手动渲染并拦截原版调用，防止重叠
                         graphics.renderComponentTooltip(Minecraft.getInstance().font, tooltip, x, y);
                         ci.cancel();
