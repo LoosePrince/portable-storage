@@ -240,6 +240,9 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         }
         
         if (!warehouse.isFolded()) {
+            // 渲染共享状态提示
+            WarehouseRenderer.renderStatusTooltip(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse);
+
             // 渲染升级槽位提示
             WarehouseRenderer.renderUpgradeTooltips(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse);
             
@@ -426,6 +429,13 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
             int usx = x + WarehouseConstants.UPGRADE_SCROLLBAR_X_OFFSET;
             if (mouseX >= usx && mouseX <= usx + WarehouseConstants.SCROLLBAR_WIDTH && mouseY >= sy && mouseY <= sy + sh) {
                 this.isDraggingUpgradeScrollbar = true;
+                return true;
+            }
+        }
+
+        if (com.portablestorage.util.WarehouseRenderer.isOverSharingStatus(mouseX, mouseY, this.leftPos, this.topPos, warehouse)) {
+            if (button == 0) { // 左键
+                this.minecraft.setScreen(com.portablestorage.config.YACLConfig.createSharingManagementScreen(this, warehouse));
                 return true;
             }
         }

@@ -10,7 +10,6 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleMenuProvider;
-import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -247,6 +246,14 @@ public class ModServerNetworking {
         context.server().execute(() -> {
             PlayerWarehouse warehouse = getWarehouse(context.player());
             warehouse.setFoodFilters(payload.filters(), payload.blacklist());
+        });
+    }
+
+    public static void handleUpdateForbiddenPlayers(C2SUpdateForbiddenPlayersPayload payload, ServerPlayNetworking.Context context) {
+        context.server().execute(() -> {
+            PlayerWarehouse warehouse = getWarehouse(context.player());
+            warehouse.setForbidden(payload.playerUuid(), payload.forbidden());
+            syncChanges(context.player());
         });
     }
 

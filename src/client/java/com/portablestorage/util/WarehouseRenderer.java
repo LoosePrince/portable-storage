@@ -11,6 +11,8 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+import com.mojang.authlib.GameProfile;
 
 public class WarehouseRenderer {
     private static final ResourceLocation WAREHOUSE_ICON_TEXTURE = PortableStorage.id("textures/gui/icon.png");
@@ -28,6 +30,7 @@ public class WarehouseRenderer {
             // 绘制升级槽位和图标
             int upgradeColumnWidth = WarehouseConstants.getUpgradeColumnWidth();
             if (upgradeColumnWidth > 0) {
+                renderSharingStatus(graphics, x, y, warehouse);
                 int upgradeSlotX = x + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X + WarehouseConstants.SLOT_VISUAL_OFFSET;
                 int upgradeSlotY = y + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y + WarehouseConstants.SLOT_VISUAL_OFFSET;
                 List<com.portablestorage.upgrade.UpgradeType> allUpgrades = com.portablestorage.upgrade.UpgradeRegistry.getAllUpgrades();
@@ -276,6 +279,9 @@ public class WarehouseRenderer {
 
         if (warehouse.isFolded()) return;
         
+        // 渲染共享状态提示
+        renderStatusTooltip(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse);
+
         // 渲染升级槽位提示
         renderUpgradeTooltips(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse);
         
@@ -429,6 +435,141 @@ public class WarehouseRenderer {
                     graphics.fill(x, y, x + 16, y + 16, 0x50FFFF00);
                 }
             }
+        }
+    }
+
+    private static void renderSharingStatus(GuiGraphics graphics, int x, int y, PlayerWarehouse warehouse) {
+        int baseStatusX = x + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X + 7; // 居中于 18px 宽度的升级列
+        int statusY = y + 12; // 位于第一个升级槽位 (21) 上方
+
+        int pointColor;
+        int borderColor;
+
+        boolean hasBarrel = !warehouse.getUpgrade(com.portablestorage.upgrade.BarrelUpgrade.ID).isEmpty();
+        boolean isFull = warehouse.getEffectiveType() == com.portablestorage.component.PlayerWarehouse.WarehouseType.FULL;
+        List<PlayerWarehouse> group = warehouse.getSharedGroupWarehouses();
+        boolean isShared = group.size() > 1;
+
+        int statusX = baseStatusX;
+        if (hasBarrel && !isFull) {
+            pointColor = 0xFFFF0000; // 红色：有问题（有木桶但不是 FULL 类型）
+            borderColor = 0xFF550000;
+        } else if (isShared) {
+            pointColor = 0xFF00FF00; // 绿色：共享中
+            borderColor = 0xFF005500;
+            statusX -= 6; // 共享时向左移动 6px
+        } else {
+            pointColor = 0xFF888888; // 灰色：未共享
+            borderColor = 0xFF444444;
+        }
+
+        // 绘制 1px 外描边 (4x4 区域)
+        graphics.fill(statusX - 1, statusY - 1, statusX + 3, statusY, borderColor); // 上
+        graphics.fill(statusX - 1, statusY + 2, statusX + 3, statusY + 3, borderColor); // 下
+        graphics.fill(statusX - 1, statusY, statusX, statusY + 2, borderColor); // 左
+        graphics.fill(statusX + 2, statusY, statusX + 3, statusY + 2, borderColor); // 右
+
+        // 绘制 2x2 点
+        graphics.fill(statusX, statusY, statusX + 2, statusY + 2, pointColor);
+
+        // 渲染共享组玩家头像
+        if (isShared) {
+            int avatarX = statusX + 5;
+            int count = 0;
+            UUID localPlayerUuid = net.minecraft.client.Minecraft.getInstance().player != null ? net.minecraft.client.Minecraft.getInstance().player.getUUID() : null;
+
+            // 为了让“右侧叠在左侧上”，我们按顺序绘制即可，后绘制的会盖在先绘制的上面
+            for (PlayerWarehouse pw : group) {
+                if (pw.getOwnerUuid().equals(localPlayerUuid)) continue; // 跳过本地玩家
+
+                // 头像放大 2px (从 6 到 8)，重叠 4px (盖住右半边)
+                renderPlayerFace(graphics, pw.getOwnerUuid(), avatarX + count * 4, statusY - 3, 8);
+                count++;
+                if (count >= 3) break;
+            }
+        }
+    }
+
+    private static void renderPlayerFace(GuiGraphics graphics, UUID uuid, int x, int y, int size) {
+        // 1px 灰色描边 (0xFF444444)
+        graphics.fill(x - 1, y - 1, x + size + 1, y + size + 1, 0xFF444444);
+
+        net.minecraft.client.resources.PlayerSkin skin = net.minecraft.client.Minecraft.getInstance().getSkinManager().getInsecureSkin(new GameProfile(uuid, ""));
+        ResourceLocation texture = skin.texture();
+
+        // 渲染内层脸部 (8, 8, 8, 8)
+        graphics.blit(texture, x, y, size, size, 8.0f, 8.0f, 8, 8, 64, 64);
+        // 渲染外层（帽子/覆盖层） (40, 8, 8, 8)
+        graphics.blit(texture, x, y, size, size, 40.0f, 8.0f, 8, 8, 64, 64);
+    }
+
+    public static boolean isOverSharingStatus(double mouseX, double mouseY, int leftPos, int topPos, PlayerWarehouse warehouse) {
+        if (WarehouseConstants.getUpgradeColumnWidth() <= 0) return false;
+
+        int x = leftPos + WarehouseConstants.getWarehouseXOffset();
+        int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows());
+        int baseStatusX = x + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X + 7;
+        int statusY = y + 12;
+
+        List<PlayerWarehouse> group = warehouse.getSharedGroupWarehouses();
+        boolean isShared = group.size() > 1;
+
+        int statusX = isShared ? baseStatusX - 6 : baseStatusX;
+        // 判定区域：如果共享，则向右延伸以覆盖头像区域 (4px 点 + 24px 头像)
+        int hitWidth = isShared ? 28 : 4;
+
+        return mouseX >= statusX - 1 && mouseX < statusX + hitWidth && mouseY >= statusY - 1 && mouseY < statusY + 3;
+    }
+
+    public static void renderStatusTooltip(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX, int mouseY, PlayerWarehouse warehouse) {
+        if (isOverSharingStatus(mouseX, mouseY, leftPos, topPos, warehouse)) {
+            List<Component> tooltip = new ArrayList<>();
+            tooltip.add(Component.translatable("gui.portablestorage.status.title"));
+            
+            boolean hasBarrel = !warehouse.getUpgrade(com.portablestorage.upgrade.BarrelUpgrade.ID).isEmpty();
+            boolean isFull = warehouse.getEffectiveType() == com.portablestorage.component.PlayerWarehouse.WarehouseType.FULL;
+            List<PlayerWarehouse> group = warehouse.getSharedGroupWarehouses();
+            boolean isShared = group.size() > 1;
+
+            if (hasBarrel && !isFull) {
+                tooltip.add(Component.translatable("gui.portablestorage.status.problem"));
+            } else if (isShared) {
+                tooltip.add(Component.translatable("gui.portablestorage.status.shared"));
+                
+                // 显示共享组内玩家列表
+                tooltip.add(Component.literal(" "));
+                tooltip.add(Component.translatable("gui.portablestorage.status.shared_with", group.size() - 1).withStyle(ChatFormatting.GRAY));
+                
+                int count = 0;
+                UUID localPlayerUuid = net.minecraft.client.Minecraft.getInstance().player != null ? net.minecraft.client.Minecraft.getInstance().player.getUUID() : null;
+                for (PlayerWarehouse pw : group) {
+                    UUID uuid = pw.getOwnerUuid();
+                    if (uuid.equals(localPlayerUuid)) continue;
+
+                    if (count >= 5) {
+                        tooltip.add(Component.literal(" ...").withStyle(ChatFormatting.DARK_GRAY));
+                        break;
+                    }
+
+                    String name = pw.getOwnerName();
+                    boolean isOnline = false;
+                    var connection = net.minecraft.client.Minecraft.getInstance().getConnection();
+                    if (connection != null) {
+                        var info = connection.getPlayerInfo(uuid);
+                        if (info != null) {
+                            name = info.getProfile().getName();
+                            isOnline = true;
+                        }
+                    }
+                    
+                    ChatFormatting nameColor = isOnline ? ChatFormatting.WHITE : ChatFormatting.GRAY;
+                    tooltip.add(Component.literal(" - ").withStyle(ChatFormatting.DARK_GRAY).append(Component.literal(name).withStyle(nameColor)));
+                    count++;
+                }
+            } else {
+                tooltip.add(Component.translatable("gui.portablestorage.status.not_shared"));
+            }
+            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
         }
     }
 }

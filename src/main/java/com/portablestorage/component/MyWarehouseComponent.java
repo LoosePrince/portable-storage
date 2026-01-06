@@ -21,13 +21,23 @@ public class MyWarehouseComponent implements WarehouseComponent {
     @Override
     public PlayerWarehouse getWarehouse(UUID uuid) {
         // 确保同一个 UUID 始终返回同一个 PlayerWarehouse 实例
-        return warehouses.computeIfAbsent(uuid, k -> {
-            PlayerWarehouse pw = new PlayerWarehouse(k, (warehouse) -> {
+        PlayerWarehouse pw = warehouses.computeIfAbsent(uuid, k -> {
+            PlayerWarehouse newPw = new PlayerWarehouse(k, (warehouse) -> {
                 sync();
             });
-            pw.setParentComponent(this);
-            return pw;
+            newPw.setParentComponent(this);
+            return newPw;
         });
+
+        // 如果服务器在线且能找到对应玩家，更新名字以供客户端显示
+        if (server != null) {
+            var player = server.getPlayerList().getPlayer(uuid);
+            if (player != null) {
+                pw.setOwnerName(player.getScoreboardName());
+            }
+        }
+
+        return pw;
     }
 
     @Override

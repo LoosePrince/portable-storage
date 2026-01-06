@@ -355,6 +355,13 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                         return true;
                     }
                 }
+
+                if (com.portablestorage.util.WarehouseRenderer.isOverSharingStatus(mouseX, mouseY, this.leftPos, this.topPos, warehouse)) {
+                    if (button == 0) { // 左键
+                        this.minecraft.setScreen(YACLConfig.createSharingManagementScreen(this, warehouse));
+                        return true;
+                    }
+                }
                 
                 int bx = x + WarehouseConstants.getSidebarXOffset();
                 int by = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows());

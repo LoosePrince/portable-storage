@@ -47,6 +47,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     private boolean hopperFilterBlacklist = true;
     private final List<String> foodFilters = new ArrayList<>();
     private boolean foodFilterBlacklist = true;
+    private final Set<UUID> forbiddenPlayers = new HashSet<>();
     private long experience = 0; // 瓶装经验 (XP points)
 
     // 裂隙升级数据
@@ -156,6 +157,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     private final Consumer<PlayerWarehouse> onChanged;
     private final UUID ownerUuid;
+    private String ownerName = "Unknown";
     private WarehouseComponent parentComponent;
 
     public PlayerWarehouse(UUID id, Consumer<PlayerWarehouse> onChanged) {
@@ -173,6 +175,17 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     public UUID getOwnerUuid() {
         return ownerUuid;
+    }
+
+    public String getOwnerName() {
+        return ownerName;
+    }
+
+    public void setOwnerName(String name) {
+        if (!Objects.equals(this.ownerName, name)) {
+            this.ownerName = name;
+            markDirty();
+        }
     }
 
     public UUID getBarrelOwnerUuid() {
@@ -205,6 +218,14 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                 
                 UUID owner = pw.getOwnerUuid();
                 UUID target = pw.getBarrelOwnerUuid();
+                
+                // 检查是否互相屏蔽：如果 A 屏蔽了 B，或者 B 屏蔽了 A，则不建立共享联系
+                if (target != null) {
+                    PlayerWarehouse targetPw = parentComponent.getWarehouse(target);
+                    if (pw.isForbidden(target) || (targetPw != null && targetPw.isForbidden(owner))) {
+                        continue;
+                    }
+                }
 
                 if (groupUuids.contains(owner)) {
                     if (target != null && groupUuids.add(target)) {
@@ -285,6 +306,22 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     public List<String> getFoodFilters() {
         return foodFilters;
+    }
+
+    public boolean isForbidden(UUID uuid) {
+        return forbiddenPlayers.contains(uuid);
+    }
+
+    public void setForbidden(UUID uuid, boolean forbidden) {
+        if (forbidden) {
+            if (forbiddenPlayers.add(uuid)) markDirty();
+        } else {
+            if (forbiddenPlayers.remove(uuid)) markDirty();
+        }
+    }
+
+    public Set<UUID> getForbiddenPlayers() {
+        return Collections.unmodifiableSet(forbiddenPlayers);
     }
 
     public boolean isFoodFilterBlacklist() {
@@ -973,6 +1010,9 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         this.enabled = !tag.contains("enabled") || tag.getBoolean("enabled");
         this.type = tag.contains("activationType") ? WarehouseType.values()[tag.getInt("activationType")] : WarehouseType.NONE;
         this.experience = tag.getLong("experience");
+        if (tag.contains("ownerName")) {
+            this.ownerName = tag.getString("ownerName");
+        }
 
         // 升级系统
         upgradeStorage.clear();
@@ -1011,6 +1051,14 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         } else {
             // 默认黑名单
             this.foodFilterBlacklist = true;
+        }
+
+        this.forbiddenPlayers.clear();
+        if (tag.contains("forbiddenPlayers")) {
+            ListTag forbiddenList = tag.getList("forbiddenPlayers", Tag.TAG_INT_ARRAY);
+            for (int i = 0; i < forbiddenList.size(); i++) {
+                this.forbiddenPlayers.add(net.minecraft.nbt.NbtUtils.loadUUID(forbiddenList.get(i)));
+            }
         }
 
         // 裂隙升级数据
@@ -1067,6 +1115,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         tag.putBoolean("enabled", enabled);
         tag.putInt("activationType", type.ordinal());
         tag.putLong("experience", experience);
+        tag.putString("ownerName", ownerName);
 
         // 升级系统
         ListTag upgradeList = new ListTag();
@@ -1092,6 +1141,12 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         }
         tag.put("foodFilters", foodFilterList);
         tag.putBoolean("foodFilterBlacklist", foodFilterBlacklist);
+
+        ListTag forbiddenList = new ListTag();
+        for (UUID uuid : forbiddenPlayers) {
+            forbiddenList.add(net.minecraft.nbt.NbtUtils.createUUID(uuid));
+        }
+        tag.put("forbiddenPlayers", forbiddenList);
 
         // 裂隙升级数据
         if (riftReturnDim != null) {

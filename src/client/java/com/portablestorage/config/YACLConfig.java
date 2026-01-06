@@ -511,5 +511,54 @@ public class YACLConfig {
                 .build()
                 .generateScreen(parent);
     }
+
+    public static Screen createSharingManagementScreen(Screen parent, PlayerWarehouse warehouse) {
+        var builder = YetAnotherConfigLib.createBuilder()
+                .title(Component.translatable("gui.portablestorage.sharing_management.title"));
+
+        ConfigCategory.Builder categoryBuilder = ConfigCategory.createBuilder()
+                .name(Component.translatable("gui.portablestorage.sharing_management.title"));
+
+        // 获取所有已知仓库（即所有曾经开启过仓库的玩家）
+        var component = ModComponents.WAREHOUSE.get(Minecraft.getInstance().level.getScoreboard());
+        java.util.List<PlayerWarehouse> allWarehouses = new java.util.ArrayList<>(component.getAllWarehouses());
+        
+        // 排序：在线优先，然后按名字排序
+        allWarehouses.sort((a, b) -> {
+            boolean aOnline = Minecraft.getInstance().getConnection().getPlayerInfo(a.getOwnerUuid()) != null;
+            boolean bOnline = Minecraft.getInstance().getConnection().getPlayerInfo(b.getOwnerUuid()) != null;
+            if (aOnline != bOnline) return aOnline ? -1 : 1;
+            return a.getOwnerName().compareToIgnoreCase(b.getOwnerName());
+        });
+
+        for (PlayerWarehouse pw : allWarehouses) {
+            if (pw.getOwnerUuid().equals(warehouse.getOwnerUuid())) continue;
+
+            final java.util.UUID targetUuid = pw.getOwnerUuid();
+            boolean isOnline = Minecraft.getInstance().getConnection().getPlayerInfo(targetUuid) != null;
+            String name = pw.getOwnerName();
+            
+            categoryBuilder.option(Option.<Boolean>createBuilder()
+                    .name(Component.literal(name).withStyle(isOnline ? net.minecraft.ChatFormatting.WHITE : net.minecraft.ChatFormatting.GRAY))
+                    .description(OptionDescription.of(Component.translatable("gui.portablestorage.sharing_management.toggle_hint")))
+                    .binding(
+                            true,
+                            () -> !warehouse.isForbidden(targetUuid),
+                            val -> {
+                                warehouse.setForbidden(targetUuid, !val);
+                                ClientPlayNetworking.send(new com.portablestorage.network.C2SUpdateForbiddenPlayersPayload(targetUuid, !val));
+                            }
+                    )
+                    .controller(opt -> CyclingListControllerBuilder.<Boolean>create(opt)
+                            .values(Arrays.asList(true, false))
+                            .formatValue(v -> Component.translatable(v ? "gui.portablestorage.sharing_management.shared" : "gui.portablestorage.sharing_management.forbidden")
+                                    .withStyle(v ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.RED)))
+                    .build());
+        }
+
+        return builder.category(categoryBuilder.build())
+                .build()
+                .generateScreen(parent);
+    }
 }
 

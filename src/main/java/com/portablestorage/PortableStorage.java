@@ -57,6 +57,7 @@ public class PortableStorage implements ModInitializer {
         net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             var player = handler.getPlayer();
             var warehouse = com.portablestorage.component.ModComponents.get(player).getWarehouse(player.getUUID());
+            warehouse.setOwnerName(player.getScoreboardName());
 
             // 强制加载区块
             com.portablestorage.world.SpaceRiftManager.updatePlotForcedLoading(player, warehouse, true);
