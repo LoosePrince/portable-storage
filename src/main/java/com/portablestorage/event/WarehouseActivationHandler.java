@@ -39,6 +39,16 @@ public class WarehouseActivationHandler {
 
                 // 逻辑 2: 强制激活 (当前处于禁用状态)
                 if (!warehouse.isEnabled()) {
+                    // 如果仓库完全为空，则直接激活，不触发警告
+                    if (warehouse.isFullyEmpty()) {
+                        warehouse.setType(targetType);
+                        warehouse.setEnabled(true);
+                        stack.shrink(1);
+                        String typeKey = targetType == WarehouseType.FULL ? "full" : "base";
+                        player.displayClientMessage(Component.translatable("message.portablestorage.activated." + typeKey), false);
+                        return InteractionResultHolder.success(player.getItemInHand(hand));
+                    }
+
                     long now = System.currentTimeMillis();
                     long lastAttempt = CONFIRMATION_MAP.getOrDefault(player.getUUID(), 0L);
 

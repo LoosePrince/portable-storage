@@ -483,6 +483,13 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         return storage.isEmpty() && fluidStorage.isEmpty();
     }
 
+    /**
+     * 检查仓库是否完全为空（包括物品、流体、经验和升级）
+     */
+    public boolean isFullyEmpty() {
+        return storage.isEmpty() && fluidStorage.isEmpty() && experience == 0 && upgradeStorage.isEmpty();
+    }
+
     @Override
     public ItemStack getItem(int slot) {
         List<WarehouseEntry> sorted = getSortedEntries();
