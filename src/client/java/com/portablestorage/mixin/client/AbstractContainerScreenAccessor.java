@@ -11,5 +11,8 @@ public interface AbstractContainerScreenAccessor {
 
     @Accessor("topPos")
     int portablestorage$getTopPos();
+
+    @Accessor("hoveredSlot")
+    net.minecraft.world.inventory.Slot portablestorage$getHoveredSlot();
 }
 

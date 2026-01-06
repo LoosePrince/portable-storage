@@ -445,6 +445,29 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (this.searchBox != null && this.searchBox.isVisible() && this.searchBox.isFocused()) {
+            if (keyCode == 256) { // ESC
+                this.searchBox.setFocused(false);
+                return true;
+            }
+            if (this.searchBox.keyPressed(keyCode, scanCode, modifiers)) return true;
+            return true;
+        }
+
+        // 处理丢出快捷键
+        if (this.minecraft != null && this.minecraft.player != null) {
+            PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
+            if (!warehouse.isFolded()) {
+                if (this.minecraft.options.keyDrop.matches(keyCode, scanCode)) {
+                    if (this.hoveredSlot != null && this.hoveredSlot.container instanceof PlayerWarehouse && this.hoveredSlot.hasItem()) {
+                        boolean dropFullStack = hasControlDown();
+                        ClientPlayNetworking.send(new C2SDropWarehouseItemPayload(this.hoveredSlot.index, dropFullStack));
+                        return true;
+                    }
+                }
+            }
+        }
+
         // 3. 支持 ESC 返回背包
         if (keyCode == 256) { // ESC
             this.minecraft.setScreen(new InventoryScreen(this.minecraft.player));

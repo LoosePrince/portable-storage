@@ -530,6 +530,22 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
             if (this.searchBox.keyPressed(keyCode, scanCode, modifiers)) return true;
             return true; 
         }
+
+        // 处理丢出快捷键
+        if (shouldShowWarehouse() && this.minecraft != null && this.minecraft.player != null) {
+            PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
+            if (!warehouse.isFolded()) {
+                if (this.minecraft.options.keyDrop.matches(keyCode, scanCode)) {
+                    Slot hSlot = ((AbstractContainerScreenAccessor) this).portablestorage$getHoveredSlot();
+                    if (hSlot != null && hSlot.container instanceof PlayerWarehouse && hSlot.hasItem()) {
+                        boolean dropFullStack = net.minecraft.client.gui.screens.Screen.hasControlDown();
+                        ClientPlayNetworking.send(new C2SDropWarehouseItemPayload(hSlot.index, dropFullStack));
+                        return true;
+                    }
+                }
+            }
+        }
+
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 

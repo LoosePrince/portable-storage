@@ -257,6 +257,30 @@ public class ModServerNetworking {
         });
     }
 
+    public static void handleDropWarehouseItem(C2SDropWarehouseItemPayload payload, ServerPlayNetworking.Context context) {
+        context.server().execute(() -> {
+            ServerPlayer player = context.player();
+            PlayerWarehouse warehouse = getWarehouse(player);
+            if (!warehouse.isEnabled()) return;
+
+            int slotId = payload.slotId();
+            if (slotId < 0 || slotId >= player.containerMenu.slots.size()) return;
+
+            Slot slot = player.containerMenu.slots.get(slotId);
+            if (slot.container instanceof PlayerWarehouse) {
+                ItemStack stackInSlot = slot.getItem();
+                if (!stackInSlot.isEmpty()) {
+                    int toTake = payload.dropFullStack() ? (int)Math.min(stackInSlot.getMaxStackSize(), warehouse.getRealCount(slot.getContainerSlot())) : 1;
+                    ItemStack dropped = WarehouseManager.removeItem(warehouse, slot.getContainerSlot(), toTake, true);
+                    if (!dropped.isEmpty()) {
+                        player.drop(dropped, true);
+                        syncChanges(player);
+                    }
+                }
+            }
+        });
+    }
+
     public static void handleTogglePinned(C2STogglePinnedPayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
             PlayerWarehouse warehouse = getWarehouse(context.player());
