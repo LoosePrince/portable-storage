@@ -57,10 +57,9 @@ jobs:
               echo "new_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
               
               # 获取提交信息作为更新说明
-              COMMIT_MESSAGE=$(git log -1 --pretty=format:"%s")
-              echo "Commit message: $COMMIT_MESSAGE"
               echo "changelog<<EOF" >> $GITHUB_OUTPUT
-              echo "$COMMIT_MESSAGE" >> $GITHUB_OUTPUT
+              git log -1 --pretty=format:"%B" >> $GITHUB_OUTPUT
+              echo "" >> $GITHUB_OUTPUT
               echo "EOF" >> $GITHUB_OUTPUT
             else
               echo "No version change detected"
@@ -102,7 +101,7 @@ jobs:
         uses: Kira-NT/mc-publish@v3.3.0
         with:
           # 文件路径
-          files: build/libs/portable-storage-${{ needs.build.outputs.new_version }}.jar
+          files: build/libs/portablestorage-${{ needs.build.outputs.new_version }}.jar
           
           # 版本信息
           name: Portable Storage ${{ needs.build.outputs.new_version }} [Fabric 1.21]
