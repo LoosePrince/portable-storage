@@ -23,6 +23,8 @@ classes/
 bin/
 .classpath
 .project
+.kiro/
+.cursor/
 
 # macos
 
@@ -38,4 +40,7 @@ hs_err_*.log
 replay_*.log
 *.hprof
 *.jfr
+
+# tmp
+*.tmp
 temp
