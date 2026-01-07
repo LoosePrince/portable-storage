@@ -31,7 +31,7 @@ public class WarehouseMenuHandler {
             accessor.invokeAddSlot(new UpgradeSlot(warehouse, player, i, startX, startY) {
                 @Override
                 public boolean isActive() {
-                    return !player.getAbilities().instabuild && super.isActive();
+                    return super.isActive();
                 }
             });
         }
@@ -46,7 +46,7 @@ public class WarehouseMenuHandler {
 
                     @Override
                     public boolean isActive() {
-                        return !player.getAbilities().instabuild && !warehouse.isFolded() && warehouse.isEnabled() && currentRow < warehouse.getVisibleRows();
+                        return !warehouse.isFolded() && warehouse.isEnabled() && currentRow < warehouse.getVisibleRows();
                     }
                 });
             }
@@ -79,8 +79,6 @@ public class WarehouseMenuHandler {
     }
 
     public static ItemStack handleQuickMove(AbstractContainerMenu menu, Player player, int index) {
-        if (player.getAbilities().instabuild) return null;
-
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         if (!warehouse.isEnabled()) return null;
 

@@ -32,78 +32,70 @@ public class WarehouseInteractionHandler {
             }
             if (warehouseStart == -1) return false;
 
-            if (!player.getAbilities().instabuild) {
-                if (clickType == ClickType.QUICK_MOVE) {
-                    return true; // Cancelled
-                }
-
-                // Handle experience upgrade interaction
-                if (slot.hasItem() && slot.getItem().is(com.portablestorage.item.ModItems.BOTTLED_EXPERIENCE)) {
-                    handleExperienceClick(warehouse, slotId - warehouseStart, button, clickType, player);
-                    return true; // Cancelled
-                }
-
-                ItemStack cursorStack = menu.getCarried();
-                if (!cursorStack.isEmpty()) {
-                    ItemStack remaining = WarehouseManager.addFluid(warehouse, cursorStack, player);
-                    menu.setCarried(remaining);
-                } else {
-                    int amount = (button == 1) ? 1 : 64;
-                    ItemStack taken = WarehouseManager.removeItem(warehouse, slotId - warehouseStart, amount, false);
-                    menu.setCarried(taken);
-                }
+            if (clickType == ClickType.QUICK_MOVE) {
                 return true; // Cancelled
-            } else {
-                return true; // Cancelled in creative
             }
+
+            // Handle experience upgrade interaction
+            if (slot.hasItem() && slot.getItem().is(com.portablestorage.item.ModItems.BOTTLED_EXPERIENCE)) {
+                handleExperienceClick(warehouse, slotId - warehouseStart, button, clickType, player);
+                return true; // Cancelled
+            }
+
+            ItemStack cursorStack = menu.getCarried();
+            if (!cursorStack.isEmpty()) {
+                ItemStack remaining = WarehouseManager.addFluid(warehouse, cursorStack, player);
+                menu.setCarried(remaining);
+            } else {
+                int amount = (button == 1) ? 1 : 64;
+                ItemStack taken = WarehouseManager.removeItem(warehouse, slotId - warehouseStart, amount, false);
+                menu.setCarried(taken);
+            }
+            return true; // Cancelled
         }
         // Handle upgrade slots
         else if (slot instanceof com.portablestorage.upgrade.UpgradeSlot) {
             PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
             if (!warehouse.isEnabled()) return false;
 
-            if (!player.getAbilities().instabuild) {
-                if (clickType == ClickType.QUICK_MOVE) {
-                    ItemStack stackInSlot = slot.getItem();
-                    if (!stackInSlot.isEmpty()) {
-                        if (((AbstractContainerMenuAccessor) menu).invokeMoveItemStackTo(stackInSlot, 9, 45, true)) {
-                            slot.set(stackInSlot);
-                        }
+            if (clickType == ClickType.QUICK_MOVE) {
+                ItemStack stackInSlot = slot.getItem();
+                if (!stackInSlot.isEmpty()) {
+                    if (((AbstractContainerMenuAccessor) menu).invokeMoveItemStackTo(stackInSlot, 9, 45, true)) {
+                        slot.set(stackInSlot);
                     }
-                    return true; // Cancelled
-                }
-
-                ItemStack cursorStack = menu.getCarried();
-                if (!cursorStack.isEmpty()) {
-                    if (slot.mayPlace(cursorStack)) {
-                        ItemStack stackInSlot = slot.getItem();
-                        int maxPlace = slot.getMaxStackSize();
-                        
-                        if (stackInSlot.isEmpty()) {
-                            int toPlace = Math.min(cursorStack.getCount(), maxPlace);
-                            slot.set(cursorStack.split(toPlace));
-                        } else if (ItemStack.isSameItemSameComponents(stackInSlot, cursorStack)) {
-                            int canAdd = Math.min(cursorStack.getCount(), maxPlace - stackInSlot.getCount());
-                            if (canAdd > 0) {
-                                stackInSlot.grow(canAdd);
-                                cursorStack.shrink(canAdd);
-                                slot.setChanged();
-                            }
-                        } else if (cursorStack.getCount() == 1) {
-                            ItemStack old = slot.getItem();
-                            slot.set(cursorStack.split(1));
-                            menu.setCarried(old);
-                        }
-                    }
-                } else {
-                    int amount = (button == 1) ? 1 : slot.getMaxStackSize();
-                    ItemStack taken = slot.remove(amount);
-                    menu.setCarried(taken);
                 }
                 return true; // Cancelled
-            } else {
-                return true; // Cancelled in creative
             }
+
+            ItemStack cursorStack = menu.getCarried();
+            if (!cursorStack.isEmpty()) {
+                if (slot.mayPlace(cursorStack)) {
+                    ItemStack stackInSlot = slot.getItem();
+                    int maxPlace = slot.getMaxStackSize();
+                    
+                    if (stackInSlot.isEmpty()) {
+                        int toPlace = Math.min(cursorStack.getCount(), maxPlace);
+                        slot.set(cursorStack.split(toPlace));
+                    } else if (ItemStack.isSameItemSameComponents(stackInSlot, cursorStack)) {
+                        int canAdd = Math.min(cursorStack.getCount(), maxPlace - stackInSlot.getCount());
+                        if (canAdd > 0) {
+                            stackInSlot.grow(canAdd);
+                            cursorStack.shrink(canAdd);
+                            slot.setChanged();
+                        }
+                    } else if (cursorStack.getCount() == 1) {
+                        ItemStack old = slot.getItem();
+                        slot.set(cursorStack.split(1));
+                        menu.setCarried(old);
+                    }
+                }
+            } else {
+                int amount = (button == 1) ? 1 : slot.getMaxStackSize();
+                ItemStack taken = slot.remove(amount);
+                menu.setCarried(taken);
+            }
+            return true; // Cancelled
         }
         return false;
     }

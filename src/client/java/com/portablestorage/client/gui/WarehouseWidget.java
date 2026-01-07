@@ -53,7 +53,7 @@ public class WarehouseWidget {
 
     public boolean shouldShow() {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player == null || minecraft.player.getAbilities().instabuild) return false;
+        if (minecraft.player == null) return false;
         return warehouse.isEnabled();
     }
 
