@@ -1,6 +1,6 @@
 package com.portablestorage.mixin;
 
-import com.portablestorage.handler.InventoryMenuHandler;
+import com.portablestorage.handler.WarehouseMenuHandler;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.*;
@@ -49,12 +49,12 @@ public abstract class InventoryMenuCraftingMixin extends AbstractContainerMenu {
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void addExtraCraftingSlots(Inventory inventory, boolean active, Player owner, CallbackInfo ci) {
-        InventoryMenuHandler.addExtraCraftingSlots(this, this.craftSlots, owner);
+        WarehouseMenuHandler.injectCraftingSlots(this, this.craftSlots, owner);
     }
 
     @Inject(method = "quickMoveStack", at = @At("HEAD"), cancellable = true)
     private void handleCraftingQuickMove(Player player, int index, CallbackInfoReturnable<ItemStack> cir) {
-        ItemStack result = InventoryMenuHandler.handleCraftingQuickMove(this, this.slots, this.craftSlots, player, index);
+        ItemStack result = WarehouseMenuHandler.handleCraftingQuickMove(this, this.slots, this.craftSlots, player, index);
         if (result != null) {
             cir.setReturnValue(result);
         }
