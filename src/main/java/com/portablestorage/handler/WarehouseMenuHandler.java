@@ -20,6 +20,21 @@ public class WarehouseMenuHandler {
      * Injects storage slots and upgrade slots into any menu.
      */
     public static void injectWarehouseSlots(AbstractContainerMenu menu, Player player) {
+        if (player == null) return;
+        
+        // 1. 彻底排除创造模式所有相关界面 (包括 ItemPickerMenu)
+        if (player.getAbilities().instabuild) {
+            String menuName = menu.getClass().getName();
+            if (menu instanceof InventoryMenu || menuName.contains("Creative") || menuName.contains("ItemPicker")) {
+                return;
+            }
+        }
+
+        // Prevent duplicate injection
+        for (Slot slot : menu.slots) {
+            if (slot.container instanceof PlayerWarehouse) return;
+        }
+
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         AbstractContainerMenuAccessor accessor = (AbstractContainerMenuAccessor) menu;
 
@@ -31,6 +46,12 @@ public class WarehouseMenuHandler {
             accessor.invokeAddSlot(new UpgradeSlot(warehouse, player, i, startX, startY) {
                 @Override
                 public boolean isActive() {
+                    if (player.getAbilities().instabuild) {
+                        String menuName = menu.getClass().getName();
+                        if (menu instanceof InventoryMenu || menuName.contains("Creative") || menuName.contains("ItemPicker")) {
+                            return false;
+                        }
+                    }
                     return super.isActive();
                 }
             });
@@ -46,6 +67,12 @@ public class WarehouseMenuHandler {
 
                     @Override
                     public boolean isActive() {
+                        if (player.getAbilities().instabuild) {
+                            String menuName = menu.getClass().getName();
+                            if (menu instanceof InventoryMenu || menuName.contains("Creative") || menuName.contains("ItemPicker")) {
+                                return false;
+                            }
+                        }
                         return !warehouse.isFolded() && warehouse.isEnabled() && currentRow < warehouse.getVisibleRows();
                     }
                 });
@@ -57,6 +84,8 @@ public class WarehouseMenuHandler {
      * Handles 3x3 crafting grid extension for InventoryMenu.
      */
     public static void injectCraftingSlots(AbstractContainerMenu menu, CraftingContainer craftSlots, Player owner) {
+        if (!(menu instanceof InventoryMenu)) return;
+        
         int[] extraIndices = {2, 5, 6, 7, 8};
         int[][] positions = {
             {WarehouseConstants.CRAFT_3X3_X + 2 * 18, WarehouseConstants.CRAFT_3X3_Y},
@@ -86,33 +115,74 @@ public class WarehouseMenuHandler {
         if (slot == null || !slot.hasItem()) return null;
 
         ItemStack stackInSlot = slot.getItem();
-        if (warehouse.isFolded()) return null;
-
+        ItemStack originalStack = stackInSlot.copy(); // 必须保留副本用于返回
+        
+        // 1. 如果点击的是仓库插槽（包括升级槽），逻辑不变
         if (slot.container instanceof PlayerWarehouse) {
-            if (stackInSlot.is(com.portablestorage.item.ModItems.BOTTLED_EXPERIENCE) || 
-                stackInSlot.is(com.portablestorage.item.ModItems.VIRTUAL_LAVA) || 
-                stackInSlot.is(com.portablestorage.item.ModItems.VIRTUAL_WATER) || 
-                stackInSlot.is(com.portablestorage.item.ModItems.VIRTUAL_MILK)) {
-                return ItemStack.EMPTY;
-            }
-            return ItemStack.EMPTY;
-        } else if (slot instanceof UpgradeSlot) {
+            return ItemStack.EMPTY; 
+        } 
+        if (slot instanceof UpgradeSlot) {
             if (!((AbstractContainerMenuAccessor) menu).invokeMoveItemStackTo(stackInSlot, 9, 45, true)) {
                 return ItemStack.EMPTY;
             }
             slot.setChanged();
-            return ItemStack.EMPTY;
-        } else if (slot.container instanceof Inventory) {
-            int containerSlot = slot.getContainerSlot();
-            if (containerSlot >= 0 && containerSlot < 36) {
-                if (warehouse.isQuickInteraction()) {
-                    ItemStack remaining = WarehouseManager.addFluid(warehouse, stackInSlot, player);
-                    slot.set(remaining);
-                    return ItemStack.EMPTY;
-                }
+            return originalStack; // 修复：返回副本表示成功
+        }
+
+        // 2. 如果点击的是非仓库插槽（箱子、背包等）
+        // 只有开启了快速交互且仓库未折叠时，才尝试存入仓库
+        if (warehouse.isQuickInteraction() && !warehouse.isFolded()) {
+            // 尝试作为流体/容器存入
+            ItemStack remaining = WarehouseManager.addFluid(warehouse, stackInSlot, player);
+            
+            // 如果不是流体（即 stackInSlot 没变，或者 remaining 还是原物），尝试作为普通物品存入
+            if (remaining.getCount() == originalStack.getCount()) {
+                WarehouseManager.addItem(warehouse, stackInSlot);
+                remaining = stackInSlot;
+            }
+
+            if (remaining.getCount() < originalStack.getCount()) {
+                slot.set(remaining);
+                slot.setChanged();
+                return originalStack; // 修复：返回副本表示成功
             }
         }
-        return null;
+
+        // 3. 如果没开启快速交互，或者仓库已满/折叠
+        // 查找背包范围（通常是 36 个槽位）
+        int invStart = -1;
+        int invEnd = -1;
+        for (int i = 0; i < menu.slots.size(); i++) {
+            Slot s = menu.slots.get(i);
+            if (s.container instanceof Inventory && s.getContainerSlot() < 36) {
+                if (invStart == -1) invStart = i;
+                invEnd = i + 1;
+            }
+        }
+
+        if (invStart != -1) {
+            AbstractContainerMenuAccessor accessor = (AbstractContainerMenuAccessor) menu;
+            boolean moved = false;
+            // 如果点击的是背包，尝试移入容器（0 到 invStart 之前的槽位）
+            if (index >= invStart && index < invEnd) {
+                moved = accessor.invokeMoveItemStackTo(stackInSlot, 0, invStart, false);
+            } 
+            // 如果点击的是容器，尝试移入背包
+            else if (index < invStart) {
+                moved = accessor.invokeMoveItemStackTo(stackInSlot, invStart, invEnd, true);
+            }
+            
+            if (moved) {
+                if (stackInSlot.isEmpty()) {
+                    slot.set(ItemStack.EMPTY);
+                } else {
+                    slot.setChanged();
+                }
+                return originalStack; // 修复：成功移动必须返回原始副本
+            }
+        }
+
+        return null; // 返回 null 让原版继续尝试执行（如果没有被我们处理）
     }
 
     public static ItemStack handleCraftingQuickMove(AbstractContainerMenu menu, List<Slot> slots, CraftingContainer craftSlots, Player player, int index) {

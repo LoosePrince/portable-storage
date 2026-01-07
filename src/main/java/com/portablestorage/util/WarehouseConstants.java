@@ -65,15 +65,19 @@ public class WarehouseConstants {
     }
 
     public static int getWarehouseYOffset(int visibleRows) {
+        return getWarehouseYOffset(visibleRows, VANILLA_INVENTORY_HEIGHT);
+    }
+
+    public static int getWarehouseYOffset(int visibleRows, int imageHeight) {
         StoragePosition pos = com.portablestorage.config.ModConfig.storagePosition;
-        if (pos == StoragePosition.BOTTOM) return VANILLA_INVENTORY_HEIGHT + WAREHOUSE_Y_SPACING;
+        if (pos == StoragePosition.BOTTOM) return imageHeight + WAREHOUSE_Y_SPACING;
         if (pos == StoragePosition.TOP) {
             int height = WAREHOUSE_TITLE_HEIGHT + visibleRows * SLOT_SIZE;
             return -height - WAREHOUSE_Y_SPACING;
         }
         // 左右侧显示时，实现垂直居中：(背包高度 - 仓库高度) / 2
         int warehouseHeight = WAREHOUSE_TITLE_HEIGHT + visibleRows * SLOT_SIZE;
-        return (VANILLA_INVENTORY_HEIGHT - warehouseHeight) / 2;
+        return (imageHeight - warehouseHeight) / 2;
     }
 
     // 搜索框 (相对于 warehouseX, warehouseY)
@@ -98,7 +102,11 @@ public class WarehouseConstants {
     }
 
     public static int getSlotLogicY(int visibleRows) {
-        return getWarehouseYOffset(visibleRows) + SLOT_RELATIVE_Y;
+        return getSlotLogicY(visibleRows, VANILLA_INVENTORY_HEIGHT);
+    }
+
+    public static int getSlotLogicY(int visibleRows, int imageHeight) {
+        return getWarehouseYOffset(visibleRows, imageHeight) + SLOT_RELATIVE_Y;
     }
 
     public static final int SLOT_SIZE = 18;
@@ -119,6 +127,10 @@ public class WarehouseConstants {
     }
 
     public static int getSidebarYOffset(int visibleRows) {
+        return getSidebarYOffset(visibleRows, VANILLA_INVENTORY_HEIGHT);
+    }
+
+    public static int getSidebarYOffset(int visibleRows, int imageHeight) {
         if (com.portablestorage.config.ModConfig.storagePosition.isHorizontal()) {
             return WAREHOUSE_TITLE_HEIGHT + visibleRows * SLOT_SIZE + 2;
         }

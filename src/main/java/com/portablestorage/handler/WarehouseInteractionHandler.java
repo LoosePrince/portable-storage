@@ -5,7 +5,7 @@ import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.mixin.accessor.AbstractContainerMenuAccessor;
 import com.portablestorage.upgrade.ExperienceUpgrade;
-import com.portablestorage.util.WarehouseConstants;
+import com.portablestorage.util.WarehouseUtils;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
@@ -16,6 +16,9 @@ import net.minecraft.world.item.Items;
 public class WarehouseInteractionHandler {
 
     public static boolean handleClicked(AbstractContainerMenu menu, int slotId, int button, ClickType clickType, Player player) {
+        // 排除创造模式背包菜单的交互
+        if (menu instanceof net.minecraft.world.inventory.InventoryMenu && player.getAbilities().instabuild) return false;
+
         if (slotId < 0 || slotId >= menu.slots.size()) return false;
 
         Slot slot = menu.slots.get(slotId);

@@ -168,13 +168,13 @@ public class WarehouseRenderer {
         }
     }
 
-    public static void renderSidebarTooltips(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX, int mouseY, PlayerWarehouse warehouse) {
+    public static void renderSidebarTooltips(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX, int mouseY, PlayerWarehouse warehouse, int imageHeight) {
         boolean showShortcuts = com.portablestorage.config.ModConfig.showSmallIcons;
         boolean horizontal = com.portablestorage.config.ModConfig.storagePosition.isHorizontal();
         int x = leftPos + WarehouseConstants.getWarehouseXOffset();
-        int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows());
+        int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight);
         int bx = x + WarehouseConstants.getSidebarXOffset();
-        int by = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows());
+        int by = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight);
         int iconSpacing = WarehouseConstants.SIDEBAR_BUTTON_SIZE + WarehouseConstants.SIDEBAR_BUTTON_SPACING;
 
         if (showShortcuts) {
@@ -283,7 +283,7 @@ public class WarehouseRenderer {
         graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
     }
 
-    public static void renderAllTooltips(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX, int mouseY, PlayerWarehouse warehouse) {
+    public static void renderAllTooltips(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX, int mouseY, PlayerWarehouse warehouse, int imageHeight) {
         int foldButtonX = leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
         int foldButtonY = topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
         
@@ -299,17 +299,17 @@ public class WarehouseRenderer {
         if (warehouse.isFolded()) return;
         
         // 渲染共享状态提示
-        renderStatusTooltip(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse);
+        renderStatusTooltip(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse, imageHeight);
 
         // 渲染升级槽位提示
-        renderUpgradeTooltips(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse);
+        renderUpgradeTooltips(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse, imageHeight);
         
-        renderSidebarTooltips(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse);
+        renderSidebarTooltips(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse, imageHeight);
     }
 
-    public static void renderUpgradeTooltips(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX, int mouseY, PlayerWarehouse warehouse) {
+    public static void renderUpgradeTooltips(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX, int mouseY, PlayerWarehouse warehouse, int imageHeight) {
         int x = leftPos + WarehouseConstants.getWarehouseXOffset();
-        int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows());
+        int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight);
         int upgradeSlotX = x + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X;
         int upgradeSlotY = y + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y;
         int rows = warehouse.getVisibleRows();
@@ -368,10 +368,10 @@ public class WarehouseRenderer {
         }
     }
 
-    public static void renderQuantityTexts(GuiGraphics graphics, Font font, int leftPos, int topPos, PlayerWarehouse warehouse) {
+    public static void renderQuantityTexts(GuiGraphics graphics, Font font, int leftPos, int topPos, PlayerWarehouse warehouse, int imageHeight) {
         if (warehouse.isFolded()) return;
         int startX = leftPos + WarehouseConstants.getSlotLogicX();
-        int startY = topPos + WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows());
+        int startY = topPos + WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows(), imageHeight);
 
         for (int i = 0; i < warehouse.getVisibleRows() * 9; i++) {
             long count = warehouse.getRealCount(i);
@@ -438,10 +438,10 @@ public class WarehouseRenderer {
         graphics.drawString(font, text, textX, textY, 0xFFFFFF, false);
     }
 
-    public static void renderPinnedOverlays(GuiGraphics graphics, int leftPos, int topPos, PlayerWarehouse warehouse) {
+    public static void renderPinnedOverlays(GuiGraphics graphics, int leftPos, int topPos, PlayerWarehouse warehouse, int imageHeight) {
         if (warehouse.isFolded()) return;
         int startX = leftPos + WarehouseConstants.getSlotLogicX();
-        int startY = topPos + WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows());
+        int startY = topPos + WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows(), imageHeight);
         
         List<com.portablestorage.component.WarehouseEntry> sorted = warehouse.getSortedEntries();
         int visibleSlots = warehouse.getVisibleRows() * 9;
@@ -530,11 +530,11 @@ public class WarehouseRenderer {
         graphics.blit(texture, x, y, size, size, 40.0f, 8.0f, 8, 8, 64, 64);
     }
 
-    public static boolean isOverSharingStatus(double mouseX, double mouseY, int leftPos, int topPos, PlayerWarehouse warehouse) {
+    public static boolean isOverSharingStatus(double mouseX, double mouseY, int leftPos, int topPos, PlayerWarehouse warehouse, int imageHeight) {
         if (WarehouseConstants.getUpgradeColumnWidth() <= 0) return false;
 
         int x = leftPos + WarehouseConstants.getWarehouseXOffset();
-        int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows());
+        int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight);
         int baseStatusX = x + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X + 7;
         int statusY = y + 12;
 
@@ -548,8 +548,8 @@ public class WarehouseRenderer {
         return mouseX >= statusX - 1 && mouseX < statusX + hitWidth && mouseY >= statusY - 1 && mouseY < statusY + 3;
     }
 
-    public static void renderStatusTooltip(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX, int mouseY, PlayerWarehouse warehouse) {
-        if (isOverSharingStatus(mouseX, mouseY, leftPos, topPos, warehouse)) {
+    public static void renderStatusTooltip(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX, int mouseY, PlayerWarehouse warehouse, int imageHeight) {
+        if (isOverSharingStatus(mouseX, mouseY, leftPos, topPos, warehouse, imageHeight)) {
             List<Component> tooltip = new ArrayList<>();
             tooltip.add(Component.translatable("gui.portablestorage.status.title"));
             tooltip.add(Component.literal(" "));

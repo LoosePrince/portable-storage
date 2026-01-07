@@ -54,10 +54,18 @@ public class WarehouseWidget {
     public boolean shouldShow() {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null) return false;
+        
+        // 仅排除创造模式标准背包界面
+        if (screen instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen) {
+            return false;
+        }
+        
         return warehouse.isEnabled();
     }
 
     public void init() {
+        if (!shouldShow()) return;
+
         var player = Minecraft.getInstance().player;
         if (player == null) return;
         
@@ -71,7 +79,7 @@ public class WarehouseWidget {
             initSearchBox();
         }
 
-        if (this.lastWorkbenchStatus) {
+        if (this.lastWorkbenchStatus && screen instanceof InventoryScreen) {
             initCraftingPositions();
         }
     }
@@ -90,11 +98,12 @@ public class WarehouseWidget {
     }
 
     private void updateSlotPositions() {
+        int imageHeight = ((AbstractContainerScreenAccessor) screen).portablestorage$getImageHeight();
         for (Slot slot : screen.getMenu().slots) {
             if (slot instanceof com.portablestorage.upgrade.UpgradeSlot upgradeSlot) {
                 int index = upgradeSlot.getVisualIndex();
                 int upgradeX = WarehouseConstants.getWarehouseXOffset() + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X;
-                int upgradeYBase = WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y;
+                int upgradeYBase = WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight) + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y;
                 ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setX(upgradeX);
                 ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setY(upgradeYBase + index * WarehouseConstants.SLOT_SIZE);
             } else if (slot.container instanceof PlayerWarehouse) {
@@ -102,7 +111,7 @@ public class WarehouseWidget {
                 int row = index / WarehouseConstants.SLOTS_PER_ROW;
                 int col = index % WarehouseConstants.SLOTS_PER_ROW;
                 ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setX(WarehouseConstants.getSlotLogicX() + col * WarehouseConstants.SLOT_SIZE);
-                ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setY(WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows()) + row * WarehouseConstants.SLOT_SIZE);
+                ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setY(WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows(), imageHeight) + row * WarehouseConstants.SLOT_SIZE);
             }
         }
     }
@@ -111,7 +120,8 @@ public class WarehouseWidget {
         int xOffset = 0;
         int yOffset = 0;
 
-        if (ModConfig.offsetInventory) {
+        // 3. “偏移背包界面”配置不应该影响容器界面
+        if (ModConfig.offsetInventory && screen instanceof InventoryScreen) {
             StoragePosition pos = ModConfig.storagePosition;
             if (pos.isVertical()) {
                 yOffset = warehouse.isFolded() ? WarehouseConstants.OFFSET_FOLDED : WarehouseConstants.OFFSET_BASE + rows * WarehouseConstants.OFFSET_PER_ROW;
@@ -121,6 +131,8 @@ public class WarehouseWidget {
         }
 
         AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
+        
+        // 应用垂直偏移
         if (yOffset > 0) {
             if (ModConfig.storagePosition == StoragePosition.TOP) {
                 screenAccessor.portablestorage$setTopPos(screenAccessor.portablestorage$getTopPos() + yOffset);
@@ -128,6 +140,8 @@ public class WarehouseWidget {
                 screenAccessor.portablestorage$setTopPos(screenAccessor.portablestorage$getTopPos() - yOffset);
             }
         }
+        
+        // 应用水平偏移 (关键修复：确保在左右模式下生效)
         if (xOffset > 0) {
             if (ModConfig.storagePosition == StoragePosition.LEFT) {
                 screenAccessor.portablestorage$setLeftPos(screenAccessor.portablestorage$getLeftPos() + xOffset);
@@ -136,7 +150,12 @@ public class WarehouseWidget {
             }
         }
         
-        screenAccessor.portablestorage$setImageHeight(WarehouseConstants.VANILLA_INVENTORY_HEIGHT);
+        // 1. 只有在生存模式背包且启用3x3时才调整 imageHeight，避免破坏容器界面对齐
+        if (screen instanceof InventoryScreen && WarehouseUtils.is3x3Enabled(Minecraft.getInstance().player)) {
+            screenAccessor.portablestorage$setImageHeight(WarehouseConstants.VANILLA_INVENTORY_HEIGHT);
+        }
+
+        if (xOffset == 0 && yOffset == 0) return;
 
         for (GuiEventListener child : screen.children()) {
             if (child instanceof AbstractWidget widget) {
@@ -154,19 +173,15 @@ public class WarehouseWidget {
                         widget.setX(widget.getX() - xOffset);
                     }
                 }
-
-                if (ModConfig.hideRecipeBook && widget.getY() == (screen.height / 2 - 22 - (ModConfig.storagePosition == StoragePosition.TOP ? -yOffset : yOffset))) {
-                    widget.visible = false;
-                    widget.active = false;
-                }
             }
         }
     }
 
     private void initSearchBox() {
         AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
+        int imageHeight = screenAccessor.portablestorage$getImageHeight();
         int sbX = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.getWarehouseXOffset() + WarehouseConstants.getSearchBoxXOffset() + WarehouseConstants.SEARCH_BOX_INNER_OFFSET;
-        int sbY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.SEARCH_BOX_Y_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET;
+        int sbY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight) + WarehouseConstants.SEARCH_BOX_Y_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET;
         int sbW = WarehouseConstants.SEARCH_BOX_WIDTH - WarehouseConstants.SEARCH_BOX_INNER_OFFSET * 2;
         int sbH = WarehouseConstants.SEARCH_BOX_HEIGHT - WarehouseConstants.SEARCH_BOX_INNER_OFFSET * 2;
         
@@ -185,7 +200,10 @@ public class WarehouseWidget {
         ((ScreenAccessor) screen).invokeAddRenderableWidget(this.searchBox);
     }
 
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    /**
+     * 渲染仓库背景（在 renderBg 之后调用，在原版槽位高亮之前）
+     */
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY) {
         if (WarehouseUtils.is3x3Enabled(Minecraft.getInstance().player)) {
             renderCraftingBg(graphics);
         }
@@ -195,19 +213,37 @@ public class WarehouseWidget {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null) return;
 
-        // 1. Background rendering
-        renderBackground(graphics, mouseX, mouseY);
+        AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
+        int imageHeight = screenAccessor.portablestorage$getImageHeight();
+        int x = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.getWarehouseXOffset(); 
+        int y = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight);
+        
+        WarehouseRenderer.renderBackground(graphics, x, y, mouseX, mouseY, warehouse, ((ScreenAccessor)screen).portablestorage$getFont());
+            
+        int foldX = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
+        int foldY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
+        WarehouseRenderer.renderSidebarButtons(graphics, foldX, foldY, x + WarehouseConstants.getSidebarXOffset(), y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight), mouseX, mouseY, warehouse);
+    }
 
-        // 2. Logic & Status Checks
+    /**
+     * 渲染覆盖层和文本（在 render 返回前调用，在原版槽位高亮之后）
+     */
+    public void renderOverlays(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        if (!shouldShow()) return;
+
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null) return;
+
+        // 1. Logic & Status Checks
         handleFrozenMode();
         checkRefreshNeeded();
         checkCraftRefill();
         handleSearchDebounce();
 
-        // 3. Search Box position update
+        // 2. Search Box position update
         updateSearchBoxState();
 
-        // 4. Content rendering (Overlays, Tooltips, Quantities)
+        // 3. Content rendering (Overlays, Tooltips, Quantities)
         renderOverlaysAndText(graphics, mouseX, mouseY);
     }
 
@@ -222,17 +258,6 @@ public class WarehouseWidget {
         }
     }
 
-    private void renderBackground(GuiGraphics graphics, int mouseX, int mouseY) {
-        AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
-        int x = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.getWarehouseXOffset(); 
-        int y = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows());
-        
-        WarehouseRenderer.renderBackground(graphics, x, y, mouseX, mouseY, warehouse, ((ScreenAccessor)screen).portablestorage$getFont());
-            
-        int foldX = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
-        int foldY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
-        WarehouseRenderer.renderSidebarButtons(graphics, foldX, foldY, x + WarehouseConstants.getSidebarXOffset(), y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows()), mouseX, mouseY, warehouse);
-    }
 
     private void handleFrozenMode() {
         boolean isPressed = net.minecraft.client.gui.screens.Screen.hasShiftDown() && net.minecraft.client.gui.screens.Screen.hasControlDown();
@@ -245,7 +270,17 @@ public class WarehouseWidget {
     private void checkRefreshNeeded() {
         Minecraft minecraft = Minecraft.getInstance();
         if (warehouse.isEnabled() != lastEnabledStatus || WarehouseUtils.is3x3Enabled(minecraft.player) != lastWorkbenchStatus) {
+            refreshScreen();
+        }
+    }
+
+    private void refreshScreen() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (screen instanceof InventoryScreen) {
             minecraft.setScreen(new InventoryScreen(minecraft.player));
+        } else {
+            // 对于容器方块界面，尝试通过 init 重新排布
+            screen.init(minecraft, minecraft.getWindow().getGuiScaledWidth(), minecraft.getWindow().getGuiScaledHeight());
         }
     }
 
@@ -259,9 +294,10 @@ public class WarehouseWidget {
 
     private void updateSearchBoxState() {
         AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
+        int imageHeight = screenAccessor.portablestorage$getImageHeight();
         if (this.searchBox != null) {
             this.searchBox.setX(screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.getWarehouseXOffset() + WarehouseConstants.getSearchBoxXOffset() + WarehouseConstants.SEARCH_BOX_INNER_OFFSET);
-            this.searchBox.setY(screenAccessor.portablestorage$getTopPos() + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.SEARCH_BOX_Y_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET);
+            this.searchBox.setY(screenAccessor.portablestorage$getTopPos() + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight) + WarehouseConstants.SEARCH_BOX_Y_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET);
             this.searchBox.visible = !warehouse.isFolded();
             this.searchBox.active = !warehouse.isFolded();
         }
@@ -271,11 +307,12 @@ public class WarehouseWidget {
         AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
         int leftPos = screenAccessor.portablestorage$getLeftPos();
         int topPos = screenAccessor.portablestorage$getTopPos();
+        int imageHeight = screenAccessor.portablestorage$getImageHeight();
         var font = ((ScreenAccessor)screen).portablestorage$getFont();
 
-        WarehouseRenderer.renderPinnedOverlays(graphics, leftPos, topPos, warehouse);
-        WarehouseRenderer.renderAllTooltips(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse);
-        WarehouseRenderer.renderQuantityTexts(graphics, font, leftPos, topPos, warehouse);
+        WarehouseRenderer.renderPinnedOverlays(graphics, leftPos, topPos, warehouse, imageHeight);
+        WarehouseRenderer.renderAllTooltips(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse, imageHeight);
+        WarehouseRenderer.renderQuantityTexts(graphics, font, leftPos, topPos, warehouse, imageHeight);
     }
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
@@ -347,13 +384,13 @@ public class WarehouseWidget {
                 warehouse.setFolded(newFolded);
                 ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.FOLD.ordinal()), Optional.of(newFolded ? 1 : 0), Optional.empty(), Optional.empty()));
                 if (newFolded && this.searchBox != null) this.searchBox.setFocused(false);
-                minecraft.setScreen(new InventoryScreen(minecraft.player));
+                refreshScreen();
                 return true;
             }
         }
 
         // 5. Sharing status
-        if (WarehouseRenderer.isOverSharingStatus(mouseX, mouseY, screenAccessor.portablestorage$getLeftPos(), screenAccessor.portablestorage$getTopPos(), warehouse)) {
+        if (WarehouseRenderer.isOverSharingStatus(mouseX, mouseY, screenAccessor.portablestorage$getLeftPos(), screenAccessor.portablestorage$getTopPos(), warehouse, screenAccessor.portablestorage$getImageHeight())) {
             if (button == 0) {
                 minecraft.setScreen(YACLConfig.createSharingManagementScreen(screen, warehouse));
                 return true;
@@ -368,16 +405,21 @@ public class WarehouseWidget {
         if (warehouse.isFolded()) return false;
         
         AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
+        int imageHeight = screenAccessor.portablestorage$getImageHeight();
         int x = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.getWarehouseXOffset();
-        int y = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows());
+        int y = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight);
         int bx = x + WarehouseConstants.getSidebarXOffset();
-        int by = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows());
+        int by = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight);
         int iconSpacing = WarehouseConstants.SIDEBAR_BUTTON_SIZE + WarehouseConstants.SIDEBAR_BUTTON_SPACING;
 
         if (ModConfig.showSmallIcons) {
+            boolean horizontal = ModConfig.storagePosition.isHorizontal();
             // Sort mode, Order, Quick Interaction, Smart Collapse, Craft Refill buttons
             for (int i = 0; i < 5; i++) {
-                if (mouseX >= bx && mouseX < bx + 18 && mouseY >= by + i * iconSpacing && mouseY < by + i * iconSpacing + 18) {
+                int curX = horizontal ? bx + i * iconSpacing : bx;
+                int curY = horizontal ? by : by + i * iconSpacing;
+                
+                if (mouseX >= curX && mouseX < curX + 18 && mouseY >= curY && mouseY < curY + 18) {
                     WarehouseSetting setting = WarehouseSetting.values()[i + 1]; // Offset by 1 for FOLD
                     int newVal = 0;
                     switch (setting) {
@@ -401,6 +443,7 @@ public class WarehouseWidget {
                             newVal = warehouse.isCraftRefill() ? 0 : 1;
                             warehouse.setCraftRefill(!warehouse.isCraftRefill());
                         }
+                        default -> {}
                     }
                     ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(setting.ordinal()), Optional.of(newVal), Optional.empty(), Optional.empty()));
                     return true;
@@ -409,8 +452,11 @@ public class WarehouseWidget {
         }
         
         // Crafting button
-        int craftingY = by + (ModConfig.showSmallIcons ? (iconSpacing * 5) : 0);
-        if (mouseX >= bx && mouseX < bx + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
+        boolean horizontal = ModConfig.storagePosition.isHorizontal();
+        int craftingX = horizontal ? (bx + (ModConfig.showSmallIcons ? (iconSpacing * 5) : 0)) : bx;
+        int craftingY = horizontal ? by : (by + (ModConfig.showSmallIcons ? (iconSpacing * 5) : 0));
+        
+        if (mouseX >= craftingX && mouseX < craftingX + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
             if (!warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
                 ClientPlayNetworking.send(new OpenCraftingPayload());
             }
@@ -423,13 +469,13 @@ public class WarehouseWidget {
         if (mouseX >= pmX && mouseX < pmX + WarehouseConstants.TINY_BUTTON_SIZE && mouseY >= pmY && mouseY < pmY + WarehouseConstants.TINY_BUTTON_SIZE) {
             warehouse.setVisibleRows(warehouse.getVisibleRows() - 1);
             ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(-1), Optional.empty()));
-            Minecraft.getInstance().setScreen(new InventoryScreen(Minecraft.getInstance().player));
+            refreshScreen();
             return true;
         }
         if (mouseX >= pmX + WarehouseConstants.TINY_BUTTON_SIZE + WarehouseConstants.TINY_BUTTON_SPACING && mouseX < pmX + WarehouseConstants.TINY_BUTTON_SIZE * 2 + WarehouseConstants.TINY_BUTTON_SPACING && mouseY >= pmY && mouseY < pmY + WarehouseConstants.TINY_BUTTON_SIZE) {
             warehouse.setVisibleRows(warehouse.getVisibleRows() + 1);
             ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(1), Optional.empty()));
-            Minecraft.getInstance().setScreen(new InventoryScreen(Minecraft.getInstance().player));
+            refreshScreen();
             return true;
         }
 
@@ -457,8 +503,9 @@ public class WarehouseWidget {
         if (!shouldShow() || warehouse.isFolded()) return false;
 
         AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
+        int imageHeight = screenAccessor.portablestorage$getImageHeight();
         int warehouseX = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.getWarehouseXOffset();
-        int warehouseY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows());
+        int warehouseY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight);
         int warehouseHeight = WarehouseConstants.WAREHOUSE_TITLE_HEIGHT + warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE;
         
         int upgradeColumnWidth = WarehouseConstants.getUpgradeColumnWidth();
@@ -538,7 +585,8 @@ public class WarehouseWidget {
 
     private void updateUpgradeScrollFromMouse(double mouseY) {
         AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
-        int scrollbarY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.SCROLLBAR_Y_OFFSET;
+        int imageHeight = screenAccessor.portablestorage$getImageHeight();
+        int scrollbarY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight) + WarehouseConstants.SCROLLBAR_Y_OFFSET;
         int scrollbarHeight = warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE - WarehouseConstants.SCROLLBAR_PADDING;
         int totalUpgrades = com.portablestorage.upgrade.UpgradeRegistry.getUpgradeCount();
         int visibleRows = warehouse.getVisibleRows();
@@ -558,7 +606,8 @@ public class WarehouseWidget {
 
     private void updateScrollFromMouse(double mouseY) {
         AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
-        int scrollbarY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.SCROLLBAR_Y_OFFSET;
+        int imageHeight = screenAccessor.portablestorage$getImageHeight();
+        int scrollbarY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight) + WarehouseConstants.SCROLLBAR_Y_OFFSET;
         int scrollbarHeight = warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE - WarehouseConstants.SCROLLBAR_PADDING;
         int totalRows = (int) Math.ceil(warehouse.getSortedEntries().size() / (double) WarehouseConstants.SLOTS_PER_ROW);
         int visibleRows = warehouse.getVisibleRows();
@@ -646,3 +695,4 @@ public class WarehouseWidget {
         }
     }
 }
+

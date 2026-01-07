@@ -6,7 +6,9 @@
 		"ExampleClientMixin",
 		"InventoryScreenMixin",
 		"InventoryScreenCraftingMixin",
+		"CraftingScreenMixin",
 		"AbstractContainerScreenMixin",
+		"MouseMixin",
 		"AbstractContainerScreenAccessor",
 		"ScreenAccessor"
 	],

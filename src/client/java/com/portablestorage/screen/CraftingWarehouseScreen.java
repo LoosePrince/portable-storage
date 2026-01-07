@@ -146,9 +146,9 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         }
 
         // 核心修复：渲染提示和文本（即使在创造模式，在合成界面也要渲染）
-        WarehouseRenderer.renderPinnedOverlays(graphics, this.leftPos, this.topPos, warehouse);
-        WarehouseRenderer.renderAllTooltips(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse);
-        WarehouseRenderer.renderQuantityTexts(graphics, this.font, this.leftPos, this.topPos, warehouse);
+        WarehouseRenderer.renderPinnedOverlays(graphics, this.leftPos, this.topPos, warehouse, this.imageHeight);
+        WarehouseRenderer.renderAllTooltips(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse, this.imageHeight);
+        WarehouseRenderer.renderQuantityTexts(graphics, this.font, this.leftPos, this.topPos, warehouse, this.imageHeight);
         
         // 特殊处理合成界面的 Tooltip 偏移
         renderCraftingTooltips(graphics, mouseX, mouseY, warehouse);
@@ -162,12 +162,12 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         
         PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
         int x = this.leftPos + WarehouseConstants.getWarehouseXOffset();
-        int y = this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows());
+        int y = this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), this.imageHeight);
         
         WarehouseRenderer.renderBackground(graphics, x, y, mouseX, mouseY, warehouse, this.font);
         
         // 渲染侧边栏按钮（传入自定义折叠按钮位置）
-        WarehouseRenderer.renderSidebarButtons(graphics, this.leftPos + CRAFT_FOLD_X, this.topPos + CRAFT_FOLD_Y, x + WarehouseConstants.getSidebarXOffset(), y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows()), mouseX, mouseY, warehouse);
+        WarehouseRenderer.renderSidebarButtons(graphics, this.leftPos + CRAFT_FOLD_X, this.topPos + CRAFT_FOLD_Y, x + WarehouseConstants.getSidebarXOffset(), y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), this.imageHeight), mouseX, mouseY, warehouse);
     }
 
     private void checkCraftRefill() {
@@ -249,12 +249,12 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         
         if (!warehouse.isFolded()) {
             // 渲染共享状态提示
-            WarehouseRenderer.renderStatusTooltip(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse);
+            WarehouseRenderer.renderStatusTooltip(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse, this.imageHeight);
 
             // 渲染升级槽位提示
-            WarehouseRenderer.renderUpgradeTooltips(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse);
+            WarehouseRenderer.renderUpgradeTooltips(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse, this.imageHeight);
             
-            WarehouseRenderer.renderSidebarTooltips(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse);
+            WarehouseRenderer.renderSidebarTooltips(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse, this.imageHeight);
         }
     }
 
@@ -362,48 +362,54 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
 
         if (!warehouse.isFolded()) {
             int x = this.leftPos + WarehouseConstants.getWarehouseXOffset();
-            int y = this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows());
+            int y = this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), this.imageHeight);
             int bx = x + WarehouseConstants.getSidebarXOffset();
-            int by = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows());
+            int by = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), this.imageHeight);
             boolean showShortcuts = ModConfig.showSmallIcons;
+            boolean horizontal = ModConfig.storagePosition.isHorizontal();
             int iconSpacing = WarehouseConstants.SIDEBAR_BUTTON_SIZE + WarehouseConstants.SIDEBAR_BUTTON_SPACING;
 
             if (showShortcuts) {
-                if (mouseX >= bx && mouseX < bx + 18 && mouseY >= by && mouseY < by + 18) {
-                    int newVal = (warehouse.getSortMode() + 1) % 4;
-                    warehouse.setSortMode(newVal);
-                    ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.SORT_MODE.ordinal()), Optional.of(newVal), Optional.empty(), Optional.empty()));
-                    return true;
-                }
-                if (mouseX >= bx && mouseX < bx + 18 && mouseY >= by + iconSpacing && mouseY < by + iconSpacing + 18) {
-                    boolean newVal = !warehouse.isAscending();
-                    warehouse.setAscending(newVal);
-                    ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.SORT_ORDER.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty(), Optional.empty()));
-                    return true;
-                }
-                if (mouseX >= bx && mouseX < bx + 18 && mouseY >= by + iconSpacing * 2 && mouseY < by + iconSpacing * 2 + 18) {
-                    boolean newVal = !warehouse.isQuickInteraction();
-                    warehouse.setQuickInteraction(newVal);
-                    ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.QUICK_INTERACTION.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty(), Optional.empty()));
-                    return true;
-                }
-                if (mouseX >= bx && mouseX < bx + 18 && mouseY >= by + iconSpacing * 3 && mouseY < by + iconSpacing * 3 + 18) {
-                    boolean newVal = !warehouse.isSmartCollapse();
-                    warehouse.setSmartCollapse(newVal);
-                    ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.SMART_COLLAPSE.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty(), Optional.empty()));
-                    return true;
-                }
-                if (mouseX >= bx && mouseX < bx + 18 && mouseY >= by + iconSpacing * 4 && mouseY < by + iconSpacing * 4 + 18) {
-                    boolean newVal = !warehouse.isCraftRefill();
-                    warehouse.setCraftRefill(newVal);
-                    ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.CRAFT_REFILL.ordinal()), Optional.of(newVal ? 1 : 0), Optional.empty(), Optional.empty()));
-                    return true;
+                for (int i = 0; i < 5; i++) {
+                    int curX = horizontal ? bx + i * iconSpacing : bx;
+                    int curY = horizontal ? by : by + i * iconSpacing;
+                    
+                    if (mouseX >= curX && mouseX < curX + 18 && mouseY >= curY && mouseY < curY + 18) {
+                        WarehouseSetting setting = WarehouseSetting.values()[i + 1]; // Offset by 1 for FOLD
+                        int newVal = 0;
+                        switch (setting) {
+                            case SORT_MODE -> {
+                                newVal = (warehouse.getSortMode() + 1) % 4;
+                                warehouse.setSortMode(newVal);
+                            }
+                            case SORT_ORDER -> {
+                                newVal = warehouse.isAscending() ? 0 : 1;
+                                warehouse.setAscending(!warehouse.isAscending());
+                            }
+                            case QUICK_INTERACTION -> {
+                                newVal = warehouse.isQuickInteraction() ? 0 : 1;
+                                warehouse.setQuickInteraction(!warehouse.isQuickInteraction());
+                            }
+                            case SMART_COLLAPSE -> {
+                                newVal = warehouse.isSmartCollapse() ? 0 : 1;
+                                warehouse.setSmartCollapse(!warehouse.isSmartCollapse());
+                            }
+                            case CRAFT_REFILL -> {
+                                newVal = warehouse.isCraftRefill() ? 0 : 1;
+                                warehouse.setCraftRefill(!warehouse.isCraftRefill());
+                            }
+                            default -> {}
+                        }
+                        ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(setting.ordinal()), Optional.of(newVal), Optional.empty(), Optional.empty()));
+                        return true;
+                    }
                 }
             }
             
             // 2. 合成按钮变为返回背包
-            int craftingY = by + (showShortcuts ? (iconSpacing * 5) : 0);
-            if (mouseX >= bx && mouseX < bx + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
+            int craftingX = horizontal ? (bx + (showShortcuts ? (iconSpacing * 5) : 0)) : bx;
+            int craftingY = horizontal ? by : (by + (showShortcuts ? (iconSpacing * 5) : 0));
+            if (mouseX >= craftingX && mouseX < craftingX + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
                 if (!warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
                 this.minecraft.setScreen(new InventoryScreen(this.minecraft.player));
                 }
@@ -441,7 +447,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
             }
         }
 
-        if (com.portablestorage.util.WarehouseRenderer.isOverSharingStatus(mouseX, mouseY, this.leftPos, this.topPos, warehouse)) {
+        if (com.portablestorage.util.WarehouseRenderer.isOverSharingStatus(mouseX, mouseY, this.leftPos, this.topPos, warehouse, this.imageHeight)) {
             if (button == 0) { // 左键
                 this.minecraft.setScreen(com.portablestorage.config.YACLConfig.createSharingManagementScreen(this, warehouse));
                 return true;

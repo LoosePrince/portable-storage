@@ -19,6 +19,9 @@ public interface AbstractContainerScreenAccessor {
     void portablestorage$setTopPos(int topPos);
 
     @Accessor("imageHeight")
+    int portablestorage$getImageHeight();
+
+    @Accessor("imageHeight")
     void portablestorage$setImageHeight(int imageHeight);
 
     @Accessor("hoveredSlot")

@@ -1,28 +1,116 @@
 package com.portablestorage.mixin.client;
 
-import com.portablestorage.client.handler.TooltipHandler;
+import com.portablestorage.client.gui.WarehouseScreen;
+import com.portablestorage.client.gui.WarehouseWidget;
+import com.portablestorage.handler.WarehouseMenuHandler;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-
-import java.util.List;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(AbstractContainerScreen.class)
-public abstract class AbstractContainerScreenMixin {
+public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMenu> implements WarehouseScreen {
 
-    @Shadow protected Slot hoveredSlot;
-    @Shadow protected abstract List<Component> getTooltipFromContainerItem(net.minecraft.world.item.ItemStack stack);
+    @Unique
+    private WarehouseWidget warehouseWidget;
 
-    @Inject(method = "renderTooltip", at = @At("HEAD"), cancellable = true)
-    private void onRenderTooltip(GuiGraphics graphics, int x, int y, CallbackInfo ci) {
-        if (TooltipHandler.handleTooltip((AbstractContainerScreen<?>)(Object)this, graphics, this.hoveredSlot, x, y, this::getTooltipFromContainerItem)) {
-            ci.cancel();
+    @Override
+    public WarehouseWidget portablestorage$getWarehouseWidget() {
+        return warehouseWidget;
+    }
+
+    @Inject(method = "init", at = @At("HEAD"))
+    private void onInitHead(CallbackInfo ci) {
+        // 1. 排除创造模式背包界面
+        if ((Object)this instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen) return;
+
+        AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
+        // Ensure menu has slots on client side before UI logic
+        WarehouseMenuHandler.injectWarehouseSlots(screen.getMenu(), Minecraft.getInstance().player);
+
+        if (this.warehouseWidget == null) {
+            this.warehouseWidget = new WarehouseWidget(screen);
+        }
+    }
+
+    @Inject(method = "init", at = @At("RETURN"))
+    protected void onInitReturn(CallbackInfo ci) {
+        if (warehouseWidget != null) warehouseWidget.init();
+    }
+
+    @Inject(method = "removed", at = @At("HEAD"))
+    protected void onRemoved(CallbackInfo ci) {
+        if (warehouseWidget != null) warehouseWidget.removed();
+    }
+
+    /**
+     * 在 render 方法的 TAIL 注入，绘制仓库背景（在方法返回之前，但在槽位渲染之后）
+     * 注意：排除 InventoryScreen，因为它由 InventoryScreenMixin 处理
+     * 虽然背景会在槽位之后，但至少能显示，覆盖层会在 RETURN 时绘制
+     */
+    @Inject(method = "render", at = @At(value = "TAIL"))
+    private void onRenderTail(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+        // 排除 InventoryScreen，因为它由 InventoryScreenMixin 处理
+        if ((Object)this instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen) return;
+        
+        if (warehouseWidget != null && warehouseWidget.shouldShow()) {
+            warehouseWidget.renderBackground(graphics, mouseX, mouseY);
+        }
+    }
+
+    /**
+     * 在 render 方法返回前注入，绘制覆盖层和文本（在原版槽位高亮之后）
+     * 注意：排除 InventoryScreen，因为它由 InventoryScreenMixin 处理
+     */
+    @Inject(method = "render", at = @At("RETURN"))
+    private void onRenderReturn(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+        // 排除 InventoryScreen，因为它由 InventoryScreenMixin 处理
+        if ((Object)this instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen) return;
+        
+        if (warehouseWidget != null && warehouseWidget.shouldShow()) {
+            warehouseWidget.renderOverlays(graphics, mouseX, mouseY, partialTick);
+        }
+    }
+
+    @Inject(method = "renderSlot", at = @At("HEAD"), cancellable = true)
+    private void onRenderSlot(GuiGraphics graphics, net.minecraft.world.inventory.Slot slot, CallbackInfo ci) {
+        if (slot.container instanceof com.portablestorage.component.PlayerWarehouse || slot instanceof com.portablestorage.upgrade.UpgradeSlot) {
+            if (warehouseWidget == null || !warehouseWidget.shouldShow()) {
+                ci.cancel();
+            }
+        }
+    }
+    @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
+    private void onMouseClicked(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
+        if (warehouseWidget != null && warehouseWidget.mouseClicked(mouseX, mouseY, button)) {
+            cir.setReturnValue(true);
+        }
+    }
+
+    @Inject(method = "mouseReleased", at = @At("HEAD"), cancellable = true)
+    private void onMouseReleased(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
+        if (warehouseWidget != null && warehouseWidget.mouseReleased(mouseX, mouseY, button)) {
+            cir.setReturnValue(true);
+        }
+    }
+
+    @Inject(method = "mouseDragged", at = @At("HEAD"), cancellable = true)
+    private void onMouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY, CallbackInfoReturnable<Boolean> cir) {
+        if (warehouseWidget != null && warehouseWidget.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
+            cir.setReturnValue(true);
+        }
+    }
+
+    @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
+    private void onKeyPressed(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
+        if (warehouseWidget != null && warehouseWidget.keyPressed(keyCode, scanCode, modifiers)) {
+            cir.setReturnValue(true);
         }
     }
 }

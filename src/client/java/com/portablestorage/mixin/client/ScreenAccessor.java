@@ -15,5 +15,8 @@ public interface ScreenAccessor {
 
     @Invoker("addRenderableWidget")
     <T extends GuiEventListener & Renderable & net.minecraft.client.gui.narration.NarratableEntry> T invokeAddRenderableWidget(T widget);
+
+    @Accessor("renderables")
+    java.util.List<Renderable> portablestorage$getRenderables();
 }
 
