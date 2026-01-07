@@ -1,7 +1,6 @@
 package com.portablestorage.mixin;
 
-import com.portablestorage.util.WarehouseConstants;
-import com.portablestorage.util.WarehouseUtils;
+import com.portablestorage.handler.InventoryMenuHandler;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.*;
@@ -50,81 +49,14 @@ public abstract class InventoryMenuCraftingMixin extends AbstractContainerMenu {
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void addExtraCraftingSlots(Inventory inventory, boolean active, Player owner, CallbackInfo ci) {
-        int[] extraIndices = {2, 5, 6, 7, 8};
-        
-        int[][] positions = {
-            {WarehouseConstants.CRAFT_3X3_X + 2 * 18, WarehouseConstants.CRAFT_3X3_Y},
-            {WarehouseConstants.CRAFT_3X3_X + 2 * 18, WarehouseConstants.CRAFT_3X3_Y + 18},
-            {WarehouseConstants.CRAFT_3X3_X, WarehouseConstants.CRAFT_3X3_Y + 2 * 18},
-            {WarehouseConstants.CRAFT_3X3_X + 18, WarehouseConstants.CRAFT_3X3_Y + 2 * 18},
-            {WarehouseConstants.CRAFT_3X3_X + 2 * 18, WarehouseConstants.CRAFT_3X3_Y + 2 * 18}
-        };
-
-        for (int i = 0; i < extraIndices.length; i++) {
-            final int idx = extraIndices[i];
-            this.addSlot(new Slot(this.craftSlots, idx, positions[i][0], positions[i][1]) {
-                @Override
-                public boolean isActive() {
-                    return WarehouseUtils.is3x3Enabled(owner);
-                }
-
-                @Override
-                public boolean mayPlace(ItemStack stack) {
-                    return WarehouseUtils.is3x3Enabled(owner);
-                }
-            });
-        }
+        InventoryMenuHandler.addExtraCraftingSlots(this, this.craftSlots, owner);
     }
 
     @Inject(method = "quickMoveStack", at = @At("HEAD"), cancellable = true)
     private void handleCraftingQuickMove(Player player, int index, CallbackInfoReturnable<ItemStack> cir) {
-        Slot slot = this.slots.get(index);
-        if (slot == null || !slot.hasItem()) return;
-
-        if (WarehouseUtils.is3x3Enabled(player)) {
-            if (slot instanceof ResultSlot || slot.container == this.craftSlots) {
-                ItemStack stackInSlot = slot.getItem();
-                ItemStack resultStack = stackInSlot.copy();
-
-                int invStart = -1;
-                int invEnd = -1;
-                for (int i = 0; i < this.slots.size(); i++) {
-                    Slot s = this.slots.get(i);
-                    if (s.container instanceof Inventory && s.getContainerSlot() < 36) {
-                        if (invStart == -1) invStart = i;
-                        invEnd = i + 1;
-                    }
-                }
-
-                if (slot instanceof ResultSlot) {
-                    if (invStart != -1) {
-                        while (slot.hasItem()) {
-                            ItemStack currentResult = slot.getItem();
-                            ItemStack resultCopy = currentResult.copy();
-                            currentResult.getItem().onCraftedBy(currentResult, player.level(), player);
-                            if (!this.moveItemStackTo(currentResult, invStart, invEnd, true)) {
-                                break;
-                            }
-                            slot.onQuickCraft(currentResult, resultCopy);
-                            slot.onTake(player, currentResult);
-                            if (currentResult.getCount() == resultCopy.getCount()) {
-                                break;
-                            }
-                        }
-                    }
-                } else {
-                    if (invStart != -1) {
-                        if (!this.moveItemStackTo(stackInSlot, invStart, invEnd, false)) {
-                            cir.setReturnValue(ItemStack.EMPTY);
-                            return;
-                        }
-                    }
-                    slot.onQuickCraft(stackInSlot, resultStack);
-                    slot.setChanged();
-                    this.slotsChanged(this.craftSlots);
-                }
-                cir.setReturnValue(ItemStack.EMPTY);
-            }
+        ItemStack result = InventoryMenuHandler.handleCraftingQuickMove(this, this.slots, this.craftSlots, player, index);
+        if (result != null) {
+            cir.setReturnValue(result);
         }
     }
 }

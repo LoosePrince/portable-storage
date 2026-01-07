@@ -1,10 +1,6 @@
 package com.portablestorage.mixin.client;
 
-import com.portablestorage.component.ModComponents;
-import com.portablestorage.component.PlayerWarehouse;
-import com.portablestorage.util.WarehouseConstants;
-import net.minecraft.ChatFormatting;
-import net.minecraft.client.Minecraft;
+import com.portablestorage.client.handler.TooltipHandler;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
@@ -15,7 +11,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Mixin(AbstractContainerScreen.class)
@@ -26,46 +21,8 @@ public abstract class AbstractContainerScreenMixin {
 
     @Inject(method = "renderTooltip", at = @At("HEAD"), cancellable = true)
     private void onRenderTooltip(GuiGraphics graphics, int x, int y, CallbackInfo ci) {
-        if (this.hoveredSlot instanceof com.portablestorage.upgrade.UpgradeSlot) {
-            ci.cancel(); // 拦截升级槽位的原版提示，由 WarehouseRenderer 接管
-            return;
-        }
-
-        var player = Minecraft.getInstance().player;
-        if (player == null || player.getAbilities().instabuild) return;
-
-        PlayerWarehouse wh = ModComponents.get(player).getWarehouse(player.getUUID());
-        if (!wh.isEnabled() || wh.isFolded()) return;
-
-        if (this.hoveredSlot != null && this.hoveredSlot.container == wh) {
-            // 动态定位仓库槽位起始索引
-            int whStart = -1;
-            AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>)(Object)this;
-            for (int i = 0; i < screen.getMenu().slots.size(); i++) {
-                if (screen.getMenu().slots.get(i).container == wh) {
-                    whStart = i;
-                    break;
-                }
-            }
-
-            if (whStart != -1) {
-                int whSlotEnd = whStart + (wh.getVisibleRows() * WarehouseConstants.SLOTS_PER_ROW);
-                
-                if (this.hoveredSlot.index >= whStart && this.hoveredSlot.index < whSlotEnd) {
-                    long realCount = wh.getRealCount(this.hoveredSlot.index - whStart);
-                    if (realCount > 1) {
-                        // 获取原版 Tooltip 列表
-                        List<Component> tooltip = new ArrayList<>(this.getTooltipFromContainerItem(this.hoveredSlot.getItem()));
-                        // 插入数量信息 (使用统一规范：黄色标题，白色数值)
-                        tooltip.add(1, Component.translatable("gui.portablestorage.count", 
-                            Component.literal(String.format("%,d", realCount)).withStyle(ChatFormatting.WHITE)
-                        ).withStyle(ChatFormatting.YELLOW));
-                        // 手动渲染并拦截原版调用，防止重叠
-                        graphics.renderComponentTooltip(Minecraft.getInstance().font, tooltip, x, y);
-                        ci.cancel();
-                    }
-                }
-            }
+        if (TooltipHandler.handleTooltip((AbstractContainerScreen<?>)(Object)this, graphics, this.hoveredSlot, x, y, this::getTooltipFromContainerItem)) {
+            ci.cancel();
         }
     }
 }

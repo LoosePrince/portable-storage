@@ -7,7 +7,8 @@
 		"InventoryScreenMixin",
 		"InventoryScreenCraftingMixin",
 		"AbstractContainerScreenMixin",
-		"AbstractContainerScreenAccessor"
+		"AbstractContainerScreenAccessor",
+		"ScreenAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

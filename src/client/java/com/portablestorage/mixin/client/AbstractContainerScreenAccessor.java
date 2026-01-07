@@ -9,8 +9,17 @@ public interface AbstractContainerScreenAccessor {
     @Accessor("leftPos")
     int portablestorage$getLeftPos();
 
+    @Accessor("leftPos")
+    void portablestorage$setLeftPos(int leftPos);
+
     @Accessor("topPos")
     int portablestorage$getTopPos();
+
+    @Accessor("topPos")
+    void portablestorage$setTopPos(int topPos);
+
+    @Accessor("imageHeight")
+    void portablestorage$setImageHeight(int imageHeight);
 
     @Accessor("hoveredSlot")
     net.minecraft.world.inventory.Slot portablestorage$getHoveredSlot();
