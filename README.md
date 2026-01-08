@@ -17,10 +17,7 @@
 
 <div align="center">
 
-![Minecraft](https://img.shields.io/badge/Minecraft-1.21-00AA00?logo=minecraft)
-![Fabric Loader](https://img.shields.io/badge/Fabric-Loader-7a7a7a?logo=fabric)
 ![Fabric API](https://img.shields.io/badge/Fabric-API-7a7a7a?logo=fabric)
-![Java](https://img.shields.io/badge/Java-21-7a7a7a?logo=java)
 ![GitHub Release](https://img.shields.io/github/v/release/LoosePrince/portable-storage?label=Latest%20Release&logo=github)
 
 </div>
