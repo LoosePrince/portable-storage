@@ -63,6 +63,12 @@ public class WarehouseWidget {
         return warehouse.isEnabled();
     }
 
+    public void refreshPosition() {
+        if (!shouldShow()) return;
+        int rows = warehouse.isFolded() ? 0 : warehouse.getVisibleRows();
+        adjustScreenPosition(rows);
+    }
+
     public void init() {
         if (!shouldShow()) return;
 
@@ -116,17 +122,17 @@ public class WarehouseWidget {
         }
     }
 
-    private void adjustScreenPosition(int rows) {
+    public void adjustScreenPosition(int rows) {
         int xOffset = 0;
         int yOffset = 0;
 
         // 3. “偏移背包界面”配置不应该影响容器界面
-        if (ModConfig.offsetInventory && screen instanceof InventoryScreen) {
+        if (ModConfig.offsetInventory && (screen instanceof InventoryScreen || screen instanceof com.portablestorage.screen.CraftingWarehouseScreen)) {
             StoragePosition pos = ModConfig.storagePosition;
             if (pos.isVertical()) {
                 yOffset = warehouse.isFolded() ? WarehouseConstants.OFFSET_FOLDED : WarehouseConstants.OFFSET_BASE + rows * WarehouseConstants.OFFSET_PER_ROW;
             } else {
-                xOffset = warehouse.isFolded() ? 0 : WarehouseConstants.getWarehouseWidth() / 2;
+                xOffset = warehouse.isFolded() ? 0 : (WarehouseConstants.getWarehouseWidth() + WarehouseConstants.WAREHOUSE_X_SPACING) / 2;
             }
         }
 

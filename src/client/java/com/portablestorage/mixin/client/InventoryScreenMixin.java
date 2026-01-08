@@ -40,6 +40,13 @@ public abstract class InventoryScreenMixin extends EffectRenderingInventoryScree
                 return false;
             });
         }
+
+        // 重新应用偏移，因为 InventoryScreen.init() 会覆盖 leftPos
+        WarehouseScreen screen = (WarehouseScreen) this;
+        var warehouseWidget = screen.portablestorage$getWarehouseWidget();
+        if (warehouseWidget != null) {
+            warehouseWidget.refreshPosition();
+        }
     }
 
     /**
