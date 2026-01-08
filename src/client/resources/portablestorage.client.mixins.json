@@ -8,6 +8,7 @@
 		"InventoryScreenCraftingMixin",
 		"CraftingScreenMixin",
 		"AbstractContainerScreenMixin",
+		"ContainerScreensMixin",
 		"MouseMixin",
 		"AbstractContainerScreenAccessor",
 		"ScreenAccessor"

@@ -49,35 +49,6 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
         if (warehouseWidget != null) warehouseWidget.removed();
     }
 
-    /**
-     * 在 render 方法的 TAIL 注入，绘制仓库背景（在方法返回之前，但在槽位渲染之后）
-     * 注意：排除 InventoryScreen，因为它由 InventoryScreenMixin 处理
-     * 虽然背景会在槽位之后，但至少能显示，覆盖层会在 RETURN 时绘制
-     */
-    @Inject(method = "render", at = @At(value = "TAIL"))
-    private void onRenderTail(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-        // 排除 InventoryScreen，因为它由 InventoryScreenMixin 处理
-        if ((Object)this instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen) return;
-        
-        if (warehouseWidget != null && warehouseWidget.shouldShow()) {
-            warehouseWidget.renderBackground(graphics, mouseX, mouseY);
-        }
-    }
-
-    /**
-     * 在 render 方法返回前注入，绘制覆盖层和文本（在原版槽位高亮之后）
-     * 注意：排除 InventoryScreen，因为它由 InventoryScreenMixin 处理
-     */
-    @Inject(method = "render", at = @At("RETURN"))
-    private void onRenderReturn(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-        // 排除 InventoryScreen，因为它由 InventoryScreenMixin 处理
-        if ((Object)this instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen) return;
-        
-        if (warehouseWidget != null && warehouseWidget.shouldShow()) {
-            warehouseWidget.renderOverlays(graphics, mouseX, mouseY, partialTick);
-        }
-    }
-
     @Inject(method = "renderSlot", at = @At("HEAD"), cancellable = true)
     private void onRenderSlot(GuiGraphics graphics, net.minecraft.world.inventory.Slot slot, CallbackInfo ci) {
         if (slot.container instanceof com.portablestorage.component.PlayerWarehouse || slot instanceof com.portablestorage.upgrade.UpgradeSlot) {
