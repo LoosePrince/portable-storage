@@ -166,12 +166,32 @@ public class WarehouseConstants {
     public static final int QUANTITY_TEXT_X_RELATIVE = 16;
     public static final int QUANTITY_TEXT_Y_RELATIVE = 11;
     public static final int QUANTITY_TEXT_COLOR = 0xFFFFFF;
+    public static final int QUANTITY_TEXT_COLOR_ZERO = 0xFFAAAAAA;
 
     // 颜色
     public static final int SEARCH_BOX_BG_COLOR = 0xFF222222;
     public static final int SEARCH_BOX_BORDER_DARK = 0xFF111111;
     public static final int SEARCH_BOX_BORDER_LIGHT = 0xFF555555;
     
+    // 遮罩与高亮
+    public static final int MASK_WHITE = 0x80FFFFFF;
+    public static final int MASK_YELLOW = 0x50FFFF00;
+
+    // 状态指示灯颜色
+    public static final int STATUS_RED = 0xFFFF0000;
+    public static final int STATUS_RED_BORDER = 0xFF550000;
+    public static final int STATUS_GREEN = 0xFF00FF00;
+    public static final int STATUS_GREEN_BORDER = 0xFF005500;
+    public static final int STATUS_GRAY = 0xFF888888;
+    public static final int STATUS_GRAY_BORDER = 0xFF444444;
+    public static final int AVATAR_BORDER = 0xFF444444;
+
+    // 按钮颜色
+    public static final int BUTTON_HOVER_COLOR = 0xFFAAAAAA;
+    public static final int BUTTON_COLOR = 0xFF888888;
+    public static final int BUTTON_BORDER_LIGHT = 0xFFBBBBBB;
+    public static final int BUTTON_BORDER_DARK = 0xFF444444;
+
     public static final int SCROLLBAR_BG_COLOR = 0xFF333333;
     public static final int SCROLLBAR_THUMB_COLOR = 0xFF888888;
     public static final int SCROLLBAR_THUMB_HOVER_COLOR = 0xFFAAAAAA;

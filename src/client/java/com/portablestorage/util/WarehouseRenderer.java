@@ -19,21 +19,26 @@ public class WarehouseRenderer {
     private static final ResourceLocation WAREHOUSE_GUI_TEXTURE = PortableStorage.id("textures/gui/gui.png");
     private static final ResourceLocation WAREHOUSE_SLOT_TEXTURE = PortableStorage.id("textures/gui/slot.png");
 
-    public static void renderBackground(GuiGraphics graphics, int x, int y, int mouseX, int mouseY, PlayerWarehouse warehouse, Font font) {
+    public static void renderBackground(GuiGraphics graphics, int x, int y, int mouseX, int mouseY,
+            PlayerWarehouse warehouse, Font font) {
         int rows = warehouse.isFolded() ? 0 : warehouse.getVisibleRows();
         int warehouseHeight = WarehouseConstants.WAREHOUSE_TITLE_HEIGHT + rows * WarehouseConstants.SLOT_SIZE;
 
         if (!warehouse.isFolded()) {
             // 绘制统一的仓库背景
-            drawNinePatch(graphics, WAREHOUSE_GUI_TEXTURE, x, y, WarehouseConstants.getWarehouseWidth(), warehouseHeight, WarehouseConstants.WAREHOUSE_CORNER_SIZE);
-            
+            drawNinePatch(graphics, WAREHOUSE_GUI_TEXTURE, x, y, WarehouseConstants.getWarehouseWidth(),
+                    warehouseHeight, WarehouseConstants.WAREHOUSE_CORNER_SIZE);
+
             // 绘制升级槽位和图标
             int upgradeColumnWidth = WarehouseConstants.getUpgradeColumnWidth();
             if (upgradeColumnWidth > 0) {
                 renderSharingStatus(graphics, x, y, warehouse);
-                int upgradeSlotX = x + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X + WarehouseConstants.SLOT_VISUAL_OFFSET;
-                int upgradeSlotY = y + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y + WarehouseConstants.SLOT_VISUAL_OFFSET;
-                List<com.portablestorage.upgrade.UpgradeType> allUpgrades = com.portablestorage.upgrade.UpgradeRegistry.getAllUpgrades();
+                int upgradeSlotX = x + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X
+                        + WarehouseConstants.SLOT_VISUAL_OFFSET;
+                int upgradeSlotY = y + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y
+                        + WarehouseConstants.SLOT_VISUAL_OFFSET;
+                List<com.portablestorage.upgrade.UpgradeType> allUpgrades = com.portablestorage.upgrade.UpgradeRegistry
+                        .getAllUpgrades();
                 int upgradeOffset = warehouse.getUpgradeScrollOffset();
 
                 for (int i = 0; i < rows; i++) {
@@ -42,14 +47,16 @@ public class WarehouseRenderer {
                     if (upgradeIndex < allUpgrades.size()) {
                         int slotY = upgradeSlotY + i * WarehouseConstants.SLOT_SIZE;
                         // 绘制槽位背景
-                        graphics.blit(WAREHOUSE_SLOT_TEXTURE, upgradeSlotX, slotY, 0, 0, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE);
-                        
+                        graphics.blit(WAREHOUSE_SLOT_TEXTURE, upgradeSlotX, slotY, 0, 0, WarehouseConstants.SLOT_SIZE,
+                                WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE,
+                                WarehouseConstants.SLOT_SIZE);
+
                         com.portablestorage.upgrade.UpgradeType type = allUpgrades.get(upgradeIndex);
                         if (warehouse.getUpgrade(type.getId()).isEmpty()) {
                             graphics.pose().pushPose();
                             // 基础层级抬高 100
                             graphics.pose().translate(0, 0, 100);
-                            
+
                             ItemStack iconStack = type.getIconStack();
                             if (!iconStack.isEmpty()) {
                                 // 渲染物品图标
@@ -61,13 +68,14 @@ public class WarehouseRenderer {
                                     graphics.blit(icon, upgradeSlotX + 1, slotY + 1, 0, 0, 16, 16, 16, 16);
                                 }
                             }
-                            
+
                             // 统一在该槽位上方叠加白色半透明遮罩，层级设为 200 确保覆盖物品
                             graphics.pose().pushPose();
                             graphics.pose().translate(0, 0, 200);
-                            graphics.fill(upgradeSlotX + 1, slotY + 1, upgradeSlotX + 17, slotY + 17, 0x80FFFFFF);
+                            graphics.fill(upgradeSlotX + 1, slotY + 1, upgradeSlotX + 17, slotY + 17,
+                                    WarehouseConstants.MASK_WHITE);
                             graphics.pose().popPose();
-                            
+
                             graphics.pose().popPose();
                         }
                     }
@@ -77,19 +85,28 @@ public class WarehouseRenderer {
             // 绘制搜索框背景
             int sbX = x + WarehouseConstants.getSearchBoxXOffset();
             int sbY = y + WarehouseConstants.SEARCH_BOX_Y_OFFSET;
-            graphics.fill(sbX, sbY, sbX + WarehouseConstants.SEARCH_BOX_WIDTH, sbY + WarehouseConstants.SEARCH_BOX_HEIGHT, WarehouseConstants.SEARCH_BOX_BG_COLOR);
-            graphics.fill(sbX, sbY, sbX + WarehouseConstants.SEARCH_BOX_WIDTH, sbY + 1, WarehouseConstants.SEARCH_BOX_BORDER_DARK);
-            graphics.fill(sbX, sbY, sbX + 1, sbY + WarehouseConstants.SEARCH_BOX_HEIGHT, WarehouseConstants.SEARCH_BOX_BORDER_DARK);
-            graphics.fill(sbX, sbY + WarehouseConstants.SEARCH_BOX_HEIGHT - 1, sbX + WarehouseConstants.SEARCH_BOX_WIDTH, sbY + WarehouseConstants.SEARCH_BOX_HEIGHT, WarehouseConstants.SEARCH_BOX_BORDER_LIGHT);
-            graphics.fill(sbX + WarehouseConstants.SEARCH_BOX_WIDTH - 1, sbY, sbX + WarehouseConstants.SEARCH_BOX_WIDTH, sbY + WarehouseConstants.SEARCH_BOX_HEIGHT, WarehouseConstants.SEARCH_BOX_BORDER_LIGHT);
+            graphics.fill(sbX, sbY, sbX + WarehouseConstants.SEARCH_BOX_WIDTH,
+                    sbY + WarehouseConstants.SEARCH_BOX_HEIGHT, WarehouseConstants.SEARCH_BOX_BG_COLOR);
+            graphics.fill(sbX, sbY, sbX + WarehouseConstants.SEARCH_BOX_WIDTH, sbY + 1,
+                    WarehouseConstants.SEARCH_BOX_BORDER_DARK);
+            graphics.fill(sbX, sbY, sbX + 1, sbY + WarehouseConstants.SEARCH_BOX_HEIGHT,
+                    WarehouseConstants.SEARCH_BOX_BORDER_DARK);
+            graphics.fill(sbX, sbY + WarehouseConstants.SEARCH_BOX_HEIGHT - 1,
+                    sbX + WarehouseConstants.SEARCH_BOX_WIDTH, sbY + WarehouseConstants.SEARCH_BOX_HEIGHT,
+                    WarehouseConstants.SEARCH_BOX_BORDER_LIGHT);
+            graphics.fill(sbX + WarehouseConstants.SEARCH_BOX_WIDTH - 1, sbY, sbX + WarehouseConstants.SEARCH_BOX_WIDTH,
+                    sbY + WarehouseConstants.SEARCH_BOX_HEIGHT, WarehouseConstants.SEARCH_BOX_BORDER_LIGHT);
 
-            renderPlusMinusButtons(graphics, font, x + WarehouseConstants.getPlusMinusXOffset(), y + WarehouseConstants.PLUS_MINUS_Y_OFFSET, mouseX, mouseY);
-            
-            int slotStartX = x + WarehouseConstants.getSlotRelativeX() + WarehouseConstants.SLOT_VISUAL_OFFSET; 
+            renderPlusMinusButtons(graphics, font, x + WarehouseConstants.getPlusMinusXOffset(),
+                    y + WarehouseConstants.PLUS_MINUS_Y_OFFSET, mouseX, mouseY);
+
+            int slotStartX = x + WarehouseConstants.getSlotRelativeX() + WarehouseConstants.SLOT_VISUAL_OFFSET;
             int slotStartY = y + WarehouseConstants.SLOT_RELATIVE_Y + WarehouseConstants.SLOT_VISUAL_OFFSET;
             for (int row = 0; row < rows; row++) {
                 for (int col = 0; col < WarehouseConstants.SLOTS_PER_ROW; col++) {
-                    graphics.blit(WAREHOUSE_SLOT_TEXTURE, slotStartX + col * WarehouseConstants.SLOT_SIZE, slotStartY + row * WarehouseConstants.SLOT_SIZE, 0, 0, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE);
+                    graphics.blit(WAREHOUSE_SLOT_TEXTURE, slotStartX + col * WarehouseConstants.SLOT_SIZE,
+                            slotStartY + row * WarehouseConstants.SLOT_SIZE, 0, 0, WarehouseConstants.SLOT_SIZE,
+                            WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE, WarehouseConstants.SLOT_SIZE);
                 }
             }
 
@@ -98,77 +115,105 @@ public class WarehouseRenderer {
         }
     }
 
-    public static void renderUpgradeScrollbar(GuiGraphics graphics, int x, int y, int mouseX, int mouseY, PlayerWarehouse warehouse) {
+    public static void renderUpgradeScrollbar(GuiGraphics graphics, int x, int y, int mouseX, int mouseY,
+            PlayerWarehouse warehouse) {
         int rows = warehouse.getVisibleRows();
-        int scrollbarX = x + WarehouseConstants.UPGRADE_SCROLLBAR_X_OFFSET; 
+        int scrollbarX = x + WarehouseConstants.UPGRADE_SCROLLBAR_X_OFFSET;
         int scrollbarY = y + WarehouseConstants.SCROLLBAR_Y_OFFSET;
         int scrollbarHeight = rows * WarehouseConstants.SLOT_SIZE - WarehouseConstants.SCROLLBAR_PADDING;
-        
+
         int totalUpgrades = com.portablestorage.upgrade.UpgradeRegistry.getUpgradeCount();
         if (scrollbarHeight > 0 && totalUpgrades > rows) {
-            graphics.fill(scrollbarX, scrollbarY, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, scrollbarY + scrollbarHeight, WarehouseConstants.SCROLLBAR_BG_COLOR);
+            graphics.fill(scrollbarX, scrollbarY, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH,
+                    scrollbarY + scrollbarHeight, WarehouseConstants.SCROLLBAR_BG_COLOR);
             int thumbHeight = Math.max(10, (int) (scrollbarHeight * ((float) rows / totalUpgrades)));
             int maxOffset = totalUpgrades - rows;
-            int thumbY = scrollbarY + (warehouse.getUpgradeScrollOffset() * (scrollbarHeight - thumbHeight) / maxOffset);
-            
-            boolean hovered = mouseX >= scrollbarX && mouseX <= scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH && mouseY >= thumbY && mouseY <= thumbY + thumbHeight;
-            int thumbColor = hovered ? WarehouseConstants.SCROLLBAR_THUMB_HOVER_COLOR : WarehouseConstants.SCROLLBAR_THUMB_COLOR;
-            
-            graphics.fill(scrollbarX, thumbY, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, thumbY + thumbHeight, thumbColor);
-            graphics.fill(scrollbarX - 1, thumbY - 1, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, thumbY, WarehouseConstants.SCROLLBAR_BORDER_LIGHT); 
-            graphics.fill(scrollbarX - 1, thumbY, scrollbarX, thumbY + thumbHeight, WarehouseConstants.SCROLLBAR_BORDER_LIGHT); 
-            graphics.fill(scrollbarX, thumbY + thumbHeight, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH + 1, thumbY + thumbHeight + 1, WarehouseConstants.SCROLLBAR_BORDER_DARK); 
-            graphics.fill(scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, thumbY - 1, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH + 1, thumbY + thumbHeight, WarehouseConstants.SCROLLBAR_BORDER_DARK); 
+            int thumbY = scrollbarY
+                    + (warehouse.getUpgradeScrollOffset() * (scrollbarHeight - thumbHeight) / maxOffset);
+
+            boolean hovered = mouseX >= scrollbarX && mouseX <= scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH
+                    && mouseY >= thumbY && mouseY <= thumbY + thumbHeight;
+            int thumbColor = hovered ? WarehouseConstants.SCROLLBAR_THUMB_HOVER_COLOR
+                    : WarehouseConstants.SCROLLBAR_THUMB_COLOR;
+
+            graphics.fill(scrollbarX, thumbY, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, thumbY + thumbHeight,
+                    thumbColor);
+            graphics.fill(scrollbarX - 1, thumbY - 1, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, thumbY,
+                    WarehouseConstants.SCROLLBAR_BORDER_LIGHT);
+            graphics.fill(scrollbarX - 1, thumbY, scrollbarX, thumbY + thumbHeight,
+                    WarehouseConstants.SCROLLBAR_BORDER_LIGHT);
+            graphics.fill(scrollbarX, thumbY + thumbHeight, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH + 1,
+                    thumbY + thumbHeight + 1, WarehouseConstants.SCROLLBAR_BORDER_DARK);
+            graphics.fill(scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, thumbY - 1,
+                    scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH + 1, thumbY + thumbHeight,
+                    WarehouseConstants.SCROLLBAR_BORDER_DARK);
         }
     }
 
-    public static void renderSidebarButtons(GuiGraphics graphics, int foldX, int foldY, int sidebarX, int sidebarY, int mouseX, int mouseY, PlayerWarehouse warehouse) {
+    public static void renderSidebarButtons(GuiGraphics graphics, int foldX, int foldY, int sidebarX, int sidebarY,
+            int mouseX, int mouseY, PlayerWarehouse warehouse, boolean indentSidebar) {
         boolean showShortcuts = com.portablestorage.config.ModConfig.showSmallIcons;
         boolean horizontal = com.portablestorage.config.ModConfig.storagePosition.isHorizontal();
-        
+
         if (warehouse.isFolded()) {
             renderIconButton(graphics, foldX, foldY, WarehouseConstants.ICON_FOLDED, mouseX, mouseY);
         } else {
             renderIconButton(graphics, foldX, foldY, WarehouseConstants.ICON_UNFOLDED, mouseX, mouseY);
-            
+
             int iconSpacing = WarehouseConstants.SIDEBAR_BUTTON_SIZE + WarehouseConstants.SIDEBAR_BUTTON_SPACING;
-            
+            int currentSidebarX = sidebarX;
+            int currentSidebarY = sidebarY;
+
+            // 如果折叠按钮占用了侧边栏第一个位置，我们需要偏移后续按钮
+            if (indentSidebar) {
+                if (horizontal)
+                    currentSidebarX += iconSpacing;
+                else
+                    currentSidebarY += iconSpacing;
+            }
+
             if (showShortcuts) {
                 // 排序模式 (1-4)
-                renderIconButton(graphics, sidebarX, sidebarY, WarehouseConstants.ICON_SORT_MODE_BASE + warehouse.getSortMode(), mouseX, mouseY);
-                
+                renderIconButton(graphics, currentSidebarX, currentSidebarY,
+                        WarehouseConstants.ICON_SORT_MODE_BASE + warehouse.getSortMode(), mouseX, mouseY);
+
                 // 排序顺序 (5/6)
-                int orderIconIndex = warehouse.isAscending() ? WarehouseConstants.ICON_ORDER_ASC : WarehouseConstants.ICON_ORDER_DESC;
-                int ox = horizontal ? sidebarX + iconSpacing : sidebarX;
-                int oy = horizontal ? sidebarY : sidebarY + iconSpacing;
+                int orderIconIndex = warehouse.isAscending() ? WarehouseConstants.ICON_ORDER_ASC
+                        : WarehouseConstants.ICON_ORDER_DESC;
+                int ox = horizontal ? currentSidebarX + iconSpacing : currentSidebarX;
+                int oy = horizontal ? currentSidebarY : currentSidebarY + iconSpacing;
                 renderIconButton(graphics, ox, oy, orderIconIndex, mouseX, mouseY);
-                
+
                 // 快速交互 (9)
-                int qx = horizontal ? sidebarX + iconSpacing * 2 : sidebarX;
-                int qy = horizontal ? sidebarY : sidebarY + iconSpacing * 2;
+                int qx = horizontal ? currentSidebarX + iconSpacing * 2 : currentSidebarX;
+                int qy = horizontal ? currentSidebarY : currentSidebarY + iconSpacing * 2;
                 renderIconButton(graphics, qx, qy, WarehouseConstants.ICON_QUICK_INTERACTION, mouseX, mouseY);
-                
+
                 // 智能折叠 (10/11)
-                int sx = horizontal ? sidebarX + iconSpacing * 3 : sidebarX;
-                int sy = horizontal ? sidebarY : sidebarY + iconSpacing * 3;
-                renderIconButton(graphics, sx, sy, warehouse.isSmartCollapse() ? WarehouseConstants.ICON_SMART_COLLAPSE_ON : WarehouseConstants.ICON_SMART_COLLAPSE_OFF, mouseX, mouseY);
-                
+                int sx = horizontal ? currentSidebarX + iconSpacing * 3 : currentSidebarX;
+                int sy = horizontal ? currentSidebarY : currentSidebarY + iconSpacing * 3;
+                renderIconButton(graphics, sx, sy,
+                        warehouse.isSmartCollapse() ? WarehouseConstants.ICON_SMART_COLLAPSE_ON
+                                : WarehouseConstants.ICON_SMART_COLLAPSE_OFF,
+                        mouseX, mouseY);
+
                 // 合成补充 (7)
-                int rx = horizontal ? sidebarX + iconSpacing * 4 : sidebarX;
-                int ry = horizontal ? sidebarY : sidebarY + iconSpacing * 4;
+                int rx = horizontal ? currentSidebarX + iconSpacing * 4 : currentSidebarX;
+                int ry = horizontal ? currentSidebarY : currentSidebarY + iconSpacing * 4;
                 renderIconButton(graphics, rx, ry, WarehouseConstants.ICON_CRAFT_REFILL, mouseX, mouseY);
             }
 
             // 合成台图标 (14)
             if (!warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
-                int cx = horizontal ? (sidebarX + (showShortcuts ? iconSpacing * 5 : 0)) : sidebarX;
-                int cy = horizontal ? sidebarY : (sidebarY + (showShortcuts ? iconSpacing * 5 : 0));
+                int cx = horizontal ? (currentSidebarX + (showShortcuts ? iconSpacing * 5 : 0)) : currentSidebarX;
+                int cy = horizontal ? currentSidebarY : (currentSidebarY + (showShortcuts ? iconSpacing * 5 : 0));
                 renderIconButton(graphics, cx, cy, WarehouseConstants.ICON_CRAFTING_TABLE, mouseX, mouseY);
             }
         }
     }
 
-    public static void renderSidebarTooltips(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX, int mouseY, PlayerWarehouse warehouse, int imageHeight) {
+    public static void renderSidebarTooltips(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX,
+            int mouseY, PlayerWarehouse warehouse, int imageHeight, boolean indentSidebar) {
         boolean showShortcuts = com.portablestorage.config.ModConfig.showSmallIcons;
         boolean horizontal = com.portablestorage.config.ModConfig.storagePosition.isHorizontal();
         int x = leftPos + WarehouseConstants.getWarehouseXOffset();
@@ -176,6 +221,13 @@ public class WarehouseRenderer {
         int bx = x + WarehouseConstants.getSidebarXOffset();
         int by = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight);
         int iconSpacing = WarehouseConstants.SIDEBAR_BUTTON_SIZE + WarehouseConstants.SIDEBAR_BUTTON_SPACING;
+
+        if (indentSidebar) {
+            if (horizontal)
+                bx += iconSpacing;
+            else
+                by += iconSpacing;
+        }
 
         if (showShortcuts) {
             // 排序模式
@@ -190,9 +242,9 @@ public class WarehouseRenderer {
                     case 3 -> "gui.portablestorage.sort.time";
                     default -> "gui.portablestorage.sort.id";
                 };
-                tooltip.add(Component.translatable("gui.portablestorage.current", 
-                    Component.translatable(modeKey).withStyle(ChatFormatting.WHITE)
-                ).withStyle(ChatFormatting.YELLOW));
+                tooltip.add(Component.translatable("gui.portablestorage.current",
+                        Component.translatable(modeKey).withStyle(ChatFormatting.WHITE))
+                        .withStyle(ChatFormatting.YELLOW));
                 graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
                 return;
             }
@@ -204,10 +256,11 @@ public class WarehouseRenderer {
                 List<Component> tooltip = new ArrayList<>();
                 tooltip.add(Component.translatable("gui.portablestorage.button.sort_order"));
                 tooltip.add(Component.literal(" "));
-                String orderKey = warehouse.isAscending() ? "gui.portablestorage.order.ascending" : "gui.portablestorage.order.descending";
-                tooltip.add(Component.translatable("gui.portablestorage.current", 
-                    Component.translatable(orderKey).withStyle(ChatFormatting.WHITE)
-                ).withStyle(ChatFormatting.YELLOW));
+                String orderKey = warehouse.isAscending() ? "gui.portablestorage.order.ascending"
+                        : "gui.portablestorage.order.descending";
+                tooltip.add(Component.translatable("gui.portablestorage.current",
+                        Component.translatable(orderKey).withStyle(ChatFormatting.WHITE))
+                        .withStyle(ChatFormatting.YELLOW));
                 graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
                 return;
             }
@@ -220,10 +273,10 @@ public class WarehouseRenderer {
                 tooltip.add(Component.translatable("gui.portablestorage.button.quick_interaction"));
                 tooltip.add(Component.literal(" "));
                 boolean on = warehouse.isQuickInteraction();
-                tooltip.add(Component.translatable("gui.portablestorage.current", 
-                    Component.translatable(on ? "gui.portablestorage.on" : "gui.portablestorage.off")
-                        .withStyle(on ? ChatFormatting.GREEN : ChatFormatting.RED)
-                ).withStyle(ChatFormatting.YELLOW));
+                tooltip.add(Component.translatable("gui.portablestorage.current",
+                        Component.translatable(on ? "gui.portablestorage.on" : "gui.portablestorage.off")
+                                .withStyle(on ? ChatFormatting.GREEN : ChatFormatting.RED))
+                        .withStyle(ChatFormatting.YELLOW));
                 graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
                 return;
             }
@@ -236,10 +289,10 @@ public class WarehouseRenderer {
                 tooltip.add(Component.translatable("gui.portablestorage.button.smart_collapse"));
                 tooltip.add(Component.literal(" "));
                 boolean on = warehouse.isSmartCollapse();
-                tooltip.add(Component.translatable("gui.portablestorage.current", 
-                    Component.translatable(on ? "gui.portablestorage.on" : "gui.portablestorage.off")
-                        .withStyle(on ? ChatFormatting.GREEN : ChatFormatting.RED)
-                ).withStyle(ChatFormatting.YELLOW));
+                tooltip.add(Component.translatable("gui.portablestorage.current",
+                        Component.translatable(on ? "gui.portablestorage.on" : "gui.portablestorage.off")
+                                .withStyle(on ? ChatFormatting.GREEN : ChatFormatting.RED))
+                        .withStyle(ChatFormatting.YELLOW));
                 graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
                 return;
             }
@@ -252,10 +305,10 @@ public class WarehouseRenderer {
                 tooltip.add(Component.translatable("gui.portablestorage.button.craft_refill"));
                 tooltip.add(Component.literal(" "));
                 boolean on = warehouse.isCraftRefill();
-                tooltip.add(Component.translatable("gui.portablestorage.current", 
-                    Component.translatable(on ? "gui.portablestorage.on" : "gui.portablestorage.off")
-                        .withStyle(on ? ChatFormatting.GREEN : ChatFormatting.RED)
-                ).withStyle(ChatFormatting.YELLOW));
+                tooltip.add(Component.translatable("gui.portablestorage.current",
+                        Component.translatable(on ? "gui.portablestorage.on" : "gui.portablestorage.off")
+                                .withStyle(on ? ChatFormatting.GREEN : ChatFormatting.RED))
+                        .withStyle(ChatFormatting.YELLOW));
                 graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
                 return;
             }
@@ -266,59 +319,58 @@ public class WarehouseRenderer {
             int craftingX = horizontal ? (bx + (showShortcuts ? iconSpacing * 5 : 0)) : bx;
             int craftingY = horizontal ? by : (by + (showShortcuts ? iconSpacing * 5 : 0));
             if (mouseX >= craftingX && mouseX < craftingX + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
-            boolean isCrafting = net.minecraft.client.Minecraft.getInstance().screen instanceof com.portablestorage.screen.CraftingWarehouseScreen;
-            List<Component> tooltip = new ArrayList<>();
-            tooltip.add(Component.translatable(isCrafting ? "gui.portablestorage.button.back" : "gui.portablestorage.button.open_crafting"));
-            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
-            return;
+                boolean isCrafting = net.minecraft.client.Minecraft
+                        .getInstance().screen instanceof com.portablestorage.screen.CraftingWarehouseScreen;
+                List<Component> tooltip = new ArrayList<>();
+                tooltip.add(Component.translatable(
+                        isCrafting ? "gui.portablestorage.button.back" : "gui.portablestorage.button.open_crafting"));
+                graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+                return;
             }
         }
     }
 
-    public static void renderFoldTooltip(GuiGraphics graphics, Font font, int mouseX, int mouseY, PlayerWarehouse warehouse) {
+    public static void renderFoldTooltip(GuiGraphics graphics, Font font, int mouseX, int mouseY,
+            PlayerWarehouse warehouse) {
         List<Component> tooltip = new ArrayList<>();
-        tooltip.add(Component.translatable(warehouse.isFolded() ? "gui.portablestorage.button.unfold" : "gui.portablestorage.button.fold"));
+        tooltip.add(Component.translatable(
+                warehouse.isFolded() ? "gui.portablestorage.button.unfold" : "gui.portablestorage.button.fold"));
         tooltip.add(Component.literal(" "));
-        tooltip.add(Component.translatable("gui.portablestorage.button.settings_hint").withStyle(ChatFormatting.DARK_GRAY));
+        tooltip.add(
+                Component.translatable("gui.portablestorage.button.settings_hint").withStyle(ChatFormatting.DARK_GRAY));
         graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
     }
 
-    public static void renderAllTooltips(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX, int mouseY, PlayerWarehouse warehouse, int imageHeight) {
-        // 检查折叠按钮 tooltip（支持合成界面的特殊位置）
-        net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
-        int foldButtonX, foldButtonY;
-        if (minecraft.screen instanceof com.portablestorage.screen.CraftingWarehouseScreen) {
-            foldButtonX = leftPos + 84; // CRAFT_FOLD_X
-            foldButtonY = topPos + 53; // CRAFT_FOLD_Y
-        } else {
-            foldButtonX = leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
-            foldButtonY = topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
-        }
-        
-        if (mouseX >= foldButtonX && mouseX < foldButtonX + 18 && mouseY >= foldButtonY && mouseY < foldButtonY + 18) {
+    public static void renderAllTooltips(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX,
+            int mouseY, PlayerWarehouse warehouse, int imageHeight, int foldX, int foldY, boolean indentSidebar) {
+        // 检查折叠按钮 tooltip
+        if (mouseX >= foldX && mouseX < foldX + 18 && mouseY >= foldY && mouseY < foldY + 18) {
             renderFoldTooltip(graphics, font, mouseX, mouseY, warehouse);
             return;
         }
 
-        if (warehouse.isFolded()) return;
-        
+        if (warehouse.isFolded())
+            return;
+
         // 渲染共享状态提示
         renderStatusTooltip(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse, imageHeight);
 
         // 渲染升级槽位提示
         renderUpgradeTooltips(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse, imageHeight);
-        
-        renderSidebarTooltips(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse, imageHeight);
+
+        renderSidebarTooltips(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse, imageHeight, indentSidebar);
     }
 
-    public static void renderUpgradeTooltips(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX, int mouseY, PlayerWarehouse warehouse, int imageHeight) {
+    public static void renderUpgradeTooltips(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX,
+            int mouseY, PlayerWarehouse warehouse, int imageHeight) {
         int x = leftPos + WarehouseConstants.getWarehouseXOffset();
         int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight);
         int upgradeSlotX = x + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X;
         int upgradeSlotY = y + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y;
         int rows = warehouse.getVisibleRows();
-        
-        List<com.portablestorage.upgrade.UpgradeType> allUpgrades = com.portablestorage.upgrade.UpgradeRegistry.getAllUpgrades();
+
+        List<com.portablestorage.upgrade.UpgradeType> allUpgrades = com.portablestorage.upgrade.UpgradeRegistry
+                .getAllUpgrades();
         int upgradeOffset = warehouse.getUpgradeScrollOffset();
 
         for (int i = 0; i < rows; i++) {
@@ -328,17 +380,18 @@ public class WarehouseRenderer {
                 if (upgradeIndex < allUpgrades.size()) {
                     com.portablestorage.upgrade.UpgradeType type = allUpgrades.get(upgradeIndex);
                     ItemStack stack = warehouse.getUpgrade(type.getId());
-                    
+
                     List<Component> finalTooltip = new ArrayList<>();
                     if (!stack.isEmpty()) {
                         // 如果有物品，先获取物品的原版提示
-                        finalTooltip.addAll(net.minecraft.client.gui.screens.Screen.getTooltipFromItem(net.minecraft.client.Minecraft.getInstance(), stack));
+                        finalTooltip.addAll(net.minecraft.client.gui.screens.Screen
+                                .getTooltipFromItem(net.minecraft.client.Minecraft.getInstance(), stack));
                         finalTooltip.add(Component.literal(" ")); // 分隔符
                     }
-                    
+
                     // 添加升级自定义提示
                     finalTooltip.addAll(type.getTooltip(warehouse, stack));
-                    
+
                     if (!finalTooltip.isEmpty()) {
                         graphics.renderComponentTooltip(font, finalTooltip, mouseX, mouseY);
                     }
@@ -348,32 +401,46 @@ public class WarehouseRenderer {
         }
     }
 
-    public static void renderScrollbar(GuiGraphics graphics, int x, int y, int mouseX, int mouseY, PlayerWarehouse warehouse) {
+    public static void renderScrollbar(GuiGraphics graphics, int x, int y, int mouseX, int mouseY,
+            PlayerWarehouse warehouse) {
         int rows = warehouse.getVisibleRows();
-        int scrollbarX = x + WarehouseConstants.getScrollbarXOffset(); 
+        int scrollbarX = x + WarehouseConstants.getScrollbarXOffset();
         int scrollbarY = y + WarehouseConstants.SCROLLBAR_Y_OFFSET;
         int scrollbarHeight = rows * WarehouseConstants.SLOT_SIZE - WarehouseConstants.SCROLLBAR_PADDING;
-        
+
         if (scrollbarHeight > 0) {
-            graphics.fill(scrollbarX, scrollbarY, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, scrollbarY + scrollbarHeight, WarehouseConstants.SCROLLBAR_BG_COLOR);
+            graphics.fill(scrollbarX, scrollbarY, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH,
+                    scrollbarY + scrollbarHeight, WarehouseConstants.SCROLLBAR_BG_COLOR);
             int totalRows = (int) Math.ceil(warehouse.getSortedEntries().size() / 9.0);
-            int thumbHeight = (totalRows <= rows) ? scrollbarHeight : Math.max(10, (int) (scrollbarHeight * ((float) rows / totalRows)));
+            int thumbHeight = (totalRows <= rows) ? scrollbarHeight
+                    : Math.max(10, (int) (scrollbarHeight * ((float) rows / totalRows)));
             int maxOffset = Math.max(0, totalRows - rows);
-            int thumbY = scrollbarY + (maxOffset == 0 ? 0 : (warehouse.getScrollOffset() * (scrollbarHeight - thumbHeight) / maxOffset));
-            
-            boolean hovered = mouseX >= scrollbarX && mouseX <= scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH && mouseY >= thumbY && mouseY <= thumbY + thumbHeight;
-            int thumbColor = hovered ? WarehouseConstants.SCROLLBAR_THUMB_HOVER_COLOR : WarehouseConstants.SCROLLBAR_THUMB_COLOR;
-            
-            graphics.fill(scrollbarX, thumbY, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, thumbY + thumbHeight, thumbColor);
-            graphics.fill(scrollbarX - 1, thumbY - 1, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, thumbY, WarehouseConstants.SCROLLBAR_BORDER_LIGHT); 
-            graphics.fill(scrollbarX - 1, thumbY, scrollbarX, thumbY + thumbHeight, WarehouseConstants.SCROLLBAR_BORDER_LIGHT); 
-            graphics.fill(scrollbarX, thumbY + thumbHeight, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH + 1, thumbY + thumbHeight + 1, WarehouseConstants.SCROLLBAR_BORDER_DARK); 
-            graphics.fill(scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, thumbY - 1, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH + 1, thumbY + thumbHeight, WarehouseConstants.SCROLLBAR_BORDER_DARK); 
+            int thumbY = scrollbarY + (maxOffset == 0 ? 0
+                    : (warehouse.getScrollOffset() * (scrollbarHeight - thumbHeight) / maxOffset));
+
+            boolean hovered = mouseX >= scrollbarX && mouseX <= scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH
+                    && mouseY >= thumbY && mouseY <= thumbY + thumbHeight;
+            int thumbColor = hovered ? WarehouseConstants.SCROLLBAR_THUMB_HOVER_COLOR
+                    : WarehouseConstants.SCROLLBAR_THUMB_COLOR;
+
+            graphics.fill(scrollbarX, thumbY, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, thumbY + thumbHeight,
+                    thumbColor);
+            graphics.fill(scrollbarX - 1, thumbY - 1, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, thumbY,
+                    WarehouseConstants.SCROLLBAR_BORDER_LIGHT);
+            graphics.fill(scrollbarX - 1, thumbY, scrollbarX, thumbY + thumbHeight,
+                    WarehouseConstants.SCROLLBAR_BORDER_LIGHT);
+            graphics.fill(scrollbarX, thumbY + thumbHeight, scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH + 1,
+                    thumbY + thumbHeight + 1, WarehouseConstants.SCROLLBAR_BORDER_DARK);
+            graphics.fill(scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH, thumbY - 1,
+                    scrollbarX + WarehouseConstants.SCROLLBAR_WIDTH + 1, thumbY + thumbHeight,
+                    WarehouseConstants.SCROLLBAR_BORDER_DARK);
         }
     }
 
-    public static void renderQuantityTexts(GuiGraphics graphics, Font font, int leftPos, int topPos, PlayerWarehouse warehouse, int imageHeight) {
-        if (warehouse.isFolded()) return;
+    public static void renderQuantityTexts(GuiGraphics graphics, Font font, int leftPos, int topPos,
+            PlayerWarehouse warehouse, int imageHeight) {
+        if (warehouse.isFolded())
+            return;
         int startX = leftPos + WarehouseConstants.getSlotLogicX();
         int startY = topPos + WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows(), imageHeight);
 
@@ -382,71 +449,92 @@ public class WarehouseRenderer {
             // 1. 正常渲染：数量 > 1
             // 2. 静态锁定模式：如果该槽位原本有物品（getItem 不为空）且当前数量为 0，则显示灰色的 0
             boolean shouldShowZero = count == 0 && warehouse.isFrozen() && !warehouse.getItem(i).isEmpty();
-            
-            if (count > 1 || shouldShowZero) { 
+
+            if (count > 1 || shouldShowZero) {
                 String countStr = WarehouseUtils.formatCount(count);
                 int row = i / 9;
                 int col = i % 9;
                 graphics.pose().pushPose();
                 graphics.pose().translate(0, 0, WarehouseConstants.QUANTITY_TEXT_Z_OFFSET);
                 float scale = WarehouseConstants.QUANTITY_TEXT_SCALE;
-                int textX = startX + col * WarehouseConstants.SLOT_SIZE + WarehouseConstants.QUANTITY_TEXT_X_RELATIVE - (int)(font.width(countStr) * scale);
+                int textX = startX + col * WarehouseConstants.SLOT_SIZE + WarehouseConstants.QUANTITY_TEXT_X_RELATIVE
+                        - (int) (font.width(countStr) * scale);
                 int textY = startY + row * WarehouseConstants.SLOT_SIZE + WarehouseConstants.QUANTITY_TEXT_Y_RELATIVE;
                 graphics.pose().translate(textX, textY, 0);
                 graphics.pose().scale(scale, scale, 1.0f);
-                
-                int color = shouldShowZero ? 0xFFAAAAAA : WarehouseConstants.QUANTITY_TEXT_COLOR;
+
+                int color = shouldShowZero ? WarehouseConstants.QUANTITY_TEXT_COLOR_ZERO
+                        : WarehouseConstants.QUANTITY_TEXT_COLOR;
                 graphics.drawString(font, countStr, 0, 0, color, true);
                 graphics.pose().popPose();
             }
         }
     }
 
-    public static void drawNinePatch(GuiGraphics graphics, ResourceLocation texture, int x, int y, int width, int height, int cornerSize) {
+    public static void drawNinePatch(GuiGraphics graphics, ResourceLocation texture, int x, int y, int width,
+            int height, int cornerSize) {
         int textureSize = WarehouseConstants.GUI_TEXTURE_SIZE;
         int centerSize = textureSize - cornerSize * 2;
         int targetCenterWidth = width - cornerSize * 2;
         int targetCenterHeight = height - cornerSize * 2;
         graphics.blit(texture, x, y, 0, 0, cornerSize, cornerSize, textureSize, textureSize);
-        graphics.blit(texture, x + width - cornerSize, y, textureSize - cornerSize, 0, cornerSize, cornerSize, textureSize, textureSize);
-        graphics.blit(texture, x, y + height - cornerSize, 0, textureSize - cornerSize, cornerSize, cornerSize, textureSize, textureSize);
-        graphics.blit(texture, x + width - cornerSize, y + height - cornerSize, textureSize - cornerSize, textureSize - cornerSize, cornerSize, cornerSize, textureSize, textureSize);
-        graphics.blit(texture, x + cornerSize, y, targetCenterWidth, cornerSize, cornerSize, 0, centerSize, cornerSize, textureSize, textureSize);
-        graphics.blit(texture, x + cornerSize, y + height - cornerSize, targetCenterWidth, cornerSize, cornerSize, textureSize - cornerSize, centerSize, cornerSize, textureSize, textureSize);
-        graphics.blit(texture, x, y + cornerSize, cornerSize, targetCenterHeight, 0, cornerSize, cornerSize, centerSize, textureSize, textureSize);
-        graphics.blit(texture, x + width - cornerSize, y + cornerSize, cornerSize, targetCenterHeight, textureSize - cornerSize, cornerSize, cornerSize, centerSize, textureSize, textureSize);
-        graphics.blit(texture, x + cornerSize, y + cornerSize, targetCenterWidth, targetCenterHeight, cornerSize, cornerSize, centerSize, centerSize, textureSize, textureSize);
+        graphics.blit(texture, x + width - cornerSize, y, textureSize - cornerSize, 0, cornerSize, cornerSize,
+                textureSize, textureSize);
+        graphics.blit(texture, x, y + height - cornerSize, 0, textureSize - cornerSize, cornerSize, cornerSize,
+                textureSize, textureSize);
+        graphics.blit(texture, x + width - cornerSize, y + height - cornerSize, textureSize - cornerSize,
+                textureSize - cornerSize, cornerSize, cornerSize, textureSize, textureSize);
+        graphics.blit(texture, x + cornerSize, y, targetCenterWidth, cornerSize, cornerSize, 0, centerSize, cornerSize,
+                textureSize, textureSize);
+        graphics.blit(texture, x + cornerSize, y + height - cornerSize, targetCenterWidth, cornerSize, cornerSize,
+                textureSize - cornerSize, centerSize, cornerSize, textureSize, textureSize);
+        graphics.blit(texture, x, y + cornerSize, cornerSize, targetCenterHeight, 0, cornerSize, cornerSize, centerSize,
+                textureSize, textureSize);
+        graphics.blit(texture, x + width - cornerSize, y + cornerSize, cornerSize, targetCenterHeight,
+                textureSize - cornerSize, cornerSize, cornerSize, centerSize, textureSize, textureSize);
+        graphics.blit(texture, x + cornerSize, y + cornerSize, targetCenterWidth, targetCenterHeight, cornerSize,
+                cornerSize, centerSize, centerSize, textureSize, textureSize);
     }
 
     public static void renderIconButton(GuiGraphics graphics, int x, int y, int iconIndex, int mouseX, int mouseY) {
         int u = (iconIndex % 5) * WarehouseConstants.ICON_SIZE;
         int v = (iconIndex / 5) * WarehouseConstants.ICON_SIZE;
-        graphics.blit(WAREHOUSE_ICON_TEXTURE, x + 1, y + 1, u, v, WarehouseConstants.ICON_SIZE, WarehouseConstants.ICON_SIZE, WarehouseConstants.ICON_TEXTURE_WIDTH, WarehouseConstants.ICON_TEXTURE_HEIGHT);
+        graphics.blit(WAREHOUSE_ICON_TEXTURE, x + 1, y + 1, u, v, WarehouseConstants.ICON_SIZE,
+                WarehouseConstants.ICON_SIZE, WarehouseConstants.ICON_TEXTURE_WIDTH,
+                WarehouseConstants.ICON_TEXTURE_HEIGHT);
     }
 
     public static void renderPlusMinusButtons(GuiGraphics graphics, Font font, int x, int y, int mouseX, int mouseY) {
         renderTinyButton(graphics, font, x, y, "-", mouseX, mouseY);
-        renderTinyButton(graphics, font, x + WarehouseConstants.TINY_BUTTON_SIZE + WarehouseConstants.TINY_BUTTON_SPACING, y, "+", mouseX, mouseY);
+        renderTinyButton(graphics, font,
+                x + WarehouseConstants.TINY_BUTTON_SIZE + WarehouseConstants.TINY_BUTTON_SPACING, y, "+", mouseX,
+                mouseY);
     }
 
-    public static void renderTinyButton(GuiGraphics graphics, Font font, int x, int y, String text, int mouseX, int mouseY) {
-        boolean hovered = mouseX >= x && mouseX < x + WarehouseConstants.TINY_BUTTON_SIZE && mouseY >= y && mouseY < y + WarehouseConstants.TINY_BUTTON_SIZE;
-        int color = hovered ? 0xFFAAAAAA : 0xFF888888;
+    public static void renderTinyButton(GuiGraphics graphics, Font font, int x, int y, String text, int mouseX,
+            int mouseY) {
+        boolean hovered = mouseX >= x && mouseX < x + WarehouseConstants.TINY_BUTTON_SIZE && mouseY >= y
+                && mouseY < y + WarehouseConstants.TINY_BUTTON_SIZE;
+        int color = hovered ? WarehouseConstants.BUTTON_HOVER_COLOR : WarehouseConstants.BUTTON_COLOR;
         graphics.fill(x, y, x + WarehouseConstants.TINY_BUTTON_SIZE, y + WarehouseConstants.TINY_BUTTON_SIZE, color);
-        graphics.fill(x - 1, y - 1, x + WarehouseConstants.TINY_BUTTON_SIZE, y, 0xFFBBBBBB); 
-        graphics.fill(x - 1, y, x, y + WarehouseConstants.TINY_BUTTON_SIZE, 0xFFBBBBBB); 
-        graphics.fill(x, y + WarehouseConstants.TINY_BUTTON_SIZE, x + WarehouseConstants.TINY_BUTTON_SIZE + 1, y + WarehouseConstants.TINY_BUTTON_SIZE + 1, 0xFF444444); 
-        graphics.fill(x + WarehouseConstants.TINY_BUTTON_SIZE, y - 1, x + WarehouseConstants.TINY_BUTTON_SIZE + 1, y + WarehouseConstants.TINY_BUTTON_SIZE, 0xFF444444); 
+        graphics.fill(x - 1, y - 1, x + WarehouseConstants.TINY_BUTTON_SIZE, y, WarehouseConstants.BUTTON_BORDER_LIGHT);
+        graphics.fill(x - 1, y, x, y + WarehouseConstants.TINY_BUTTON_SIZE, WarehouseConstants.BUTTON_BORDER_LIGHT);
+        graphics.fill(x, y + WarehouseConstants.TINY_BUTTON_SIZE, x + WarehouseConstants.TINY_BUTTON_SIZE + 1,
+                y + WarehouseConstants.TINY_BUTTON_SIZE + 1, WarehouseConstants.BUTTON_BORDER_DARK);
+        graphics.fill(x + WarehouseConstants.TINY_BUTTON_SIZE, y - 1, x + WarehouseConstants.TINY_BUTTON_SIZE + 1,
+                y + WarehouseConstants.TINY_BUTTON_SIZE, WarehouseConstants.BUTTON_BORDER_DARK);
         int textX = x + (WarehouseConstants.TINY_BUTTON_SIZE / 2) - font.width(text) / 2 + 1;
         int textY = y + 2;
         graphics.drawString(font, text, textX, textY, 0xFFFFFF, false);
     }
 
-    public static void renderPinnedOverlays(GuiGraphics graphics, int leftPos, int topPos, PlayerWarehouse warehouse, int imageHeight) {
-        if (warehouse.isFolded()) return;
+    public static void renderPinnedOverlays(GuiGraphics graphics, int leftPos, int topPos, PlayerWarehouse warehouse,
+            int imageHeight) {
+        if (warehouse.isFolded())
+            return;
         int startX = leftPos + WarehouseConstants.getSlotLogicX();
         int startY = topPos + WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows(), imageHeight);
-        
+
         List<com.portablestorage.component.WarehouseEntry> sorted = warehouse.getSortedEntries();
         int visibleSlots = warehouse.getVisibleRows() * 9;
         int scrollOffset = warehouse.getScrollOffset() * 9;
@@ -461,7 +549,7 @@ public class WarehouseRenderer {
                     int y = startY + row * WarehouseConstants.SLOT_SIZE;
                     // 渲染半透明黄色覆盖层 (0x80FFFF00)
                     // 偏移 1 像素以覆盖物品渲染区域 (16x16)
-                    graphics.fill(x, y, x + 16, y + 16, 0x50FFFF00);
+                    graphics.fill(x, y, x + 16, y + 16, WarehouseConstants.MASK_YELLOW);
                 }
             }
         }
@@ -475,7 +563,8 @@ public class WarehouseRenderer {
         int borderColor;
 
         boolean hasBarrel = !warehouse.getUpgrade(com.portablestorage.upgrade.BarrelUpgrade.ID).isEmpty();
-        boolean isFull = warehouse.getEffectiveType() == com.portablestorage.component.PlayerWarehouse.WarehouseType.FULL;
+        boolean isFull = warehouse
+                .getEffectiveType() == com.portablestorage.component.PlayerWarehouse.WarehouseType.FULL;
         List<PlayerWarehouse> group = warehouse.getSharedGroupWarehouses();
         boolean isShared = group.size() > 1;
 
@@ -483,15 +572,15 @@ public class WarehouseRenderer {
         boolean hasConflict = warehouse.isSharingConflict();
 
         if ((hasBarrel && !isFull) || hasConflict) {
-            pointColor = 0xFFFF0000; // 红色：有问题
-            borderColor = 0xFF550000;
+            pointColor = WarehouseConstants.STATUS_RED; // 红色：有问题
+            borderColor = WarehouseConstants.STATUS_RED_BORDER;
         } else if (isShared) {
-            pointColor = 0xFF00FF00; // 绿色：共享中
-            borderColor = 0xFF005500;
+            pointColor = WarehouseConstants.STATUS_GREEN; // 绿色：共享中
+            borderColor = WarehouseConstants.STATUS_GREEN_BORDER;
             statusX -= 6; // 共享时向左移动 6px
         } else {
-            pointColor = 0xFF888888; // 灰色：未共享
-            borderColor = 0xFF444444;
+            pointColor = WarehouseConstants.STATUS_GRAY; // 灰色：未共享
+            borderColor = WarehouseConstants.STATUS_GRAY_BORDER;
         }
 
         // 绘制 1px 外描边 (4x4 区域)
@@ -507,25 +596,30 @@ public class WarehouseRenderer {
         if (isShared) {
             int avatarX = statusX + 5;
             int count = 0;
-            UUID localPlayerUuid = net.minecraft.client.Minecraft.getInstance().player != null ? net.minecraft.client.Minecraft.getInstance().player.getUUID() : null;
+            UUID localPlayerUuid = net.minecraft.client.Minecraft.getInstance().player != null
+                    ? net.minecraft.client.Minecraft.getInstance().player.getUUID()
+                    : null;
 
             // 为了让“右侧叠在左侧上”，我们按顺序绘制即可，后绘制的会盖在先绘制的上面
             for (PlayerWarehouse pw : group) {
-                if (pw.getOwnerUuid().equals(localPlayerUuid)) continue; // 跳过本地玩家
+                if (pw.getOwnerUuid().equals(localPlayerUuid))
+                    continue; // 跳过本地玩家
 
                 // 头像放大 2px (从 6 到 8)，重叠 4px (盖住右半边)
                 renderPlayerFace(graphics, pw.getOwnerUuid(), avatarX + count * 4, statusY - 3, 8);
                 count++;
-                if (count >= 3) break;
+                if (count >= 3)
+                    break;
             }
         }
     }
 
     private static void renderPlayerFace(GuiGraphics graphics, UUID uuid, int x, int y, int size) {
         // 1px 灰色描边 (0xFF444444)
-        graphics.fill(x - 1, y - 1, x + size + 1, y + size + 1, 0xFF444444);
+        graphics.fill(x - 1, y - 1, x + size + 1, y + size + 1, WarehouseConstants.AVATAR_BORDER);
 
-        net.minecraft.client.resources.PlayerSkin skin = net.minecraft.client.Minecraft.getInstance().getSkinManager().getInsecureSkin(new GameProfile(uuid, ""));
+        net.minecraft.client.resources.PlayerSkin skin = net.minecraft.client.Minecraft.getInstance().getSkinManager()
+                .getInsecureSkin(new GameProfile(uuid, ""));
         ResourceLocation texture = skin.texture();
 
         // 渲染内层脸部 (8, 8, 8, 8)
@@ -534,8 +628,10 @@ public class WarehouseRenderer {
         graphics.blit(texture, x, y, size, size, 40.0f, 8.0f, 8, 8, 64, 64);
     }
 
-    public static boolean isOverSharingStatus(double mouseX, double mouseY, int leftPos, int topPos, PlayerWarehouse warehouse, int imageHeight) {
-        if (WarehouseConstants.getUpgradeColumnWidth() <= 0) return false;
+    public static boolean isOverSharingStatus(double mouseX, double mouseY, int leftPos, int topPos,
+            PlayerWarehouse warehouse, int imageHeight) {
+        if (WarehouseConstants.getUpgradeColumnWidth() <= 0)
+            return false;
 
         int x = leftPos + WarehouseConstants.getWarehouseXOffset();
         int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight);
@@ -552,14 +648,16 @@ public class WarehouseRenderer {
         return mouseX >= statusX - 1 && mouseX < statusX + hitWidth && mouseY >= statusY - 1 && mouseY < statusY + 3;
     }
 
-    public static void renderStatusTooltip(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX, int mouseY, PlayerWarehouse warehouse, int imageHeight) {
+    public static void renderStatusTooltip(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX,
+            int mouseY, PlayerWarehouse warehouse, int imageHeight) {
         if (isOverSharingStatus(mouseX, mouseY, leftPos, topPos, warehouse, imageHeight)) {
             List<Component> tooltip = new ArrayList<>();
             tooltip.add(Component.translatable("gui.portablestorage.status.title"));
             tooltip.add(Component.literal(" "));
-            
+
             boolean hasBarrel = !warehouse.getUpgrade(com.portablestorage.upgrade.BarrelUpgrade.ID).isEmpty();
-            boolean isFull = warehouse.getEffectiveType() == com.portablestorage.component.PlayerWarehouse.WarehouseType.FULL;
+            boolean isFull = warehouse
+                    .getEffectiveType() == com.portablestorage.component.PlayerWarehouse.WarehouseType.FULL;
             List<PlayerWarehouse> group = warehouse.getSharedGroupWarehouses();
             boolean isShared = group.size() > 1;
             boolean hasConflict = warehouse.isSharingConflict();
@@ -571,16 +669,20 @@ public class WarehouseRenderer {
                 tooltip.add(Component.translatable("gui.portablestorage.status.conflict.desc"));
             } else if (isShared) {
                 tooltip.add(Component.translatable("gui.portablestorage.status.shared"));
-                
+
                 // 显示共享组内玩家列表
                 tooltip.add(Component.literal(" "));
-                tooltip.add(Component.translatable("gui.portablestorage.status.shared_with", group.size() - 1).withStyle(ChatFormatting.GRAY));
-                
+                tooltip.add(Component.translatable("gui.portablestorage.status.shared_with", group.size() - 1)
+                        .withStyle(ChatFormatting.GRAY));
+
                 int count = 0;
-                UUID localPlayerUuid = net.minecraft.client.Minecraft.getInstance().player != null ? net.minecraft.client.Minecraft.getInstance().player.getUUID() : null;
+                UUID localPlayerUuid = net.minecraft.client.Minecraft.getInstance().player != null
+                        ? net.minecraft.client.Minecraft.getInstance().player.getUUID()
+                        : null;
                 for (PlayerWarehouse pw : group) {
                     UUID uuid = pw.getOwnerUuid();
-                    if (uuid.equals(localPlayerUuid)) continue;
+                    if (uuid.equals(localPlayerUuid))
+                        continue;
 
                     if (count >= 5) {
                         tooltip.add(Component.literal("  ...").withStyle(ChatFormatting.DARK_GRAY));
@@ -597,9 +699,10 @@ public class WarehouseRenderer {
                             isOnline = true;
                         }
                     }
-                    
+
                     ChatFormatting nameColor = isOnline ? ChatFormatting.WHITE : ChatFormatting.GRAY;
-                    tooltip.add(Component.literal("  - ").withStyle(ChatFormatting.DARK_GRAY).append(Component.literal(name).withStyle(nameColor)));
+                    tooltip.add(Component.literal("  - ").withStyle(ChatFormatting.DARK_GRAY)
+                            .append(Component.literal(name).withStyle(nameColor)));
                     count++;
                 }
             } else {
