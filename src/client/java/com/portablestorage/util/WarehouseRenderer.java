@@ -284,16 +284,20 @@ public class WarehouseRenderer {
     }
 
     public static void renderAllTooltips(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX, int mouseY, PlayerWarehouse warehouse, int imageHeight) {
-        int foldButtonX = leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
-        int foldButtonY = topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
+        // 检查折叠按钮 tooltip（支持合成界面的特殊位置）
+        net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
+        int foldButtonX, foldButtonY;
+        if (minecraft.screen instanceof com.portablestorage.screen.CraftingWarehouseScreen) {
+            foldButtonX = leftPos + 84; // CRAFT_FOLD_X
+            foldButtonY = topPos + 53; // CRAFT_FOLD_Y
+        } else {
+            foldButtonX = leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
+            foldButtonY = topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
+        }
         
-        // 如果是自定义合成界面，折叠按钮位置不同，这里做一个简单的范围判定或特殊处理
-        // 或者让调用者确保只在合适的时候调用
         if (mouseX >= foldButtonX && mouseX < foldButtonX + 18 && mouseY >= foldButtonY && mouseY < foldButtonY + 18) {
-            if (net.minecraft.client.Minecraft.getInstance().screen instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen) {
-                renderFoldTooltip(graphics, font, mouseX, mouseY, warehouse);
-                return;
-            }
+            renderFoldTooltip(graphics, font, mouseX, mouseY, warehouse);
+            return;
         }
 
         if (warehouse.isFolded()) return;

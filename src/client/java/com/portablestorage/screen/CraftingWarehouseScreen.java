@@ -1,118 +1,21 @@
 package com.portablestorage.screen;
 
-import com.portablestorage.config.YACLConfig;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
-import com.portablestorage.config.ModConfig;
-import com.portablestorage.network.*;
 import com.portablestorage.util.WarehouseConstants;
-import com.portablestorage.util.WarehouseRenderer;
-import com.portablestorage.util.WarehouseSetting;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.resources.ResourceLocation;
-
-import java.util.Optional;
-import java.util.List;
 
 public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWarehouseScreenHandler> {
     private static final ResourceLocation CRAFTING_TABLE_TEXTURE = ResourceLocation.withDefaultNamespace("textures/gui/container/crafting_table.png");
-    private EditBox searchBox;
-    private boolean isDraggingScrollbar = false;
-    private boolean isDraggingUpgradeScrollbar = false;
-
-    // 搜索防抖
-    private long lastSearchUpdateTime = 0;
-    private String pendingSearchText = null;
-
-    // 合成补充相关字段
-    private ItemStack lastCraftingOutput = ItemStack.EMPTY;
-    private final java.util.Map<Integer, ItemStack> lastCraftingStacks = new java.util.HashMap<>();
-    private long lastCraftRefillCheck = 0;
-
-    // 自定义折叠按钮在合成界面中的位置（第三行右侧）
-    private static final int CRAFT_FOLD_X = 84;
-    private static final int CRAFT_FOLD_Y = 53;
 
     public CraftingWarehouseScreen(CraftingWarehouseScreenHandler handler, Inventory inventory, Component title) {
         super(handler, inventory, title);
         this.imageHeight = 166;
-    }
-
-    @Override
-    protected void init() {
-        PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
-        
-        // 动态更新槽位位置以匹配当前配置
-        for (Slot slot : this.menu.slots) {
-            if (slot instanceof com.portablestorage.upgrade.UpgradeSlot upgradeSlot) {
-                int index = upgradeSlot.getVisualIndex();
-                int upgradeX = WarehouseConstants.getWarehouseXOffset() + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X;
-                int upgradeYBase = WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y;
-                ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setX(upgradeX);
-                ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setY(upgradeYBase + index * WarehouseConstants.SLOT_SIZE);
-            } else if (slot.container instanceof PlayerWarehouse) {
-                int index = slot.getContainerSlot();
-                int row = index / WarehouseConstants.SLOTS_PER_ROW;
-                int col = index % WarehouseConstants.SLOTS_PER_ROW;
-                ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setX(WarehouseConstants.getSlotLogicX() + col * WarehouseConstants.SLOT_SIZE);
-                ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setY(WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows()) + row * WarehouseConstants.SLOT_SIZE);
-            }
-        }
-        
-        // 1. 支持 offsetInventory 属性
-        int rows = warehouse.isFolded() ? 0 : warehouse.getVisibleRows();
-        int xOffset = 0;
-        int yOffset = 0;
-
-        if (ModConfig.offsetInventory) {
-            com.portablestorage.util.StoragePosition pos = ModConfig.storagePosition;
-            if (pos.isVertical()) {
-                yOffset = warehouse.isFolded() ? WarehouseConstants.OFFSET_FOLDED : WarehouseConstants.OFFSET_BASE + rows * WarehouseConstants.OFFSET_PER_ROW;
-            } else {
-                xOffset = warehouse.isFolded() ? 0 : WarehouseConstants.getWarehouseWidth() / 2;
-            }
-        }
-        
-        super.init();
-        if (yOffset > 0) {
-            if (ModConfig.storagePosition == com.portablestorage.util.StoragePosition.TOP) {
-                this.topPos += yOffset;
-            } else {
-            this.topPos -= yOffset;
-            }
-        }
-        if (xOffset > 0) {
-            if (ModConfig.storagePosition == com.portablestorage.util.StoragePosition.LEFT) {
-                this.leftPos += xOffset;
-            } else {
-                this.leftPos -= xOffset;
-            }
-        }
-
-        // 搜索框
-        int sbX = this.leftPos + WarehouseConstants.getWarehouseXOffset() + WarehouseConstants.getSearchBoxXOffset() + WarehouseConstants.SEARCH_BOX_INNER_OFFSET;
-        int sbY = this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.SEARCH_BOX_Y_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET;
-        int sbW = WarehouseConstants.SEARCH_BOX_WIDTH - WarehouseConstants.SEARCH_BOX_INNER_OFFSET * 2;
-        int sbH = WarehouseConstants.SEARCH_BOX_HEIGHT - WarehouseConstants.SEARCH_BOX_INNER_OFFSET * 2;
-        
-        this.searchBox = new EditBox(this.font, sbX, sbY, sbW, sbH, Component.literal(""));
-        this.searchBox.setResponder(text -> {
-            this.pendingSearchText = text;
-            this.lastSearchUpdateTime = System.currentTimeMillis();
-        });
-        this.searchBox.setBordered(false);
-        this.searchBox.setTextColor(0xFFFFFF);
-        this.searchBox.setValue(warehouse.getSearchText());
-        this.searchBox.visible = !warehouse.isFolded();
-        this.addRenderableWidget(this.searchBox);
     }
 
     @Override
@@ -126,363 +29,29 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
         super.render(graphics, mouseX, mouseY, delta);
-        
-        PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
-        
-        // 处理 Shift+Ctrl 静态模式切换
-        boolean isPressed = hasShiftDown() && hasControlDown();
-        if (isPressed != warehouse.isFrozen()) {
-            warehouse.setFrozen(isPressed);
-            ClientPlayNetworking.send(new C2SUpdateFrozenStatePayload(isPressed));
-        }
-
-        checkCraftRefill();
-
-        // 搜索防抖
-        if (pendingSearchText != null && System.currentTimeMillis() - lastSearchUpdateTime > 150) {
-            warehouse.setSearchText(pendingSearchText);
-            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(pendingSearchText), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
-            pendingSearchText = null;
-        }
-
-        // 核心修复：渲染提示和文本（即使在创造模式，在合成界面也要渲染）
-        WarehouseRenderer.renderPinnedOverlays(graphics, this.leftPos, this.topPos, warehouse, this.imageHeight);
-        WarehouseRenderer.renderAllTooltips(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse, this.imageHeight);
-        WarehouseRenderer.renderQuantityTexts(graphics, this.font, this.leftPos, this.topPos, warehouse, this.imageHeight);
-        
-        // 特殊处理合成界面的 Tooltip 偏移
-        renderCraftingTooltips(graphics, mouseX, mouseY, warehouse);
-        
+        // 仓库渲染由 Mixin 注入的 WarehouseWidget 处理
         this.renderTooltip(graphics, mouseX, mouseY);
     }
 
     @Override
     protected void renderBg(GuiGraphics graphics, float delta, int mouseX, int mouseY) {
+        // 渲染合成台背景纹理
         graphics.blit(CRAFTING_TABLE_TEXTURE, this.leftPos, this.topPos, 0, 0, this.imageWidth, this.imageHeight);
-        
-        PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
-        int x = this.leftPos + WarehouseConstants.getWarehouseXOffset();
-        int y = this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), this.imageHeight);
-        
-        WarehouseRenderer.renderBackground(graphics, x, y, mouseX, mouseY, warehouse, this.font);
-        
-        // 渲染侧边栏按钮（传入自定义折叠按钮位置）
-        WarehouseRenderer.renderSidebarButtons(graphics, this.leftPos + CRAFT_FOLD_X, this.topPos + CRAFT_FOLD_Y, x + WarehouseConstants.getSidebarXOffset(), y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), this.imageHeight), mouseX, mouseY, warehouse);
+        // 仓库背景和侧边栏按钮由 Mixin 注入的 WarehouseWidget 处理
     }
 
-    private void checkCraftRefill() {
-        if (this.minecraft == null || this.minecraft.player == null) return;
-        PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
-        if (!warehouse.isEnabled() || !warehouse.isCraftRefill()) return;
-
-        long now = System.currentTimeMillis();
-        if (now - lastCraftRefillCheck < 100) return;
-        lastCraftRefillCheck = now;
-
-        var menu = this.getMenu();
-        // 动态查找结果槽位和合成输入槽位
-        Slot outputSlot = null;
-        for (Slot slot : menu.slots) {
-            if (slot instanceof net.minecraft.world.inventory.ResultSlot) {
-                outputSlot = slot;
-                break;
-            }
-        }
-        if (outputSlot == null) return;
-        
-        ItemStack currentOutput = outputSlot.getItem();
-        
-        boolean craftOccurred = false;
-        if (!lastCraftingOutput.isEmpty()) {
-            if (currentOutput.isEmpty() || !ItemStack.isSameItemSameComponents(currentOutput, lastCraftingOutput) || currentOutput.getCount() < lastCraftingOutput.getCount()) {
-                craftOccurred = true;
-            }
-        }
-        lastCraftingOutput = currentOutput.copy();
-
-        if (craftOccurred) {
-            java.util.Map<ItemStack, java.util.List<Integer>> refills = new java.util.HashMap<>();
-            for (Slot slot : menu.slots) {
-                // 动态识别合成输入槽位
-                if (slot.container instanceof net.minecraft.world.inventory.CraftingContainer && !(slot instanceof net.minecraft.world.inventory.ResultSlot)) {
-                    int slotId = slot.index;
-                    ItemStack currentStack = slot.getItem();
-                    ItemStack lastStack = lastCraftingStacks.get(slotId);
-
-                    if (lastStack != null && !lastStack.isEmpty()) {
-                        if (currentStack.isEmpty() || (ItemStack.isSameItemSameComponents(currentStack, lastStack) && currentStack.getCount() < lastStack.getCount())) {
-                            boolean found = false;
-                            for (ItemStack key : refills.keySet()) {
-                                if (ItemStack.isSameItemSameComponents(key, lastStack)) {
-                                    refills.get(key).add(slotId);
-                                    found = true;
-                                    break;
-                                }
-                            }
-                            if (!found) {
-                                java.util.List<Integer> list = new java.util.ArrayList<>();
-                                list.add(slotId);
-                                refills.put(lastStack, list);
-                            }
-                        }
-                    }
-                }
-            }
-            for (var entry : refills.entrySet()) {
-                ClientPlayNetworking.send(new RefillPayload(entry.getValue(), entry.getKey().copy()));
-            }
-        }
-
-        for (Slot slot : menu.slots) {
-            if (slot.container instanceof net.minecraft.world.inventory.CraftingContainer && !(slot instanceof net.minecraft.world.inventory.ResultSlot)) {
-                lastCraftingStacks.put(slot.index, slot.getItem().copy());
-            }
-        }
-    }
-
-    private void renderCraftingTooltips(GuiGraphics graphics, int mouseX, int mouseY, PlayerWarehouse warehouse) {
-        // 使用合成界面特有的折叠按钮判定
-        if (mouseX >= this.leftPos + CRAFT_FOLD_X && mouseX < this.leftPos + CRAFT_FOLD_X + 18 && mouseY >= this.topPos + CRAFT_FOLD_Y && mouseY < this.topPos + CRAFT_FOLD_Y + 18) {
-            WarehouseRenderer.renderFoldTooltip(graphics, this.font, mouseX, mouseY, warehouse);
-            return;
-        }
-        
-        if (!warehouse.isFolded()) {
-            // 渲染共享状态提示
-            WarehouseRenderer.renderStatusTooltip(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse, this.imageHeight);
-
-            // 渲染升级槽位提示
-            WarehouseRenderer.renderUpgradeTooltips(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse, this.imageHeight);
-            
-            WarehouseRenderer.renderSidebarTooltips(graphics, this.font, this.leftPos, this.topPos, mouseX, mouseY, warehouse, this.imageHeight);
-        }
-    }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
-
-        // 处理升级槽位的右键和中键交互
-        if (!warehouse.isFolded() && (button == 1 || button == 2)) {
-            for (Slot slot : this.menu.slots) {
-                if (slot instanceof com.portablestorage.upgrade.UpgradeSlot) {
-                    int slotX = this.leftPos + slot.x;
-                    int slotY = this.topPos + slot.y;
-                    if (mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY && mouseY < slotY + 16 && slot.hasItem()) {
-                        List<com.portablestorage.upgrade.UpgradeType> all = com.portablestorage.upgrade.UpgradeRegistry.getAllUpgrades();
-                        int visualIndex = ((com.portablestorage.upgrade.UpgradeSlot) slot).getVisualIndex();
-                        int actualIndex = visualIndex + warehouse.getUpgradeScrollOffset();
-                        if (actualIndex >= 0 && actualIndex < all.size()) {
-                            com.portablestorage.upgrade.UpgradeType type = all.get(actualIndex);
-                            ClientPlayNetworking.send(new C2SUpgradeInteractionPayload(type.getId(), button));
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-
-        // 1. 处理折叠项的点击（展开搜索）
-        if (!warehouse.isFolded() && button == 0) {
-            Slot clickedSlot = null;
-            for (Slot slot : this.menu.slots) {
-                int slotX = this.leftPos + slot.x;
-                int slotY = this.topPos + slot.y;
-                if (mouseX >= slotX && mouseX < slotX + 18 && mouseY >= slotY && mouseY < slotY + 18) {
-                    clickedSlot = slot;
-                    break;
-                }
-            }
-            if (clickedSlot != null && clickedSlot.container instanceof PlayerWarehouse && clickedSlot.hasItem()) {
-                ItemStack stack = clickedSlot.getItem();
-                net.minecraft.world.item.component.CustomData customData = stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
-                boolean isCollapsed = customData != null && customData.copyTag().getBoolean(WarehouseConstants.SMART_COLLAPSE_TAG);
-
-                if (warehouse.isSmartCollapse() && warehouse.getSearchText().isEmpty() && isCollapsed) {
-                    String itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-                    String newSearch = "!" + itemId + "!";
-                    if (this.searchBox != null) {
-                        this.searchBox.setValue(newSearch);
-                        warehouse.setSearchText(newSearch);
-                            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(newSearch), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
-                    }
-                    return true; // 拦截，不继续处理 Shift 点击
-                }
-            }
-        }
-        
-        // 处理 Shift+点击
-        if (button == 0 && hasShiftDown() && warehouse.isQuickInteraction() && !warehouse.isFolded()) {
-            Slot clickedSlot = null;
-            for (Slot slot : this.menu.slots) {
-                int slotX = this.leftPos + slot.x;
-                int slotY = this.topPos + slot.y;
-                if (mouseX >= slotX && mouseX < slotX + 18 && mouseY >= slotY && mouseY < slotY + 18) {
-                    clickedSlot = slot;
-                    break;
-                }
-            }
-            if (clickedSlot != null && (clickedSlot.container instanceof PlayerWarehouse || clickedSlot.container instanceof net.minecraft.world.entity.player.Inventory)) {
-                ClientPlayNetworking.send(new QuickTransferPayload(clickedSlot.index));
-                return true;
-            }
-        }
-
-        // 处理中键置顶
-        if (button == 2 && !warehouse.isFolded()) {
-            Slot clickedSlot = null;
-            for (Slot slot : this.menu.slots) {
-                int slotX = this.leftPos + slot.x;
-                int slotY = this.topPos + slot.y;
-                if (mouseX >= slotX && mouseX < slotX + 18 && mouseY >= slotY && mouseY < slotY + 18) {
-                    clickedSlot = slot;
-                    break;
-                }
-            }
-            if (clickedSlot != null && clickedSlot.container instanceof PlayerWarehouse && clickedSlot.hasItem()) {
-                ClientPlayNetworking.send(new com.portablestorage.network.C2STogglePinnedPayload(clickedSlot.getContainerSlot()));
-                return true;
-            }
-        }
-
-        // 1. 处理自定义位置的折叠按钮点击
-        if (mouseX >= this.leftPos + CRAFT_FOLD_X && mouseX < this.leftPos + CRAFT_FOLD_X + 18 && mouseY >= this.topPos + CRAFT_FOLD_Y && mouseY < this.topPos + CRAFT_FOLD_Y + 18) {
-            if (button == 2) { // 中键
-                this.minecraft.setScreen(YACLConfig.create(this));
-                return true;
-            }
-            if (button == 0) { // 左键
-                boolean newFolded = !warehouse.isFolded();
-                warehouse.setFolded(newFolded);
-                ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(WarehouseSetting.FOLD.ordinal()), Optional.of(newFolded ? 1 : 0), Optional.empty(), Optional.empty()));
-                this.minecraft.setScreen(new CraftingWarehouseScreen(this.menu, this.minecraft.player.getInventory(), this.title));
-                return true;
-            }
-        }
-
-        if (!warehouse.isFolded()) {
-            int x = this.leftPos + WarehouseConstants.getWarehouseXOffset();
-            int y = this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), this.imageHeight);
-            int bx = x + WarehouseConstants.getSidebarXOffset();
-            int by = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), this.imageHeight);
-            boolean showShortcuts = ModConfig.showSmallIcons;
-            boolean horizontal = ModConfig.storagePosition.isHorizontal();
-            int iconSpacing = WarehouseConstants.SIDEBAR_BUTTON_SIZE + WarehouseConstants.SIDEBAR_BUTTON_SPACING;
-
-            if (showShortcuts) {
-                for (int i = 0; i < 5; i++) {
-                    int curX = horizontal ? bx + i * iconSpacing : bx;
-                    int curY = horizontal ? by : by + i * iconSpacing;
-                    
-                    if (mouseX >= curX && mouseX < curX + 18 && mouseY >= curY && mouseY < curY + 18) {
-                        WarehouseSetting setting = WarehouseSetting.values()[i + 1]; // Offset by 1 for FOLD
-                        int newVal = 0;
-                        switch (setting) {
-                            case SORT_MODE -> {
-                                newVal = (warehouse.getSortMode() + 1) % 4;
-                                warehouse.setSortMode(newVal);
-                            }
-                            case SORT_ORDER -> {
-                                newVal = warehouse.isAscending() ? 0 : 1;
-                                warehouse.setAscending(!warehouse.isAscending());
-                            }
-                            case QUICK_INTERACTION -> {
-                                newVal = warehouse.isQuickInteraction() ? 0 : 1;
-                                warehouse.setQuickInteraction(!warehouse.isQuickInteraction());
-                            }
-                            case SMART_COLLAPSE -> {
-                                newVal = warehouse.isSmartCollapse() ? 0 : 1;
-                                warehouse.setSmartCollapse(!warehouse.isSmartCollapse());
-                            }
-                            case CRAFT_REFILL -> {
-                                newVal = warehouse.isCraftRefill() ? 0 : 1;
-                                warehouse.setCraftRefill(!warehouse.isCraftRefill());
-                            }
-                            default -> {}
-                        }
-                        ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.of(setting.ordinal()), Optional.of(newVal), Optional.empty(), Optional.empty()));
-                        return true;
-                    }
-                }
-            }
-            
-            // 2. 合成按钮变为返回背包
-            int craftingX = horizontal ? (bx + (showShortcuts ? (iconSpacing * 5) : 0)) : bx;
-            int craftingY = horizontal ? by : (by + (showShortcuts ? (iconSpacing * 5) : 0));
-            if (mouseX >= craftingX && mouseX < craftingX + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
-                if (!warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
-                this.minecraft.setScreen(new InventoryScreen(this.minecraft.player));
-                }
-                return true;
-            }
-
-            int pmX = x + WarehouseConstants.getPlusMinusXOffset();
-            int pmY = y + WarehouseConstants.PLUS_MINUS_Y_OFFSET;
-            if (mouseX >= pmX && mouseX < pmX + WarehouseConstants.TINY_BUTTON_SIZE && mouseY >= pmY && mouseY < pmY + WarehouseConstants.TINY_BUTTON_SIZE) {
-                warehouse.setVisibleRows(warehouse.getVisibleRows() - 1);
-                ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(-1), Optional.empty()));
-                this.minecraft.setScreen(new CraftingWarehouseScreen(this.menu, this.minecraft.player.getInventory(), this.title));
-                return true;
-            }
-            if (mouseX >= pmX + WarehouseConstants.TINY_BUTTON_SIZE + WarehouseConstants.TINY_BUTTON_SPACING && mouseX < pmX + WarehouseConstants.TINY_BUTTON_SIZE * 2 + WarehouseConstants.TINY_BUTTON_SPACING && mouseY >= pmY && mouseY < pmY + WarehouseConstants.TINY_BUTTON_SIZE) {
-                warehouse.setVisibleRows(warehouse.getVisibleRows() + 1);
-                ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(1), Optional.empty()));
-                this.minecraft.setScreen(new CraftingWarehouseScreen(this.menu, this.minecraft.player.getInventory(), this.title));
-                return true;
-            }
-
-            int sx = x + WarehouseConstants.getScrollbarXOffset();
-            int sy = y + WarehouseConstants.SCROLLBAR_Y_OFFSET;
-            int sh = warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE - WarehouseConstants.SCROLLBAR_PADDING;
-            if (mouseX >= sx && mouseX <= sx + WarehouseConstants.SCROLLBAR_WIDTH && mouseY >= sy && mouseY <= sy + sh) {
-                this.isDraggingScrollbar = true;
-                return true;
-            }
-
-            // 升级槽位滚动条点击
-            int usx = x + WarehouseConstants.UPGRADE_SCROLLBAR_X_OFFSET;
-            if (mouseX >= usx && mouseX <= usx + WarehouseConstants.SCROLLBAR_WIDTH && mouseY >= sy && mouseY <= sy + sh) {
-                this.isDraggingUpgradeScrollbar = true;
-                return true;
-            }
-        }
-
-        if (com.portablestorage.util.WarehouseRenderer.isOverSharingStatus(mouseX, mouseY, this.leftPos, this.topPos, warehouse, this.imageHeight)) {
-            if (button == 0) { // 左键
-                this.minecraft.setScreen(com.portablestorage.config.YACLConfig.createSharingManagementScreen(this, warehouse));
-                return true;
-            }
-        }
-
+        // 大部分鼠标事件处理由 AbstractContainerScreenMixin 和 WarehouseWidget 处理
+        // 这里只处理合成界面特有的逻辑（如果有的话）
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (this.searchBox != null && this.searchBox.isVisible() && this.searchBox.isFocused()) {
-            if (keyCode == 256) { // ESC
-                this.searchBox.setFocused(false);
-                return true;
-            }
-            if (this.searchBox.keyPressed(keyCode, scanCode, modifiers)) return true;
-            return true;
-        }
-
-        // 处理丢出快捷键
-        if (this.minecraft != null && this.minecraft.player != null) {
-            PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
-            if (!warehouse.isFolded()) {
-                if (this.minecraft.options.keyDrop.matches(keyCode, scanCode)) {
-                    if (this.hoveredSlot != null && this.hoveredSlot.container instanceof PlayerWarehouse && this.hoveredSlot.hasItem()) {
-                        boolean dropFullStack = hasControlDown();
-                        ClientPlayNetworking.send(new C2SDropWarehouseItemPayload(this.hoveredSlot.index, dropFullStack));
-                        return true;
-                    }
-                }
-            }
-        }
-
-        // 3. 支持 ESC 返回背包
+        // 大部分键盘事件处理由 AbstractContainerScreenMixin 和 WarehouseWidget 处理
+        // 合成界面特有的 ESC 返回背包逻辑
         if (keyCode == 256) { // ESC
             this.minecraft.setScreen(new InventoryScreen(this.minecraft.player));
             return true;
@@ -490,98 +59,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
-    @Override
-    public void removed() {
-        ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(""), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
-        super.removed();
-    }
-
-    @Override
-    public void onClose() {
-        super.onClose();
-    }
-
-    @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        this.isDraggingScrollbar = false;
-        this.isDraggingUpgradeScrollbar = false;
-        return super.mouseReleased(mouseX, mouseY, button);
-    }
-
-    @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (this.isDraggingScrollbar) {
-            PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
-            int scrollbarY = this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.SCROLLBAR_Y_OFFSET;
-            int scrollbarHeight = warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE - WarehouseConstants.SCROLLBAR_PADDING;
-            
-            int totalRows = (int) Math.ceil(warehouse.getSortedEntries().size() / 9.0);
-            int visibleRows = warehouse.getVisibleRows();
-            int maxOffset = Math.max(0, totalRows - visibleRows);
-            
-            if (maxOffset > 0) {
-                int thumbHeight = Math.max(10, (int) (scrollbarHeight * ((float) visibleRows / totalRows)));
-                double relativeY = Math.clamp(mouseY - scrollbarY - thumbHeight / 2.0, 0, scrollbarHeight - thumbHeight);
-                int newOffset = (int) Math.round((relativeY * maxOffset) / (scrollbarHeight - thumbHeight));
-                if (newOffset != warehouse.getScrollOffset()) {
-                    int delta = warehouse.getScrollOffset() - newOffset;
-                    warehouse.setScrollOffset(newOffset);
-                    ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.of(delta), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
-                }
-            }
-            return true;
-        }
-        if (this.isDraggingUpgradeScrollbar) {
-            PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
-            int scrollbarY = this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.SCROLLBAR_Y_OFFSET;
-            int scrollbarHeight = warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE - WarehouseConstants.SCROLLBAR_PADDING;
-            
-            int totalUpgrades = com.portablestorage.upgrade.UpgradeRegistry.getUpgradeCount();
-            int visibleRows = warehouse.getVisibleRows();
-            int maxOffset = Math.max(0, totalUpgrades - visibleRows);
-            
-            if (maxOffset > 0) {
-                int thumbHeight = Math.max(10, (int) (scrollbarHeight * ((float) visibleRows / totalUpgrades)));
-                double relativeY = Math.clamp(mouseY - scrollbarY - thumbHeight / 2.0, 0, scrollbarHeight - thumbHeight);
-                int newOffset = (int) Math.round((relativeY * maxOffset) / (scrollbarHeight - thumbHeight));
-                if (newOffset != warehouse.getUpgradeScrollOffset()) {
-                    int delta = warehouse.getUpgradeScrollOffset() - newOffset;
-                    warehouse.setUpgradeScrollOffset(newOffset);
-                    ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(delta)));
-                }
-            }
-            return true;
-        }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
-    }
-
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        PlayerWarehouse warehouse = ModComponents.get(this.minecraft.player).getWarehouse(this.minecraft.player.getUUID());
-        if (warehouse.isFolded()) return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-
-        int warehouseX = this.leftPos + WarehouseConstants.getWarehouseXOffset();
-        int warehouseY = this.topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows());
-        int warehouseHeight = WarehouseConstants.WAREHOUSE_TITLE_HEIGHT + warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE;
-        
-        // 1. 升级列滚动
-        int upgradeColumnWidth = WarehouseConstants.getUpgradeColumnWidth();
-        if (mouseX >= warehouseX && mouseX < warehouseX + upgradeColumnWidth && mouseY >= warehouseY && mouseY < warehouseY + warehouseHeight) {
-            int delta = (int) Math.signum(scrollY);
-            warehouse.setUpgradeScrollOffset(warehouse.getUpgradeScrollOffset() - delta);
-            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(delta)));
-            return true;
-        }
-
-        // 2. 主格网滚动
-        if (mouseX >= warehouseX + upgradeColumnWidth && mouseX < warehouseX + WarehouseConstants.getWarehouseWidth() && mouseY >= warehouseY && mouseY < warehouseY + warehouseHeight) {
-            int delta = (int) Math.signum(scrollY);
-            warehouse.setScrollOffset(warehouse.getScrollOffset() - delta);
-            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.of(delta), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
-            return true;
-        }
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-    }
+    // removed, mouseReleased, mouseDragged, mouseScrolled 等事件处理由 AbstractContainerScreenMixin 和 WarehouseWidget 处理
 
     public int getWarehouseX() {
         return this.leftPos + WarehouseConstants.getWarehouseXOffset();

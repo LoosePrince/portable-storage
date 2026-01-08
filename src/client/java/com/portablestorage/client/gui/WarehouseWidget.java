@@ -220,8 +220,15 @@ public class WarehouseWidget {
         
         WarehouseRenderer.renderBackground(graphics, x, y, mouseX, mouseY, warehouse, ((ScreenAccessor)screen).portablestorage$getFont());
             
-        int foldX = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
-        int foldY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
+        // 合成界面使用特殊的折叠按钮位置
+        int foldX, foldY;
+        if (screen instanceof com.portablestorage.screen.CraftingWarehouseScreen) {
+            foldX = screenAccessor.portablestorage$getLeftPos() + 84; // CRAFT_FOLD_X
+            foldY = screenAccessor.portablestorage$getTopPos() + 53; // CRAFT_FOLD_Y
+        } else {
+            foldX = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
+            foldY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
+        }
         WarehouseRenderer.renderSidebarButtons(graphics, foldX, foldY, x + WarehouseConstants.getSidebarXOffset(), y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight), mouseX, mouseY, warehouse);
     }
 
@@ -372,8 +379,15 @@ public class WarehouseWidget {
         }
         
         // 4. Fold button
-        int foldButtonX = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
-        int foldButtonY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
+        // 合成界面使用特殊的折叠按钮位置
+        int foldButtonX, foldButtonY;
+        if (screen instanceof com.portablestorage.screen.CraftingWarehouseScreen) {
+            foldButtonX = screenAccessor.portablestorage$getLeftPos() + 84; // CRAFT_FOLD_X
+            foldButtonY = screenAccessor.portablestorage$getTopPos() + 53; // CRAFT_FOLD_Y
+        } else {
+            foldButtonX = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
+            foldButtonY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
+        }
         if (mouseX >= foldButtonX && mouseX < foldButtonX + 18 && mouseY >= foldButtonY && mouseY < foldButtonY + 18) {
             if (button == 2) { // Middle click settings
                 minecraft.setScreen(YACLConfig.create(screen));
