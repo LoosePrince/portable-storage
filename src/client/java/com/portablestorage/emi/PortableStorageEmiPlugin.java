@@ -4,7 +4,6 @@ import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.network.C2SRecipeTransferPayload;
 import com.portablestorage.screen.CraftingWarehouseScreen;
-import com.portablestorage.screen.CraftingWarehouseScreenHandler;
 import com.portablestorage.screen.ModScreenHandlers;
 import com.portablestorage.util.WarehouseConstants;
 import com.portablestorage.mixin.client.AbstractContainerScreenAccessor;
@@ -32,7 +31,8 @@ public class PortableStorageEmiPlugin implements EmiPlugin {
     public void register(EmiRegistry registry) {
         // 1. Register Exclusion Areas
         registry.addExclusionArea(CraftingWarehouseScreen.class, (screen, consumer) -> {
-            consumer.accept(new Bounds(screen.getWarehouseX(), screen.getWarehouseY(), screen.getWarehouseWidth(), screen.getWarehouseHeight()));
+            consumer.accept(new Bounds(screen.getWarehouseX(), screen.getWarehouseY(), screen.getWarehouseWidth(),
+                    screen.getWarehouseHeight()));
         });
 
         registry.addExclusionArea(InventoryScreen.class, (screen, consumer) -> {
@@ -42,10 +42,12 @@ public class PortableStorageEmiPlugin implements EmiPlugin {
                 if (warehouse.isEnabled()) {
                     AbstractContainerScreenAccessor accessor = (AbstractContainerScreenAccessor) screen;
                     int x = accessor.portablestorage$getLeftPos() + WarehouseConstants.getWarehouseXOffset();
-                    int y = accessor.portablestorage$getTopPos() + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows());
+                    int y = accessor.portablestorage$getTopPos()
+                            + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows());
                     int width = WarehouseConstants.getWarehouseWidth();
-                    int height = warehouse.isFolded() ? WarehouseConstants.WAREHOUSE_FOLDED_HEIGHT : 
-                                 WarehouseConstants.WAREHOUSE_TITLE_HEIGHT + warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE;
+                    int height = warehouse.isFolded() ? WarehouseConstants.WAREHOUSE_FOLDED_HEIGHT
+                            : WarehouseConstants.WAREHOUSE_TITLE_HEIGHT
+                                    + warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE;
                     consumer.accept(new Bounds(x, y, width, height));
                 }
             }

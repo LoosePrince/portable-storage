@@ -122,8 +122,8 @@ public class WarehouseWidget {
             if (slot instanceof com.portablestorage.upgrade.UpgradeSlot upgradeSlot) {
                 int index = upgradeSlot.getVisualIndex();
                 int upgradeX = WarehouseConstants.getWarehouseXOffset() + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X;
-                int upgradeYBase = WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight)
-                        + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y;
+                int upgradeYBase = WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight,
+                        warehouse.isFolded()) + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y;
                 ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setX(upgradeX);
                 ((com.portablestorage.mixin.accessor.SlotAccessor) slot)
                         .setY(upgradeYBase + index * WarehouseConstants.SLOT_SIZE);
@@ -134,72 +134,68 @@ public class WarehouseWidget {
                 ((com.portablestorage.mixin.accessor.SlotAccessor) slot)
                         .setX(WarehouseConstants.getSlotLogicX() + col * WarehouseConstants.SLOT_SIZE);
                 ((com.portablestorage.mixin.accessor.SlotAccessor) slot)
-                        .setY(WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows(), imageHeight)
-                                + row * WarehouseConstants.SLOT_SIZE);
+                        .setY(WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows(), imageHeight,
+                                warehouse.isFolded()) + row * WarehouseConstants.SLOT_SIZE);
             }
         }
     }
 
     public void adjustScreenPosition(int rows) {
+        AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
+        int screenWidth = screen.width;
+        int screenHeight = screen.height;
+        int imageWidth = screenAccessor.portablestorage$getImageWidth();
+        int imageHeight = screenAccessor.portablestorage$getImageHeight();
+
+        // 重置为标准居中位置，防止多次调用导致的漂移
+        int defaultLeftPos = (screenWidth - imageWidth) / 2;
+        int defaultTopPos = (screenHeight - imageHeight) / 2;
+
         int xOffset = 0;
         int yOffset = 0;
 
-        // 3. “偏移背包界面”配置不应该影响容器界面
         if (ModConfig.offsetInventory && (screen instanceof InventoryScreen
                 || screen instanceof com.portablestorage.screen.CraftingWarehouseScreen)) {
             StoragePosition pos = ModConfig.storagePosition;
+            boolean folded = warehouse.isFolded();
+            int warehouseWidth = WarehouseConstants.getWarehouseWidth();
+            int warehouseHeight = WarehouseConstants.getWarehouseHeight(rows, folded);
+            int spacingX = WarehouseConstants.WAREHOUSE_X_SPACING;
+            int spacingY = WarehouseConstants.WAREHOUSE_Y_SPACING;
+
             if (pos.isVertical()) {
-                yOffset = warehouse.isFolded() ? WarehouseConstants.OFFSET_FOLDED
-                        : WarehouseConstants.OFFSET_BASE + rows * WarehouseConstants.OFFSET_PER_ROW;
+                // 垂直模式：(仓库高度 + 间距) / 2
+                yOffset = (warehouseHeight + spacingY) / 2;
+                if (pos == StoragePosition.BOTTOM)
+                    yOffset = -yOffset;
             } else {
-                xOffset = warehouse.isFolded() ? 0
-                        : (WarehouseConstants.getWarehouseWidth() + WarehouseConstants.WAREHOUSE_X_SPACING) / 2;
+                // 水平模式：(仓库宽度 + 间距) / 2
+                xOffset = (warehouseWidth + spacingX) / 2;
+                if (pos == StoragePosition.RIGHT)
+                    xOffset = -xOffset;
             }
         }
 
-        AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
+        int targetLeftPos = defaultLeftPos + xOffset;
+        int targetTopPos = defaultTopPos + yOffset;
 
-        // 应用垂直偏移
-        if (yOffset > 0) {
-            if (ModConfig.storagePosition == StoragePosition.TOP) {
-                screenAccessor.portablestorage$setTopPos(screenAccessor.portablestorage$getTopPos() + yOffset);
-            } else {
-                screenAccessor.portablestorage$setTopPos(screenAccessor.portablestorage$getTopPos() - yOffset);
-            }
-        }
+        int dx = targetLeftPos - screenAccessor.portablestorage$getLeftPos();
+        int dy = targetTopPos - screenAccessor.portablestorage$getTopPos();
 
-        // 应用水平偏移 (关键修复：确保在左右模式下生效)
-        if (xOffset > 0) {
-            if (ModConfig.storagePosition == StoragePosition.LEFT) {
-                screenAccessor.portablestorage$setLeftPos(screenAccessor.portablestorage$getLeftPos() + xOffset);
-            } else {
-                screenAccessor.portablestorage$setLeftPos(screenAccessor.portablestorage$getLeftPos() - xOffset);
-            }
-        }
+        screenAccessor.portablestorage$setLeftPos(targetLeftPos);
+        screenAccessor.portablestorage$setTopPos(targetTopPos);
 
         // 1. 只有在生存模式背包且启用3x3时才调整 imageHeight，避免破坏容器界面对齐
         if (screen instanceof InventoryScreen && WarehouseUtils.is3x3Enabled(Minecraft.getInstance().player)) {
             screenAccessor.portablestorage$setImageHeight(WarehouseConstants.VANILLA_INVENTORY_HEIGHT);
         }
 
-        if (xOffset == 0 && yOffset == 0)
-            return;
-
-        for (GuiEventListener child : screen.children()) {
-            if (child instanceof AbstractWidget widget) {
-                if (yOffset > 0) {
-                    if (ModConfig.storagePosition == StoragePosition.TOP) {
-                        widget.setY(widget.getY() + yOffset);
-                    } else {
-                        widget.setY(widget.getY() - yOffset);
-                    }
-                }
-                if (xOffset > 0) {
-                    if (ModConfig.storagePosition == StoragePosition.LEFT) {
-                        widget.setX(widget.getX() + xOffset);
-                    } else {
-                        widget.setX(widget.getX() - xOffset);
-                    }
+        // 同步移动所有关联组件（输入框、原版按钮等）
+        if (dx != 0 || dy != 0) {
+            for (GuiEventListener child : screen.children()) {
+                if (child instanceof AbstractWidget widget) {
+                    widget.setX(widget.getX() + dx);
+                    widget.setY(widget.getY() + dy);
                 }
             }
         }
@@ -211,7 +207,7 @@ public class WarehouseWidget {
         int sbX = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.getWarehouseXOffset()
                 + WarehouseConstants.getSearchBoxXOffset() + WarehouseConstants.SEARCH_BOX_INNER_OFFSET;
         int sbY = screenAccessor.portablestorage$getTopPos()
-                + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight)
+                + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight, warehouse.isFolded())
                 + WarehouseConstants.SEARCH_BOX_Y_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET;
         int sbW = WarehouseConstants.SEARCH_BOX_WIDTH - WarehouseConstants.SEARCH_BOX_INNER_OFFSET * 2;
         int sbH = WarehouseConstants.SEARCH_BOX_HEIGHT - WarehouseConstants.SEARCH_BOX_INNER_OFFSET * 2;
@@ -253,7 +249,8 @@ public class WarehouseWidget {
         int leftPos = screenAccessor.portablestorage$getLeftPos();
         int topPos = screenAccessor.portablestorage$getTopPos();
         int x = leftPos + WarehouseConstants.getWarehouseXOffset();
-        int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight);
+        int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight,
+                warehouse.isFolded());
 
         WarehouseRenderer.renderBackground(graphics, x, y, mouseX, mouseY, warehouse,
                 ((ScreenAccessor) screen).portablestorage$getFont());
@@ -270,7 +267,8 @@ public class WarehouseWidget {
                 foldY = topPos + imageHeight - 24; // 快捷栏高度
             } else {
                 foldX = x + WarehouseConstants.getSidebarXOffset();
-                foldY = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight);
+                foldY = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight,
+                        warehouse.isFolded());
                 indentSidebar = true;
             }
         } else {
@@ -278,8 +276,8 @@ public class WarehouseWidget {
             foldY = topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
         }
         WarehouseRenderer.renderSidebarButtons(graphics, foldX, foldY, x + WarehouseConstants.getSidebarXOffset(),
-                y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight), mouseX, mouseY,
-                warehouse, indentSidebar);
+                y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight, warehouse.isFolded()),
+                mouseX, mouseY, warehouse, indentSidebar);
     }
 
     private boolean isContainerInterface() {

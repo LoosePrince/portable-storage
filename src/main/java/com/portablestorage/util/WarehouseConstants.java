@@ -5,12 +5,12 @@ public class WarehouseConstants {
     public static final int SLOTS_PER_ROW = 9;
     public static final int MAX_ROWS = 12;
     public static final int TOTAL_SLOTS = SLOTS_PER_ROW * MAX_ROWS;
-    
+
     // 槽位索引 (InventoryMenu)
     public static final int CRAFTING_INPUT_COUNT = 9; // 3x3
     public static final int VANILLA_CRAFTING_INPUT_COUNT = 4; // 2x2
     public static final int EXTRA_CRAFTING_SLOTS = CRAFTING_INPUT_COUNT - VANILLA_CRAFTING_INPUT_COUNT; // 5个新槽位
-    
+
     public static int getWarehouseSlotStart() {
         // 始终从 51 开始 (46 原版 + 5 额外合成槽位)
         return 51;
@@ -33,7 +33,7 @@ public class WarehouseConstants {
     // GUI 基础布局
     public static final int VANILLA_INVENTORY_WIDTH = 176;
     public static final int VANILLA_INVENTORY_HEIGHT = 166;
-    
+
     /**
      * 动态获取升级列宽度：若未注册任何升级，则宽度为 0
      */
@@ -44,14 +44,24 @@ public class WarehouseConstants {
     public static int getWarehouseWidth() {
         return 184 + getUpgradeColumnWidth();
     }
-    
+
+    public static int getWarehouseHeight(int visibleRows) {
+        return getWarehouseHeight(visibleRows, false);
+    }
+
+    public static int getWarehouseHeight(int visibleRows, boolean folded) {
+        if (folded)
+            return WAREHOUSE_TITLE_HEIGHT;
+        return WAREHOUSE_TITLE_HEIGHT + visibleRows * SLOT_SIZE;
+    }
+
     public static final int WAREHOUSE_Y_SPACING = 2; // 背包与仓库之间的间距
     public static final int WAREHOUSE_X_SPACING = 2;
 
     public static int getWarehouseXOffset() {
         int columnWidth = getUpgradeColumnWidth();
         int warehouseWidth = getWarehouseWidth();
-        
+
         return switch (com.portablestorage.config.ModConfig.storagePosition) {
             case TOP, BOTTOM -> {
                 // 核心修复：确保主格网居中。
@@ -69,19 +79,26 @@ public class WarehouseConstants {
     }
 
     public static int getWarehouseYOffset(int visibleRows, int imageHeight) {
+        return getWarehouseYOffset(visibleRows, imageHeight, false);
+    }
+
+    public static int getWarehouseYOffset(int visibleRows, int imageHeight, boolean folded) {
         StoragePosition pos = com.portablestorage.config.ModConfig.storagePosition;
-        if (pos == StoragePosition.BOTTOM) return imageHeight + WAREHOUSE_Y_SPACING;
+        int height = getWarehouseHeight(visibleRows, folded);
+        if (pos == StoragePosition.BOTTOM)
+            return imageHeight + WAREHOUSE_Y_SPACING;
         if (pos == StoragePosition.TOP) {
-            int height = WAREHOUSE_TITLE_HEIGHT + visibleRows * SLOT_SIZE;
             return -height - WAREHOUSE_Y_SPACING;
         }
         // 左右侧显示时，实现垂直居中：(背包高度 - 仓库高度) / 2
-        int warehouseHeight = WAREHOUSE_TITLE_HEIGHT + visibleRows * SLOT_SIZE;
-        return (imageHeight - warehouseHeight) / 2;
+        return (imageHeight - height) / 2;
     }
 
     // 搜索框 (相对于 warehouseX, warehouseY)
-    public static int getSearchBoxXOffset() { return 8 + getUpgradeColumnWidth(); }
+    public static int getSearchBoxXOffset() {
+        return 8 + getUpgradeColumnWidth();
+    }
+
     public static final int SEARCH_BOX_Y_OFFSET = 6;
     public static final int SEARCH_BOX_WIDTH = 142;
     public static final int SEARCH_BOX_HEIGHT = 12;
@@ -93,7 +110,10 @@ public class WarehouseConstants {
     public static final int UPGRADE_SCROLLBAR_X_OFFSET = 28;
 
     // 仓库槽位逻辑坐标 (相对于 warehouseX, warehouseY)
-    public static int getSlotRelativeX() { return 8 + getUpgradeColumnWidth(); }
+    public static int getSlotRelativeX() {
+        return 8 + getUpgradeColumnWidth();
+    }
+
     public static final int SLOT_RELATIVE_Y = 21;
 
     // 槽位逻辑坐标 (相对于 leftPos / topPos)
@@ -106,14 +126,21 @@ public class WarehouseConstants {
     }
 
     public static int getSlotLogicY(int visibleRows, int imageHeight) {
-        return getWarehouseYOffset(visibleRows, imageHeight) + SLOT_RELATIVE_Y;
+        return getSlotLogicY(visibleRows, imageHeight, false);
+    }
+
+    public static int getSlotLogicY(int visibleRows, int imageHeight, boolean folded) {
+        return getWarehouseYOffset(visibleRows, imageHeight, folded) + SLOT_RELATIVE_Y;
     }
 
     public static final int SLOT_SIZE = 18;
     public static final int SLOT_VISUAL_OFFSET = -1;
 
     // 滚动条 (相对于 warehouseX, warehouseY)
-    public static int getScrollbarXOffset() { return 173 + getUpgradeColumnWidth(); }
+    public static int getScrollbarXOffset() {
+        return 173 + getUpgradeColumnWidth();
+    }
+
     public static final int SCROLLBAR_Y_OFFSET = 23;
     public static final int SCROLLBAR_WIDTH = 4;
     public static final int SCROLLBAR_PADDING = 4;
@@ -131,8 +158,12 @@ public class WarehouseConstants {
     }
 
     public static int getSidebarYOffset(int visibleRows, int imageHeight) {
+        return getSidebarYOffset(visibleRows, imageHeight, false);
+    }
+
+    public static int getSidebarYOffset(int visibleRows, int imageHeight, boolean folded) {
         if (com.portablestorage.config.ModConfig.storagePosition.isHorizontal()) {
-            return WAREHOUSE_TITLE_HEIGHT + visibleRows * SLOT_SIZE + 2;
+            return getWarehouseHeight(visibleRows, folded) + 2;
         }
         return 0;
     }
@@ -141,7 +172,10 @@ public class WarehouseConstants {
     public static final int SIDEBAR_BUTTON_SPACING = 1;
 
     // +/- 按钮 (相对于 warehouseX, warehouseY)
-    public static int getPlusMinusXOffset() { return SEARCH_BOX_WIDTH + 10 + getUpgradeColumnWidth(); }
+    public static int getPlusMinusXOffset() {
+        return SEARCH_BOX_WIDTH + 10 + getUpgradeColumnWidth();
+    }
+
     public static final int PLUS_MINUS_Y_OFFSET = 6;
     public static final int TINY_BUTTON_SIZE = 11;
     public static final int TINY_BUTTON_SPACING = 2;
@@ -154,11 +188,6 @@ public class WarehouseConstants {
     public static final int WAREHOUSE_CORNER_SIZE = 10;
     public static final int WAREHOUSE_TITLE_HEIGHT = 27;
     public static final int WAREHOUSE_FOLDED_HEIGHT = 22;
-    
-    // 界面偏移计算参数
-    public static final int OFFSET_FOLDED = 0; 
-    public static final int OFFSET_BASE = 10; 
-    public static final int OFFSET_PER_ROW = 10; 
 
     // 物品数量显示
     public static final float QUANTITY_TEXT_SCALE = 0.8f;
@@ -172,7 +201,7 @@ public class WarehouseConstants {
     public static final int SEARCH_BOX_BG_COLOR = 0xFF222222;
     public static final int SEARCH_BOX_BORDER_DARK = 0xFF111111;
     public static final int SEARCH_BOX_BORDER_LIGHT = 0xFF555555;
-    
+
     // 遮罩与高亮
     public static final int MASK_WHITE = 0x80FFFFFF;
     public static final int MASK_YELLOW = 0x50FFFF00;
@@ -203,7 +232,7 @@ public class WarehouseConstants {
     public static final int ICON_TEXTURE_HEIGHT = 48;
     public static final int ICON_SIZE = 16;
     public static final int GUI_TEXTURE_SIZE = 30;
-    
+
     // 图标索引
     public static final int ICON_FOLDED = 13;
     public static final int ICON_UNFOLDED = 0;
@@ -215,7 +244,7 @@ public class WarehouseConstants {
     public static final int ICON_SMART_COLLAPSE_OFF = 11;
     public static final int ICON_CRAFT_REFILL = 7;
     public static final int ICON_CRAFTING_TABLE = 14;
-    
+
     public static final String SMART_COLLAPSE_TAG = "portablestorage_collapsed";
     public static final String INFINITE_TAG = "portablestorage_infinite";
     public static final long INFINITE_COUNT = 999_999_999_999L;

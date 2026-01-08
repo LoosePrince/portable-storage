@@ -24,7 +24,9 @@ public interface AbstractContainerScreenAccessor {
     @Accessor("imageHeight")
     void portablestorage$setImageHeight(int imageHeight);
 
+    @Accessor("imageWidth")
+    int portablestorage$getImageWidth();
+
     @Accessor("hoveredSlot")
     net.minecraft.world.inventory.Slot portablestorage$getHoveredSlot();
 }
-
