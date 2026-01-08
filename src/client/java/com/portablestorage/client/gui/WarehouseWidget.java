@@ -58,8 +58,13 @@ public class WarehouseWidget {
         if (minecraft.player == null)
             return false;
 
-        // 仅排除创造模式标准背包界面
+        // 1. 仅排除创造模式标准背包界面
         if (screen instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen) {
+            return false;
+        }
+
+        // 2. 在容器界面显示时，必须拥有“工作台升级”
+        if (isContainerInterface() && warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
             return false;
         }
 

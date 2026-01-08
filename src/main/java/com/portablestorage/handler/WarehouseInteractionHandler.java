@@ -15,17 +15,32 @@ import net.minecraft.world.item.Items;
 
 public class WarehouseInteractionHandler {
 
-    public static boolean handleClicked(AbstractContainerMenu menu, int slotId, int button, ClickType clickType, Player player) {
+    public static boolean handleClicked(AbstractContainerMenu menu, int slotId, int button, ClickType clickType,
+            Player player) {
         // 排除创造模式背包菜单的交互
-        if (menu instanceof net.minecraft.world.inventory.InventoryMenu && player.getAbilities().instabuild) return false;
+        if (menu instanceof net.minecraft.world.inventory.InventoryMenu && player.getAbilities().instabuild)
+            return false;
 
-        if (slotId < 0 || slotId >= menu.slots.size()) return false;
+        if (slotId < 0 || slotId >= menu.slots.size())
+            return false;
 
         Slot slot = menu.slots.get(slotId);
-        
+        boolean isWarehouseSlot = slot.container instanceof PlayerWarehouse
+                || slot instanceof com.portablestorage.upgrade.UpgradeSlot;
+
+        // 在容器界面，如果没有工作台升级，禁止交互仓库相关槽位
+        PlayerWarehouse warehouseCheck = ModComponents.get(player).getWarehouse(player.getUUID());
+        if (WarehouseMenuHandler.isContainerMenu(menu)
+                && warehouseCheck.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
+            if (isWarehouseSlot)
+                return true; // 拦截并取消
+            return false;
+        }
+
         // Handle main warehouse slots
         if (slot.container instanceof PlayerWarehouse warehouse) {
-            if (!warehouse.isEnabled()) return false;
+            if (!warehouse.isEnabled())
+                return false;
             int warehouseStart = -1;
             for (int i = 0; i < menu.slots.size(); i++) {
                 if (menu.slots.get(i).container == warehouse) {
@@ -33,7 +48,8 @@ public class WarehouseInteractionHandler {
                     break;
                 }
             }
-            if (warehouseStart == -1) return false;
+            if (warehouseStart == -1)
+                return false;
 
             if (clickType == ClickType.QUICK_MOVE) {
                 return true; // Cancelled
@@ -59,7 +75,8 @@ public class WarehouseInteractionHandler {
         // Handle upgrade slots
         else if (slot instanceof com.portablestorage.upgrade.UpgradeSlot) {
             PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
-            if (!warehouse.isEnabled()) return false;
+            if (!warehouse.isEnabled())
+                return false;
 
             if (clickType == ClickType.QUICK_MOVE) {
                 ItemStack stackInSlot = slot.getItem();
@@ -76,7 +93,7 @@ public class WarehouseInteractionHandler {
                 if (slot.mayPlace(cursorStack)) {
                     ItemStack stackInSlot = slot.getItem();
                     int maxPlace = slot.getMaxStackSize();
-                    
+
                     if (stackInSlot.isEmpty()) {
                         int toPlace = Math.min(cursorStack.getCount(), maxPlace);
                         slot.set(cursorStack.split(toPlace));
@@ -103,61 +120,65 @@ public class WarehouseInteractionHandler {
         return false;
     }
 
-    private static void handleExperienceClick(PlayerWarehouse warehouse, int slotIndex, int button, ClickType clickType, Player player) {
-        if (player.level().isClientSide) return;
-        
+    private static void handleExperienceClick(PlayerWarehouse warehouse, int slotIndex, int button, ClickType clickType,
+            Player player) {
+        if (player.level().isClientSide)
+            return;
+
         ItemStack upgradeStack = warehouse.getUpgrade(ExperienceUpgrade.ID);
-        if (upgradeStack.isEmpty()) return;
-        
+        if (upgradeStack.isEmpty())
+            return;
+
         int levels = ExperienceUpgrade.getStep(upgradeStack);
         ItemStack cursorStack = player.containerMenu.getCarried();
-        
+
         if (cursorStack.isEmpty()) {
             if (button == 1) { // Right click: Deposit
                 int levelsToMove = levels;
                 long totalToStore = 0;
                 for (int i = 0; i < levelsToMove; i++) {
                     int lvl = Math.max(0, player.experienceLevel - i);
-                    totalToStore += (ExperienceUpgrade.getExperienceForLevel(lvl) - ExperienceUpgrade.getExperienceForLevel(Math.max(0, lvl - 1)));
+                    totalToStore += (ExperienceUpgrade.getExperienceForLevel(lvl)
+                            - ExperienceUpgrade.getExperienceForLevel(Math.max(0, lvl - 1)));
                 }
-                
+
                 long currentProgressXp = Math.round(player.experienceProgress * player.getXpNeededForNextLevel());
                 totalToStore += currentProgressXp;
 
                 if (totalToStore > 0) {
                     warehouse.addExperience(totalToStore);
-                    ExperienceUpgrade.addExperience(player, (int)-totalToStore);
+                    ExperienceUpgrade.addExperience(player, (int) -totalToStore);
                 }
             } else if (button == 0) { // Left click: Withdraw
                 long totalToTake = 0;
                 for (int i = 0; i < levels; i++) {
                     int lvl = player.experienceLevel + i;
-                    totalToTake += (ExperienceUpgrade.getExperienceForLevel(lvl + 1) - ExperienceUpgrade.getExperienceForLevel(lvl));
+                    totalToTake += (ExperienceUpgrade.getExperienceForLevel(lvl + 1)
+                            - ExperienceUpgrade.getExperienceForLevel(lvl));
                 }
-                
+
                 long canTake = Math.min(totalToTake, warehouse.getExperience());
                 if (canTake > 0) {
                     warehouse.addExperience(-canTake);
-                    ExperienceUpgrade.addExperience(player, (int)canTake);
+                    ExperienceUpgrade.addExperience(player, (int) canTake);
                 }
             }
         } else if (cursorStack.is(Items.GLASS_BOTTLE) && button == 1) {
-            int canConvert = (int)(warehouse.getExperience() / 11);
+            int canConvert = (int) (warehouse.getExperience() / 11);
             int toConvert = Math.min(cursorStack.getCount(), canConvert);
-            
+
             if (toConvert > 0) {
-                warehouse.addExperience(-(long)toConvert * 11);
+                warehouse.addExperience(-(long) toConvert * 11);
                 ItemStack bottles = new ItemStack(Items.EXPERIENCE_BOTTLE, toConvert);
                 cursorStack.shrink(toConvert);
                 if (!player.getInventory().add(bottles)) {
                     player.drop(bottles, false);
                 }
             }
-            
+
             if (!cursorStack.isEmpty() && canConvert < cursorStack.getCount()) {
                 WarehouseManager.addItem(warehouse, cursorStack);
             }
         }
     }
 }
-
