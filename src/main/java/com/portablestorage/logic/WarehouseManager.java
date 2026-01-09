@@ -221,6 +221,9 @@ public class WarehouseManager {
         }
 
         long realCount = warehouse.getRealCount(slotIndex);
+        if (realCount <= 0) {
+            return; // 确保有物品可提取
+        }
         int toTake = (int) Math.min(stackInSlot.getMaxStackSize(), realCount);
         ItemStack resultStack = stackInSlot.copyWithCount(toTake);
 
@@ -241,7 +244,8 @@ public class WarehouseManager {
         if (inventoryStart != -1 && ((AbstractContainerMenuAccessor) player.containerMenu).invokeMoveItemStackTo(resultStack,
                 inventoryStart, inventoryEnd, true)) {
             int movedCount = toTake - resultStack.getCount();
-            if (movedCount > 0) {
+            // 确保只移除实际移动的数量，防止刷物品
+            if (movedCount > 0 && movedCount <= toTake) {
                 removeItem(warehouse, slotIndex, movedCount, true);
             }
         }

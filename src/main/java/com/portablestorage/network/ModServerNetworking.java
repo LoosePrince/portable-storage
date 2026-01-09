@@ -86,14 +86,28 @@ public class ModServerNetworking {
             if (slotId < 0 || slotId >= player.containerMenu.slots.size()) return;
             
             Slot slot = player.containerMenu.slots.get(slotId);
-            if (slot.container instanceof PlayerWarehouse) {
-                WarehouseManager.tryTransferToInventory((PlayerWarehouse) slot.container, slot.getContainerSlot(), player);
+            if (slot.container instanceof PlayerWarehouse warehouse) {
+                // 提前验证：仓库必须启用且快速交互开启
+                if (!warehouse.isEnabled() || !warehouse.isQuickInteraction() || warehouse.isFolded()) {
+                    return;
+                }
+                // 验证槽位中确实有物品
+                ItemStack stackInSlot = warehouse.getItem(slot.getContainerSlot());
+                if (stackInSlot.isEmpty()) {
+                    return;
+                }
+                WarehouseManager.tryTransferToInventory(warehouse, slot.getContainerSlot(), player);
                 syncChanges(player);
             } else if (slot.container instanceof net.minecraft.world.entity.player.Inventory) {
+                PlayerWarehouse warehouse = getWarehouse(player);
+                // 提前验证：仓库必须启用且快速交互开启
+                if (!warehouse.isEnabled() || !warehouse.isQuickInteraction() || warehouse.isFolded()) {
+                    return;
+                }
                 ItemStack stack = slot.getItem();
                 if (!stack.isEmpty()) {
                     // 使用 addFluid 以支持流体桶的自动分离
-                    ItemStack remaining = WarehouseManager.addFluid(getWarehouse(player), stack, player);
+                    ItemStack remaining = WarehouseManager.addFluid(warehouse, stack, player);
                     slot.set(remaining);
                     syncChanges(player);
                 }
@@ -301,7 +315,8 @@ public class ModServerNetworking {
             ServerPlayer player = context.player();
             PlayerWarehouse warehouse = getWarehouse(player);
             
-            if (!warehouse.isEnabled() || warehouse.isFolded()) {
+            // 验证：仓库必须启用、快速交互开启且未折叠
+            if (!warehouse.isEnabled() || !warehouse.isQuickInteraction() || warehouse.isFolded()) {
                 return;
             }
 

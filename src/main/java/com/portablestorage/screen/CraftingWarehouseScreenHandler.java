@@ -153,21 +153,27 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
             // 获取仓库实例用于后续判定
             PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
 
-            if (slot instanceof ResultSlot) { // 合成结果
+            if (slot instanceof ResultSlot) { // 合成结果：使用原版逻辑处理
+                // 原版逻辑：循环处理直到无法移动或槽位为空
                 while (slot.hasItem()) {
                     ItemStack currentResult = slot.getItem();
                     ItemStack resultCopy = currentResult.copy();
                     
+                    // 触发物品的合成事件
                     currentResult.getItem().onCraftedBy(currentResult, player.level(), player);
                     
                     // 尝试移动到玩家背包或快捷栏
                     if (!this.moveItemStackTo(currentResult, totalInvStart, totalInvEnd, true)) {
                         break;
                     }
-
+                    
+                    // 触发快速合成事件
                     slot.onQuickCraft(currentResult, resultCopy);
+                    
+                    // 消耗材料并刷新合成结果（关键：onTake会消耗材料）
                     slot.onTake(player, currentResult);
-
+                    
+                    // 如果数量没有变化，说明移动失败，退出循环
                     if (currentResult.getCount() == resultCopy.getCount()) {
                         break;
                     }

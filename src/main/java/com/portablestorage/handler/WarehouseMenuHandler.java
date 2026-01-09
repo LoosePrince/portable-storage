@@ -153,6 +153,11 @@ public class WarehouseMenuHandler {
         Slot slot = menu.slots.get(index);
         boolean isWarehouseSlot = slot.container instanceof PlayerWarehouse || slot instanceof UpgradeSlot;
 
+        // 合成结果槽位完全交给原版逻辑处理
+        if (slot instanceof ResultSlot) {
+            return null;
+        }
+
         // 在容器界面，如果没有工作台升级，禁止快捷移动到仓库
         if (isContainerMenu(menu) && warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
             if (isWarehouseSlot)
@@ -166,8 +171,16 @@ public class WarehouseMenuHandler {
         ItemStack originalStack = stackInSlot.copy(); // 保留副本用于返回
 
         // 处理仓库槽位和升级槽位
-        if (slot.container instanceof PlayerWarehouse) {
-            return ItemStack.EMPTY;
+        if (slot.container instanceof PlayerWarehouse warehouseSlot) {
+            // 快速交互：从仓库取出物品到背包
+            if (warehouse.isQuickInteraction() && !warehouse.isFolded()) {
+                int containerSlot = slot.getContainerSlot();
+                com.portablestorage.logic.WarehouseManager.tryTransferToInventory(warehouseSlot, containerSlot, player);
+                menu.broadcastChanges();
+                return ItemStack.EMPTY; // 返回空表示已处理
+            }
+            // 如果没有快速交互，返回null让原版逻辑处理（或者返回EMPTY阻止交互）
+            return ItemStack.EMPTY; // 阻止原版快速移动逻辑
         }
         if (slot instanceof UpgradeSlot) {
             if (!((AbstractContainerMenuAccessor) menu).invokeMoveItemStackTo(stackInSlot, 9, 45, true)) {
