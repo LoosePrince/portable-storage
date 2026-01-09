@@ -3,11 +3,13 @@ package com.portablestorage.mixin;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.logic.WarehouseManager;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.BowItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -43,8 +45,35 @@ public abstract class BowItemMixin {
         }
 
         if (matchedArrow != null) {
+            // 无限附魔只对普通箭有效，药水箭和光灵箭即使有无限附魔也会扣除
+            boolean hasInfinity = hasInfinityEnchantment(stack);
+            if (hasInfinity && matchedArrow.is(Items.ARROW)) {
+                // 有无限附魔且是普通箭，不扣除
+                return;
+            }
+            // 其他情况都扣除
             WarehouseManager.takeMatching(warehouse, matchedArrow, 1, true);
         }
+    }
+
+    private boolean hasInfinityEnchantment(ItemStack stack) {
+        // 检查弓是否有无限附魔
+        var enchantments = stack.get(DataComponents.ENCHANTMENTS);
+        if (enchantments != null) {
+            // 遍历所有附魔查找无限附魔
+            for (var entry : enchantments.entrySet()) {
+                net.minecraft.core.Holder<net.minecraft.world.item.enchantment.Enchantment> holder = entry.getKey();
+                // 检查附魔值是否为无限附魔 - 使用 unwrapKey() 获取 ResourceKey 进行比较
+                var enchantmentKeyOpt = holder.unwrapKey();
+                if (enchantmentKeyOpt.isPresent()) {
+                    var enchantmentKey = enchantmentKeyOpt.get();
+                    if (enchantmentKey.equals(Enchantments.INFINITY)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private boolean hasAnyArrow(ServerPlayer player) {

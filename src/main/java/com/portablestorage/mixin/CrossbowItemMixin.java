@@ -10,6 +10,7 @@ import net.minecraft.world.item.CrossbowItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.ChargedProjectiles;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -49,8 +50,35 @@ public abstract class CrossbowItemMixin {
         }
 
         if (matchedAmmo != null) {
+            // 无限附魔只对普通箭有效，药水箭、光灵箭和烟花火箭即使有无限附魔也会扣除
+            boolean hasInfinity = hasInfinityEnchantment(stack);
+            if (hasInfinity && matchedAmmo.is(Items.ARROW)) {
+                // 有无限附魔且是普通箭，不扣除
+                return;
+            }
+            // 其他情况都扣除
             WarehouseManager.takeMatching(warehouse, matchedAmmo, 1, true);
         }
+    }
+
+    private boolean hasInfinityEnchantment(ItemStack stack) {
+        // 检查弩是否有无限附魔
+        var enchantments = stack.get(DataComponents.ENCHANTMENTS);
+        if (enchantments != null) {
+            // 遍历所有附魔查找无限附魔
+            for (var entry : enchantments.entrySet()) {
+                net.minecraft.core.Holder<net.minecraft.world.item.enchantment.Enchantment> holder = entry.getKey();
+                // 检查附魔值是否为无限附魔 - 使用 unwrapKey() 获取 ResourceKey 进行比较
+                var enchantmentKeyOpt = holder.unwrapKey();
+                if (enchantmentKeyOpt.isPresent()) {
+                    var enchantmentKey = enchantmentKeyOpt.get();
+                    if (enchantmentKey.equals(Enchantments.INFINITY)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     private boolean hasAnyAmmo(ServerPlayer player) {
