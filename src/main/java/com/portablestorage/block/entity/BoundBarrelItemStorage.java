@@ -43,6 +43,7 @@ public class BoundBarrelItemStorage implements Storage<ItemVariant> {
         transaction.addCloseCallback((context, result) -> {
             if (result.wasCommitted()) {
                 ItemStack stack = resource.toStack((int) maxAmount);
+                // 自动化设备交互，没有player对象，使用无player版本（会跳过NBT大小检查）
                 WarehouseManager.addItem(warehouse, stack);
             }
         });

@@ -114,6 +114,7 @@ public class ModServerNetworking {
             ModConfig.maxItemStackSize = payload.maxItemStackSize();
             ModConfig.baseMaxStorageTypes = payload.baseMaxStorageTypes();
             ModConfig.baseMaxItemStackSize = payload.baseMaxItemStackSize();
+            ModConfig.maxItemNbtSize = payload.maxItemNbtSize();
             ModConfig.unconditionalWarehouse = payload.unconditionalWarehouse();
             ModConfig.hopperRange = payload.hopperRange();
             ModConfig.hopperFrequency = payload.hopperFrequency();
@@ -142,6 +143,7 @@ public class ModServerNetworking {
                 ModConfig.maxItemStackSize,
                 ModConfig.baseMaxStorageTypes,
                 ModConfig.baseMaxItemStackSize,
+                ModConfig.maxItemNbtSize,
                 ModConfig.unconditionalWarehouse,
                 ModConfig.hopperRange,
                 ModConfig.hopperFrequency,
@@ -290,6 +292,48 @@ public class ModServerNetworking {
         });
     }
 
+    public static void handleDoubleClickQuickStore(C2SDoubleClickQuickStorePayload payload, ServerPlayNetworking.Context context) {
+        context.server().execute(() -> {
+            ServerPlayer player = context.player();
+            PlayerWarehouse warehouse = getWarehouse(player);
+            
+            if (!warehouse.isEnabled() || warehouse.isFolded()) {
+                return;
+            }
+
+            // 获取光标中的物品
+            ItemStack cursorStack = player.containerMenu.getCarried();
+            if (cursorStack.isEmpty()) {
+                return;
+            }
+
+            // 查找背包中所有相同物品并存入仓库
+            boolean storedAny = false;
+            for (int i = 0; i < player.containerMenu.slots.size(); i++) {
+                net.minecraft.world.inventory.Slot slot = player.containerMenu.slots.get(i);
+                if (slot.container instanceof net.minecraft.world.entity.player.Inventory) {
+                    int containerSlot = slot.getContainerSlot();
+                    // 仅处理主背包和快捷栏（0-35）
+                    if (containerSlot >= 0 && containerSlot < 36) {
+                        ItemStack stack = slot.getItem();
+                        if (!stack.isEmpty() && net.minecraft.world.item.ItemStack.isSameItemSameComponents(cursorStack, stack)) {
+                            // 存入仓库（使用addFluid以支持流体桶）
+                            ItemStack remaining = com.portablestorage.logic.WarehouseManager.addFluid(warehouse, stack, player);
+                            slot.set(remaining);
+                            if (remaining.getCount() < stack.getCount()) {
+                                storedAny = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (storedAny) {
+                syncChanges(player);
+            }
+        });
+    }
+
     public static void handleTogglePinned(C2STogglePinnedPayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
             PlayerWarehouse warehouse = getWarehouse(context.player());
@@ -325,7 +369,7 @@ public class ModServerNetworking {
                 if (slot.container instanceof net.minecraft.world.inventory.CraftingContainer && !(slot instanceof net.minecraft.world.inventory.ResultSlot)) {
                     if (slot.hasItem()) {
                         ItemStack stack = slot.getItem();
-                        WarehouseManager.addItem(warehouse, stack);
+                        WarehouseManager.addItem(warehouse, stack, player);
                         slot.set(stack);
                     }
                 }

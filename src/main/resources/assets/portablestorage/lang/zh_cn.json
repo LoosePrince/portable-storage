@@ -68,6 +68,8 @@
   "gui.portablestorage.settings.max_item_stack_size": "仓库储存物品最大堆叠数",
   "gui.portablestorage.settings.base_max_storage_types": "基础仓库储存最大种类数",
   "gui.portablestorage.settings.base_max_item_stack_size": "基础仓库储存物品最大堆叠数",
+  "gui.portablestorage.settings.max_item_nbt_size": "物品NBT数据最大大小",
+  "gui.portablestorage.settings.max_item_nbt_size.desc": "设置单个物品NBT数据允许的最大大小（字节）。超过此大小的物品将无法存入仓库。默认 10240 (10KB)，-1 表示不限制。",
   "gui.portablestorage.settings.server_limit.desc": "由服务端配置决定的存储限制，-1 表示不限制。",
   "gui.portablestorage.settings.lava_infinite_threshold": "岩浆无限阈值 (桶)",
   "gui.portablestorage.settings.lava_infinite_threshold.desc": "当仓库中岩浆数量达到此值时，将变为无限岩浆。存取不再消耗/增加。设置为 -1 以禁用此功能。",

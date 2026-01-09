@@ -26,6 +26,7 @@ public class ModConfig {
     public static long maxItemStackSize = -1;
     public static int baseMaxStorageTypes = 54;
     public static long baseMaxItemStackSize = -1;
+    public static int maxItemNbtSize = 10240; // 默认10KB，-1为不限制
     
     // 漏斗升级配置
     public static int hopperRange = 5;
@@ -78,6 +79,7 @@ public class ModConfig {
         maxItemStackSize = ((Number) config.getOrElse("server.maxItemStackSize", -1L)).longValue();
         baseMaxStorageTypes = ((Number) config.getOrElse("server.baseMaxStorageTypes", 54)).intValue();
         baseMaxItemStackSize = ((Number) config.getOrElse("server.baseMaxItemStackSize", -1L)).longValue();
+        maxItemNbtSize = ((Number) config.getOrElse("server.maxItemNbtSize", 10240)).intValue();
         hopperRange = ((Number) config.getOrElse("server.hopperRange", 5)).intValue();
         hopperFrequency = ((Number) config.getOrElse("server.hopperFrequency", 1.0)).doubleValue();
         lavaInfiniteThreshold = ((Number) config.getOrElse("server.lavaInfiniteThreshold", 10000L)).longValue();
@@ -118,6 +120,7 @@ public class ModConfig {
         config.set("server.maxItemStackSize", maxItemStackSize);
         config.set("server.baseMaxStorageTypes", baseMaxStorageTypes);
         config.set("server.baseMaxItemStackSize", baseMaxItemStackSize);
+        config.set("server.maxItemNbtSize", maxItemNbtSize);
         config.set("server.hopperRange", hopperRange);
         config.set("server.hopperFrequency", hopperFrequency);
         config.set("server.lavaInfiniteThreshold", lavaInfiniteThreshold);

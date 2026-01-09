@@ -176,7 +176,7 @@ public class WarehouseMenuHandler {
 
             // 如果不是流体（即 stackInSlot 没变，或者 remaining 还是原物），尝试作为普通物品存入
             if (remaining.getCount() == originalStack.getCount()) {
-                WarehouseManager.addItem(warehouse, stackInSlot);
+                WarehouseManager.addItem(warehouse, stackInSlot, player);
                 remaining = stackInSlot;
             }
 

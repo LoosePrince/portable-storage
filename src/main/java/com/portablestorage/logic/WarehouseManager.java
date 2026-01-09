@@ -27,7 +27,19 @@ public class WarehouseManager {
      * 处理物品存入逻辑
      */
     public static void addItem(PlayerWarehouse warehouse, ItemStack stack) {
+        addItem(warehouse, stack, null);
+    }
+
+    /**
+     * 处理物品存入逻辑（带Player参数用于获取registries）
+     */
+    public static void addItem(PlayerWarehouse warehouse, ItemStack stack, Player player) {
         if (stack.isEmpty()) return;
+
+        // 检查物品NBT大小限制
+        if (player != null && !checkItemNbtSize(stack, player)) {
+            return; // 超过大小限制，拒绝存入
+        }
 
         // 尝试作为流体处理
         FluidVariant fluid = getFluidForVirtualItem(stack.getItem());
@@ -51,13 +63,13 @@ public class WarehouseManager {
      */
     public static ItemStack addFluid(PlayerWarehouse warehouse, ItemStack stack, Player player) {
         if (!warehouse.isEnabled() || !warehouse.isQuickInteraction()) {
-            addItemInternal(warehouse, stack);
+            addItem(warehouse, stack, player);
             return stack;
         }
 
         net.minecraft.world.item.Item virtualItem = getVirtualFluidForItem(stack.getItem());
         if (virtualItem == null) {
-            addItemInternal(warehouse, stack);
+            addItem(warehouse, stack, player);
             return stack;
         }
 
@@ -89,7 +101,7 @@ public class WarehouseManager {
             // 牛奶等非 Fluid 类型的虚拟流体
             int originalCount = stack.getCount();
             ItemStack virtualStack = new ItemStack(virtualItem, originalCount);
-            addItemInternal(warehouse, virtualStack);
+            addItem(warehouse, virtualStack, player);
 
             int stored = originalCount - virtualStack.getCount();
             if (stored > 0) {
@@ -460,6 +472,47 @@ public class WarehouseManager {
             }
         }
         return -1;
+    }
+
+    /**
+     * 检查物品NBT数据大小是否超过限制
+     * @param stack 要检查的物品
+     * @param player 玩家对象，用于获取registries
+     * @return true表示可以存入，false表示超过限制
+     */
+    private static boolean checkItemNbtSize(ItemStack stack, Player player) {
+        int maxSize = com.portablestorage.config.ModConfig.maxItemNbtSize;
+        if (maxSize < 0) {
+            return true; // -1表示不限制
+        }
+
+        try {
+            // 从玩家的level获取registries
+            if (player == null || player.level() == null) {
+                return true; // 无法获取registries，允许存入
+            }
+            
+            net.minecraft.core.HolderLookup.Provider registries = player.level().registryAccess();
+            net.minecraft.nbt.Tag savedTag = stack.saveOptional(registries);
+            
+            if (savedTag == null) {
+                return true; // 没有NBT数据，允许存入
+            }
+            
+            // 将NBT序列化为字节数组来计算大小
+            // 使用Tag而不是CompoundTag，因为saveOptional可能返回其他类型的Tag
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            try (java.io.DataOutputStream dos = new java.io.DataOutputStream(baos)) {
+                net.minecraft.nbt.NbtIo.writeUnnamedTag(savedTag, dos);
+            }
+            int size = baos.size();
+            
+            return size <= maxSize;
+        } catch (Exception e) {
+            // 如果检查失败，允许存入（避免阻止正常物品）
+            com.portablestorage.PortableStorage.LOGGER.warn("Failed to check item NBT size", e);
+            return true;
+        }
     }
 }
 

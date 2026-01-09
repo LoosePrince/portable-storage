@@ -57,6 +57,7 @@ public class YACLConfig {
             ModConfig.maxItemStackSize,
             ModConfig.baseMaxStorageTypes,
             ModConfig.baseMaxItemStackSize,
+            ModConfig.maxItemNbtSize,
             ModConfig.unconditionalWarehouse,
             ModConfig.hopperRange,
             ModConfig.hopperFrequency,
@@ -463,6 +464,20 @@ public class YACLConfig {
                                         }
                                 )
                                 .controller(LongFieldControllerBuilder::create)
+                                .available(canEditServerConfig())
+                                .build())
+                        .option(Option.<Integer>createBuilder()
+                                .name(Component.translatable("gui.portablestorage.settings.max_item_nbt_size"))
+                                .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.max_item_nbt_size.desc")))
+                                .binding(
+                                        10240, 
+                                        () -> ModConfig.maxItemNbtSize, 
+                                        val -> {
+                                            ModConfig.maxItemNbtSize = val;
+                                            updateServerConfig();
+                                        }
+                                )
+                                .controller(IntegerFieldControllerBuilder::create)
                                 .available(canEditServerConfig())
                                 .build())
                         .build())

@@ -80,6 +80,7 @@ public class PortableStorage implements ModInitializer {
                 ModConfig.maxItemStackSize,
                 ModConfig.baseMaxStorageTypes,
                 ModConfig.baseMaxItemStackSize,
+                ModConfig.maxItemNbtSize,
                 ModConfig.unconditionalWarehouse,
                 ModConfig.hopperRange,
                 ModConfig.hopperFrequency,

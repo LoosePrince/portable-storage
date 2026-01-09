@@ -18,6 +18,7 @@ public class ModNetworking {
         PayloadTypeRegistry.playC2S().register(C2SUpdateForbiddenPlayersPayload.TYPE, C2SUpdateForbiddenPlayersPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(C2SDropWarehouseItemPayload.TYPE, C2SDropWarehouseItemPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(C2SUpdateFrozenStatePayload.TYPE, C2SUpdateFrozenStatePayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(C2SDoubleClickQuickStorePayload.TYPE, C2SDoubleClickQuickStorePayload.CODEC);
     }
 
     public static void registerS2CPayloads() {
@@ -40,6 +41,7 @@ public class ModNetworking {
         ServerPlayNetworking.registerGlobalReceiver(C2SUpdateForbiddenPlayersPayload.TYPE, ModServerNetworking::handleUpdateForbiddenPlayers);
         ServerPlayNetworking.registerGlobalReceiver(C2SDropWarehouseItemPayload.TYPE, ModServerNetworking::handleDropWarehouseItem);
         ServerPlayNetworking.registerGlobalReceiver(C2SUpdateFrozenStatePayload.TYPE, ModServerNetworking::handleUpdateFrozenState);
+        ServerPlayNetworking.registerGlobalReceiver(C2SDoubleClickQuickStorePayload.TYPE, ModServerNetworking::handleDoubleClickQuickStore);
     }
 }
 

@@ -35,3 +35,6 @@ baseMaxStorageTypes = 54
 
 # 基础仓库储存物品最大堆叠数 (-1: 不限制)
 baseMaxItemStackSize = -1
+
+# 物品NBT数据最大大小（字节，-1: 不限制，默认10KB）
+maxItemNbtSize = 10240

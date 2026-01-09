@@ -12,6 +12,7 @@ public record UpdateServerConfigPayload(
     long maxItemStackSize,
     int baseMaxStorageTypes,
     long baseMaxItemStackSize,
+    int maxItemNbtSize,
     String unconditionalWarehouse,
     int hopperRange,
     double hopperFrequency,
@@ -32,6 +33,7 @@ public record UpdateServerConfigPayload(
             buf.writeLong(payload.maxItemStackSize);
             buf.writeInt(payload.baseMaxStorageTypes);
             buf.writeLong(payload.baseMaxItemStackSize);
+            buf.writeInt(payload.maxItemNbtSize);
             buf.writeUtf(payload.unconditionalWarehouse);
             buf.writeInt(payload.hopperRange);
             buf.writeDouble(payload.hopperFrequency);
@@ -49,6 +51,7 @@ public record UpdateServerConfigPayload(
             buf.readLong(),
             buf.readInt(),
             buf.readLong(),
+            buf.readInt(),
             buf.readUtf(),
             buf.readInt(),
             buf.readDouble(),

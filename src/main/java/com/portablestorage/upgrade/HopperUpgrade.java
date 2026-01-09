@@ -144,7 +144,7 @@ public class HopperUpgrade extends UpgradeType {
             }
 
             // 2. 常规物品存入
-            WarehouseManager.addItem(warehouse, itemStack);
+            WarehouseManager.addItem(warehouse, itemStack, player);
             if (itemStack.getCount() != originalCount) {
                 pickedAny = true;
                 if (itemStack.isEmpty()) {

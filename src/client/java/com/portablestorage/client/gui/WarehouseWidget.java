@@ -37,6 +37,13 @@ public class WarehouseWidget {
     private boolean isDraggingUpgradeScrollbar = false;
     private long lastSearchUpdateTime = 0;
     private String pendingSearchText = null;
+    
+    // 双击检测
+    private long lastClickTime = 0;
+    private double lastClickX = -1;
+    private double lastClickY = -1;
+    private static final long DOUBLE_CLICK_TIME_MS = 300; // 双击时间窗口（毫秒）
+    private static final double DOUBLE_CLICK_DISTANCE = 5.0; // 双击允许的最大距离
 
     // Status tracking for screen refresh
     private boolean lastWorkbenchStatus = false;
@@ -467,9 +474,41 @@ public class WarehouseWidget {
                 && !warehouse.isFolded()) {
             if (clickedSlot != null && (clickedSlot.container instanceof PlayerWarehouse
                     || clickedSlot.container instanceof net.minecraft.world.entity.player.Inventory)) {
-                ClientPlayNetworking.send(new QuickTransferPayload(clickedSlot.index));
-                return true;
+                // 检测双击事件
+                long currentTime = System.currentTimeMillis();
+                boolean isDoubleClick = false;
+                
+                if (button == 0 && currentTime - lastClickTime < DOUBLE_CLICK_TIME_MS) {
+                    double distance = Math.sqrt(Math.pow(mouseX - lastClickX, 2) + Math.pow(mouseY - lastClickY, 2));
+                    if (distance <= DOUBLE_CLICK_DISTANCE) {
+                        isDoubleClick = true;
+                    }
+                }
+                
+                if (isDoubleClick) {
+                    // Shift+双击：将背包中所有相同物品存入仓库
+                    ItemStack cursorStack = screen.getMenu().getCarried();
+                    if (!cursorStack.isEmpty()) {
+                        ClientPlayNetworking.send(new C2SDoubleClickQuickStorePayload());
+                        lastClickTime = 0; // 重置，避免连续触发
+                        lastClickX = -1;
+                        lastClickY = -1;
+                        return true;
+                    }
+                } else {
+                    // 普通Shift+左键
+                    ClientPlayNetworking.send(new QuickTransferPayload(clickedSlot.index));
+                    lastClickTime = currentTime;
+                    lastClickX = mouseX;
+                    lastClickY = mouseY;
+                    return true;
+                }
             }
+        } else {
+            // 重置双击检测（非Shift点击）
+            lastClickTime = 0;
+            lastClickX = -1;
+            lastClickY = -1;
         }
 
         // 4. Fold button
