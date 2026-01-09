@@ -18,6 +18,9 @@ public class ModItems {
     public static final Item VIRTUAL_MILK = register("milk", new VirtualFluidItem(new Item.Properties()));
     public static final Item BOTTLED_EXPERIENCE = register("bottled_experience", new Item(new Item.Properties().stacksTo(64)));
 
+    // 彩蛋物品
+    public static final Item EASTER_EGG = register("easter_egg", new EasterEggItem(new Item.Properties().stacksTo(64)));
+
     private static <T extends Item> T register(String name, T item) {
         return Registry.register(BuiltInRegistries.ITEM, PortableStorage.id(name), item);
     }
