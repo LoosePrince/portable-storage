@@ -3,6 +3,10 @@ package com.portablestorage.network;
 import com.portablestorage.config.ModConfig;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
+/**
+ * 客户端网络处理器
+ * 处理服务端发送到客户端的网络数据包
+ */
 public class ModClientNetworking {
     public static void registerClientReceivers() {
         ClientPlayNetworking.registerGlobalReceiver(SyncConfigPayload.TYPE, (payload, context) -> {

@@ -3,6 +3,10 @@ package com.portablestorage.network;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
+/**
+ * 网络注册类
+ * 负责注册客户端到服务端和服务端到客户端的网络数据包类型和接收器
+ */
 public class ModNetworking {
     public static void registerC2SPayloads() {
         PayloadTypeRegistry.playC2S().register(C2SUpdateWarehouseStatePayload.TYPE, C2SUpdateWarehouseStatePayload.CODEC);

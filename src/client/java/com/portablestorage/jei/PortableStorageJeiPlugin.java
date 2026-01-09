@@ -43,17 +43,17 @@ public class PortableStorageJeiPlugin implements IModPlugin {
 
     @Override
     public void registerRecipeTransferHandlers(IRecipeTransferRegistration registration) {
-        // 1. Warehouse Crafting Table (3x3)
+        // 仓库合成台（3x3）
         registration.addRecipeTransferHandler(new WarehouseTransferHandler<>(CraftingWarehouseScreenHandler.class, ModScreenHandlers.CRAFTING_WAREHOUSE), RecipeTypes.CRAFTING);
         
-        // 2. Player Inventory (2x2)
-        // Note: InventoryMenu doesn't have a standard MenuType, so we pass null and return Optional.empty()
+        // 玩家背包（2x2）
+        // InventoryMenu 没有标准的 MenuType，因此传递 null 并返回 Optional.empty()
         registration.addRecipeTransferHandler(new WarehouseTransferHandler<>(InventoryMenu.class, null), RecipeTypes.CRAFTING);
     }
 
     @Override
     public void registerGuiHandlers(IGuiHandlerRegistration registration) {
-        // Warehouse Screen
+        // 仓库界面
         registration.addGuiContainerHandler(CraftingWarehouseScreen.class, new mezz.jei.api.gui.handlers.IGuiContainerHandler<CraftingWarehouseScreen>() {
             @Override
             public List<Rect2i> getGuiExtraAreas(CraftingWarehouseScreen containerScreen) {
@@ -66,7 +66,7 @@ public class PortableStorageJeiPlugin implements IModPlugin {
             }
         });
 
-        // Inventory Screen (Vanilla) - Mark warehouse area as extra
+        // 原版背包界面 - 将仓库区域标记为额外区域
         registration.addGuiContainerHandler(InventoryScreen.class, new mezz.jei.api.gui.handlers.IGuiContainerHandler<InventoryScreen>() {
             @Override
             public List<Rect2i> getGuiExtraAreas(InventoryScreen screen) {

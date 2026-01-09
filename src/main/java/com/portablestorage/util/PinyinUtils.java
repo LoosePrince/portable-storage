@@ -4,6 +4,10 @@ import com.github.stuxuhai.jpinyin.PinyinHelper;
 import com.github.stuxuhai.jpinyin.PinyinFormat;
 import java.util.*;
 
+/**
+ * 拼音工具类
+ * 提供中文拼音搜索匹配功能，支持首字母、全拼和混合匹配
+ */
 public class PinyinUtils {
     /**
      * 检查目标字符串是否匹配查询字符串（支持拼音搜索）
@@ -18,10 +22,10 @@ public class PinyinUtils {
         String lowerTarget = target.toLowerCase();
         String lowerQuery = query.toLowerCase().trim();
 
-        // 1. 原文包含匹配
+        // 原文包含匹配
         if (lowerTarget.contains(lowerQuery)) return true;
 
-        // 2. 拼音匹配
+        // 拼音匹配
         String pinyinQuery = lowerQuery.replace(" ", "");
         if (pinyinQuery.isEmpty()) return true;
         
@@ -63,12 +67,12 @@ public class PinyinUtils {
         for (String p : pinyins) {
             if (p.isEmpty()) continue;
             
-            // 1. 匹配首字母
+            // 匹配首字母
             if (query.charAt(queryIdx) == p.charAt(0)) {
-                // 尝试作为首字母匹配：跳到下一个字符，queryIdx + 1
+                // 尝试作为首字母匹配：跳到下一个字符
                 if (matchRecursive(targetPinyins, charIdx + 1, query, queryIdx + 1)) return true;
                 
-                // 2. 匹配全拼或部分全拼
+                // 匹配全拼或部分全拼
                 int j = 1; 
                 while (j < p.length() && queryIdx + j < query.length() && p.charAt(j) == query.charAt(queryIdx + j)) {
                     j++;

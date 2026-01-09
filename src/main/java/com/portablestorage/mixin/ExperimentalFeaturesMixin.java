@@ -19,8 +19,7 @@ public class ExperimentalFeaturesMixin {
     @Inject(method = "worldGenSettingsLifecycle()Lcom/mojang/serialization/Lifecycle;", at = @At("HEAD"), cancellable = true)
     private void portablestorage$skipExperimentalWarning(CallbackInfoReturnable<Lifecycle> cir) {
         if (ModConfig.removeExperimentalWarning) {
-            // 跳过实验性功能警告，返回稳定的生命周期
-            // 这样可以避免每次进入世界时都显示"使用实验性设置的世界不受支持"的警告
+            // 跳过实验性功能警告，返回稳定的生命周期，避免每次进入世界时都显示警告
             cir.setReturnValue(Lifecycle.stable());
         }
     }

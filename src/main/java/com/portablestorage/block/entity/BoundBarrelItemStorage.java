@@ -39,17 +39,16 @@ public class BoundBarrelItemStorage implements Storage<ItemVariant> {
     public long insert(ItemVariant resource, long maxAmount, TransactionContext transaction) {
         if (!isAllowed(resource)) return 0;
         
-        // 模拟 Transaction：仅在提交时修改
+        // 模拟事务：仅在提交时修改
         transaction.addCloseCallback((context, result) -> {
             if (result.wasCommitted()) {
                 ItemStack stack = resource.toStack((int) maxAmount);
-                // 自动化设备交互，没有player对象，使用无player版本（会跳过NBT大小检查）
+                // 自动化设备交互，使用无 player 版本（会跳过 NBT 大小检查）
                 WarehouseManager.addItem(warehouse, stack);
             }
         });
         
-        // 简单假设仓库能放下（通常仓库上限很高）
-        // 实际上可以根据 warehouse.getMaxItemStackSize() 计算
+        // 假设仓库能放下（通常仓库上限很高）
         return maxAmount;
     }
 
@@ -73,7 +72,7 @@ public class BoundBarrelItemStorage implements Storage<ItemVariant> {
 
         transaction.addCloseCallback((context, result) -> {
             if (result.wasCommitted()) {
-                // takeMatching 已经支持共享组
+                // takeMatching 支持共享组
                 WarehouseManager.takeMatching(warehouse, resource.toStack(1), (int) toExtract, true);
             }
         });

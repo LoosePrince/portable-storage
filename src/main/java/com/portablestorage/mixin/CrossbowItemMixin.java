@@ -26,17 +26,17 @@ public abstract class CrossbowItemMixin {
         if (!(user instanceof ServerPlayer player)) return;
         if (player.getAbilities().instabuild) return;
 
-        // 检查弩是否已经装填
+        // 检查弩是否已装填
         ChargedProjectiles chargedProjectiles = stack.get(DataComponents.CHARGED_PROJECTILES);
         if (chargedProjectiles == null || chargedProjectiles.isEmpty()) return;
 
-        // 如果玩家背包有弹药，优先消耗背包的（原版逻辑会处理）
+        // 优先消耗背包中的弹药（原版逻辑会处理）
         if (hasAnyAmmo(player)) return;
 
         PlayerWarehouse warehouse = ModComponents.getWarehouse(player.getServer(), player.getUUID());
         if (warehouse == null || !warehouse.isEnabled()) return;
 
-        // 查找合适的弹药进行扣除
+        // 查找合适的弹药
         ItemStack matchedAmmo = null;
         for (var entry : warehouse.getStorageList()) {
             ItemStack s = entry.getItemStack();
@@ -50,13 +50,11 @@ public abstract class CrossbowItemMixin {
         }
 
         if (matchedAmmo != null) {
-            // 无限附魔只对普通箭有效，药水箭、光灵箭和烟花火箭即使有无限附魔也会扣除
+            // 无限附魔仅对普通箭有效，药水箭、光灵箭和烟花火箭即使有无限附魔也会扣除
             boolean hasInfinity = hasInfinityEnchantment(stack);
             if (hasInfinity && matchedAmmo.is(Items.ARROW)) {
-                // 有无限附魔且是普通箭，不扣除
-                return;
+                return; // 有无限附魔且是普通箭，不扣除
             }
-            // 其他情况都扣除
             WarehouseManager.takeMatching(warehouse, matchedAmmo, 1, true);
         }
     }
@@ -65,10 +63,9 @@ public abstract class CrossbowItemMixin {
         // 检查弩是否有无限附魔
         var enchantments = stack.get(DataComponents.ENCHANTMENTS);
         if (enchantments != null) {
-            // 遍历所有附魔查找无限附魔
             for (var entry : enchantments.entrySet()) {
                 net.minecraft.core.Holder<net.minecraft.world.item.enchantment.Enchantment> holder = entry.getKey();
-                // 检查附魔值是否为无限附魔 - 使用 unwrapKey() 获取 ResourceKey 进行比较
+                // 使用 unwrapKey() 获取 ResourceKey 进行比较
                 var enchantmentKeyOpt = holder.unwrapKey();
                 if (enchantmentKeyOpt.isPresent()) {
                     var enchantmentKey = enchantmentKeyOpt.get();

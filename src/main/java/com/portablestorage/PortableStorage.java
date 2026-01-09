@@ -16,10 +16,19 @@ import net.minecraft.world.item.ItemStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * 便携式存储模组主类
+ * 负责模组初始化、注册物品、方块、实体和事件处理器
+ */
 public class PortableStorage implements ModInitializer {
 	public static final String MOD_ID = "portablestorage";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
+    /**
+     * 创建模组资源定位符
+     * @param path 资源路径
+     * @return ResourceLocation 实例
+     */
     public static ResourceLocation id(String path) {
         return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
     }
@@ -93,7 +102,7 @@ public class PortableStorage implements ModInitializer {
             ));
         });
 
-        // 升级系统服务端 Tick 处理 (漏斗、裂隙等)
+        // 升级系统服务端 Tick 处理（漏斗、裂隙等）
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             for (net.minecraft.server.level.ServerPlayer player : server.getPlayerList().getPlayers()) {
                 var warehouse = com.portablestorage.component.ModComponents.get(player).getWarehouse(player.getUUID());

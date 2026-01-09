@@ -25,13 +25,13 @@ public abstract class BowItemMixin {
         if (!(user instanceof ServerPlayer player)) return;
         if (player.getAbilities().instabuild) return;
 
-        // 如果玩家背包有箭，优先消耗背包的（原版逻辑会处理）
+        // 优先消耗背包中的箭（原版逻辑会处理）
         if (hasAnyArrow(player)) return;
 
         PlayerWarehouse warehouse = ModComponents.getWarehouse(player.getServer(), player.getUUID());
         if (warehouse == null || !warehouse.isEnabled()) return;
 
-        // 查找合适的箭进行扣除
+        // 查找合适的箭
         ItemStack matchedArrow = null;
         for (var entry : warehouse.getStorageList()) {
             ItemStack s = entry.getItemStack();
@@ -45,13 +45,11 @@ public abstract class BowItemMixin {
         }
 
         if (matchedArrow != null) {
-            // 无限附魔只对普通箭有效，药水箭和光灵箭即使有无限附魔也会扣除
+            // 无限附魔仅对普通箭有效，药水箭和光灵箭即使有无限附魔也会扣除
             boolean hasInfinity = hasInfinityEnchantment(stack);
             if (hasInfinity && matchedArrow.is(Items.ARROW)) {
-                // 有无限附魔且是普通箭，不扣除
-                return;
+                return; // 有无限附魔且是普通箭，不扣除
             }
-            // 其他情况都扣除
             WarehouseManager.takeMatching(warehouse, matchedArrow, 1, true);
         }
     }
@@ -60,10 +58,9 @@ public abstract class BowItemMixin {
         // 检查弓是否有无限附魔
         var enchantments = stack.get(DataComponents.ENCHANTMENTS);
         if (enchantments != null) {
-            // 遍历所有附魔查找无限附魔
             for (var entry : enchantments.entrySet()) {
                 net.minecraft.core.Holder<net.minecraft.world.item.enchantment.Enchantment> holder = entry.getKey();
-                // 检查附魔值是否为无限附魔 - 使用 unwrapKey() 获取 ResourceKey 进行比较
+                // 使用 unwrapKey() 获取 ResourceKey 进行比较
                 var enchantmentKeyOpt = holder.unwrapKey();
                 if (enchantmentKeyOpt.isPresent()) {
                     var enchantmentKey = enchantmentKeyOpt.get();

@@ -25,6 +25,10 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.*;
 
+/**
+ * 仓库界面组件
+ * 管理仓库 UI 的渲染、交互和状态更新
+ */
 public class WarehouseWidget {
     private static final ResourceLocation WAREHOUSE_SLOT_TEXTURE = com.portablestorage.PortableStorage
             .id("textures/gui/slot.png");
@@ -45,11 +49,11 @@ public class WarehouseWidget {
     private static final long DOUBLE_CLICK_TIME_MS = 300; // 双击时间窗口（毫秒）
     private static final double DOUBLE_CLICK_DISTANCE = 5.0; // 双击允许的最大距离
 
-    // Status tracking for screen refresh
+    // 屏幕刷新状态追踪
     private boolean lastWorkbenchStatus = false;
     private boolean lastEnabledStatus = false;
 
-    // Craft Refill state
+    // 合成补充状态
     private ItemStack lastCraftingOutput = ItemStack.EMPTY;
     private final Map<Integer, ItemStack> lastCraftingStacks = new HashMap<>();
     private long lastCraftRefillCheck = 0;
@@ -65,12 +69,12 @@ public class WarehouseWidget {
         if (minecraft.player == null)
             return false;
 
-        // 1. 仅排除创造模式标准背包界面
+        // 排除创造模式标准背包界面
         if (screen instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen) {
             return false;
         }
 
-        // 2. 在容器界面显示时，必须拥有“工作台升级”
+        // 容器界面需要工作台升级才能显示
         if (isContainerInterface() && warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
             return false;
         }
@@ -192,7 +196,7 @@ public class WarehouseWidget {
         screenAccessor.portablestorage$setLeftPos(targetLeftPos);
         screenAccessor.portablestorage$setTopPos(targetTopPos);
 
-        // 1. 只有在生存模式背包且启用3x3时才调整 imageHeight，避免破坏容器界面对齐
+        // 仅在生存模式背包且启用 3x3 时调整 imageHeight，避免破坏容器界面对齐
         if (screen instanceof InventoryScreen && WarehouseUtils.is3x3Enabled(Minecraft.getInstance().player)) {
             screenAccessor.portablestorage$setImageHeight(WarehouseConstants.VANILLA_INVENTORY_HEIGHT);
         }
@@ -303,16 +307,16 @@ public class WarehouseWidget {
         if (minecraft.player == null)
             return;
 
-        // 1. Logic & Status Checks
+        // 逻辑和状态检查
         handleFrozenMode();
         checkRefreshNeeded();
         checkCraftRefill();
         handleSearchDebounce();
 
-        // 2. Search Box position update
+        // 更新搜索框位置
         updateSearchBoxState();
 
-        // 3. Content rendering (Overlays, Tooltips, Quantities)
+        // 渲染覆盖层、提示和数量文本
         renderOverlaysAndText(graphics, mouseX, mouseY);
     }
 
@@ -420,7 +424,7 @@ public class WarehouseWidget {
         Minecraft minecraft = Minecraft.getInstance();
         AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
 
-        // 1. Upgrade slot interactions
+        // 升级槽位交互
         if (!warehouse.isFolded() && (button == 1 || button == 2)) {
             for (Slot slot : screen.getMenu().slots) {
                 if (slot instanceof com.portablestorage.upgrade.UpgradeSlot) {
@@ -442,10 +446,10 @@ public class WarehouseWidget {
             }
         }
 
-        // 2. Main slot interactions (Left/Middle click)
+        // 主槽位交互（左键/中键）
         Slot clickedSlot = getHoveredSlot(mouseX, mouseY);
         if (clickedSlot != null && clickedSlot.container instanceof PlayerWarehouse && clickedSlot.hasItem()) {
-            if (button == 0) { // Left click: Smart collapse search
+            if (button == 0) { // 左键：智能折叠搜索
                 ItemStack stack = clickedSlot.getItem();
                 var customData = stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
                 boolean isCollapsed = customData != null
@@ -463,13 +467,13 @@ public class WarehouseWidget {
                     }
                     return true;
                 }
-            } else if (button == 2) { // Middle click: Toggle pinned
+            } else if (button == 2) { // 中键：切换置顶
                 ClientPlayNetworking.send(new C2STogglePinnedPayload(clickedSlot.getContainerSlot()));
                 return true;
             }
         }
 
-        // 3. Quick interaction (Shift + click)
+        // 快速交互（Shift + 点击）
         if (net.minecraft.client.gui.screens.Screen.hasShiftDown() && warehouse.isQuickInteraction()
                 && !warehouse.isFolded()) {
             if (clickedSlot != null && (clickedSlot.container instanceof PlayerWarehouse
@@ -496,7 +500,7 @@ public class WarehouseWidget {
                         return true;
                     }
                 } else {
-                    // 普通Shift+左键
+                    // 普通 Shift+左键
                     ClientPlayNetworking.send(new QuickTransferPayload(clickedSlot.index));
                     lastClickTime = currentTime;
                     lastClickX = mouseX;
@@ -505,13 +509,13 @@ public class WarehouseWidget {
                 }
             }
         } else {
-            // 重置双击检测（非Shift点击）
+            // 重置双击检测（非 Shift 点击）
             lastClickTime = 0;
             lastClickX = -1;
             lastClickY = -1;
         }
 
-        // 4. Fold button
+        // 折叠按钮
         int foldButtonX, foldButtonY;
         if (screen instanceof com.portablestorage.screen.CraftingWarehouseScreen) {
             foldButtonX = screenAccessor.portablestorage$getLeftPos() + 84;
@@ -534,11 +538,11 @@ public class WarehouseWidget {
             foldButtonY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
         }
         if (mouseX >= foldButtonX && mouseX < foldButtonX + 18 && mouseY >= foldButtonY && mouseY < foldButtonY + 18) {
-            if (button == 2) { // Middle click settings
+            if (button == 2) { // 中键：打开设置
                 minecraft.setScreen(YACLConfig.create(screen));
                 return true;
             }
-            if (button == 0) { // Left click fold
+            if (button == 0) { // 左键：折叠/展开
                 boolean newFolded = !warehouse.isFolded();
                 warehouse.setFolded(newFolded);
                 ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(),
@@ -551,7 +555,7 @@ public class WarehouseWidget {
             }
         }
 
-        // 5. Sharing status
+        // 共享状态
         if (WarehouseRenderer.isOverSharingStatus(mouseX, mouseY, screenAccessor.portablestorage$getLeftPos(),
                 screenAccessor.portablestorage$getTopPos(), warehouse,
                 screenAccessor.portablestorage$getImageHeight())) {
@@ -561,7 +565,7 @@ public class WarehouseWidget {
             }
         }
 
-        // 6. Sidebar & Scrollbars
+        // 侧边栏和滚动条
         return handleSidebarAndScrollbars(mouseX, mouseY, button);
     }
 
@@ -588,13 +592,13 @@ public class WarehouseWidget {
 
         if (ModConfig.showSmallIcons) {
             boolean horizontal = ModConfig.storagePosition.isHorizontal();
-            // Sort mode, Order, Quick Interaction, Smart Collapse, Craft Refill buttons
+            // 排序模式、排序顺序、快速交互、智能折叠、合成补充按钮
             for (int i = 0; i < 5; i++) {
                 int curX = horizontal ? bx + i * iconSpacing : bx;
                 int curY = horizontal ? by : by + i * iconSpacing;
 
                 if (mouseX >= curX && mouseX < curX + 18 && mouseY >= curY && mouseY < curY + 18) {
-                    WarehouseSetting setting = WarehouseSetting.values()[i + 1]; // Offset by 1 for FOLD
+                    WarehouseSetting setting = WarehouseSetting.values()[i + 1]; // 偏移 1 以跳过 FOLD
                     int newVal = 0;
                     switch (setting) {
                         case SORT_MODE -> {
@@ -627,7 +631,7 @@ public class WarehouseWidget {
             }
         }
 
-        // Crafting button
+        // 合成按钮
         boolean horizontal = ModConfig.storagePosition.isHorizontal();
         int craftingX = horizontal ? (bx + (ModConfig.showSmallIcons ? (iconSpacing * 5) : 0)) : bx;
         int craftingY = horizontal ? by : (by + (ModConfig.showSmallIcons ? (iconSpacing * 5) : 0));
@@ -639,7 +643,7 @@ public class WarehouseWidget {
             return true;
         }
 
-        // Plus/Minus buttons
+        // +/- 按钮
         int pmX = x + WarehouseConstants.getPlusMinusXOffset();
         int pmY = y + WarehouseConstants.PLUS_MINUS_Y_OFFSET;
         if (mouseX >= pmX && mouseX < pmX + WarehouseConstants.TINY_BUTTON_SIZE && mouseY >= pmY
@@ -660,7 +664,7 @@ public class WarehouseWidget {
             return true;
         }
 
-        // Scrollbars
+        // 滚动条
         int sx = x + WarehouseConstants.getScrollbarXOffset();
         int sy = y + WarehouseConstants.SCROLLBAR_Y_OFFSET;
         int sh = warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE - WarehouseConstants.SCROLLBAR_PADDING;
@@ -695,7 +699,7 @@ public class WarehouseWidget {
         int upgradeColumnWidth = WarehouseConstants.getUpgradeColumnWidth();
         int delta = (int) Math.signum(scrollY);
 
-        // 1. Upgrade column scroll
+        // 升级列滚动
         if (mouseX >= warehouseX && mouseX < warehouseX + upgradeColumnWidth && mouseY >= warehouseY
                 && mouseY < warehouseY + warehouseHeight) {
             warehouse.setUpgradeScrollOffset(warehouse.getUpgradeScrollOffset() - delta);
@@ -704,7 +708,7 @@ public class WarehouseWidget {
             return true;
         }
 
-        // 2. Main grid scroll
+        // 主格网滚动
         if (mouseX >= warehouseX + upgradeColumnWidth && mouseX < warehouseX + WarehouseConstants.getWarehouseWidth()
                 && mouseY >= warehouseY && mouseY < warehouseY + warehouseHeight) {
             warehouse.setScrollOffset(warehouse.getScrollOffset() - delta);

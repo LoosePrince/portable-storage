@@ -138,7 +138,7 @@ public class ExperienceUpgrade extends UpgradeType {
         }
     }
 
-    // --- 经验计算工具 ---
+    // ========== 经验计算工具 ==========
 
     public static long getExperienceForLevel(int level) {
         if (level <= 16) return (long) level * level + 6L * level;

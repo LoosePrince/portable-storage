@@ -14,11 +14,18 @@ import java.util.List;
 import java.util.UUID;
 import com.mojang.authlib.GameProfile;
 
+/**
+ * 仓库界面渲染器
+ * 负责绘制仓库背景、槽位、按钮、滚动条等 UI 元素
+ */
 public class WarehouseRenderer {
     private static final ResourceLocation WAREHOUSE_ICON_TEXTURE = PortableStorage.id("textures/gui/icon.png");
     private static final ResourceLocation WAREHOUSE_GUI_TEXTURE = PortableStorage.id("textures/gui/gui.png");
     private static final ResourceLocation WAREHOUSE_SLOT_TEXTURE = PortableStorage.id("textures/gui/slot.png");
 
+    /**
+     * 渲染仓库背景
+     */
     public static void renderBackground(GuiGraphics graphics, int x, int y, int mouseX, int mouseY,
             PlayerWarehouse warehouse, Font font) {
         int rows = warehouse.isFolded() ? 0 : warehouse.getVisibleRows();
@@ -43,7 +50,7 @@ public class WarehouseRenderer {
 
                 for (int i = 0; i < rows; i++) {
                     int upgradeIndex = i + upgradeOffset;
-                    // 核心修复：仅当该索引确实存在已注册的升级时，才渲染槽位背景和图标
+                    // 仅当索引对应的升级已注册时才渲染
                     if (upgradeIndex < allUpgrades.size()) {
                         int slotY = upgradeSlotY + i * WarehouseConstants.SLOT_SIZE;
                         // 绘制槽位背景
@@ -59,17 +66,15 @@ public class WarehouseRenderer {
 
                             ItemStack iconStack = type.getIconStack();
                             if (!iconStack.isEmpty()) {
-                                // 渲染物品图标
                                 graphics.renderFakeItem(iconStack, upgradeSlotX + 1, slotY + 1);
                             } else {
                                 ResourceLocation icon = type.getIcon();
                                 if (icon != null) {
-                                    // 渲染贴图图标（不再使用 setShaderColor，保持原始亮度）
                                     graphics.blit(icon, upgradeSlotX + 1, slotY + 1, 0, 0, 16, 16, 16, 16);
                                 }
                             }
 
-                            // 统一在该槽位上方叠加白色半透明遮罩，层级设为 200 确保覆盖物品
+                            // 叠加白色半透明遮罩，层级 200 确保覆盖物品
                             graphics.pose().pushPose();
                             graphics.pose().translate(0, 0, 200);
                             graphics.fill(upgradeSlotX + 1, slotY + 1, upgradeSlotX + 17, slotY + 17,
@@ -446,8 +451,7 @@ public class WarehouseRenderer {
 
         for (int i = 0; i < warehouse.getVisibleRows() * 9; i++) {
             long count = warehouse.getRealCount(i);
-            // 1. 正常渲染：数量 > 1
-            // 2. 静态锁定模式：如果该槽位原本有物品（getItem 不为空）且当前数量为 0，则显示灰色的 0
+            // 静态锁定模式下，槽位有物品但数量为 0 时显示灰色 0
             boolean shouldShowZero = count == 0 && warehouse.isFrozen() && !warehouse.getItem(i).isEmpty();
 
             if (count > 1 || shouldShowZero) {
@@ -547,8 +551,7 @@ public class WarehouseRenderer {
                     int col = i % 9;
                     int x = startX + col * WarehouseConstants.SLOT_SIZE;
                     int y = startY + row * WarehouseConstants.SLOT_SIZE;
-                    // 渲染半透明黄色覆盖层 (0x80FFFF00)
-                    // 偏移 1 像素以覆盖物品渲染区域 (16x16)
+                    // 渲染半透明黄色覆盖层，覆盖物品渲染区域
                     graphics.fill(x, y, x + 16, y + 16, WarehouseConstants.MASK_YELLOW);
                 }
             }
@@ -583,13 +586,13 @@ public class WarehouseRenderer {
             borderColor = WarehouseConstants.STATUS_GRAY_BORDER;
         }
 
-        // 绘制 1px 外描边 (4x4 区域)
-        graphics.fill(statusX - 1, statusY - 1, statusX + 3, statusY, borderColor); // 上
-        graphics.fill(statusX - 1, statusY + 2, statusX + 3, statusY + 3, borderColor); // 下
-        graphics.fill(statusX - 1, statusY, statusX, statusY + 2, borderColor); // 左
-        graphics.fill(statusX + 2, statusY, statusX + 3, statusY + 2, borderColor); // 右
+        // 绘制 1px 外描边
+        graphics.fill(statusX - 1, statusY - 1, statusX + 3, statusY, borderColor);
+        graphics.fill(statusX - 1, statusY + 2, statusX + 3, statusY + 3, borderColor);
+        graphics.fill(statusX - 1, statusY, statusX, statusY + 2, borderColor);
+        graphics.fill(statusX + 2, statusY, statusX + 3, statusY + 2, borderColor);
 
-        // 绘制 2x2 点
+        // 绘制 2x2 状态点
         graphics.fill(statusX, statusY, statusX + 2, statusY + 2, pointColor);
 
         // 渲染共享组玩家头像
@@ -605,7 +608,7 @@ public class WarehouseRenderer {
                 if (pw.getOwnerUuid().equals(localPlayerUuid))
                     continue; // 跳过本地玩家
 
-                // 头像放大 2px (从 6 到 8)，重叠 4px (盖住右半边)
+                // 头像尺寸 8px，重叠 4px 实现叠加效果
                 renderPlayerFace(graphics, pw.getOwnerUuid(), avatarX + count * 4, statusY - 3, 8);
                 count++;
                 if (count >= 3)
@@ -615,16 +618,16 @@ public class WarehouseRenderer {
     }
 
     private static void renderPlayerFace(GuiGraphics graphics, UUID uuid, int x, int y, int size) {
-        // 1px 灰色描边 (0xFF444444)
+        // 绘制 1px 灰色描边
         graphics.fill(x - 1, y - 1, x + size + 1, y + size + 1, WarehouseConstants.AVATAR_BORDER);
 
         net.minecraft.client.resources.PlayerSkin skin = net.minecraft.client.Minecraft.getInstance().getSkinManager()
                 .getInsecureSkin(new GameProfile(uuid, ""));
         ResourceLocation texture = skin.texture();
 
-        // 渲染内层脸部 (8, 8, 8, 8)
+        // 渲染脸部纹理
         graphics.blit(texture, x, y, size, size, 8.0f, 8.0f, 8, 8, 64, 64);
-        // 渲染外层（帽子/覆盖层） (40, 8, 8, 8)
+        // 渲染帽子/覆盖层
         graphics.blit(texture, x, y, size, size, 40.0f, 8.0f, 8, 8, 64, 64);
     }
 
@@ -642,7 +645,7 @@ public class WarehouseRenderer {
         boolean isShared = group.size() > 1;
 
         int statusX = isShared ? baseStatusX - 6 : baseStatusX;
-        // 判定区域：如果共享，则向右延伸以覆盖头像区域 (4px 点 + 24px 头像)
+        // 共享状态下判定区域需覆盖头像区域（4px 状态点 + 24px 头像）
         int hitWidth = isShared ? 28 : 4;
 
         return mouseX >= statusX - 1 && mouseX < statusX + hitWidth && mouseY >= statusY - 1 && mouseY < statusY + 3;

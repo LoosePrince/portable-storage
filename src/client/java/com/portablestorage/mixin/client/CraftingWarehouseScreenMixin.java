@@ -11,9 +11,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(CraftingWarehouseScreen.class)
 public abstract class CraftingWarehouseScreenMixin {
-    // 注意：CraftingWarehouseScreen 继承自 AbstractContainerScreen，
-    // AbstractContainerScreenMixin 已经处理了 WarehouseScreen 接口的实现
-    // 这里只需要添加 renderBg 和 render 的注入点
+    // CraftingWarehouseScreen 继承自 AbstractContainerScreen
+    // AbstractContainerScreenMixin 已处理 WarehouseScreen 接口的实现
+    // 此处仅需添加 renderBg 和 render 的注入点
 
     /**
      * 在 renderBg 之后注入，绘制仓库背景（在原版槽位高亮之前）

@@ -29,7 +29,7 @@ public class PortableStorageEmiPlugin implements EmiPlugin {
 
     @Override
     public void register(EmiRegistry registry) {
-        // 1. Register Exclusion Areas
+        // 注册排除区域
         registry.addExclusionArea(CraftingWarehouseScreen.class, (screen, consumer) -> {
             consumer.accept(new Bounds(screen.getWarehouseX(), screen.getWarehouseY(), screen.getWarehouseWidth(),
                     screen.getWarehouseHeight()));
@@ -53,7 +53,7 @@ public class PortableStorageEmiPlugin implements EmiPlugin {
             }
         });
 
-        // 2. Register Recipe Handlers
+        // 注册配方处理器
         registry.addRecipeHandler(MenuType.CRAFTING, new WarehouseEmiRecipeHandler<>());
         registry.addRecipeHandler(ModScreenHandlers.CRAFTING_WAREHOUSE, new WarehouseEmiRecipeHandler<>());
     }

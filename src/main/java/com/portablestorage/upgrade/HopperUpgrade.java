@@ -130,7 +130,7 @@ public class HopperUpgrade extends UpgradeType {
 
             int originalCount = itemStack.getCount();
             
-            // 1. 尝试流体转换
+            // 尝试流体转换
             ItemStack processedStack = WarehouseManager.addFluid(warehouse, itemStack, player);
             
             if (processedStack != itemStack || processedStack.getCount() != originalCount) {
@@ -143,7 +143,7 @@ public class HopperUpgrade extends UpgradeType {
                 continue; 
             }
 
-            // 2. 常规物品存入
+            // 常规物品存入
             WarehouseManager.addItem(warehouse, itemStack, player);
             if (itemStack.getCount() != originalCount) {
                 pickedAny = true;
@@ -166,12 +166,12 @@ public class HopperUpgrade extends UpgradeType {
     private boolean matchRule(String text, String rule) {
         if (rule.isEmpty()) return false;
         
-        // 1. 精确匹配 !minecraft:dirt!
+        // 精确匹配：!minecraft:dirt!
         if (rule.startsWith("!") && rule.endsWith("!") && rule.length() > 1) {
             return text.equals(rule.substring(1, rule.length() - 1));
         }
         
-        // 2. 模糊匹配
+        // 模糊匹配
         try {
             String regex = rule.replace(".", "\\.").replace("*", ".*");
             if (!rule.contains("*")) {

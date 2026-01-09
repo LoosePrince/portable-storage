@@ -32,29 +32,29 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
         this.access = access;
         this.player = playerInventory.player;
 
-        // 1. 工作台结果槽位 (Index 0)
+        // 工作台结果槽位（索引 0）
         this.addSlot(new ResultSlot(playerInventory.player, this.craftSlots, this.resultSlots, 0, 124, 35));
 
-        // 2. 3x3 合成槽位 (Index 1-9)
+        // 3x3 合成槽位（索引 1-9）
         for (int row = 0; row < 3; ++row) {
             for (int col = 0; col < 3; ++col) {
                 this.addSlot(new Slot(this.craftSlots, col + row * 3, 30 + col * 18, 17 + row * 18));
             }
         }
 
-        // 3. 玩家背包 (Index 10-36)
+        // 玩家背包（索引 10-36）
         for (int row = 0; row < 3; ++row) {
             for (int col = 0; col < 9; ++col) {
                 this.addSlot(new Slot(playerInventory, col + row * 9 + 9, 8 + col * 18, 84 + row * 18));
             }
         }
 
-        // 4. 玩家快捷栏 (Index 37-45)
+        // 玩家快捷栏（索引 37-45）
         for (int col = 0; col < 9; ++col) {
             this.addSlot(new Slot(playerInventory, col, 8 + col * 18, 142));
         }
 
-        // 5. 升级槽位
+        // 升级槽位
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         int upgradeX = WarehouseConstants.getWarehouseXOffset() + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X;
         int upgradeYBase = WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows()) + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y;
@@ -62,7 +62,7 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
             this.addSlot(new com.portablestorage.upgrade.UpgradeSlot(warehouse, player, i, upgradeX, upgradeYBase + i * WarehouseConstants.SLOT_SIZE));
         }
 
-        // 6. 仓库槽位 (Index 46+)
+        // 仓库槽位（索引 46+）
         int startX = WarehouseConstants.getSlotLogicX();
         int startY = WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows());
         

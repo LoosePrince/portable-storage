@@ -14,6 +14,10 @@ import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
+/**
+ * 服务端网络处理器
+ * 处理客户端发送到服务端的网络数据包
+ */
 public class ModServerNetworking {
 
     public static void handleOpenCrafting(OpenCraftingPayload payload, ServerPlayNetworking.Context context) {
@@ -64,9 +68,9 @@ public class ModServerNetworking {
             
             // 校验：仓库启用、升级类型存在、且该升级确实已在仓库中安装物品
             if (type != null && warehouse.isEnabled() && !warehouse.getUpgrade(payload.upgradeId()).isEmpty()) {
-                if (payload.button() == 1) { // Right click
+                if (payload.button() == 1) { // 右键
                     type.onRightClick(warehouse, player);
-                } else if (payload.button() == 2) { // Middle click
+                } else if (payload.button() == 2) { // 中键
                     type.onMiddleClick(warehouse, player);
                 }
                 syncChanges(player);
@@ -88,7 +92,7 @@ public class ModServerNetworking {
             } else if (slot.container instanceof net.minecraft.world.entity.player.Inventory) {
                 ItemStack stack = slot.getItem();
                 if (!stack.isEmpty()) {
-                    // 存入时使用 addFluid 而非 addItem，以支持流体桶的自动分离
+                    // 使用 addFluid 以支持流体桶的自动分离
                     ItemStack remaining = WarehouseManager.addFluid(getWarehouse(player), stack, player);
                     slot.set(remaining);
                     syncChanges(player);
@@ -172,7 +176,7 @@ public class ModServerNetworking {
             ItemStack template = payload.targetStack();
             if (template.isEmpty() || payload.slotIds().isEmpty()) return;
 
-            // 1. 获取所有需要补货的槽位（来自客户端的指定）
+            // 获取所有需要补货的槽位（来自客户端的指定）
             java.util.List<Integer> targetIndices = new java.util.ArrayList<>();
             for (int idx : payload.slotIds()) {
                 if (idx >= 0 && idx < handler.slots.size()) {
@@ -186,7 +190,7 @@ public class ModServerNetworking {
 
             if (targetIndices.isEmpty()) return;
 
-            // 2. 计算总共需要的数量
+            // 计算总共需要的数量
             int maxStackSize = Math.min(template.getMaxStackSize(), player.getInventory().getMaxStackSize());
             int totalNeed = 0;
             int[] needs = new int[targetIndices.size()];
@@ -200,11 +204,11 @@ public class ModServerNetworking {
 
             if (totalNeed <= 0) return;
 
-            // 3. 从仓库取出物品（不强制匹配组件，兼容智能折叠）
+            // 从仓库取出物品（不强制匹配组件，兼容智能折叠）
             ItemStack taken = WarehouseManager.takeMatching(warehouse, template, totalNeed, false);
             if (taken.isEmpty()) return;
 
-            // 4. 均分补给
+            // 均分补给
             int remaining = taken.getCount();
             int[] distribution = new int[targetIndices.size()];
             
@@ -220,7 +224,7 @@ public class ModServerNetworking {
                 if (!anyAdded) break;
             }
 
-            // 5. 应用分配结果
+            // 应用分配结果
             for (int i = 0; i < targetIndices.size(); i++) {
                 if (distribution[i] <= 0) continue;
                 net.minecraft.world.inventory.Slot slot = handler.getSlot(targetIndices.get(i));
@@ -317,7 +321,7 @@ public class ModServerNetworking {
                     if (containerSlot >= 0 && containerSlot < 36) {
                         ItemStack stack = slot.getItem();
                         if (!stack.isEmpty() && net.minecraft.world.item.ItemStack.isSameItemSameComponents(cursorStack, stack)) {
-                            // 存入仓库（使用addFluid以支持流体桶）
+                            // 使用 addFluid 以支持流体桶的自动分离
                             ItemStack remaining = com.portablestorage.logic.WarehouseManager.addFluid(warehouse, stack, player);
                             slot.set(remaining);
                             if (remaining.getCount() < stack.getCount()) {
@@ -364,7 +368,7 @@ public class ModServerNetworking {
             int gridHeight = is3x3 ? 3 : 2;
             int containerStride = 3; // 无论合成界面还是背包，底层都是 3x3 容器
 
-            // 1. 清空当前合成槽位到仓库
+            // 清空当前合成槽位到仓库
             for (Slot slot : menu.slots) {
                 if (slot.container instanceof net.minecraft.world.inventory.CraftingContainer && !(slot instanceof net.minecraft.world.inventory.ResultSlot)) {
                     if (slot.hasItem()) {
@@ -375,7 +379,7 @@ public class ModServerNetworking {
                 }
             }
 
-            // 2. 获取配料表和形状
+            // 获取配料表和形状
             java.util.List<net.minecraft.world.item.crafting.Ingredient> ingredients = recipe.getIngredients();
             int recipeWidth = gridWidth;
             int recipeHeight = gridHeight;
@@ -384,7 +388,7 @@ public class ModServerNetworking {
                 recipeWidth = shaped.getWidth();
                 recipeHeight = shaped.getHeight();
             } else {
-                // Shapeless recipe
+                // 无序配方
                 recipeWidth = (ingredients.size() <= 4 && !is3x3) ? 2 : 3;
                 recipeHeight = (int) Math.ceil((double) ingredients.size() / recipeWidth);
             }
@@ -392,7 +396,7 @@ public class ModServerNetworking {
             // 校验配方是否放得下
             if (recipeWidth > gridWidth || recipeHeight > gridHeight) return;
 
-            // 3. 尝试从仓库和玩家背包获取物品填充
+            // 尝试从仓库和玩家背包获取物品填充
             for (int r = 0; r < recipeHeight; r++) {
                 for (int c = 0; c < recipeWidth; c++) {
                     int ingredientIdx = r * recipeWidth + c;

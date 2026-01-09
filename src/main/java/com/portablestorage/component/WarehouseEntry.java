@@ -4,12 +4,25 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 
+/**
+ * 仓库条目
+ * 表示仓库中存储的一种物品及其数量、更新时间等信息
+ */
 public class WarehouseEntry {
-    private final ItemStack itemStack; // 用于存储 Item 和 NBT
+    /** 物品堆叠（用于存储物品类型和 NBT） */
+    private final ItemStack itemStack;
+    /** 物品数量 */
     private long count;
+    /** 最后更新时间（毫秒时间戳） */
     private long lastUpdated;
+    /** 是否置顶 */
     private boolean pinned;
 
+    /**
+     * 构造函数
+     * @param stack 物品堆叠
+     * @param count 物品数量
+     */
     public WarehouseEntry(ItemStack stack, long count) {
         this.itemStack = stack.copyWithCount(1);
         this.count = count;
@@ -17,36 +30,84 @@ public class WarehouseEntry {
         this.pinned = false;
     }
 
+    /**
+     * 获取物品堆叠
+     * @return 物品堆叠
+     */
     public ItemStack getItemStack() { return itemStack; }
+    
+    /**
+     * 获取物品数量
+     * @return 物品数量
+     */
     public long getCount() { return count; }
+    
+    /**
+     * 获取最后更新时间
+     * @return 最后更新时间（毫秒时间戳）
+     */
     public long getLastUpdated() { return lastUpdated; }
+    
+    /**
+     * 是否置顶
+     * @return 是否置顶
+     */
     public boolean isPinned() { return pinned; }
+    
+    /**
+     * 设置置顶状态
+     * @param pinned 是否置顶
+     */
     public void setPinned(boolean pinned) { this.pinned = pinned; }
 
+    /**
+     * 增加物品数量
+     * @param amount 增加的数量
+     */
     public void add(long amount) {
         this.count += amount;
         this.lastUpdated = System.currentTimeMillis();
     }
 
+    /**
+     * 减少物品数量
+     * @param amount 减少的数量
+     */
     public void subtract(long amount) {
         this.count -= amount;
         this.lastUpdated = System.currentTimeMillis();
     }
 
-    // 唯一标识逻辑：Item + NBT 相同则视为同一种物品
+    /**
+     * 检查物品是否匹配
+     * 唯一标识逻辑：Item + NBT 相同则视为同一种物品
+     * @param stack 待匹配的物品堆叠
+     * @return 是否匹配
+     */
     public boolean matches(ItemStack stack) {
         return ItemStack.isSameItemSameComponents(this.itemStack, stack);
     }
 
+    /**
+     * 序列化为 NBT
+     * @param registries 注册表提供者
+     * @return NBT 标签
+     */
     public CompoundTag toNbt(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
-        tag.put("item", itemStack.saveOptional(registries)); // 使用 saveOptional 防止 1.21 崩溃
+        tag.put("item", itemStack.saveOptional(registries));
         tag.putLong("count", count);
         tag.putLong("lastUpdated", lastUpdated);
         tag.putBoolean("pinned", pinned);
         return tag;
     }
 
+    /**
+     * 从 NBT 反序列化
+     * @param tag NBT 标签
+     * @param registries 注册表提供者
+     * @return 仓库条目实例
+     */
     public static WarehouseEntry fromNbt(CompoundTag tag, HolderLookup.Provider registries) {
         ItemStack stack = ItemStack.parseOptional(registries, tag.getCompound("item"));
         long count = tag.getLong("count");

@@ -27,11 +27,11 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
 
     @Inject(method = "init", at = @At("HEAD"))
     private void onInitHead(CallbackInfo ci) {
-        // 1. 排除创造模式背包界面
+        // 排除创造模式背包界面
         if ((Object)this instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen) return;
 
         AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
-        // Ensure menu has slots on client side before UI logic
+        // 确保客户端菜单已有槽位后再执行 UI 逻辑
         WarehouseMenuHandler.injectWarehouseSlots(screen.getMenu(), Minecraft.getInstance().player);
 
         if (this.warehouseWidget == null) {

@@ -9,7 +9,8 @@ import java.util.List;
 import java.util.function.Predicate;
 
 /**
- * 升级类型定义
+ * 升级类型基类
+ * 定义仓库升级的基本接口和行为，所有升级类型都应继承此类
  */
 public abstract class UpgradeType {
     private final ResourceLocation id;
@@ -55,11 +56,11 @@ public abstract class UpgradeType {
         return 1;
     }
 
-    // --- 事件钩子 ---
+    // ========== 事件钩子 ==========
     public void onInstall(PlayerWarehouse warehouse, ItemStack stack) {}
     public void onUninstall(PlayerWarehouse warehouse, ItemStack stack) {}
 
-    // --- 交互钩子 ---
+    // ========== 交互钩子 ==========
     public void onRightClick(PlayerWarehouse warehouse, Player player) {}
     public void onMiddleClick(PlayerWarehouse warehouse, Player player) {}
 

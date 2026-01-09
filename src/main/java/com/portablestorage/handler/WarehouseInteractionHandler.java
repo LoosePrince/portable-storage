@@ -13,6 +13,10 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
+/**
+ * 仓库交互处理器
+ * 处理玩家与仓库槽位和升级槽位的点击交互
+ */
 public class WarehouseInteractionHandler {
 
     public static boolean handleClicked(AbstractContainerMenu menu, int slotId, int button, ClickType clickType,
@@ -37,7 +41,7 @@ public class WarehouseInteractionHandler {
             return false;
         }
 
-        // Handle main warehouse slots
+        // 处理主仓库槽位
         if (slot.container instanceof PlayerWarehouse warehouse) {
             if (!warehouse.isEnabled())
                 return false;
@@ -52,13 +56,13 @@ public class WarehouseInteractionHandler {
                 return false;
 
             if (clickType == ClickType.QUICK_MOVE) {
-                return true; // Cancelled
+                return true; // 已拦截
             }
 
-            // Handle experience upgrade interaction
+            // 处理经验升级交互
             if (slot.hasItem() && slot.getItem().is(com.portablestorage.item.ModItems.BOTTLED_EXPERIENCE)) {
                 handleExperienceClick(warehouse, slotId - warehouseStart, button, clickType, player);
-                return true; // Cancelled
+                return true; // 已拦截
             }
 
             ItemStack cursorStack = menu.getCarried();
@@ -70,9 +74,9 @@ public class WarehouseInteractionHandler {
                 ItemStack taken = WarehouseManager.removeItem(warehouse, slotId - warehouseStart, amount, false);
                 menu.setCarried(taken);
             }
-            return true; // Cancelled
+            return true; // 已拦截
         }
-        // Handle upgrade slots
+        // 处理升级槽位
         else if (slot instanceof com.portablestorage.upgrade.UpgradeSlot) {
             PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
             if (!warehouse.isEnabled())
@@ -85,7 +89,7 @@ public class WarehouseInteractionHandler {
                         slot.set(stackInSlot);
                     }
                 }
-                return true; // Cancelled
+                return true; // 已拦截
             }
 
             ItemStack cursorStack = menu.getCarried();
@@ -115,7 +119,7 @@ public class WarehouseInteractionHandler {
                 ItemStack taken = slot.remove(amount);
                 menu.setCarried(taken);
             }
-            return true; // Cancelled
+            return true; // 已拦截
         }
         return false;
     }
@@ -133,7 +137,7 @@ public class WarehouseInteractionHandler {
         ItemStack cursorStack = player.containerMenu.getCarried();
 
         if (cursorStack.isEmpty()) {
-            if (button == 1) { // Right click: Deposit
+            if (button == 1) { // 右键：存入
                 int levelsToMove = levels;
                 long totalToStore = 0;
                 for (int i = 0; i < levelsToMove; i++) {
@@ -149,7 +153,7 @@ public class WarehouseInteractionHandler {
                     warehouse.addExperience(totalToStore);
                     ExperienceUpgrade.addExperience(player, (int) -totalToStore);
                 }
-            } else if (button == 0) { // Left click: Withdraw
+            } else if (button == 0) { // 左键：取出
                 long totalToTake = 0;
                 for (int i = 0; i < levels; i++) {
                     int lvl = player.experienceLevel + i;

@@ -36,7 +36,7 @@ public class WarehouseManager {
     public static void addItem(PlayerWarehouse warehouse, ItemStack stack, Player player) {
         if (stack.isEmpty()) return;
 
-        // 检查物品NBT大小限制
+        // 检查物品 NBT 大小限制
         if (player != null && !checkItemNbtSize(stack, player)) {
             return; // 超过大小限制，拒绝存入
         }
@@ -98,7 +98,7 @@ public class WarehouseManager {
                 }
             }
         } else {
-            // 牛奶等非 Fluid 类型的虚拟流体
+            // 处理牛奶等非 Fluid 类型的虚拟流体
             int originalCount = stack.getCount();
             ItemStack virtualStack = new ItemStack(virtualItem, originalCount);
             addItem(warehouse, virtualStack, player);
@@ -191,7 +191,7 @@ public class WarehouseManager {
         ItemStack stackInSlot = warehouse.getItem(slotIndex);
         if (stackInSlot.isEmpty()) return;
 
-        // 特殊逻辑：流体提取
+        // 流体提取逻辑
         if (isVirtualFluid(stackInSlot.getItem())) {
             int emptyBucketSlot = findEmptyBucket(player);
             if (emptyBucketSlot != -1) {
@@ -214,7 +214,7 @@ public class WarehouseManager {
             return;
         }
 
-        // 特殊逻辑：经验提取 (Shift 点击尝试灌满背包中所有的玻璃瓶)
+        // 经验提取逻辑（Shift 点击尝试灌满背包中所有玻璃瓶）
         if (stackInSlot.is(com.portablestorage.item.ModItems.BOTTLED_EXPERIENCE)) {
             handleExperienceQuickTransfer(warehouse, player);
             return;
@@ -224,7 +224,7 @@ public class WarehouseManager {
         int toTake = (int) Math.min(stackInSlot.getMaxStackSize(), realCount);
         ItemStack resultStack = stackInSlot.copyWithCount(toTake);
 
-        // 动态查找玩家背包范围 (仅限 Main + Hotbar，排除装备和副手)
+        // 查找玩家背包范围（仅限主背包和快捷栏，排除装备和副手）
         int inventoryStart = -1;
         int inventoryEnd = -1;
         for (int i = 0; i < player.containerMenu.slots.size(); i++) {
@@ -500,7 +500,7 @@ public class WarehouseManager {
             }
             
             // 将NBT序列化为字节数组来计算大小
-            // 使用Tag而不是CompoundTag，因为saveOptional可能返回其他类型的Tag
+            // 使用 Tag 而不是 CompoundTag，因为 saveOptional 可能返回其他类型的 Tag
             java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
             try (java.io.DataOutputStream dos = new java.io.DataOutputStream(baos)) {
                 net.minecraft.nbt.NbtIo.writeUnnamedTag(savedTag, dos);
