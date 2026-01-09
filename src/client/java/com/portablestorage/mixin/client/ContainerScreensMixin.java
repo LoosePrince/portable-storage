@@ -15,20 +15,23 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * 排除 CraftingWarehouseScreen，因为它有自己的实现
  */
 @Mixin(targets = {
-    // 具体容器界面类（有 renderBg 方法）
-    "net.minecraft.client.gui.screens.inventory.ContainerScreen",  // 箱子界面（不是 ChestScreen）
-    "net.minecraft.client.gui.screens.inventory.HopperScreen",
-    "net.minecraft.client.gui.screens.inventory.ShulkerBoxScreen",
-    "net.minecraft.client.gui.screens.inventory.DispenserScreen",
-    "net.minecraft.client.gui.screens.inventory.BrewingStandScreen",
-    "net.minecraft.client.gui.screens.inventory.BeaconScreen",
-    "net.minecraft.client.gui.screens.inventory.EnchantmentScreen",
-    "net.minecraft.client.gui.screens.inventory.LoomScreen",
-    "net.minecraft.client.gui.screens.inventory.CartographyTableScreen",
-    "net.minecraft.client.gui.screens.inventory.StonecutterScreen",
-    // 抽象基类（它们的子类也会被覆盖）
-    "net.minecraft.client.gui.screens.inventory.AbstractFurnaceScreen",  // 覆盖 FurnaceScreen、BlastFurnaceScreen、SmokerScreen
-    "net.minecraft.client.gui.screens.inventory.ItemCombinerScreen"  // 覆盖 AnvilScreen、GrindstoneScreen、SmithingScreen
+        // 具体容器界面类（有 renderBg 方法）
+        "net.minecraft.client.gui.screens.inventory.ContainerScreen", // 箱子界面（不是 ChestScreen）
+        "net.minecraft.client.gui.screens.inventory.HopperScreen",
+        "net.minecraft.client.gui.screens.inventory.ShulkerBoxScreen",
+        "net.minecraft.client.gui.screens.inventory.DispenserScreen",
+        "net.minecraft.client.gui.screens.inventory.BrewingStandScreen",
+        "net.minecraft.client.gui.screens.inventory.BeaconScreen",
+        "net.minecraft.client.gui.screens.inventory.EnchantmentScreen",
+        "net.minecraft.client.gui.screens.inventory.LoomScreen",
+        "net.minecraft.client.gui.screens.inventory.CartographyTableScreen",
+        "net.minecraft.client.gui.screens.inventory.StonecutterScreen",
+        "com.portablestorage.screen.BoundBarrelScreen",
+        // 抽象基类（它们的子类也会被覆盖）
+        "net.minecraft.client.gui.screens.inventory.AbstractFurnaceScreen", // 覆盖
+                                                                            // FurnaceScreen、BlastFurnaceScreen、SmokerScreen
+        "net.minecraft.client.gui.screens.inventory.ItemCombinerScreen" // 覆盖
+                                                                        // AnvilScreen、GrindstoneScreen、SmithingScreen
 })
 public abstract class ContainerScreensMixin {
 
@@ -39,10 +42,12 @@ public abstract class ContainerScreensMixin {
     @Inject(method = "renderBg", at = @At("RETURN"))
     private void onRenderBgReturn(GuiGraphics graphics, float partialTick, int mouseX, int mouseY, CallbackInfo ci) {
         // 排除 InventoryScreen，因为它由 InventoryScreenMixin 处理
-        if ((Object)this instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen) return;
+        if ((Object) this instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen)
+            return;
         // 排除 CraftingWarehouseScreen，因为它有自己的实现
-        if ((Object)this instanceof com.portablestorage.screen.CraftingWarehouseScreen) return;
-        
+        if ((Object) this instanceof com.portablestorage.screen.CraftingWarehouseScreen)
+            return;
+
         WarehouseScreen screen = (WarehouseScreen) this;
         var warehouseWidget = screen.portablestorage$getWarehouseWidget();
         if (warehouseWidget != null && warehouseWidget.shouldShow()) {
@@ -57,10 +62,12 @@ public abstract class ContainerScreensMixin {
     @Inject(method = "render", at = @At("RETURN"))
     private void onRenderReturn(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         // 排除 InventoryScreen，因为它由 InventoryScreenMixin 处理
-        if ((Object)this instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen) return;
+        if ((Object) this instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen)
+            return;
         // 排除 CraftingWarehouseScreen，因为它有自己的实现
-        if ((Object)this instanceof com.portablestorage.screen.CraftingWarehouseScreen) return;
-        
+        if ((Object) this instanceof com.portablestorage.screen.CraftingWarehouseScreen)
+            return;
+
         WarehouseScreen screen = (WarehouseScreen) this;
         var warehouseWidget = screen.portablestorage$getWarehouseWidget();
         if (warehouseWidget != null && warehouseWidget.shouldShow()) {
@@ -68,4 +75,3 @@ public abstract class ContainerScreensMixin {
         }
     }
 }
-

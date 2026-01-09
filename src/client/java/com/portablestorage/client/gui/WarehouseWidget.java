@@ -41,7 +41,7 @@ public class WarehouseWidget {
     private boolean isDraggingUpgradeScrollbar = false;
     private long lastSearchUpdateTime = 0;
     private String pendingSearchText = null;
-    
+
     // 双击检测
     private long lastClickTime = 0;
     private double lastClickX = -1;
@@ -165,8 +165,9 @@ public class WarehouseWidget {
         int xOffset = 0;
         int yOffset = 0;
 
-        if (ModConfig.offsetInventory && (screen instanceof InventoryScreen
-                || screen instanceof com.portablestorage.screen.CraftingWarehouseScreen)) {
+        if (ModConfig.offsetInventory && !warehouse.isFolded() && (screen instanceof InventoryScreen
+                || screen instanceof com.portablestorage.screen.CraftingWarehouseScreen
+                || screen instanceof com.portablestorage.screen.BoundBarrelScreen)) {
             StoragePosition pos = ModConfig.storagePosition;
             boolean folded = warehouse.isFolded();
             int warehouseWidth = WarehouseConstants.getWarehouseWidth();
@@ -282,6 +283,9 @@ public class WarehouseWidget {
                         warehouse.isFolded());
                 indentSidebar = true;
             }
+        } else if (screen instanceof com.portablestorage.screen.BoundBarrelScreen) {
+            foldX = leftPos + 151;
+            foldY = topPos + 32;
         } else {
             foldX = leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
             foldY = topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
@@ -293,7 +297,8 @@ public class WarehouseWidget {
 
     private boolean isContainerInterface() {
         return !(screen instanceof InventoryScreen)
-                && !(screen instanceof com.portablestorage.screen.CraftingWarehouseScreen);
+                && !(screen instanceof com.portablestorage.screen.CraftingWarehouseScreen)
+                && !(screen instanceof com.portablestorage.screen.BoundBarrelScreen);
     }
 
     /**
@@ -376,7 +381,8 @@ public class WarehouseWidget {
             this.searchBox.setX(screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.getWarehouseXOffset()
                     + WarehouseConstants.getSearchBoxXOffset() + WarehouseConstants.SEARCH_BOX_INNER_OFFSET);
             this.searchBox.setY(screenAccessor.portablestorage$getTopPos()
-                    + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight)
+                    + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight,
+                            warehouse.isFolded())
                     + WarehouseConstants.SEARCH_BOX_Y_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET);
             this.searchBox.visible = !warehouse.isFolded();
             this.searchBox.active = !warehouse.isFolded();
@@ -393,7 +399,8 @@ public class WarehouseWidget {
         int foldX, foldY;
         boolean indentSidebar = false;
         int x = leftPos + WarehouseConstants.getWarehouseXOffset();
-        int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight);
+        int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight,
+                warehouse.isFolded());
         if (screen instanceof com.portablestorage.screen.CraftingWarehouseScreen) {
             foldX = leftPos + 84;
             foldY = topPos + 53;
@@ -403,9 +410,13 @@ public class WarehouseWidget {
                 foldY = topPos + imageHeight - 24;
             } else {
                 foldX = x + WarehouseConstants.getSidebarXOffset();
-                foldY = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight);
+                foldY = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight,
+                        warehouse.isFolded());
                 indentSidebar = true;
             }
+        } else if (screen instanceof com.portablestorage.screen.BoundBarrelScreen) {
+            foldX = leftPos + 151;
+            foldY = topPos + 32;
         } else {
             foldX = leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
             foldY = topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
@@ -481,14 +492,14 @@ public class WarehouseWidget {
                 // 检测双击事件
                 long currentTime = System.currentTimeMillis();
                 boolean isDoubleClick = false;
-                
+
                 if (button == 0 && currentTime - lastClickTime < DOUBLE_CLICK_TIME_MS) {
                     double distance = Math.sqrt(Math.pow(mouseX - lastClickX, 2) + Math.pow(mouseY - lastClickY, 2));
                     if (distance <= DOUBLE_CLICK_DISTANCE) {
                         isDoubleClick = true;
                     }
                 }
-                
+
                 if (isDoubleClick) {
                     // Shift+双击：将背包中所有相同物品存入仓库
                     ItemStack cursorStack = screen.getMenu().getCarried();
@@ -533,6 +544,9 @@ public class WarehouseWidget {
                 foldButtonY = whY + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(),
                         screenAccessor.portablestorage$getImageHeight());
             }
+        } else if (screen instanceof com.portablestorage.screen.BoundBarrelScreen) {
+            foldButtonX = screenAccessor.portablestorage$getLeftPos() + 151;
+            foldButtonY = screenAccessor.portablestorage$getTopPos() + 32;
         } else {
             foldButtonX = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
             foldButtonY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;

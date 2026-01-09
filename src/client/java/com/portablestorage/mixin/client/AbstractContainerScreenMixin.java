@@ -28,9 +28,14 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     @Inject(method = "init", at = @At("HEAD"))
     private void onInitHead(CallbackInfo ci) {
         // 排除创造模式背包界面
-        if ((Object)this instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen) return;
+        if ((Object) this instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen)
+            return;
 
         AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
+        // 仅在适配过的界面注入
+        if (!WarehouseMenuHandler.isAdaptedMenu(screen.getMenu()))
+            return;
+
         // 确保客户端菜单已有槽位后再执行 UI 逻辑
         WarehouseMenuHandler.injectWarehouseSlots(screen.getMenu(), Minecraft.getInstance().player);
 
@@ -41,22 +46,26 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
 
     @Inject(method = "init", at = @At("RETURN"))
     protected void onInitReturn(CallbackInfo ci) {
-        if (warehouseWidget != null) warehouseWidget.init();
+        if (warehouseWidget != null)
+            warehouseWidget.init();
     }
 
     @Inject(method = "removed", at = @At("HEAD"))
     protected void onRemoved(CallbackInfo ci) {
-        if (warehouseWidget != null) warehouseWidget.removed();
+        if (warehouseWidget != null)
+            warehouseWidget.removed();
     }
 
     @Inject(method = "renderSlot", at = @At("HEAD"), cancellable = true)
     private void onRenderSlot(GuiGraphics graphics, net.minecraft.world.inventory.Slot slot, CallbackInfo ci) {
-        if (slot.container instanceof com.portablestorage.component.PlayerWarehouse || slot instanceof com.portablestorage.upgrade.UpgradeSlot) {
+        if (slot.container instanceof com.portablestorage.component.PlayerWarehouse
+                || slot instanceof com.portablestorage.upgrade.UpgradeSlot) {
             if (warehouseWidget == null || !warehouseWidget.shouldShow()) {
                 ci.cancel();
             }
         }
     }
+
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
     private void onMouseClicked(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
         if (warehouseWidget != null && warehouseWidget.mouseClicked(mouseX, mouseY, button)) {
@@ -72,7 +81,8 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     }
 
     @Inject(method = "mouseDragged", at = @At("HEAD"), cancellable = true)
-    private void onMouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY, CallbackInfoReturnable<Boolean> cir) {
+    private void onMouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY,
+            CallbackInfoReturnable<Boolean> cir) {
         if (warehouseWidget != null && warehouseWidget.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
             cir.setReturnValue(true);
         }

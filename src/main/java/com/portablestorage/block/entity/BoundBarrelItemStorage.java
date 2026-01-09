@@ -39,17 +39,72 @@ public class BoundBarrelItemStorage implements Storage<ItemVariant> {
     public long insert(ItemVariant resource, long maxAmount, TransactionContext transaction) {
         if (!isAllowed(resource)) return 0;
         
+        // 计算理论上能插入的最大数量
+        long insertable = calculateInsertableAmount(resource, maxAmount);
+        if (insertable <= 0) return 0;
+        
         // 模拟事务：仅在提交时修改
         transaction.addCloseCallback((context, result) -> {
             if (result.wasCommitted()) {
-                ItemStack stack = resource.toStack((int) maxAmount);
+                ItemStack stack = resource.toStack((int) insertable);
                 // 自动化设备交互，使用无 player 版本（会跳过 NBT 大小检查）
                 WarehouseManager.addItem(warehouse, stack);
             }
         });
         
-        // 假设仓库能放下（通常仓库上限很高）
-        return maxAmount;
+        return insertable;
+    }
+    
+    /**
+     * 计算理论上能插入的最大数量
+     * @param resource 物品变体
+     * @param maxAmount 请求的最大数量
+     * @return 理论上能插入的数量
+     */
+    private long calculateInsertableAmount(ItemVariant resource, long maxAmount) {
+        long limit = warehouse.getMaxItemStackSize();
+        if (limit < 0) {
+            // 无限制，返回请求数量
+            return maxAmount;
+        }
+        
+        // 检查共享组中该物品的当前数量
+        long currentCount = 0;
+        List<PlayerWarehouse> group = warehouse.getSharedGroupWarehouses();
+        for (PlayerWarehouse pw : group) {
+            for (WarehouseEntry entry : pw.getStorageList()) {
+                if (resource.matches(entry.getItemStack())) {
+                    currentCount += entry.getCount();
+                    break; // 每个仓库中每种物品只有一个条目
+                }
+            }
+        }
+        
+        // 计算还能插入多少
+        long canInsert = limit - currentCount;
+        if (canInsert <= 0) {
+            // 当前类型已满，检查是否还能添加新类型
+            if (currentCount == 0) {
+                // 该物品类型不存在，检查类型数量限制
+                int typeLimit = warehouse.getMaxStorageTypes();
+                if (typeLimit >= 0) {
+                    // 检查共享组中是否还有空间添加新类型
+                    int totalTypes = 0;
+                    for (PlayerWarehouse pw : group) {
+                        totalTypes = Math.max(totalTypes, pw.getStorageList().size());
+                    }
+                    if (totalTypes >= typeLimit) {
+                        return 0; // 类型数量已达上限
+                    }
+                }
+                // 可以添加新类型，但受单类型数量限制
+                return Math.min(maxAmount, limit);
+            }
+            // 当前类型已满且已存在，无法插入
+            return 0;
+        }
+        
+        return Math.min(maxAmount, canInsert);
     }
 
     @Override

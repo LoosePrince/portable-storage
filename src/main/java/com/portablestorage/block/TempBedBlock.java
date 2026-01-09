@@ -8,7 +8,6 @@ import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
 import net.minecraft.world.level.block.entity.BlockEntity;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * 临时床方块，用于床升级的原地睡觉。
@@ -30,4 +29,3 @@ public class TempBedBlock extends BedBlock {
         return null; // 不需要方块实体
     }
 }
-

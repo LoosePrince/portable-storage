@@ -35,6 +35,11 @@ public class WarehouseMenuHandler {
             }
         }
 
+        // 仅在适配过的界面注入
+        if (!isAdaptedMenu(menu)) {
+            return;
+        }
+
         // 容器界面需要工作台升级才能注入
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         if (isContainerMenu(menu) && warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
@@ -283,7 +288,40 @@ public class WarehouseMenuHandler {
     }
 
     public static boolean isContainerMenu(AbstractContainerMenu menu) {
+        String name = menu.getClass().getName();
         return !(menu instanceof InventoryMenu)
-                && !(menu.getClass().getName().contains("CraftingWarehouseScreenHandler"));
+                && !name.contains("CraftingWarehouseScreenHandler")
+                && !name.contains("BoundBarrelScreenHandler");
+    }
+
+    /**
+     * 检查菜单是否为已适配的界面
+     * 只有适配了背景渲染的界面才允许注入槽位
+     */
+    public static boolean isAdaptedMenu(AbstractContainerMenu menu) {
+        if (menu instanceof InventoryMenu)
+            return true;
+
+        String name = menu.getClass().getName();
+        if (name.contains("CraftingWarehouseScreenHandler") || name.contains("BoundBarrelScreenHandler")) {
+            return true;
+        }
+
+        return menu instanceof ChestMenu
+                || menu instanceof HopperMenu
+                || menu instanceof ShulkerBoxMenu
+                || menu instanceof DispenserMenu
+                || menu instanceof BrewingStandMenu
+                || menu instanceof BeaconMenu
+                || menu instanceof EnchantmentMenu
+                || menu instanceof LoomMenu
+                || menu instanceof CartographyTableMenu
+                || menu instanceof StonecutterMenu
+                || menu instanceof FurnaceMenu
+                || menu instanceof BlastFurnaceMenu
+                || menu instanceof SmokerMenu
+                || menu instanceof AnvilMenu
+                || menu instanceof GrindstoneMenu
+                || menu instanceof SmithingMenu;
     }
 }

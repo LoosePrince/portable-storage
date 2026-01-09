@@ -26,6 +26,7 @@ public class UpgradeSlot extends Slot {
 
     /**
      * 获取视觉索引
+     * 
      * @return 视觉索引
      */
     public int getVisualIndex() {
@@ -34,6 +35,7 @@ public class UpgradeSlot extends Slot {
 
     /**
      * 获取当前槽位对应的升级类型
+     * 
      * @return 升级类型，如果索引无效则返回 null
      */
     private UpgradeType getUpgradeType() {
@@ -59,7 +61,8 @@ public class UpgradeSlot extends Slot {
 
     @Override
     public boolean isActive() {
-        return visualIndex < warehouse.getVisibleRows() && getUpgradeType() != null && warehouse.isEnabled() && !warehouse.isFolded();
+        return visualIndex < warehouse.getVisibleRows() && getUpgradeType() != null && warehouse.isEnabled()
+                && !warehouse.isFolded();
     }
 
     @Override
