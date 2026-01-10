@@ -621,9 +621,8 @@ public class WarehouseRenderer {
         // 绘制 1px 灰色描边
         graphics.fill(x - 1, y - 1, x + size + 1, y + size + 1, WarehouseConstants.AVATAR_BORDER);
 
-        net.minecraft.client.resources.PlayerSkin skin = net.minecraft.client.Minecraft.getInstance().getSkinManager()
-                .getInsecureSkin(new GameProfile(uuid, ""));
-        ResourceLocation texture = skin.texture();
+        ResourceLocation texture = net.minecraft.client.Minecraft.getInstance().getSkinManager()
+                .getInsecureSkinLocation(new GameProfile(uuid, ""));
 
         // 渲染脸部纹理
         graphics.blit(texture, x, y, size, size, 8.0f, 8.0f, 8, 8, 64, 64);

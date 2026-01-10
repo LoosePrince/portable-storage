@@ -1,17 +1,30 @@
 package com.portablestorage.network;
 
 import com.portablestorage.PortableStorage;
+import net.fabricmc.fabric.api.networking.v1.FabricPacket;
+import net.fabricmc.fabric.api.networking.v1.PacketType;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
-public record C2SDoubleClickQuickStorePayload() implements CustomPacketPayload {
-    public static final Type<C2SDoubleClickQuickStorePayload> TYPE = new Type<>(PortableStorage.id("double_click_quick_store"));
+public record C2SDoubleClickQuickStorePayload() implements FabricPacket {
+    public static final PacketType<C2SDoubleClickQuickStorePayload> TYPE = PacketType.create(
+        PortableStorage.id("double_click_quick_store"), C2SDoubleClickQuickStorePayload::read
+    );
 
-    public static final StreamCodec<FriendlyByteBuf, C2SDoubleClickQuickStorePayload> CODEC = StreamCodec.unit(new C2SDoubleClickQuickStorePayload());
+    public C2SDoubleClickQuickStorePayload(FriendlyByteBuf buf) {
+        this();
+    }
+
+    private static C2SDoubleClickQuickStorePayload read(FriendlyByteBuf buf) {
+        return new C2SDoubleClickQuickStorePayload(buf);
+    }
 
     @Override
-    public Type<? extends CustomPacketPayload> type() {
+    public void write(FriendlyByteBuf buf) {
+        // 无数据需要写入
+    }
+
+    @Override
+    public PacketType<?> getType() {
         return TYPE;
     }
 }

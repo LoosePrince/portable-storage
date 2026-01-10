@@ -3,13 +3,13 @@ package com.portablestorage.mixin;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.logic.WarehouseManager;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.BowItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -55,19 +55,13 @@ public abstract class BowItemMixin {
     }
 
     private boolean hasInfinityEnchantment(ItemStack stack) {
-        // 检查弓是否有无限附魔
-        var enchantments = stack.get(DataComponents.ENCHANTMENTS);
-        if (enchantments != null) {
-            for (var entry : enchantments.entrySet()) {
-                net.minecraft.core.Holder<net.minecraft.world.item.enchantment.Enchantment> holder = entry.getKey();
-                // 使用 unwrapKey() 获取 ResourceKey 进行比较
-                var enchantmentKeyOpt = holder.unwrapKey();
-                if (enchantmentKeyOpt.isPresent()) {
-                    var enchantmentKey = enchantmentKeyOpt.get();
-                    if (enchantmentKey.equals(Enchantments.INFINITY)) {
-                        return true;
-                    }
-                }
+        // 检查弓是否有无限附魔（1.20.1 使用 NBT 存储附魔）
+        net.minecraft.nbt.ListTag enchantmentTags = stack.getEnchantmentTags();
+        for (int i = 0; i < enchantmentTags.size(); i++) {
+            net.minecraft.nbt.CompoundTag enchantTag = enchantmentTags.getCompound(i);
+            net.minecraft.resources.ResourceLocation id = net.minecraft.resources.ResourceLocation.tryParse(enchantTag.getString("id"));
+            if (id != null && id.equals(net.minecraft.core.registries.BuiltInRegistries.ENCHANTMENT.getKey(Enchantments.INFINITY_ARROWS))) {
+                return true;
             }
         }
         return false;

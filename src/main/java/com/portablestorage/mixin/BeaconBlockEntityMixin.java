@@ -2,7 +2,6 @@ package com.portablestorage.mixin;
 
 import com.portablestorage.entity.RiftAvatarEntity;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Holder;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.level.Level;
@@ -22,7 +21,7 @@ public abstract class BeaconBlockEntityMixin {
      * 优化：对齐原版信标的效果半径和计算逻辑
      */
     @Inject(method = "applyEffects", at = @At("TAIL"))
-    private static void portablestorage$applyAvatarEffects(Level level, BlockPos pos, int levels, Holder<MobEffect> primary, Holder<MobEffect> secondary, CallbackInfo ci) {
+    private static void portablestorage$applyAvatarEffects(Level level, BlockPos pos, int levels, MobEffect primary, MobEffect secondary, CallbackInfo ci) {
         if (level == null || level.isClientSide || primary == null) return;
         
         int range = levels * 10 + 10;

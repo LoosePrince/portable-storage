@@ -91,23 +91,23 @@ public class BoundBarrelBlockEntity extends BlockEntity implements SidedStorageB
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.saveAdditional(tag, registries);
+    protected void saveAdditional(CompoundTag tag) {
+        super.saveAdditional(tag);
         if (ownerUuid != null) {
             tag.putUUID("owner", ownerUuid);
             tag.putString("ownerName", ownerName);
         }
-        tag.put("inventory", inventory.createTag(registries));
+        tag.put("inventory", inventory.createTag());
     }
 
     @Override
-    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.loadAdditional(tag, registries);
+    public void load(CompoundTag tag) {
+        super.load(tag);
         if (tag.hasUUID("owner")) {
             ownerUuid = tag.getUUID("owner");
             ownerName = tag.getString("ownerName");
         }
-        inventory.fromTag(tag.getList("inventory", 10), registries);
+        inventory.fromTag(tag.getList("inventory", 10));
         this.cachedWarehouse = null; // 加载后重置缓存
     }
 

@@ -1,7 +1,8 @@
 package com.portablestorage.network;
 
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import com.portablestorage.PortableStorage;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.resources.ResourceLocation;
 
 /**
  * 网络注册类
@@ -9,43 +10,71 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
  */
 public class ModNetworking {
     public static void registerC2SPayloads() {
-        PayloadTypeRegistry.playC2S().register(C2SUpdateWarehouseStatePayload.TYPE, C2SUpdateWarehouseStatePayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(QuickTransferPayload.TYPE, QuickTransferPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(OpenCraftingPayload.TYPE, OpenCraftingPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(RefillPayload.TYPE, RefillPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(UpdateServerConfigPayload.TYPE, UpdateServerConfigPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(C2SUpgradeInteractionPayload.TYPE, C2SUpgradeInteractionPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(C2SUpdateHopperFiltersPayload.TYPE, C2SUpdateHopperFiltersPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(C2SUpdateFoodFiltersPayload.TYPE, C2SUpdateFoodFiltersPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(C2STogglePinnedPayload.TYPE, C2STogglePinnedPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(C2SRecipeTransferPayload.TYPE, C2SRecipeTransferPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(C2SUpdateForbiddenPlayersPayload.TYPE, C2SUpdateForbiddenPlayersPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(C2SDropWarehouseItemPayload.TYPE, C2SDropWarehouseItemPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(C2SUpdateFrozenStatePayload.TYPE, C2SUpdateFrozenStatePayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(C2SDoubleClickQuickStorePayload.TYPE, C2SDoubleClickQuickStorePayload.CODEC);
+        // 在 1.20.1 中，不需要注册 Payload，直接注册接收器即可
     }
 
     public static void registerS2CPayloads() {
-        PayloadTypeRegistry.playS2C().register(SyncConfigPayload.TYPE, SyncConfigPayload.CODEC);
-        PayloadTypeRegistry.playS2C().register(S2COpenHopperFilterPayload.TYPE, S2COpenHopperFilterPayload.CODEC);
-        PayloadTypeRegistry.playS2C().register(S2COpenFoodFilterPayload.TYPE, S2COpenFoodFilterPayload.CODEC);
+        // 在 1.20.1 中，不需要注册 Payload，直接注册接收器即可
     }
 
     public static void registerServerReceivers() {
-        ServerPlayNetworking.registerGlobalReceiver(C2SUpdateWarehouseStatePayload.TYPE, ModServerNetworking::handleUpdateWarehouseState);
-        ServerPlayNetworking.registerGlobalReceiver(QuickTransferPayload.TYPE, ModServerNetworking::handleQuickTransfer);
-        ServerPlayNetworking.registerGlobalReceiver(OpenCraftingPayload.TYPE, ModServerNetworking::handleOpenCrafting);
-        ServerPlayNetworking.registerGlobalReceiver(RefillPayload.TYPE, ModServerNetworking::handleRefill);
-        ServerPlayNetworking.registerGlobalReceiver(UpdateServerConfigPayload.TYPE, ModServerNetworking::handleUpdateServerConfig);
-        ServerPlayNetworking.registerGlobalReceiver(C2SUpgradeInteractionPayload.TYPE, ModServerNetworking::handleUpgradeInteraction);
-        ServerPlayNetworking.registerGlobalReceiver(C2SUpdateHopperFiltersPayload.TYPE, ModServerNetworking::handleUpdateHopperFilters);
-        ServerPlayNetworking.registerGlobalReceiver(C2SUpdateFoodFiltersPayload.TYPE, ModServerNetworking::handleUpdateFoodFilters);
-        ServerPlayNetworking.registerGlobalReceiver(C2STogglePinnedPayload.TYPE, ModServerNetworking::handleTogglePinned);
-        ServerPlayNetworking.registerGlobalReceiver(C2SRecipeTransferPayload.TYPE, ModServerNetworking::handleRecipeTransfer);
-        ServerPlayNetworking.registerGlobalReceiver(C2SUpdateForbiddenPlayersPayload.TYPE, ModServerNetworking::handleUpdateForbiddenPlayers);
-        ServerPlayNetworking.registerGlobalReceiver(C2SDropWarehouseItemPayload.TYPE, ModServerNetworking::handleDropWarehouseItem);
-        ServerPlayNetworking.registerGlobalReceiver(C2SUpdateFrozenStatePayload.TYPE, ModServerNetworking::handleUpdateFrozenState);
-        ServerPlayNetworking.registerGlobalReceiver(C2SDoubleClickQuickStorePayload.TYPE, ModServerNetworking::handleDoubleClickQuickStore);
+        // 在 1.20.1 中，使用 ResourceLocation 和 PlayChannelHandler
+        ServerPlayNetworking.registerGlobalReceiver(PortableStorage.id("quick_transfer"), (server, player, handler, buf, responseSender) -> {
+            QuickTransferPayload payload = new QuickTransferPayload(buf);
+            ModServerNetworking.handleQuickTransfer(server, player, payload, responseSender);
+        });
+        ServerPlayNetworking.registerGlobalReceiver(PortableStorage.id("open_crafting"), (server, player, handler, buf, responseSender) -> {
+            OpenCraftingPayload payload = new OpenCraftingPayload(buf);
+            ModServerNetworking.handleOpenCrafting(server, player, payload, responseSender);
+        });
+        ServerPlayNetworking.registerGlobalReceiver(PortableStorage.id("update_hopper_filters"), (server, player, handler, buf, responseSender) -> {
+            C2SUpdateHopperFiltersPayload payload = new C2SUpdateHopperFiltersPayload(buf);
+            ModServerNetworking.handleUpdateHopperFilters(server, player, payload, responseSender);
+        });
+        ServerPlayNetworking.registerGlobalReceiver(PortableStorage.id("update_food_filters"), (server, player, handler, buf, responseSender) -> {
+            C2SUpdateFoodFiltersPayload payload = new C2SUpdateFoodFiltersPayload(buf);
+            ModServerNetworking.handleUpdateFoodFilters(server, player, payload, responseSender);
+        });
+        ServerPlayNetworking.registerGlobalReceiver(PortableStorage.id("toggle_pinned"), (server, player, handler, buf, responseSender) -> {
+            C2STogglePinnedPayload payload = new C2STogglePinnedPayload(buf);
+            ModServerNetworking.handleTogglePinned(server, player, payload, responseSender);
+        });
+        ServerPlayNetworking.registerGlobalReceiver(PortableStorage.id("recipe_transfer"), (server, player, handler, buf, responseSender) -> {
+            C2SRecipeTransferPayload payload = new C2SRecipeTransferPayload(buf);
+            ModServerNetworking.handleRecipeTransfer(server, player, payload, responseSender);
+        });
+        ServerPlayNetworking.registerGlobalReceiver(PortableStorage.id("update_forbidden_players"), (server, player, handler, buf, responseSender) -> {
+            C2SUpdateForbiddenPlayersPayload payload = new C2SUpdateForbiddenPlayersPayload(buf);
+            ModServerNetworking.handleUpdateForbiddenPlayers(server, player, payload, responseSender);
+        });
+        ServerPlayNetworking.registerGlobalReceiver(PortableStorage.id("drop_warehouse_item"), (server, player, handler, buf, responseSender) -> {
+            C2SDropWarehouseItemPayload payload = new C2SDropWarehouseItemPayload(buf);
+            ModServerNetworking.handleDropWarehouseItem(server, player, payload, responseSender);
+        });
+        ServerPlayNetworking.registerGlobalReceiver(PortableStorage.id("update_frozen_state"), (server, player, handler, buf, responseSender) -> {
+            C2SUpdateFrozenStatePayload payload = new C2SUpdateFrozenStatePayload(buf);
+            ModServerNetworking.handleUpdateFrozenState(server, player, payload, responseSender);
+        });
+        ServerPlayNetworking.registerGlobalReceiver(PortableStorage.id("double_click_quick_store"), (server, player, handler, buf, responseSender) -> {
+            C2SDoubleClickQuickStorePayload payload = new C2SDoubleClickQuickStorePayload(buf);
+            ModServerNetworking.handleDoubleClickQuickStore(server, player, payload, responseSender);
+        });
+        ServerPlayNetworking.registerGlobalReceiver(PortableStorage.id("update_state"), (server, player, handler, buf, responseSender) -> {
+            C2SUpdateWarehouseStatePayload payload = new C2SUpdateWarehouseStatePayload(buf);
+            ModServerNetworking.handleUpdateWarehouseState(server, player, payload, responseSender);
+        });
+        ServerPlayNetworking.registerGlobalReceiver(PortableStorage.id("refill"), (server, player, handler, buf, responseSender) -> {
+            RefillPayload payload = new RefillPayload(buf);
+            ModServerNetworking.handleRefill(server, player, payload, responseSender);
+        });
+        ServerPlayNetworking.registerGlobalReceiver(PortableStorage.id("update_server_config"), (server, player, handler, buf, responseSender) -> {
+            UpdateServerConfigPayload payload = new UpdateServerConfigPayload(buf);
+            ModServerNetworking.handleUpdateServerConfig(server, player, payload, responseSender);
+        });
+        ServerPlayNetworking.registerGlobalReceiver(PortableStorage.id("upgrade_interaction"), (server, player, handler, buf, responseSender) -> {
+            C2SUpgradeInteractionPayload payload = new C2SUpgradeInteractionPayload(buf);
+            ModServerNetworking.handleUpgradeInteraction(server, player, payload, responseSender);
+        });
     }
 }
 

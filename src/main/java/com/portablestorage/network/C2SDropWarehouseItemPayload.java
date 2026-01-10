@@ -2,22 +2,30 @@ package com.portablestorage.network;
 
 import com.portablestorage.PortableStorage;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.fabricmc.fabric.api.networking.v1.FabricPacket;
+import net.fabricmc.fabric.api.networking.v1.PacketType;
 
-public record C2SDropWarehouseItemPayload(int slotId, boolean dropFullStack) implements CustomPacketPayload {
-    public static final Type<C2SDropWarehouseItemPayload> TYPE = new Type<>(PortableStorage.id("drop_warehouse_item"));
-
-    public static final StreamCodec<FriendlyByteBuf, C2SDropWarehouseItemPayload> CODEC = StreamCodec.of(
-        (buf, payload) -> {
-            buf.writeInt(payload.slotId);
-            buf.writeBoolean(payload.dropFullStack);
-        },
-        buf -> new C2SDropWarehouseItemPayload(buf.readInt(), buf.readBoolean())
+public record C2SDropWarehouseItemPayload(int slotId, boolean dropFullStack) implements FabricPacket {
+    public static final PacketType<C2SDropWarehouseItemPayload> TYPE = PacketType.create(
+        PortableStorage.id("drop_warehouse_item"), C2SDropWarehouseItemPayload::read
     );
 
+    public C2SDropWarehouseItemPayload(FriendlyByteBuf buf) {
+        this(buf.readInt(), buf.readBoolean());
+    }
+
+    private static C2SDropWarehouseItemPayload read(FriendlyByteBuf buf) {
+        return new C2SDropWarehouseItemPayload(buf);
+    }
+
     @Override
-    public Type<? extends CustomPacketPayload> type() {
+    public void write(FriendlyByteBuf buf) {
+        buf.writeInt(slotId);
+        buf.writeBoolean(dropFullStack);
+    }
+
+    @Override
+    public PacketType<?> getType() {
         return TYPE;
     }
 }

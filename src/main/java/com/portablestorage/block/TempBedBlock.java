@@ -19,9 +19,9 @@ public class TempBedBlock extends BedBlock {
     }
 
     @Override
-    public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
+    public void playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
         level.removeBlock(pos, false);
-        return state;
+        super.playerWillDestroy(level, pos, state, player);
     }
 
     @Override

@@ -3,14 +3,13 @@ package com.portablestorage.upgrade;
 import com.portablestorage.PortableStorage;
 import com.portablestorage.component.PlayerWarehouse;
 import net.minecraft.ChatFormatting;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.CustomData;
+import net.minecraft.nbt.CompoundTag;
 
 import java.util.List;
 
@@ -34,12 +33,12 @@ public class ExperienceUpgrade extends UpgradeType {
         List<Component> tooltips = super.getTooltip(warehouse, stack);
         tooltips.add(Component.translatable("upgrade.portablestorage.experience.desc").withStyle(ChatFormatting.GRAY));
         
-        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
+        CompoundTag tag = stack.getTag();
         int stepIndex = 0;
         boolean maintain = false;
-        if (data != null) {
-            stepIndex = data.copyTag().getInt(TAG_STEP_INDEX);
-            maintain = data.copyTag().getBoolean(TAG_MAINTAIN);
+        if (tag != null) {
+            stepIndex = tag.getInt(TAG_STEP_INDEX);
+            maintain = tag.getBoolean(TAG_MAINTAIN);
         }
         
         tooltips.add(Component.literal(" "));
@@ -63,10 +62,9 @@ public class ExperienceUpgrade extends UpgradeType {
     public void onRightClick(PlayerWarehouse warehouse, Player player) {
         ItemStack stack = warehouse.getUpgrade(ID);
         if (!stack.isEmpty()) {
-            CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
-                int current = tag.getInt(TAG_STEP_INDEX);
-                tag.putInt(TAG_STEP_INDEX, (current + 1) % STEPS.length);
-            });
+            CompoundTag tag = stack.getOrCreateTag();
+            int current = tag.getInt(TAG_STEP_INDEX);
+            tag.putInt(TAG_STEP_INDEX, (current + 1) % STEPS.length);
             warehouse.markDirty();
             
             int step = getStep(stack);
@@ -80,18 +78,17 @@ public class ExperienceUpgrade extends UpgradeType {
     public void onMiddleClick(PlayerWarehouse warehouse, Player player) {
         ItemStack stack = warehouse.getUpgrade(ID);
         if (!stack.isEmpty()) {
-            CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
-                boolean current = tag.getBoolean(TAG_MAINTAIN);
-                tag.putBoolean(TAG_MAINTAIN, !current);
-                if (!current) {
-                    tag.putInt("TargetLevel", player.experienceLevel);
-                } else {
-                    tag.remove("TargetLevel");
-                }
-            });
+            CompoundTag tag = stack.getOrCreateTag();
+            boolean current = tag.getBoolean(TAG_MAINTAIN);
+            tag.putBoolean(TAG_MAINTAIN, !current);
+            if (!current) {
+                tag.putInt("TargetLevel", player.experienceLevel);
+            } else {
+                tag.remove("TargetLevel");
+            }
             warehouse.markDirty();
             
-            boolean maintain = stack.get(DataComponents.CUSTOM_DATA).copyTag().getBoolean(TAG_MAINTAIN);
+            boolean maintain = tag.getBoolean(TAG_MAINTAIN);
             player.displayClientMessage(Component.translatable("upgrade.portablestorage.experience.maintain", 
                 Component.translatable(maintain ? "gui.portablestorage.on" : "gui.portablestorage.off")
             ), true);
@@ -101,20 +98,18 @@ public class ExperienceUpgrade extends UpgradeType {
     @Override
     public void serverTick(PlayerWarehouse warehouse, ServerPlayer player) {
         ItemStack stack = warehouse.getUpgrade(ID);
-        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
-        if (data != null && data.copyTag().getBoolean(TAG_MAINTAIN)) {
+        CompoundTag tag = stack.getTag();
+        if (tag != null && tag.getBoolean(TAG_MAINTAIN)) {
             // 等级维持逻辑
             // 如果玩家当前经验值有变动，尝试平衡
             // 如果玩家等级超过了当前等级且有余量经验，存入；如果少了且仓库有，取出。
-            if (!data.copyTag().contains("TargetLevel")) {
-                CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
-                    tag.putInt("TargetLevel", player.experienceLevel);
-                });
+            if (!tag.contains("TargetLevel")) {
+                tag.putInt("TargetLevel", player.experienceLevel);
                 warehouse.markDirty();
                 return;
             }
             
-            int target = data.copyTag().getInt("TargetLevel");
+            int target = tag.getInt("TargetLevel");
             syncExperience(player, warehouse, target);
         }
     }
@@ -155,9 +150,9 @@ public class ExperienceUpgrade extends UpgradeType {
     }
     
     public static int getStep(ItemStack stack) {
-        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
-        if (data != null) {
-            return STEPS[data.copyTag().getInt(TAG_STEP_INDEX)];
+        CompoundTag tag = stack.getTag();
+        if (tag != null) {
+            return STEPS[tag.getInt(TAG_STEP_INDEX)];
         }
         return STEPS[0];
     }

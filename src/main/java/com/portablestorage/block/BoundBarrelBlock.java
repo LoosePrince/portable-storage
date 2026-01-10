@@ -1,6 +1,5 @@
 package com.portablestorage.block;
 
-import com.mojang.serialization.MapCodec;
 import com.portablestorage.block.entity.BoundBarrelBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -24,18 +23,12 @@ import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 
 public class BoundBarrelBlock extends BaseEntityBlock {
-    public static final MapCodec<BoundBarrelBlock> CODEC = simpleCodec(BoundBarrelBlock::new);
     public static final DirectionProperty FACING = BlockStateProperties.FACING;
     public static final BooleanProperty OPEN = BlockStateProperties.OPEN;
 
     public BoundBarrelBlock(Properties properties) {
         super(properties);
         this.registerDefaultState(this.stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(OPEN, false));
-    }
-
-    @Override
-    protected MapCodec<? extends BaseEntityBlock> codec() {
-        return CODEC;
     }
 
     @Override
@@ -54,7 +47,7 @@ public class BoundBarrelBlock extends BaseEntityBlock {
     }
 
     @Override
-    public InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, net.minecraft.world.InteractionHand hand, BlockHitResult hitResult) {
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         } else {
@@ -74,10 +67,10 @@ public class BoundBarrelBlock extends BaseEntityBlock {
 
     @Override
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
-        if (stack.has(net.minecraft.core.component.DataComponents.CUSTOM_DATA)) {
+        net.minecraft.nbt.CompoundTag tag = stack.getTag();
+        if (tag != null) {
             BlockEntity blockEntity = level.getBlockEntity(pos);
             if (blockEntity instanceof BoundBarrelBlockEntity boundBarrel) {
-                net.minecraft.nbt.CompoundTag tag = stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA).copyTag();
                 if (tag.hasUUID("owner")) {
                     boundBarrel.setOwner(tag.getUUID("owner"), tag.getString("ownerName"));
                 }
@@ -86,7 +79,7 @@ public class BoundBarrelBlock extends BaseEntityBlock {
     }
 
     @Override
-    public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
+    public void playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
         BlockEntity blockEntity = level.getBlockEntity(pos);
         if (blockEntity instanceof BoundBarrelBlockEntity boundBarrel) {
             if (!level.isClientSide && !player.isCreative()) {
@@ -96,10 +89,9 @@ public class BoundBarrelBlock extends BaseEntityBlock {
                 if (player.isSecondaryUseActive() && player.getUUID().equals(boundBarrel.getOwnerUuid())) {
                     drop = new ItemStack(com.portablestorage.item.ModItems.BOUND_BARREL);
                     // 保存所有者信息到物品
-                    net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+                    net.minecraft.nbt.CompoundTag tag = drop.getOrCreateTag();
                     tag.putUUID("owner", boundBarrel.getOwnerUuid());
                     tag.putString("ownerName", boundBarrel.getOwnerName());
-                    drop.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(tag));
                 } else {
                     drop = new ItemStack(net.minecraft.world.item.Items.BARREL);
                 }
@@ -108,7 +100,7 @@ public class BoundBarrelBlock extends BaseEntityBlock {
                 net.minecraft.world.Containers.dropContents(level, pos, boundBarrel.getInventory());
             }
         }
-        return super.playerWillDestroy(level, pos, state, player);
+        super.playerWillDestroy(level, pos, state, player);
     }
 
     @Override

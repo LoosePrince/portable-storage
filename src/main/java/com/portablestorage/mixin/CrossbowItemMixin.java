@@ -3,13 +3,11 @@ package com.portablestorage.mixin;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.logic.WarehouseManager;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.CrossbowItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.ChargedProjectiles;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
@@ -26,9 +24,11 @@ public abstract class CrossbowItemMixin {
         if (!(user instanceof ServerPlayer player)) return;
         if (player.getAbilities().instabuild) return;
 
-        // 检查弩是否已装填
-        ChargedProjectiles chargedProjectiles = stack.get(DataComponents.CHARGED_PROJECTILES);
-        if (chargedProjectiles == null || chargedProjectiles.isEmpty()) return;
+        // 检查弩是否已装填（1.20.1 使用 NBT 存储装填的弹药）
+        net.minecraft.nbt.CompoundTag tag = stack.getTag();
+        if (tag == null || !tag.contains("ChargedProjectiles", net.minecraft.nbt.Tag.TAG_LIST)) return;
+        net.minecraft.nbt.ListTag chargedProjectiles = tag.getList("ChargedProjectiles", net.minecraft.nbt.Tag.TAG_COMPOUND);
+        if (chargedProjectiles.isEmpty()) return;
 
         // 优先消耗背包中的弹药（原版逻辑会处理）
         if (hasAnyAmmo(player)) return;
@@ -60,19 +60,13 @@ public abstract class CrossbowItemMixin {
     }
 
     private boolean hasInfinityEnchantment(ItemStack stack) {
-        // 检查弩是否有无限附魔
-        var enchantments = stack.get(DataComponents.ENCHANTMENTS);
-        if (enchantments != null) {
-            for (var entry : enchantments.entrySet()) {
-                net.minecraft.core.Holder<net.minecraft.world.item.enchantment.Enchantment> holder = entry.getKey();
-                // 使用 unwrapKey() 获取 ResourceKey 进行比较
-                var enchantmentKeyOpt = holder.unwrapKey();
-                if (enchantmentKeyOpt.isPresent()) {
-                    var enchantmentKey = enchantmentKeyOpt.get();
-                    if (enchantmentKey.equals(Enchantments.INFINITY)) {
-                        return true;
-                    }
-                }
+        // 检查弩是否有无限附魔（1.20.1 使用 NBT 存储附魔）
+        net.minecraft.nbt.ListTag enchantmentTags = stack.getEnchantmentTags();
+        for (int i = 0; i < enchantmentTags.size(); i++) {
+            net.minecraft.nbt.CompoundTag enchantTag = enchantmentTags.getCompound(i);
+            net.minecraft.resources.ResourceLocation id = net.minecraft.resources.ResourceLocation.tryParse(enchantTag.getString("id"));
+            if (id != null && id.equals(net.minecraft.core.registries.BuiltInRegistries.ENCHANTMENT.getKey(Enchantments.INFINITY_ARROWS))) {
+                return true;
             }
         }
         return false;

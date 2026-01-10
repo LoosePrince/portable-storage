@@ -100,7 +100,7 @@ public class WarehouseInteractionHandler {
                     if (stackInSlot.isEmpty()) {
                         int toPlace = Math.min(cursorStack.getCount(), maxPlace);
                         slot.set(cursorStack.split(toPlace));
-                    } else if (ItemStack.isSameItemSameComponents(stackInSlot, cursorStack)) {
+                    } else if (ItemStack.isSameItem(stackInSlot, cursorStack) && net.minecraft.nbt.NbtUtils.compareNbt(stackInSlot.getTag(), cursorStack.getTag(), true)) {
                         int canAdd = Math.min(cursorStack.getCount(), maxPlace - stackInSlot.getCount());
                         if (canAdd > 0) {
                             stackInSlot.grow(canAdd);

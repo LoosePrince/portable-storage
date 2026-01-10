@@ -52,7 +52,7 @@ public class PortableStorageClient implements ClientModInitializer {
 		EntityRendererRegistry.register(com.portablestorage.entity.ModEntities.RIFT_AVATAR, (context) -> new EntityRenderer<com.portablestorage.entity.RiftAvatarEntity>(context) {
 			@Override
 			public ResourceLocation getTextureLocation(com.portablestorage.entity.RiftAvatarEntity entity) {
-				return ResourceLocation.withDefaultNamespace("textures/entity/steve.png");
+				return new ResourceLocation("minecraft", "textures/entity/steve.png");
 			}
 		});
 	}

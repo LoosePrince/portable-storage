@@ -18,7 +18,7 @@ public class ModBlocks {
 
     public static final Block TEMP_BED = register("temp_bed",
             new TempBedBlock(net.minecraft.world.item.DyeColor.RED,
-                    BlockBehaviour.Properties.ofFullCopy(net.minecraft.world.level.block.Blocks.RED_BED)));
+                    BlockBehaviour.Properties.copy(net.minecraft.world.level.block.Blocks.RED_BED)));
 
     private static <T extends Block> T register(String name, T block) {
         return Registry.register(BuiltInRegistries.BLOCK, PortableStorage.id(name), block);

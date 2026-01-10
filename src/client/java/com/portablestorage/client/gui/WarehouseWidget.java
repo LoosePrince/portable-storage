@@ -22,6 +22,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.ResultSlot;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
@@ -30,6 +32,7 @@ import java.util.*;
  * 管理仓库 UI 的渲染、交互和状态更新
  */
 public class WarehouseWidget {
+    private static final Logger LOGGER = LoggerFactory.getLogger("PortableStorage/WarehouseWidget");
     private static final ResourceLocation WAREHOUSE_SLOT_TEXTURE = com.portablestorage.PortableStorage
             .id("textures/gui/slot.png");
 
@@ -60,8 +63,13 @@ public class WarehouseWidget {
 
     public WarehouseWidget(AbstractContainerScreen<?> screen) {
         this.screen = screen;
-        this.warehouse = ModComponents.get(Minecraft.getInstance().player)
-                .getWarehouse(Minecraft.getInstance().player.getUUID());
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player != null) {
+            this.warehouse = ModComponents.get(minecraft.player)
+                    .getWarehouse(minecraft.player.getUUID());
+        } else {
+            this.warehouse = null;
+        }
     }
 
     public boolean shouldShow() {
@@ -462,9 +470,9 @@ public class WarehouseWidget {
         if (clickedSlot != null && clickedSlot.container instanceof PlayerWarehouse && clickedSlot.hasItem()) {
             if (button == 0) { // 左键：智能折叠搜索
                 ItemStack stack = clickedSlot.getItem();
-                var customData = stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
-                boolean isCollapsed = customData != null
-                        && customData.copyTag().getBoolean(WarehouseConstants.SMART_COLLAPSE_TAG);
+                net.minecraft.nbt.CompoundTag tag = stack.getTag();
+                boolean isCollapsed = tag != null
+                        && tag.getBoolean(WarehouseConstants.SMART_COLLAPSE_TAG);
                 if (warehouse.isSmartCollapse() && warehouse.getSearchText().isEmpty() && isCollapsed) {
                     String itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem())
                             .toString();
@@ -804,7 +812,7 @@ public class WarehouseWidget {
 
         if (maxOffset > 0) {
             int thumbHeight = Math.max(10, (int) (scrollbarHeight * ((float) visibleRows / totalUpgrades)));
-            double relativeY = Math.clamp(mouseY - scrollbarY - thumbHeight / 2.0, 0, scrollbarHeight - thumbHeight);
+            double relativeY = Math.max(0, Math.min(mouseY - scrollbarY - thumbHeight / 2.0, scrollbarHeight - thumbHeight));
             int newOffset = (int) Math.round((relativeY * maxOffset) / (scrollbarHeight - thumbHeight));
             if (newOffset != warehouse.getUpgradeScrollOffset()) {
                 int delta = warehouse.getUpgradeScrollOffset() - newOffset;
@@ -830,7 +838,7 @@ public class WarehouseWidget {
 
         if (maxOffset > 0) {
             int thumbHeight = Math.max(10, (int) (scrollbarHeight * ((float) visibleRows / totalRows)));
-            double relativeY = Math.clamp(mouseY - scrollbarY - thumbHeight / 2.0, 0, scrollbarHeight - thumbHeight);
+            double relativeY = Math.max(0, Math.min(mouseY - scrollbarY - thumbHeight / 2.0, scrollbarHeight - thumbHeight));
             int newOffset = (int) Math.round((relativeY * maxOffset) / (scrollbarHeight - thumbHeight));
             if (newOffset != warehouse.getScrollOffset()) {
                 int delta = warehouse.getScrollOffset() - newOffset;
@@ -864,7 +872,8 @@ public class WarehouseWidget {
         ItemStack currentOutput = outputSlot.getItem();
         boolean craftOccurred = false;
         if (!lastCraftingOutput.isEmpty()) {
-            if (currentOutput.isEmpty() || !ItemStack.isSameItemSameComponents(currentOutput, lastCraftingOutput)
+            if (currentOutput.isEmpty() || !ItemStack.isSameItem(currentOutput, lastCraftingOutput)
+                    || !net.minecraft.nbt.NbtUtils.compareNbt(currentOutput.getTag(), lastCraftingOutput.getTag(), true)
                     || currentOutput.getCount() < lastCraftingOutput.getCount()) {
                 craftOccurred = true;
             }
@@ -880,11 +889,12 @@ public class WarehouseWidget {
                     ItemStack currentStack = slot.getItem();
                     ItemStack lastStack = lastCraftingStacks.get(slotId);
                     if (lastStack != null && !lastStack.isEmpty()) {
-                        if (currentStack.isEmpty() || (ItemStack.isSameItemSameComponents(currentStack, lastStack)
+                        if (currentStack.isEmpty() || (ItemStack.isSameItem(currentStack, lastStack)
+                                && net.minecraft.nbt.NbtUtils.compareNbt(currentStack.getTag(), lastStack.getTag(), true)
                                 && currentStack.getCount() < lastStack.getCount())) {
                             boolean found = false;
                             for (ItemStack key : refills.keySet()) {
-                                if (ItemStack.isSameItemSameComponents(key, lastStack)) {
+                                if (ItemStack.isSameItem(key, lastStack) && net.minecraft.nbt.NbtUtils.compareNbt(key.getTag(), lastStack.getTag(), true)) {
                                     refills.get(key).add(slotId);
                                     found = true;
                                     break;

@@ -7,7 +7,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 
 public class BoundBarrelScreen extends AbstractContainerScreen<BoundBarrelScreenHandler> {
-    private static final ResourceLocation HOPPER_LOCATION = ResourceLocation.withDefaultNamespace("textures/gui/container/hopper.png");
+    private static final ResourceLocation HOPPER_LOCATION = new ResourceLocation("minecraft", "textures/gui/container/hopper.png");
 
     public BoundBarrelScreen(BoundBarrelScreenHandler handler, Inventory inventory, Component title) {
         super(handler, inventory, title);
@@ -18,7 +18,7 @@ public class BoundBarrelScreen extends AbstractContainerScreen<BoundBarrelScreen
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        this.renderBackground(guiGraphics);
         super.render(guiGraphics, mouseX, mouseY, partialTick);
         this.renderTooltip(guiGraphics, mouseX, mouseY);
     }

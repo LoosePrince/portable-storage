@@ -2,8 +2,8 @@ package com.portablestorage.network;
 
 import com.portablestorage.PortableStorage;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.fabricmc.fabric.api.networking.v1.FabricPacket;
+import net.fabricmc.fabric.api.networking.v1.PacketType;
 
 public record SyncConfigPayload(
     boolean enable3x3Crafting,
@@ -23,30 +23,13 @@ public record SyncConfigPayload(
     int riftChunkSize,
     boolean enableRiftForcedLoading,
     int riftForcedLoadingRange
-) implements CustomPacketPayload {
-    public static final Type<SyncConfigPayload> TYPE = new Type<>(PortableStorage.id("sync_config"));
+) implements FabricPacket {
+    public static final PacketType<SyncConfigPayload> TYPE = PacketType.create(
+        PortableStorage.id("sync_config"), SyncConfigPayload::read
+    );
 
-    public static final StreamCodec<FriendlyByteBuf, SyncConfigPayload> CODEC = StreamCodec.of(
-        (buf, payload) -> {
-            buf.writeBoolean(payload.enable3x3Crafting);
-            buf.writeBoolean(payload.dropStorageOnDeath);
-            buf.writeBoolean(payload.allowHotReload);
-            buf.writeInt(payload.maxStorageTypes);
-            buf.writeLong(payload.maxItemStackSize);
-            buf.writeInt(payload.baseMaxStorageTypes);
-            buf.writeLong(payload.baseMaxItemStackSize);
-            buf.writeInt(payload.maxItemNbtSize);
-            buf.writeUtf(payload.unconditionalWarehouse);
-            buf.writeInt(payload.hopperRange);
-            buf.writeDouble(payload.hopperFrequency);
-            buf.writeLong(payload.lavaInfiniteThreshold);
-            buf.writeLong(payload.waterInfiniteThreshold);
-            buf.writeUtf(payload.riftUpgradeItem);
-            buf.writeInt(payload.riftChunkSize);
-            buf.writeBoolean(payload.enableRiftForcedLoading);
-            buf.writeInt(payload.riftForcedLoadingRange);
-        },
-        buf -> new SyncConfigPayload(
+    public SyncConfigPayload(FriendlyByteBuf buf) {
+        this(
             buf.readBoolean(), 
             buf.readBoolean(),
             buf.readBoolean(),
@@ -64,11 +47,36 @@ public record SyncConfigPayload(
             buf.readInt(),
             buf.readBoolean(),
             buf.readInt()
-        )
-    );
+        );
+    }
+
+    private static SyncConfigPayload read(FriendlyByteBuf buf) {
+        return new SyncConfigPayload(buf);
+    }
 
     @Override
-    public Type<? extends CustomPacketPayload> type() {
+    public void write(FriendlyByteBuf buf) {
+        buf.writeBoolean(enable3x3Crafting);
+        buf.writeBoolean(dropStorageOnDeath);
+        buf.writeBoolean(allowHotReload);
+        buf.writeInt(maxStorageTypes);
+        buf.writeLong(maxItemStackSize);
+        buf.writeInt(baseMaxStorageTypes);
+        buf.writeLong(baseMaxItemStackSize);
+        buf.writeInt(maxItemNbtSize);
+        buf.writeUtf(unconditionalWarehouse);
+        buf.writeInt(hopperRange);
+        buf.writeDouble(hopperFrequency);
+        buf.writeLong(lavaInfiniteThreshold);
+        buf.writeLong(waterInfiniteThreshold);
+        buf.writeUtf(riftUpgradeItem);
+        buf.writeInt(riftChunkSize);
+        buf.writeBoolean(enableRiftForcedLoading);
+        buf.writeInt(riftForcedLoadingRange);
+    }
+
+    @Override
+    public PacketType<?> getType() {
         return TYPE;
     }
 }

@@ -1,7 +1,6 @@
 package com.portablestorage.item;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
@@ -11,7 +10,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
 
 import java.io.BufferedReader;
@@ -40,15 +38,17 @@ public class EasterEggItem extends Item {
         if (stack.isEmpty() || player.getAbilities().instabuild) return;
 
         // 检查是否已经处理过（避免重复触发）
-        CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
-        if (customData != null && customData.copyTag().contains("processed")) {
+        CompoundTag tag = stack.getTag();
+        if (tag != null && tag.contains("processed")) {
             return;
         }
 
         // 标记为已处理
-        CompoundTag tag = customData != null ? customData.copyTag() : new CompoundTag();
+        if (tag == null) {
+            tag = new CompoundTag();
+        }
         tag.putBoolean("processed", true);
-        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+        stack.setTag(tag);
 
         // 先消耗彩蛋物品
         stack.shrink(1);
@@ -202,36 +202,33 @@ public class EasterEggItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag type) {
+    public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag type) {
         tooltip.add(Component.translatable("tooltip.portablestorage.easter_egg.desc"));
         
         // 显示详细信息（如果物品有存储的数据）
-        CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
-        if (customData != null) {
-            CompoundTag tag = customData.copyTag();
-            if (tag.contains(NBT_CONTENT)) {
-                tooltip.add(Component.literal(""));
-                tooltip.add(Component.literal(tag.getString(NBT_CONTENT)).withStyle(ChatFormatting.GRAY));
-                
-                if (tag.contains(NBT_FROM)) {
-                    String from = tag.getString(NBT_FROM);
-                    if (tag.contains(NBT_FROM_WHO) && !tag.getString(NBT_FROM_WHO).isEmpty()) {
-                        tooltip.add(Component.literal("—— " + from + " · " + tag.getString(NBT_FROM_WHO))
-                                .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
-                    } else {
-                        tooltip.add(Component.literal("—— " + from)
-                                .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
-                    }
+        CompoundTag tag = stack.getTag();
+        if (tag != null && tag.contains(NBT_CONTENT)) {
+            tooltip.add(Component.literal(""));
+            tooltip.add(Component.literal(tag.getString(NBT_CONTENT)).withStyle(ChatFormatting.GRAY));
+            
+            if (tag.contains(NBT_FROM)) {
+                String from = tag.getString(NBT_FROM);
+                if (tag.contains(NBT_FROM_WHO) && !tag.getString(NBT_FROM_WHO).isEmpty()) {
+                    tooltip.add(Component.literal("—— " + from + " · " + tag.getString(NBT_FROM_WHO))
+                            .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
+                } else {
+                    tooltip.add(Component.literal("—— " + from)
+                            .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
                 }
-                
-                if (tag.contains(NBT_CREATOR) && !tag.getString(NBT_CREATOR).isEmpty()) {
-                    tooltip.add(Component.literal("创建者: " + tag.getString(NBT_CREATOR))
-                            .withStyle(ChatFormatting.DARK_GRAY));
-                }
+            }
+            
+            if (tag.contains(NBT_CREATOR) && !tag.getString(NBT_CREATOR).isEmpty()) {
+                tooltip.add(Component.literal("创建者: " + tag.getString(NBT_CREATOR))
+                        .withStyle(ChatFormatting.DARK_GRAY));
             }
         }
         
-        super.appendHoverText(stack, context, tooltip, type);
+        super.appendHoverText(stack, level, tooltip, type);
     }
 
     private static class HitokotoResult {

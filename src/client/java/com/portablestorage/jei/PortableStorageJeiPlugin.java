@@ -25,7 +25,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.crafting.CraftingRecipe;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
@@ -34,7 +33,7 @@ import java.util.Optional;
 
 @JeiPlugin
 public class PortableStorageJeiPlugin implements IModPlugin {
-    private static final ResourceLocation PLUGIN_ID = ResourceLocation.fromNamespaceAndPath("portablestorage", "jei_plugin");
+    private static final ResourceLocation PLUGIN_ID = new ResourceLocation("portablestorage", "jei_plugin");
 
     @Override
     public ResourceLocation getPluginUid() {
@@ -91,7 +90,7 @@ public class PortableStorageJeiPlugin implements IModPlugin {
         });
     }
 
-    private static class WarehouseTransferHandler<T extends net.minecraft.world.inventory.AbstractContainerMenu> implements IRecipeTransferHandler<T, RecipeHolder<CraftingRecipe>> {
+    private static class WarehouseTransferHandler<T extends net.minecraft.world.inventory.AbstractContainerMenu> implements IRecipeTransferHandler<T, CraftingRecipe> {
         private final Class<T> containerClass;
         private final @Nullable MenuType<T> menuType;
 
@@ -111,15 +110,41 @@ public class PortableStorageJeiPlugin implements IModPlugin {
         }
 
         @Override
-        public mezz.jei.api.recipe.RecipeType<RecipeHolder<CraftingRecipe>> getRecipeType() {
+        public mezz.jei.api.recipe.RecipeType<CraftingRecipe> getRecipeType() {
             return RecipeTypes.CRAFTING;
         }
 
         @Override
         @Nullable
-        public IRecipeTransferError transferRecipe(T container, RecipeHolder<CraftingRecipe> recipeHolder, IRecipeSlotsView recipeSlots, Player player, boolean maxStack, boolean doTransfer) {
-            if (doTransfer) {
-                ClientPlayNetworking.send(new C2SRecipeTransferPayload(recipeHolder.id(), maxStack));
+        public IRecipeTransferError transferRecipe(T container, CraftingRecipe recipe, IRecipeSlotsView recipeSlots, Player player, boolean maxStack, boolean doTransfer) {
+            if (doTransfer && player != null && player.level() != null && player.level().isClientSide) {
+                ResourceLocation recipeId = null;
+                // 在客户端，通过 RecipeManager 查找 recipe ID
+                var clientLevel = (net.minecraft.client.multiplayer.ClientLevel) player.level();
+                var recipeManager = clientLevel.getRecipeManager();
+                // 使用反射访问 private recipes 字段
+                try {
+                    java.lang.reflect.Field recipesField = net.minecraft.world.item.crafting.RecipeManager.class.getDeclaredField("recipes");
+                    recipesField.setAccessible(true);
+                    @SuppressWarnings("unchecked")
+                    java.util.Map<net.minecraft.world.item.crafting.RecipeType<?>, java.util.Map<net.minecraft.resources.ResourceLocation, net.minecraft.world.item.crafting.Recipe<?>>> recipesMap = 
+                        (java.util.Map<net.minecraft.world.item.crafting.RecipeType<?>, java.util.Map<net.minecraft.resources.ResourceLocation, net.minecraft.world.item.crafting.Recipe<?>>>) recipesField.get(recipeManager);
+                    var craftingRecipes = recipesMap.get(net.minecraft.world.item.crafting.RecipeType.CRAFTING);
+                    if (craftingRecipes != null) {
+                        for (var entry : craftingRecipes.entrySet()) {
+                            if (entry.getValue() == recipe) {
+                                recipeId = entry.getKey();
+                                break;
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    // 如果反射失败，无法获取 recipe ID，跳过
+                    com.portablestorage.PortableStorage.LOGGER.warn("Failed to get recipe ID from JEI", e);
+                }
+                if (recipeId != null) {
+                    ClientPlayNetworking.send(new C2SRecipeTransferPayload(recipeId, maxStack));
+                }
             }
             return null;
         }

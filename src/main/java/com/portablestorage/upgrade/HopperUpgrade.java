@@ -12,8 +12,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.CustomData;
-import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -184,20 +183,19 @@ public class HopperUpgrade extends UpgradeType {
     }
 
     public static boolean isHopperEnabled(ItemStack stack) {
-        CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
-        if (customData != null) {
-            return !customData.copyTag().contains("disabled");
+        CompoundTag tag = stack.getTag();
+        if (tag != null) {
+            return !tag.contains("disabled");
         }
         return true;
     }
 
     public static void setHopperEnabled(ItemStack stack, boolean enabled) {
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
-            if (enabled) {
-                tag.remove("disabled");
-            } else {
-                tag.putBoolean("disabled", true);
-            }
-        });
+        CompoundTag tag = stack.getOrCreateTag();
+        if (enabled) {
+            tag.remove("disabled");
+        } else {
+            tag.putBoolean("disabled", true);
+        }
     }
 }

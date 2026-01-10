@@ -3,7 +3,6 @@ package com.portablestorage.item;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import net.minecraft.ChatFormatting;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -12,7 +11,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.CustomData;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
 
@@ -33,11 +31,8 @@ public class StorageKeyItem extends Item {
         if (level.isClientSide) return InteractionResultHolder.pass(stack);
 
         ServerPlayer player = (ServerPlayer) user;
-        CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
-        if (customData == null) return InteractionResultHolder.fail(stack);
-
-        CompoundTag tag = customData.copyTag();
-        if (!tag.hasUUID(NBT_OWNER_UUID)) return InteractionResultHolder.fail(stack);
+        CompoundTag tag = stack.getTag();
+        if (tag == null || !tag.hasUUID(NBT_OWNER_UUID)) return InteractionResultHolder.fail(stack);
 
         UUID ownerUuid = tag.getUUID(NBT_OWNER_UUID);
         if (!ownerUuid.equals(player.getUUID())) {
@@ -65,11 +60,8 @@ public class StorageKeyItem extends Item {
         if (level.isClientSide || !(entity instanceof ServerPlayer player)) return;
         if (stack.isEmpty() || player.getAbilities().instabuild) return;
 
-        CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
-        if (customData == null) return;
-
-        CompoundTag tag = customData.copyTag();
-        if (!tag.hasUUID(NBT_OWNER_UUID)) return;
+        CompoundTag tag = stack.getTag();
+        if (tag == null || !tag.hasUUID(NBT_OWNER_UUID)) return;
 
         UUID ownerUuid = tag.getUUID(NBT_OWNER_UUID);
         if (ownerUuid.equals(player.getUUID())) {
@@ -88,25 +80,22 @@ public class StorageKeyItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag type) {
-        CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
-        if (customData != null) {
-            CompoundTag tag = customData.copyTag();
-            if (tag.hasUUID(NBT_OWNER_UUID)) {
-                String name = tag.getString(NBT_OWNER_NAME);
-                tooltip.add(Component.translatable("tooltip.portablestorage.bound_to", name).withStyle(ChatFormatting.GRAY));
-            }
+    public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag type) {
+        CompoundTag tag = stack.getTag();
+        if (tag != null && tag.hasUUID(NBT_OWNER_UUID)) {
+            String name = tag.getString(NBT_OWNER_NAME);
+            tooltip.add(Component.translatable("tooltip.portablestorage.bound_to", name).withStyle(ChatFormatting.GRAY));
         }
         tooltip.add(Component.translatable("tooltip.portablestorage.key_use_hint").withStyle(ChatFormatting.DARK_GRAY));
     }
 
     public static ItemStack create(ServerPlayer player) {
         ItemStack stack = new ItemStack(ModItems.STORAGE_KEY);
-        CompoundTag tag = new CompoundTag();
+        CompoundTag tag = stack.getOrCreateTag();
         tag.putUUID(NBT_OWNER_UUID, player.getUUID());
         tag.putString(NBT_OWNER_NAME, player.getGameProfile().getName());
-        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
-        stack.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
+        // 在 1.20.1 中，使用 NBT 标记来实现附魔光效
+        tag.putBoolean("EnchantmentGlintOverride", true);
         return stack;
     }
 }

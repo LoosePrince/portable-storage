@@ -2,16 +2,29 @@ package com.portablestorage.network;
 
 import com.portablestorage.PortableStorage;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.fabricmc.fabric.api.networking.v1.FabricPacket;
+import net.fabricmc.fabric.api.networking.v1.PacketType;
 
-public record OpenCraftingPayload() implements CustomPacketPayload {
-    public static final Type<OpenCraftingPayload> TYPE = new Type<>(PortableStorage.id("open_crafting"));
+public record OpenCraftingPayload() implements FabricPacket {
+    public static final PacketType<OpenCraftingPayload> TYPE = PacketType.create(
+        PortableStorage.id("open_crafting"), OpenCraftingPayload::read
+    );
 
-    public static final StreamCodec<FriendlyByteBuf, OpenCraftingPayload> CODEC = StreamCodec.unit(new OpenCraftingPayload());
+    public OpenCraftingPayload(FriendlyByteBuf buf) {
+        this();
+    }
+
+    private static OpenCraftingPayload read(FriendlyByteBuf buf) {
+        return new OpenCraftingPayload(buf);
+    }
 
     @Override
-    public Type<? extends CustomPacketPayload> type() {
+    public void write(FriendlyByteBuf buf) {
+        // 无数据需要写入
+    }
+
+    @Override
+    public PacketType<?> getType() {
         return TYPE;
     }
 }

@@ -37,7 +37,7 @@
   "gui.portablestorage.settings.show_small_icons": "显示侧边栏快捷设置项",
   "gui.portablestorage.settings.show_small_icons.desc": "是否显示仓库侧边栏的 5 个快捷设置按钮（排序、快速存取等）。",
   "gui.portablestorage.settings.remove_experimental_warning": "移除实验性功能警告",
-  "gui.portablestorage.settings.remove_experimental_warning.desc": "开启后，打开使用了实验性功能（如 1.21 新版试炼室等）的世界时将不再弹出确认警告。",
+  "gui.portablestorage.settings.remove_experimental_warning.desc": "开启后，打开使用了实验性功能的世界时将不再弹出确认警告。注意：此功能在 1.20.1 中可能不可用。",
   "gui.portablestorage.settings.group.warehouse": "仓库设置",
   "gui.portablestorage.settings.sort_mode": "排序模式",
   "gui.portablestorage.settings.sort_order": "排序顺序",

@@ -12,7 +12,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.material.Fluids;
 
 import java.util.*;
@@ -261,8 +260,8 @@ public class WarehouseManager {
             WarehouseEntry entry = sorted.get(actualIndex);
             ItemStack itemType = entry.getItemStack();
 
-            CustomData customData = itemType.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
-            boolean isCollapsed = customData != null && customData.copyTag().getBoolean(WarehouseConstants.SMART_COLLAPSE_TAG);
+            net.minecraft.nbt.CompoundTag tag = itemType.getTag();
+            boolean isCollapsed = tag != null && tag.getBoolean(WarehouseConstants.SMART_COLLAPSE_TAG);
             
             // 严禁提取折叠项
             if (isCollapsed) {
@@ -496,8 +495,8 @@ public class WarehouseManager {
                 return true; // 无法获取registries，允许存入
             }
             
-            net.minecraft.core.HolderLookup.Provider registries = player.level().registryAccess();
-            net.minecraft.nbt.Tag savedTag = stack.saveOptional(registries);
+            net.minecraft.nbt.CompoundTag savedTag = new net.minecraft.nbt.CompoundTag();
+            stack.save(savedTag);
             
             if (savedTag == null) {
                 return true; // 没有NBT数据，允许存入

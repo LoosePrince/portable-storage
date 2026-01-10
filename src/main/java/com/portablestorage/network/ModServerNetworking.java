@@ -7,6 +7,7 @@ import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.screen.CraftingWarehouseScreenHandler;
 import com.portablestorage.util.WarehouseSetting;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleMenuProvider;
@@ -20,9 +21,8 @@ import net.minecraft.world.item.ItemStack;
  */
 public class ModServerNetworking {
 
-    public static void handleOpenCrafting(OpenCraftingPayload payload, ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            ServerPlayer player = context.player();
+    public static void handleOpenCrafting(net.minecraft.server.MinecraftServer server, net.minecraft.server.level.ServerPlayer player, OpenCraftingPayload payload, net.fabricmc.fabric.api.networking.v1.PacketSender sender) {
+        server.execute(() -> {
             PlayerWarehouse warehouse = getWarehouse(player);
             if (!warehouse.hasWorkbenchUpgrade()) return;
 
@@ -33,9 +33,8 @@ public class ModServerNetworking {
         });
     }
 
-    public static void handleUpdateWarehouseState(C2SUpdateWarehouseStatePayload payload, ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            ServerPlayer player = context.player();
+    public static void handleUpdateWarehouseState(net.minecraft.server.MinecraftServer server, net.minecraft.server.level.ServerPlayer player, C2SUpdateWarehouseStatePayload payload, net.fabricmc.fabric.api.networking.v1.PacketSender sender) {
+        server.execute(() -> {
             PlayerWarehouse warehouse = getWarehouse(player);
 
             payload.scrollDelta().ifPresent(delta -> warehouse.setScrollOffset(warehouse.getScrollOffset() - delta));
@@ -60,9 +59,8 @@ public class ModServerNetworking {
         });
     }
 
-    public static void handleUpgradeInteraction(C2SUpgradeInteractionPayload payload, ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            ServerPlayer player = context.player();
+    public static void handleUpgradeInteraction(net.minecraft.server.MinecraftServer server, net.minecraft.server.level.ServerPlayer player, C2SUpgradeInteractionPayload payload, net.fabricmc.fabric.api.networking.v1.PacketSender sender) {
+        server.execute(() -> {
             PlayerWarehouse warehouse = getWarehouse(player);
             com.portablestorage.upgrade.UpgradeType type = com.portablestorage.upgrade.UpgradeRegistry.get(payload.upgradeId());
             
@@ -78,9 +76,8 @@ public class ModServerNetworking {
         });
     }
 
-    public static void handleQuickTransfer(QuickTransferPayload payload, ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            ServerPlayer player = context.player();
+    public static void handleQuickTransfer(net.minecraft.server.MinecraftServer server, net.minecraft.server.level.ServerPlayer player, QuickTransferPayload payload, net.fabricmc.fabric.api.networking.v1.PacketSender sender) {
+        server.execute(() -> {
             
             int slotId = payload.slotId();
             if (slotId < 0 || slotId >= player.containerMenu.slots.size()) return;
@@ -115,11 +112,9 @@ public class ModServerNetworking {
         });
     }
 
-    public static void handleUpdateServerConfig(UpdateServerConfigPayload payload, ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
+    public static void handleUpdateServerConfig(net.minecraft.server.MinecraftServer server, net.minecraft.server.level.ServerPlayer player, UpdateServerConfigPayload payload, net.fabricmc.fabric.api.networking.v1.PacketSender sender) {
+        server.execute(() -> {
             if (!ModConfig.allowHotReload) return;
-            
-            ServerPlayer player = context.player();
             // 权限验证：仅允许 4 级 OP 修改服务端配置
             if (!player.hasPermissions(4)) {
                 return;
@@ -147,7 +142,7 @@ public class ModServerNetworking {
             ModConfig.save();
 
             // 更新在线玩家的强制加载状态
-            for (ServerPlayer p : context.server().getPlayerList().getPlayers()) {
+            for (ServerPlayer p : server.getPlayerList().getPlayers()) {
                 var warehouse = getWarehouse(p);
                 com.portablestorage.world.SpaceRiftManager.updatePlotForcedLoading(p, warehouse, true);
             }
@@ -173,15 +168,14 @@ public class ModServerNetworking {
                 ModConfig.riftForcedLoadingRange
             );
             
-            for (ServerPlayer p : context.server().getPlayerList().getPlayers()) {
-                ServerPlayNetworking.send(p, sync);
+            for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+                net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p, sync);
             }
         });
     }
 
-    public static void handleRefill(RefillPayload payload, ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            ServerPlayer player = context.player();
+    public static void handleRefill(net.minecraft.server.MinecraftServer server, net.minecraft.server.level.ServerPlayer player, RefillPayload payload, net.fabricmc.fabric.api.networking.v1.PacketSender sender) {
+        server.execute(() -> {
             PlayerWarehouse warehouse = getWarehouse(player);
             if (!warehouse.isEnabled() || !warehouse.isCraftRefill()) return;
 
@@ -196,7 +190,7 @@ public class ModServerNetworking {
                 if (idx >= 0 && idx < handler.slots.size()) {
                     ItemStack stack = handler.getSlot(idx).getItem();
                     // 确保槽位物品匹配模板（或者是空的）
-                    if (stack.isEmpty() || ItemStack.isSameItemSameComponents(stack, template)) {
+                    if (stack.isEmpty() || (ItemStack.isSameItem(stack, template) && net.minecraft.nbt.NbtUtils.compareNbt(stack.getTag(), template.getTag(), true))) {
                         targetIndices.add(idx);
                     }
                 }
@@ -256,31 +250,30 @@ public class ModServerNetworking {
         });
     }
 
-    public static void handleUpdateHopperFilters(C2SUpdateHopperFiltersPayload payload, ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            PlayerWarehouse warehouse = getWarehouse(context.player());
+    public static void handleUpdateHopperFilters(net.minecraft.server.MinecraftServer server, net.minecraft.server.level.ServerPlayer player, C2SUpdateHopperFiltersPayload payload, net.fabricmc.fabric.api.networking.v1.PacketSender sender) {
+        server.execute(() -> {
+            PlayerWarehouse warehouse = getWarehouse(player);
             warehouse.setHopperFilters(payload.filters(), payload.blacklist());
         });
     }
 
-    public static void handleUpdateFoodFilters(C2SUpdateFoodFiltersPayload payload, ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            PlayerWarehouse warehouse = getWarehouse(context.player());
+    public static void handleUpdateFoodFilters(net.minecraft.server.MinecraftServer server, net.minecraft.server.level.ServerPlayer player, C2SUpdateFoodFiltersPayload payload, net.fabricmc.fabric.api.networking.v1.PacketSender sender) {
+        server.execute(() -> {
+            PlayerWarehouse warehouse = getWarehouse(player);
             warehouse.setFoodFilters(payload.filters(), payload.blacklist());
         });
     }
 
-    public static void handleUpdateForbiddenPlayers(C2SUpdateForbiddenPlayersPayload payload, ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            PlayerWarehouse warehouse = getWarehouse(context.player());
+    public static void handleUpdateForbiddenPlayers(net.minecraft.server.MinecraftServer server, net.minecraft.server.level.ServerPlayer player, C2SUpdateForbiddenPlayersPayload payload, net.fabricmc.fabric.api.networking.v1.PacketSender sender) {
+        server.execute(() -> {
+            PlayerWarehouse warehouse = getWarehouse(player);
             warehouse.setForbidden(payload.playerUuid(), payload.forbidden());
-            syncChanges(context.player());
+            syncChanges(player);
         });
     }
 
-    public static void handleDropWarehouseItem(C2SDropWarehouseItemPayload payload, ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            ServerPlayer player = context.player();
+    public static void handleDropWarehouseItem(net.minecraft.server.MinecraftServer server, net.minecraft.server.level.ServerPlayer player, C2SDropWarehouseItemPayload payload, net.fabricmc.fabric.api.networking.v1.PacketSender sender) {
+        server.execute(() -> {
             PlayerWarehouse warehouse = getWarehouse(player);
             if (!warehouse.isEnabled()) return;
 
@@ -302,17 +295,16 @@ public class ModServerNetworking {
         });
     }
 
-    public static void handleUpdateFrozenState(C2SUpdateFrozenStatePayload payload, ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            PlayerWarehouse warehouse = getWarehouse(context.player());
+    public static void handleUpdateFrozenState(net.minecraft.server.MinecraftServer server, net.minecraft.server.level.ServerPlayer player, C2SUpdateFrozenStatePayload payload, net.fabricmc.fabric.api.networking.v1.PacketSender sender) {
+        server.execute(() -> {
+            PlayerWarehouse warehouse = getWarehouse(player);
             warehouse.setFrozen(payload.frozen());
-            syncChanges(context.player());
+            syncChanges(player);
         });
     }
 
-    public static void handleDoubleClickQuickStore(C2SDoubleClickQuickStorePayload payload, ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            ServerPlayer player = context.player();
+    public static void handleDoubleClickQuickStore(net.minecraft.server.MinecraftServer server, net.minecraft.server.level.ServerPlayer player, C2SDoubleClickQuickStorePayload payload, net.fabricmc.fabric.api.networking.v1.PacketSender sender) {
+        server.execute(() -> {
             PlayerWarehouse warehouse = getWarehouse(player);
             
             // 验证：仓库必须启用、快速交互开启且未折叠
@@ -335,7 +327,7 @@ public class ModServerNetworking {
                     // 仅处理主背包和快捷栏（0-35）
                     if (containerSlot >= 0 && containerSlot < 36) {
                         ItemStack stack = slot.getItem();
-                        if (!stack.isEmpty() && net.minecraft.world.item.ItemStack.isSameItemSameComponents(cursorStack, stack)) {
+                        if (!stack.isEmpty() && net.minecraft.world.item.ItemStack.isSameItem(cursorStack, stack) && net.minecraft.nbt.NbtUtils.compareNbt(cursorStack.getTag(), stack.getTag(), true)) {
                             // 使用 addFluid 以支持流体桶的自动分离
                             ItemStack remaining = com.portablestorage.logic.WarehouseManager.addFluid(warehouse, stack, player);
                             slot.set(remaining);
@@ -353,17 +345,16 @@ public class ModServerNetworking {
         });
     }
 
-    public static void handleTogglePinned(C2STogglePinnedPayload payload, ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            PlayerWarehouse warehouse = getWarehouse(context.player());
+    public static void handleTogglePinned(net.minecraft.server.MinecraftServer server, net.minecraft.server.level.ServerPlayer player, C2STogglePinnedPayload payload, net.fabricmc.fabric.api.networking.v1.PacketSender sender) {
+        server.execute(() -> {
+            PlayerWarehouse warehouse = getWarehouse(player);
             warehouse.togglePinned(payload.slotId());
-            syncChanges(context.player());
+            syncChanges(player);
         });
     }
 
-    public static void handleRecipeTransfer(C2SRecipeTransferPayload payload, ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            ServerPlayer player = context.player();
+    public static void handleRecipeTransfer(net.minecraft.server.MinecraftServer server, net.minecraft.server.level.ServerPlayer player, C2SRecipeTransferPayload payload, net.fabricmc.fabric.api.networking.v1.PacketSender sender) {
+        server.execute(() -> {
             net.minecraft.world.inventory.AbstractContainerMenu menu = player.containerMenu;
             
             boolean isWarehouseCrafting = menu instanceof CraftingWarehouseScreenHandler;
@@ -371,8 +362,15 @@ public class ModServerNetworking {
 
             if (!isWarehouseCrafting && !isVanillaInventory) return;
 
-            net.minecraft.world.item.crafting.RecipeHolder<?> recipeHolder = player.server.getRecipeManager().byKey(payload.recipeId()).orElse(null);
-            if (recipeHolder == null || !(recipeHolder.value() instanceof net.minecraft.world.item.crafting.CraftingRecipe recipe)) return;
+            net.minecraft.world.item.crafting.CraftingRecipe recipe = null;
+            var recipeOptional = player.server.getRecipeManager().byKey(payload.recipeId());
+            if (recipeOptional.isPresent()) {
+                net.minecraft.world.item.crafting.Recipe<?> recipeValue = recipeOptional.get();
+                if (recipeValue instanceof net.minecraft.world.item.crafting.CraftingRecipe cr) {
+                    recipe = cr;
+                }
+            }
+            if (recipe == null) return;
 
             PlayerWarehouse warehouse = getWarehouse(player);
             if (!warehouse.isEnabled()) return;

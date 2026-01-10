@@ -85,7 +85,7 @@ public class WarehouseEntry {
      * @return 是否匹配
      */
     public boolean matches(ItemStack stack) {
-        return ItemStack.isSameItemSameComponents(this.itemStack, stack);
+        return ItemStack.isSameItem(this.itemStack, stack) && net.minecraft.nbt.NbtUtils.compareNbt(this.itemStack.getTag(), stack.getTag(), true);
     }
 
     /**
@@ -95,7 +95,9 @@ public class WarehouseEntry {
      */
     public CompoundTag toNbt(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
-        tag.put("item", itemStack.saveOptional(registries));
+        CompoundTag itemTag = new CompoundTag();
+        itemStack.save(itemTag);
+        tag.put("item", itemTag);
         tag.putLong("count", count);
         tag.putLong("lastUpdated", lastUpdated);
         tag.putBoolean("pinned", pinned);
@@ -109,7 +111,10 @@ public class WarehouseEntry {
      * @return 仓库条目实例
      */
     public static WarehouseEntry fromNbt(CompoundTag tag, HolderLookup.Provider registries) {
-        ItemStack stack = ItemStack.parseOptional(registries, tag.getCompound("item"));
+        ItemStack stack = ItemStack.EMPTY;
+        if (tag.contains("item")) {
+            stack = ItemStack.of(tag.getCompound("item"));
+        }
         long count = tag.getLong("count");
         WarehouseEntry entry = new WarehouseEntry(stack, count);
         entry.lastUpdated = tag.getLong("lastUpdated");

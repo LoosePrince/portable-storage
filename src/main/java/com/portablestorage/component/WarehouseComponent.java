@@ -1,6 +1,6 @@
 package com.portablestorage.component;
 
-import org.ladysnake.cca.api.v3.component.sync.AutoSyncedComponent;
+import dev.onyxstudios.cca.api.v3.component.sync.AutoSyncedComponent;
 import java.util.UUID;
 import java.util.Collection;
 

@@ -1,12 +1,12 @@
 package com.portablestorage.item;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.CustomData;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 
 import java.util.List;
@@ -17,12 +17,12 @@ public class BoundBarrelItem extends BlockItem {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        super.appendHoverText(stack, context, tooltip, flag);
+    public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
+        super.appendHoverText(stack, level, tooltip, flag);
         
-        CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
-        if (customData != null && customData.copyTag().hasUUID("owner")) {
-            String ownerName = customData.copyTag().getString("ownerName");
+        CompoundTag tag = stack.getTag();
+        if (tag != null && tag.hasUUID("owner")) {
+            String ownerName = tag.getString("ownerName");
             if (ownerName.isEmpty()) ownerName = "Unknown";
             
             tooltip.add(Component.literal(" "));

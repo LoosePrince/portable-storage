@@ -9,9 +9,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.*;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.CraftingRecipe;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
 
@@ -87,12 +85,12 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
         if (!level.isClientSide) {
             ServerPlayer serverPlayer = (ServerPlayer)player;
             ItemStack itemStack = ItemStack.EMPTY;
-            CraftingInput craftingInput = craftSlots.asCraftInput();
-            Optional<RecipeHolder<CraftingRecipe>> optional = level.getServer().getRecipeManager().getRecipeFor(RecipeType.CRAFTING, craftingInput, level);
+            // 在 1.20.1 中，使用 CraftingContainer 而不是 CraftingInput
+            Optional<CraftingRecipe> optional = level.getServer().getRecipeManager().getRecipeFor(RecipeType.CRAFTING, craftSlots, level);
             if (optional.isPresent()) {
-                RecipeHolder<CraftingRecipe> recipeHolder = optional.get();
-                if (resultSlots.setRecipeUsed(level, serverPlayer, recipeHolder)) {
-                    itemStack = recipeHolder.value().assemble(craftingInput, level.registryAccess());
+                CraftingRecipe recipe = optional.get();
+                if (resultSlots.setRecipeUsed(level, serverPlayer, recipe)) {
+                    itemStack = recipe.assemble(craftSlots, level.registryAccess());
                 }
             }
 

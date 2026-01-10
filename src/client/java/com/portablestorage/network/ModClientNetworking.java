@@ -1,7 +1,9 @@
 package com.portablestorage.network;
 
+import com.portablestorage.PortableStorage;
 import com.portablestorage.config.ModConfig;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.network.FriendlyByteBuf;
 
 /**
  * 客户端网络处理器
@@ -9,8 +11,9 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
  */
 public class ModClientNetworking {
     public static void registerClientReceivers() {
-        ClientPlayNetworking.registerGlobalReceiver(SyncConfigPayload.TYPE, (payload, context) -> {
-            context.client().execute(() -> {
+        ClientPlayNetworking.registerGlobalReceiver(PortableStorage.id("sync_config"), (client, handler, buf, responseSender) -> {
+            SyncConfigPayload payload = new SyncConfigPayload(buf);
+            client.execute(() -> {
                 ModConfig.setActive3x3Crafting(payload.enable3x3Crafting());
                 ModConfig.dropStorageOnDeath = payload.dropStorageOnDeath();
                 ModConfig.allowHotReload = payload.allowHotReload();
@@ -31,15 +34,17 @@ public class ModClientNetworking {
             });
         });
 
-        ClientPlayNetworking.registerGlobalReceiver(S2COpenHopperFilterPayload.TYPE, (payload, context) -> {
-            context.client().execute(() -> {
-                context.client().setScreen(com.portablestorage.config.YACLConfig.createHopperFilterScreen(context.client().screen, payload.filters(), payload.blacklist()));
+        ClientPlayNetworking.registerGlobalReceiver(PortableStorage.id("open_hopper_filter"), (client, handler, buf, responseSender) -> {
+            S2COpenHopperFilterPayload payload = new S2COpenHopperFilterPayload(buf);
+            client.execute(() -> {
+                client.setScreen(com.portablestorage.config.YACLConfig.createHopperFilterScreen(client.screen, payload.filters(), payload.blacklist()));
             });
         });
 
-        ClientPlayNetworking.registerGlobalReceiver(S2COpenFoodFilterPayload.TYPE, (payload, context) -> {
-            context.client().execute(() -> {
-                context.client().setScreen(com.portablestorage.config.YACLConfig.createFoodFilterScreen(context.client().screen, payload.filters(), payload.blacklist()));
+        ClientPlayNetworking.registerGlobalReceiver(PortableStorage.id("open_food_filter"), (client, handler, buf, responseSender) -> {
+            S2COpenFoodFilterPayload payload = new S2COpenFoodFilterPayload(buf);
+            client.execute(() -> {
+                client.setScreen(com.portablestorage.config.YACLConfig.createFoodFilterScreen(client.screen, payload.filters(), payload.blacklist()));
             });
         });
     }

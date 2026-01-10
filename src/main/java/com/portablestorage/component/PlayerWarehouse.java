@@ -22,6 +22,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.Objects;
@@ -32,6 +34,8 @@ import java.util.Objects;
  * 复杂的业务逻辑（存取规则、流体转换等）应放在 WarehouseManager 中。
  */
 public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>> implements Container, Storage<FluidVariant> {
+    private static final Logger LOGGER = LoggerFactory.getLogger("PortableStorage/PlayerWarehouse");
+    
     public enum WarehouseType {
         NONE, BASE, FULL
     }
@@ -216,9 +220,9 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     public UUID getBarrelOwnerUuid() {
         ItemStack barrel = getUpgrade(com.portablestorage.upgrade.BarrelUpgrade.ID);
         if (!barrel.isEmpty() && barrel.is(com.portablestorage.item.ModItems.BOUND_BARREL)) {
-            net.minecraft.world.item.component.CustomData customData = barrel.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
-            if (customData != null && customData.copyTag().hasUUID("owner")) {
-                return customData.copyTag().getUUID("owner");
+            net.minecraft.nbt.CompoundTag tag = barrel.getTag();
+            if (tag != null && tag.hasUUID("owner")) {
+                return tag.getUUID("owner");
             }
         }
         return null;
@@ -346,7 +350,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     public void setUpgradeScrollOffset(int offset) {
         int maxOffset = Math.max(0, UpgradeRegistry.getUpgradeCount() - visibleRows);
-        this.upgradeScrollOffset = Math.clamp(offset, 0, maxOffset);
+        this.upgradeScrollOffset = Math.max(0, Math.min(offset, maxOffset));
     }
 
     public List<String> getHopperFilters() {
@@ -728,13 +732,13 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     public void setScrollOffset(int offset) {
         int maxRows = (int) Math.ceil(getSortedEntries().size() / 9.0);
         int maxOffset = Math.max(0, maxRows - visibleRows);
-        this.scrollOffset = Math.clamp(offset, 0, maxOffset);
+        this.scrollOffset = Math.max(0, Math.min(offset, maxOffset));
         // 滚动不触发任何缓存失效
     }
 
     public int getVisibleRows() { return visibleRows; }
     public void setVisibleRows(int rows) {
-        this.visibleRows = Math.clamp(rows, 1, 12);
+        this.visibleRows = Math.max(1, Math.min(rows, 12));
         this.scrollOffset = 0;
         this.markDirty(); // 布局改变建议全局更新
     }
@@ -760,8 +764,8 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             boolean newState = !entry.isPinned();
             
             // 如果是折叠后的项，我们需要找到所有原始项并同步状态
-            net.minecraft.world.item.component.CustomData customData = entry.getItemStack().get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
-            boolean isCollapsed = customData != null && customData.copyTag().getBoolean(com.portablestorage.util.WarehouseConstants.SMART_COLLAPSE_TAG);
+            net.minecraft.nbt.CompoundTag tag = entry.getItemStack().getTag();
+            boolean isCollapsed = tag != null && tag.getBoolean(com.portablestorage.util.WarehouseConstants.SMART_COLLAPSE_TAG);
             
             if (isCollapsed) {
                 for (WarehouseEntry e : storage) {
@@ -941,12 +945,14 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                     net.minecraft.world.item.Item virtualItem = getVirtualItemForFluid(variant);
                     if (virtualItem != null) {
                         ItemStack fluidStack = new ItemStack(virtualItem);
-                        fluidStack.applyComponents(variant.getComponents());
+                        // 在 1.20.1 中，FluidVariant 使用 NBT 而不是 DataComponentPatch
+                        net.minecraft.nbt.CompoundTag variantNbt = variant.getNbt();
+                        if (variantNbt != null) {
+                            fluidStack.setTag(variantNbt.copy());
+                        }
                         if (infinite) {
-                            fluidStack.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, 
-                                net.minecraft.world.item.component.CustomData.of(new net.minecraft.nbt.CompoundTag() {{
-                                    putBoolean(WarehouseConstants.INFINITE_TAG, true);
-                                }}));
+                            net.minecraft.nbt.CompoundTag nbtTag = fluidStack.getOrCreateTag();
+                            nbtTag.putBoolean(WarehouseConstants.INFINITE_TAG, true);
                         }
                         baseCache.add(new WarehouseEntry(fluidStack, bucketCount));
                     }
@@ -968,7 +974,13 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                 lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience.deposit", step).withStyle(net.minecraft.ChatFormatting.GRAY));
                 lore.add(net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience.exchange").withStyle(net.minecraft.ChatFormatting.GRAY));
                 
-                xpStack.set(net.minecraft.core.component.DataComponents.LORE, new net.minecraft.world.item.component.ItemLore(lore));
+                // 在 1.20.1 中使用 NBT 存储 Lore
+                net.minecraft.nbt.CompoundTag displayTag = xpStack.getOrCreateTagElement("display");
+                net.minecraft.nbt.ListTag loreList = new net.minecraft.nbt.ListTag();
+                for (net.minecraft.network.chat.Component line : lore) {
+                    loreList.add(net.minecraft.nbt.StringTag.valueOf(net.minecraft.network.chat.Component.Serializer.toJson(line)));
+                }
+                displayTag.put("Lore", loreList);
                 baseCache.add(new WarehouseEntry(xpStack, mergedExperience));
             }
 
@@ -1027,11 +1039,20 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString().toLowerCase();
         if (checkMatch(id, finalQuery, startExact, endExact)) return true;
 
-        net.minecraft.world.item.component.ItemLore lore = stack.get(net.minecraft.core.component.DataComponents.LORE);
-        if (lore != null) {
-            for (net.minecraft.network.chat.Component line : lore.lines()) {
-                String lineText = line.getString().toLowerCase();
-                if (checkMatch(lineText, finalQuery, startExact, endExact)) return true;
+        // 在 1.20.1 中从 NBT 读取 Lore
+        net.minecraft.nbt.CompoundTag displayTag = stack.getTagElement("display");
+        if (displayTag != null && displayTag.contains("Lore", net.minecraft.nbt.Tag.TAG_LIST)) {
+            net.minecraft.nbt.ListTag loreList = displayTag.getList("Lore", net.minecraft.nbt.Tag.TAG_STRING);
+            for (int i = 0; i < loreList.size(); i++) {
+                String loreJson = loreList.getString(i);
+                try {
+                    net.minecraft.network.chat.Component line = net.minecraft.network.chat.Component.Serializer.fromJson(loreJson);
+                    String lineText = line.getString().toLowerCase();
+                    if (checkMatch(lineText, finalQuery, startExact, endExact)) return true;
+                } catch (Exception e) {
+                    // 如果解析失败，尝试直接使用字符串
+                    if (checkMatch(loreJson.toLowerCase(), finalQuery, startExact, endExact)) return true;
+                }
             }
         }
         return false;
@@ -1065,11 +1086,10 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                 }
                 
                 ItemStack displayStack = new ItemStack(group.getKey());
-                displayStack.set(net.minecraft.core.component.DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
-                displayStack.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, 
-                    net.minecraft.world.item.component.CustomData.of(new net.minecraft.nbt.CompoundTag() {{
-                        putBoolean(com.portablestorage.util.WarehouseConstants.SMART_COLLAPSE_TAG, true);
-                    }}));
+                // 在 1.20.1 中使用 NBT 标记附魔光效和折叠状态
+                net.minecraft.nbt.CompoundTag tag = displayStack.getOrCreateTag();
+                tag.putBoolean("EnchantmentGlintOverride", true);
+                tag.putBoolean(com.portablestorage.util.WarehouseConstants.SMART_COLLAPSE_TAG, true);
                 
                 WarehouseEntry collapsedEntry = new WarehouseEntry(displayStack, totalCount);
                 collapsedEntry.setPinned(pinned);
@@ -1120,16 +1140,16 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             ListTag fluidList = tag.getList("fluids", Tag.TAG_COMPOUND);
             for (int i = 0; i < fluidList.size(); i++) {
                 CompoundTag fluidTag = fluidList.getCompound(i);
-                net.minecraft.resources.ResourceLocation id = net.minecraft.resources.ResourceLocation.parse(fluidTag.getString("fluid"));
+                net.minecraft.resources.ResourceLocation id = net.minecraft.resources.ResourceLocation.tryParse(fluidTag.getString("fluid"));
                 Fluid fluid = BuiltInRegistries.FLUID.get(id);
                 
-                net.minecraft.core.component.DataComponentPatch patch = net.minecraft.core.component.DataComponentPatch.EMPTY;
-                if (fluidTag.contains("components")) {
-                    patch = net.minecraft.core.component.DataComponentPatch.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, fluidTag.get("components"))
-                        .getOrThrow();
+                // 在 1.20.1 中，FluidVariant 使用 NBT 而不是 DataComponentPatch
+                net.minecraft.nbt.CompoundTag variantNbt = null;
+                if (fluidTag.contains("nbt")) {
+                    variantNbt = fluidTag.getCompound("nbt");
                 }
                 
-                FluidVariant variant = FluidVariant.of(fluid, patch);
+                FluidVariant variant = FluidVariant.of(fluid, variantNbt);
                 long amount = fluidTag.getLong("amount");
                 fluidStorage.put(variant, amount);
             }
@@ -1155,8 +1175,12 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             ListTag upgradeList = tag.getList("upgrades", Tag.TAG_COMPOUND);
             for (int i = 0; i < upgradeList.size(); i++) {
                 CompoundTag uTag = upgradeList.getCompound(i);
-                ResourceLocation id = ResourceLocation.parse(uTag.getString("id"));
-                ItemStack stack = ItemStack.parseOptional(registries, uTag.getCompound("item"));
+                ResourceLocation id = ResourceLocation.tryParse(uTag.getString("id"));
+                if (id == null) continue;
+                ItemStack stack = ItemStack.EMPTY;
+                if (uTag.contains("item")) {
+                    stack = ItemStack.of(uTag.getCompound("item"));
+                }
                 if (!stack.isEmpty()) {
                     upgradeStorage.put(id, stack);
                 }
@@ -1198,8 +1222,12 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
         // 裂隙升级数据
         if (tag.contains("riftReturnDim")) {
-            this.riftReturnDim = ResourceLocation.parse(tag.getString("riftReturnDim"));
-            this.riftReturnPos = net.minecraft.nbt.NbtUtils.readBlockPos(tag, "riftReturnPos").orElse(null);
+            this.riftReturnDim = ResourceLocation.tryParse(tag.getString("riftReturnDim"));
+            if (tag.contains("riftReturnPos")) {
+                this.riftReturnPos = net.minecraft.nbt.NbtUtils.readBlockPos(tag.getCompound("riftReturnPos"));
+            } else {
+                this.riftReturnPos = null;
+            }
             this.riftReturnYaw = tag.getFloat("riftReturnYaw");
             this.riftReturnPitch = tag.getFloat("riftReturnPitch");
         } else {
@@ -1209,7 +1237,11 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         this.riftPlotX = tag.contains("riftPlotX") ? tag.getInt("riftPlotX") : Integer.MIN_VALUE;
         this.riftPlotZ = tag.contains("riftPlotZ") ? tag.getInt("riftPlotZ") : Integer.MIN_VALUE;
         this.riftInitialized = tag.getBoolean("riftInitialized");
-        this.riftLastPos = net.minecraft.nbt.NbtUtils.readBlockPos(tag, "riftLastPos").orElse(null);
+        if (tag.contains("riftLastPos")) {
+            this.riftLastPos = net.minecraft.nbt.NbtUtils.readBlockPos(tag.getCompound("riftLastPos"));
+        } else {
+            this.riftLastPos = null;
+        }
         this.riftLastYaw = tag.getFloat("riftLastYaw");
         this.riftLastPitch = tag.getFloat("riftLastPitch");
         if (tag.hasUUID("avatarUuid")) {
@@ -1230,10 +1262,10 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         for (Map.Entry<FluidVariant, Long> entry : fluidStorage.entrySet()) {
             CompoundTag fluidTag = new CompoundTag();
             fluidTag.putString("fluid", BuiltInRegistries.FLUID.getKey(entry.getKey().getFluid()).toString());
-            net.minecraft.core.component.DataComponentPatch patch = entry.getKey().getComponents();
-            if (!patch.isEmpty()) {
-                fluidTag.put("components", net.minecraft.core.component.DataComponentPatch.CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, patch)
-                    .getOrThrow());
+            // 在 1.20.1 中，FluidVariant 使用 NBT 而不是 DataComponentPatch
+            net.minecraft.nbt.CompoundTag variantNbt = entry.getKey().getNbt();
+            if (variantNbt != null) {
+                fluidTag.put("nbt", variantNbt);
             }
             fluidTag.putLong("amount", entry.getValue());
             fluidList.add(fluidTag);
@@ -1257,7 +1289,9 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         for (Map.Entry<ResourceLocation, ItemStack> entry : upgradeStorage.entrySet()) {
             CompoundTag uTag = new CompoundTag();
             uTag.putString("id", entry.getKey().toString());
-            uTag.put("item", entry.getValue().saveOptional(registries));
+            CompoundTag itemTag = new CompoundTag();
+            entry.getValue().save(itemTag);
+            uTag.put("item", itemTag);
             upgradeList.add(uTag);
         }
         tag.put("upgrades", upgradeList);
@@ -1307,16 +1341,18 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     private static class WarehouseEntryKey {
         private final net.minecraft.world.item.Item item;
-        private final net.minecraft.core.component.DataComponentPatch patch;
+        private final net.minecraft.nbt.CompoundTag nbt;
 
         public WarehouseEntryKey(ItemStack stack) {
             this.item = stack.getItem();
-            this.patch = stack.getComponentsPatch();
+            this.nbt = stack.getTag() != null ? stack.getTag().copy() : null;
         }
 
         public ItemStack toStack() {
             ItemStack stack = new ItemStack(item);
-            stack.applyComponents(patch);
+            if (nbt != null) {
+                stack.setTag(nbt.copy());
+            }
             return stack;
         }
 
@@ -1325,12 +1361,12 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             WarehouseEntryKey that = (WarehouseEntryKey) o;
-            return item == that.item && Objects.equals(patch, that.patch);
+            return item == that.item && Objects.equals(nbt, that.nbt);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(item, patch);
+            return Objects.hash(item, nbt);
         }
     }
 }

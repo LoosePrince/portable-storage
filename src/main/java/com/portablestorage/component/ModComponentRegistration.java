@@ -1,7 +1,7 @@
 package com.portablestorage.component;
 
-import org.ladysnake.cca.api.v3.scoreboard.ScoreboardComponentFactoryRegistry;
-import org.ladysnake.cca.api.v3.scoreboard.ScoreboardComponentInitializer;
+import dev.onyxstudios.cca.api.v3.scoreboard.ScoreboardComponentFactoryRegistry;
+import dev.onyxstudios.cca.api.v3.scoreboard.ScoreboardComponentInitializer;
 
 public class ModComponentRegistration implements ScoreboardComponentInitializer {
     @Override

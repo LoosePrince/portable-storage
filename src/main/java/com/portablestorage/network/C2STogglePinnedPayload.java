@@ -1,20 +1,30 @@
 package com.portablestorage.network;
 
 import com.portablestorage.PortableStorage;
+import net.fabricmc.fabric.api.networking.v1.FabricPacket;
+import net.fabricmc.fabric.api.networking.v1.PacketType;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
-public record C2STogglePinnedPayload(int slotId) implements CustomPacketPayload {
-    public static final Type<C2STogglePinnedPayload> TYPE = new Type<>(PortableStorage.id("toggle_pinned"));
-
-    public static final StreamCodec<FriendlyByteBuf, C2STogglePinnedPayload> CODEC = StreamCodec.of(
-        (buf, payload) -> buf.writeInt(payload.slotId),
-        buf -> new C2STogglePinnedPayload(buf.readInt())
+public record C2STogglePinnedPayload(int slotId) implements FabricPacket {
+    public static final PacketType<C2STogglePinnedPayload> TYPE = PacketType.create(
+        PortableStorage.id("toggle_pinned"), C2STogglePinnedPayload::read
     );
 
+    public C2STogglePinnedPayload(FriendlyByteBuf buf) {
+        this(buf.readInt());
+    }
+
+    private static C2STogglePinnedPayload read(FriendlyByteBuf buf) {
+        return new C2STogglePinnedPayload(buf);
+    }
+
     @Override
-    public Type<? extends CustomPacketPayload> type() {
+    public void write(FriendlyByteBuf buf) {
+        buf.writeInt(slotId);
+    }
+
+    @Override
+    public PacketType<?> getType() {
         return TYPE;
     }
 }

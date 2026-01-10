@@ -6,7 +6,6 @@ import com.portablestorage.component.WarehouseEntry;
 import com.portablestorage.network.S2COpenFoodFilterPayload;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.ChatFormatting;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -14,7 +13,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.CustomData;
+import net.minecraft.nbt.CompoundTag;
 
 import java.util.List;
 
@@ -37,10 +36,10 @@ public class EnchantedGoldenAppleUpgrade extends UpgradeType {
         List<Component> tooltips = super.getTooltip(warehouse, stack);
         tooltips.add(Component.translatable("upgrade.portablestorage.enchanted_golden_apple.desc").withStyle(ChatFormatting.GRAY));
         
-        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
+        CompoundTag tag = stack.getTag();
         int threshold = 0;
-        if (data != null) {
-            threshold = data.copyTag().getInt(TAG_THRESHOLD);
+        if (tag != null) {
+            threshold = tag.getInt(TAG_THRESHOLD);
         }
         
         tooltips.add(Component.literal(" "));
@@ -58,17 +57,16 @@ public class EnchantedGoldenAppleUpgrade extends UpgradeType {
     public void onRightClick(PlayerWarehouse warehouse, Player player) {
         ItemStack stack = warehouse.getUpgrade(ID);
         if (!stack.isEmpty()) {
-            CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
-                int current = tag.getInt(TAG_THRESHOLD);
-                int nextIndex = 0;
-                for (int i = 0; i < THRESHOLDS.length; i++) {
-                    if (THRESHOLDS[i] == current) {
-                        nextIndex = (i + 1) % THRESHOLDS.length;
-                        break;
-                    }
+            CompoundTag tag = stack.getOrCreateTag();
+            int current = tag.getInt(TAG_THRESHOLD);
+            int nextIndex = 0;
+            for (int i = 0; i < THRESHOLDS.length; i++) {
+                if (THRESHOLDS[i] == current) {
+                    nextIndex = (i + 1) % THRESHOLDS.length;
+                    break;
                 }
-                tag.putInt(TAG_THRESHOLD, THRESHOLDS[nextIndex]);
-            });
+            }
+            tag.putInt(TAG_THRESHOLD, THRESHOLDS[nextIndex]);
             warehouse.markDirty();
             
             int threshold = getThreshold(stack);
@@ -107,7 +105,7 @@ public class EnchantedGoldenAppleUpgrade extends UpgradeType {
 
         for (WarehouseEntry entry : storage) {
             ItemStack foodStack = entry.getItemStack();
-            FoodProperties food = foodStack.get(DataComponents.FOOD);
+            FoodProperties food = foodStack.getItem().getFoodProperties();
             if (food != null) {
                 String itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(foodStack.getItem()).toString();
                 if (shouldAutoEat(itemId, filters, blacklist) && entry.getCount() > maxCount) {
@@ -163,9 +161,9 @@ public class EnchantedGoldenAppleUpgrade extends UpgradeType {
     }
 
     private int getThreshold(ItemStack stack) {
-        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
-        if (data != null) {
-            return data.copyTag().getInt(TAG_THRESHOLD);
+        CompoundTag tag = stack.getTag();
+        if (tag != null) {
+            return tag.getInt(TAG_THRESHOLD);
         }
         return 0;
     }

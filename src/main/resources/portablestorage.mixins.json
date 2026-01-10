@@ -7,7 +7,6 @@
 		"InventoryMenuCraftingMixin",
 		"InventoryMenuMixin",
 		"AbstractContainerMenuMixin",
-		"ExperimentalFeaturesMixin",
 		"BeaconBlockEntityMixin",
 		"AbstractArrowMixin",
 		"ServerPlayerGameModeMixin",

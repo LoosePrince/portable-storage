@@ -3,8 +3,8 @@ package com.portablestorage.component;
 import com.portablestorage.PortableStorage;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
-import org.ladysnake.cca.api.v3.component.ComponentKey;
-import org.ladysnake.cca.api.v3.component.ComponentRegistry;
+import dev.onyxstudios.cca.api.v3.component.ComponentKey;
+import dev.onyxstudios.cca.api.v3.component.ComponentRegistry;
 
 public class ModComponents {
     public static final ComponentKey<WarehouseComponent> WAREHOUSE = 

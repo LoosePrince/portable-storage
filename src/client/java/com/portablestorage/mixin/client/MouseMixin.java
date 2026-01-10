@@ -17,8 +17,8 @@ public abstract class MouseMixin {
     @Shadow private double xpos;
     @Shadow private double ypos;
 
-    @Inject(method = "onScroll", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/Screen;mouseScrolled(DDDD)Z"), cancellable = true)
-    private void onMouseScroll(long window, double xoffset, double yoffset, CallbackInfo ci) {
+    @Inject(method = "onScroll", at = @At("TAIL"), cancellable = true)
+    private void onMouseScroll(long window, double horizontal, double vertical, CallbackInfo ci) {
         Screen screen = Minecraft.getInstance().screen;
         if (screen instanceof WarehouseScreen ws) {
             WarehouseWidget widget = ws.portablestorage$getWarehouseWidget();
@@ -26,7 +26,7 @@ public abstract class MouseMixin {
                 double mouseX = this.xpos * (double) Minecraft.getInstance().getWindow().getGuiScaledWidth() / (double) Minecraft.getInstance().getWindow().getWidth();
                 double mouseY = this.ypos * (double) Minecraft.getInstance().getWindow().getGuiScaledHeight() / (double) Minecraft.getInstance().getWindow().getHeight();
                 
-                if (widget.mouseScrolled(mouseX, mouseY, xoffset, yoffset)) {
+                if (widget.mouseScrolled(mouseX, mouseY, horizontal, vertical)) {
                     ci.cancel();
                 }
             }

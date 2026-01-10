@@ -18,7 +18,7 @@ public class RiftUpgrade extends UpgradeType {
 
     public RiftUpgrade() {
         super(ID, ICON, stack -> {
-            Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(ModConfig.riftUpgradeItem));
+            Item item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(ModConfig.riftUpgradeItem));
             if (item == Items.AIR) item = Items.DRAGON_EGG;
             return stack.is(item);
         });
@@ -26,7 +26,7 @@ public class RiftUpgrade extends UpgradeType {
 
     @Override
     public ItemStack getIconStack() {
-        Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(ModConfig.riftUpgradeItem));
+        Item item = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(ModConfig.riftUpgradeItem));
         if (item == Items.AIR) item = Items.DRAGON_EGG;
         return new ItemStack(item);
     }

@@ -63,21 +63,20 @@ public class WorkbenchUpgrade extends UpgradeType {
     }
 
     public static boolean is3x3Enabled(ItemStack stack) {
-        net.minecraft.world.item.component.CustomData customData = stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
-        if (customData != null) {
-            return !customData.copyTag().contains("disabled");
+        net.minecraft.nbt.CompoundTag tag = stack.getTag();
+        if (tag != null) {
+            return !tag.contains("disabled");
         }
         return true; // 默认开启
     }
 
     public static void set3x3Enabled(ItemStack stack, boolean enabled) {
-        net.minecraft.world.item.component.CustomData.update(net.minecraft.core.component.DataComponents.CUSTOM_DATA, stack, tag -> {
-            if (enabled) {
-                tag.remove("disabled");
-            } else {
-                tag.putBoolean("disabled", true);
-            }
-        });
+        net.minecraft.nbt.CompoundTag tag = stack.getOrCreateTag();
+        if (enabled) {
+            tag.remove("disabled");
+        } else {
+            tag.putBoolean("disabled", true);
+        }
     }
 }
 

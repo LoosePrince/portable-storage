@@ -13,9 +13,12 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Mixin(AbstractContainerScreen.class)
 public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMenu> implements WarehouseScreen {
+    private static final Logger LOGGER = LoggerFactory.getLogger("PortableStorage/AbstractContainerScreenMixin");
 
     @Unique
     private WarehouseWidget warehouseWidget;
