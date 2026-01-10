@@ -22,8 +22,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.Objects;
@@ -34,7 +32,6 @@ import java.util.Objects;
  * 复杂的业务逻辑（存取规则、流体转换等）应放在 WarehouseManager 中。
  */
 public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>> implements Container, Storage<FluidVariant> {
-    private static final Logger LOGGER = LoggerFactory.getLogger("PortableStorage/PlayerWarehouse");
     
     public enum WarehouseType {
         NONE, BASE, FULL

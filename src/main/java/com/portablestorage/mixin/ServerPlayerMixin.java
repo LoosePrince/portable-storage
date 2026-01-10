@@ -28,6 +28,14 @@ public class ServerPlayerMixin {
     @Inject(method = "setRespawnPosition", at = @At("HEAD"), cancellable = true)
     private void onSetRespawnPosition(ResourceKey<Level> dimension, BlockPos pos, float angle, boolean forced, boolean sendMessage, CallbackInfo ci) {
         ServerPlayer player = (ServerPlayer) (Object) this;
+        // 检查是否在使用床升级睡觉（通过检查临时床位置）
+        BlockPos tempBedPos = BedUpgrade.PLAYER_TEMP_BEDS.get(player.getUUID());
+        if (tempBedPos != null && pos.equals(tempBedPos) && !forced) {
+            // 如果是在临时床上睡觉，取消设置重生点
+            ci.cancel();
+            return;
+        }
+        // 也检查玩家是否正在睡觉且有床升级
         if (player.isSleeping() && !forced) {
             PlayerWarehouse warehouse = ModComponents.getWarehouse(player.getServer(), player.getUUID());
             if (warehouse != null && warehouse.isEnabled() && !warehouse.getUpgrade(BedUpgrade.ID).isEmpty()) {

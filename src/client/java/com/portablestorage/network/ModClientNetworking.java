@@ -3,7 +3,6 @@ package com.portablestorage.network;
 import com.portablestorage.PortableStorage;
 import com.portablestorage.config.ModConfig;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.network.FriendlyByteBuf;
 
 /**
  * 客户端网络处理器

@@ -498,7 +498,7 @@ public class WarehouseManager {
             net.minecraft.nbt.CompoundTag savedTag = new net.minecraft.nbt.CompoundTag();
             stack.save(savedTag);
             
-            if (savedTag == null) {
+            if (savedTag.isEmpty()) {
                 return true; // 没有NBT数据，允许存入
             }
             

@@ -35,7 +35,7 @@ jobs:
       - name: setup jdk
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'microsoft'
       
       - name: make gradle wrapper executable
@@ -137,7 +137,7 @@ jobs:
           # 通用配置
           loaders: fabric
           game-versions: ${{ needs.build.outputs.minecraft_version }}
-          java: 17
+          java: 21
           
           # CurseForge 配置
           curseforge-id: 1365553

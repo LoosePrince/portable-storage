@@ -28,6 +28,8 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+        // 渲染半透明黑色遮罩
+        this.renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, delta);
         // 仓库渲染由 Mixin 注入的 WarehouseWidget 处理
         this.renderTooltip(graphics, mouseX, mouseY);

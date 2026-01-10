@@ -60,6 +60,8 @@ public class SpaceRiftManager {
         // 分配或获取地块
         if (!warehouse.hasRiftPlot()) {
             allocatePlot(player.getUUID(), warehouse);
+            // 分配地块后立即更新强制加载
+            updatePlotForcedLoading(player, warehouse, true);
         }
 
         ChunkPos origin = new ChunkPos(warehouse.getRiftPlotX(), warehouse.getRiftPlotZ());
@@ -76,6 +78,9 @@ public class SpaceRiftManager {
         
         // 应用个人边界
         applyPersonalBorder(player, warehouse);
+        
+        // 更新强制加载
+        updatePlotForcedLoading(player, warehouse, true);
         
         // 移除复制体
         removeAvatar(player);

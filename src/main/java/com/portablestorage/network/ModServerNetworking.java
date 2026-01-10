@@ -6,8 +6,6 @@ import com.portablestorage.config.ModConfig;
 import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.screen.CraftingWarehouseScreenHandler;
 import com.portablestorage.util.WarehouseSetting;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleMenuProvider;

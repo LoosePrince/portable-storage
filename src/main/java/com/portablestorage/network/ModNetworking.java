@@ -2,7 +2,6 @@ package com.portablestorage.network;
 
 import com.portablestorage.PortableStorage;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.resources.ResourceLocation;
 
 /**
  * 网络注册类

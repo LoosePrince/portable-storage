@@ -22,8 +22,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.ResultSlot;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
@@ -32,7 +30,6 @@ import java.util.*;
  * 管理仓库 UI 的渲染、交互和状态更新
  */
 public class WarehouseWidget {
-    private static final Logger LOGGER = LoggerFactory.getLogger("PortableStorage/WarehouseWidget");
     private static final ResourceLocation WAREHOUSE_SLOT_TEXTURE = com.portablestorage.PortableStorage
             .id("textures/gui/slot.png");
 
@@ -660,7 +657,12 @@ public class WarehouseWidget {
 
         if (mouseX >= craftingX && mouseX < craftingX + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
             if (!warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
-                ClientPlayNetworking.send(new OpenCraftingPayload());
+                // 如果在合成界面，返回背包；否则打开合成界面
+                if (screen instanceof com.portablestorage.screen.CraftingWarehouseScreen) {
+                    Minecraft.getInstance().setScreen(new InventoryScreen(Minecraft.getInstance().player));
+                } else {
+                    ClientPlayNetworking.send(new OpenCraftingPayload());
+                }
             }
             return true;
         }
