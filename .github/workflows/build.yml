@@ -5,7 +5,7 @@ name: build
 on:
   push:
     branches:
-      - 1.21
+      - 1.20.1
     paths-ignore:
       - '**/*.md'
       - '.github/workflows/**'
@@ -35,7 +35,7 @@ jobs:
       - name: setup jdk
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: '17'
           distribution: 'microsoft'
       
       - name: make gradle wrapper executable
@@ -137,7 +137,7 @@ jobs:
           # 通用配置
           loaders: fabric
           game-versions: ${{ needs.build.outputs.minecraft_version }}
-          java: 21
+          java: 17
           
           # CurseForge 配置
           curseforge-id: 1365553
