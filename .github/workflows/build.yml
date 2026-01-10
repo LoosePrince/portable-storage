@@ -21,6 +21,8 @@ jobs:
       version_changed: ${{ steps.check_version.outputs.changed }}
       new_version: ${{ steps.check_version.outputs.new_version }}
       changelog: ${{ steps.check_version.outputs.changelog }}
+      force_publish: ${{ steps.check_version.outputs.force_publish }}
+      minecraft_version: ${{ steps.check_version.outputs.minecraft_version }}
     steps:
       - name: checkout repository
         uses: actions/checkout@v4
@@ -42,32 +44,55 @@ jobs:
       - name: check version changes
         id: check_version
         run: |
-          # 获取当前提交和前一个提交的gradle.properties文件
+          # 获取当前版本和 Minecraft 版本
           CURRENT_VERSION=$(grep "mod_version=" gradle.properties | cut -d'=' -f2)
+          MINECRAFT_VERSION=$(grep "minecraft_version=" gradle.properties | cut -d'=' -f2)
           echo "Current version: $CURRENT_VERSION"
+          echo "Minecraft version: $MINECRAFT_VERSION"
+          echo "minecraft_version=$MINECRAFT_VERSION" >> $GITHUB_OUTPUT
           
-          # 检查是否是版本文件变更
-          if git diff HEAD~1 HEAD --name-only | grep -q "gradle.properties"; then
-            PREVIOUS_VERSION=$(git show HEAD~1:gradle.properties | grep "mod_version=" | cut -d'=' -f2)
-            echo "Previous version: $PREVIOUS_VERSION"
+          # 检查提交信息是否包含特殊标识符 [RELEASE]
+          COMMIT_MESSAGE=$(git log -1 --pretty=format:"%B")
+          echo "Commit message: $COMMIT_MESSAGE"
+          
+          if echo "$COMMIT_MESSAGE" | grep -q "\[RELEASE\]"; then
+            echo "Special identifier [RELEASE] detected in commit message"
+            echo "force_publish=true" >> $GITHUB_OUTPUT
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "new_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
             
-            if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
-              echo "Version changed from $PREVIOUS_VERSION to $CURRENT_VERSION"
-              echo "changed=true" >> $GITHUB_OUTPUT
-              echo "new_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            # 获取提交信息作为更新说明
+            echo "changelog<<EOF" >> $GITHUB_OUTPUT
+            echo "$COMMIT_MESSAGE" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "No special identifier detected"
+            echo "force_publish=false" >> $GITHUB_OUTPUT
+            
+            # 检查是否是版本文件变更
+            if git diff HEAD~1 HEAD --name-only | grep -q "gradle.properties"; then
+              PREVIOUS_VERSION=$(git show HEAD~1:gradle.properties | grep "mod_version=" | cut -d'=' -f2)
+              echo "Previous version: $PREVIOUS_VERSION"
               
-              # 获取提交信息作为更新说明
-              echo "changelog<<EOF" >> $GITHUB_OUTPUT
-              git log -1 --pretty=format:"%B" >> $GITHUB_OUTPUT
-              echo "" >> $GITHUB_OUTPUT
-              echo "EOF" >> $GITHUB_OUTPUT
+              if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
+                echo "Version changed from $PREVIOUS_VERSION to $CURRENT_VERSION"
+                echo "changed=true" >> $GITHUB_OUTPUT
+                echo "new_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+                
+                # 获取提交信息作为更新说明
+                echo "changelog<<EOF" >> $GITHUB_OUTPUT
+                echo "$COMMIT_MESSAGE" >> $GITHUB_OUTPUT
+                echo "" >> $GITHUB_OUTPUT
+                echo "EOF" >> $GITHUB_OUTPUT
+              else
+                echo "No version change detected"
+                echo "changed=false" >> $GITHUB_OUTPUT
+              fi
             else
-              echo "No version change detected"
+              echo "gradle.properties not modified"
               echo "changed=false" >> $GITHUB_OUTPUT
             fi
-          else
-            echo "gradle.properties not modified"
-            echo "changed=false" >> $GITHUB_OUTPUT
           fi
       
       - name: build
@@ -84,7 +109,7 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-24.04
-    if: needs.build.outputs.version_changed == 'true' && github.event_name == 'push'
+    if: (needs.build.outputs.version_changed == 'true' || needs.build.outputs.force_publish == 'true') && github.event_name == 'push'
     permissions:
       contents: write  # 需要写入权限来创建release
     steps:
@@ -104,14 +129,14 @@ jobs:
           files: build/libs/portablestorage-${{ needs.build.outputs.new_version }}.jar
           
           # 版本信息
-          name: Portable Storage ${{ needs.build.outputs.new_version }} [Fabric 1.21]
+          name: Portable Storage ${{ needs.build.outputs.new_version }} [Fabric ${{ needs.build.outputs.minecraft_version }}]
           version: ${{ needs.build.outputs.new_version }}
           version-type: release
           changelog: ${{ needs.build.outputs.changelog }}
           
           # 通用配置
           loaders: fabric
-          game-versions: 1.21
+          game-versions: ${{ needs.build.outputs.minecraft_version }}
           java: 21
           
           # CurseForge 配置
