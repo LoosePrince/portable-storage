@@ -490,8 +490,9 @@ public class WarehouseWidget {
         }
 
         // 快速交互（Shift + 点击）
+        // 未适配界面不应响应快速存取
         if (net.minecraft.client.gui.screens.Screen.hasShiftDown() && warehouse.isQuickInteraction()
-                && !warehouse.isFolded()) {
+                && !warehouse.isFolded() && com.portablestorage.handler.WarehouseMenuHandler.isAdaptedMenu(screen.getMenu())) {
             if (clickedSlot != null && (clickedSlot.container instanceof PlayerWarehouse
                     || clickedSlot.container instanceof net.minecraft.world.entity.player.Inventory)) {
                 // 检测双击事件

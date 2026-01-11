@@ -172,6 +172,10 @@ public class WarehouseMenuHandler {
 
         // 处理仓库槽位和升级槽位
         if (slot.container instanceof PlayerWarehouse warehouseSlot) {
+            // 未适配界面不应响应仓库交互
+            if (!isAdaptedMenu(menu)) {
+                return null;
+            }
             // 快速交互：从仓库取出物品到背包
             if (warehouse.isQuickInteraction() && !warehouse.isFolded()) {
                 int containerSlot = slot.getContainerSlot();
@@ -183,11 +187,20 @@ public class WarehouseMenuHandler {
             return ItemStack.EMPTY; // 阻止原版快速移动逻辑
         }
         if (slot instanceof UpgradeSlot) {
+            // 未适配界面不应响应升级槽位交互
+            if (!isAdaptedMenu(menu)) {
+                return null;
+            }
             if (!((AbstractContainerMenuAccessor) menu).invokeMoveItemStackTo(stackInSlot, 9, 45, true)) {
                 return ItemStack.EMPTY;
             }
             slot.setChanged();
             return originalStack; // 返回副本表示成功
+        }
+
+        // 未适配界面不应响应快速存取
+        if (!isAdaptedMenu(menu)) {
+            return null;
         }
 
         // 快速交互：尝试存入仓库
