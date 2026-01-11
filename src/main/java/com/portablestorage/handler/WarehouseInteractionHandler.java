@@ -31,6 +31,13 @@ public class WarehouseInteractionHandler {
         boolean isWarehouseSlot = slot.container instanceof PlayerWarehouse
                 || slot instanceof com.portablestorage.upgrade.UpgradeSlot;
 
+        // 未适配界面不应响应仓库交互
+        if (!WarehouseMenuHandler.isAdaptedMenu(menu)) {
+            if (isWarehouseSlot)
+                return true; // 拦截并取消
+            return false;
+        }
+
         // 在容器界面，如果没有工作台升级，禁止交互仓库相关槽位
         PlayerWarehouse warehouseCheck = ModComponents.get(player).getWarehouse(player.getUUID());
         if (WarehouseMenuHandler.isContainerMenu(menu)
