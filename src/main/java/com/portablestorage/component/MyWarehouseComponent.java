@@ -1,6 +1,8 @@
 package com.portablestorage.component;
 
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.scores.Scoreboard;
@@ -72,18 +74,19 @@ public class MyWarehouseComponent implements WarehouseComponent {
                     warehouse.readNbt(warehouseTag, server.registryAccess());
                 } else {
                     // 客户端也需要读取，但需要从客户端世界获取 registryAccess
-                    // 使用反射来安全地获取客户端的 registryAccess
+                    // 使用 BuiltInRegistries 创建 registryAccess（这是客户端和服务器端都可用的一致方案）
+                    HolderLookup.Provider registryAccess = null;
                     try {
-                        Class<?> minecraftClass = Class.forName("net.minecraft.client.Minecraft");
-                        Object minecraftInstance = minecraftClass.getMethod("getInstance").invoke(null);
-                        Object level = minecraftClass.getField("level").get(minecraftInstance);
-                        if (level != null) {
-                            HolderLookup.Provider registryAccess = (HolderLookup.Provider) level.getClass()
-                                    .getMethod("registryAccess").invoke(level);
-                            warehouse.readNbt(warehouseTag, registryAccess);
-                        }
+                        registryAccess = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
                     } catch (Exception e) {
-                        LOGGER.warn("无法获取客户端 registryAccess", e);
+                        LOGGER.warn("无法创建 registryAccess，仓库数据可能无法正确加载", e);
+                    }
+                    
+                    // 如果成功获取了 registryAccess，读取仓库数据
+                    if (registryAccess != null) {
+                        warehouse.readNbt(warehouseTag, registryAccess);
+                    } else {
+                        LOGGER.warn("无法获取 registryAccess，跳过仓库数据读取。这可能导致仓库按钮不显示。");
                     }
                 }
             } catch (IllegalArgumentException ignored) {}

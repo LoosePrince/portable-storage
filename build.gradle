@@ -82,6 +82,7 @@ dependencies {
 
 	// Yet Another Config Lib
 	modImplementation "dev.isxander:yet-another-config-lib:${project.yacl_version}"
+	include "dev.isxander:yet-another-config-lib:${project.yacl_version}"
 	
 	// JPinyin for Pinyin search (supports polyphones)
 	implementation "com.github.stuxuhai:jpinyin:${project.jpinyin_version}"
