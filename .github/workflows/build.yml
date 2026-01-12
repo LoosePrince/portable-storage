@@ -148,7 +148,7 @@ jobs:
           modrinth-token: ${{ secrets.MODRINTH_API_TOKEN }}
           
           # GitHub 发布配置
-          github-tag: v${{ needs.build.outputs.new_version }}
+          github-tag: v${{ needs.build.outputs.new_version }}+${{ needs.build.outputs.minecraft_version }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           github-changelog: |
             ## Portable Storage ${{ needs.build.outputs.new_version }}
