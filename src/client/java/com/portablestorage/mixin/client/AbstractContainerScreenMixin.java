@@ -2,6 +2,7 @@ package com.portablestorage.mixin.client;
 
 import com.portablestorage.client.gui.WarehouseScreen;
 import com.portablestorage.client.gui.WarehouseWidget;
+import com.portablestorage.client.handler.TooltipHandler;
 import com.portablestorage.handler.WarehouseMenuHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -92,6 +93,17 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     private void onKeyPressed(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
         if (warehouseWidget != null && warehouseWidget.keyPressed(keyCode, scanCode, modifiers)) {
             cir.setReturnValue(true);
+        }
+    }
+
+    @Inject(method = "renderTooltip", at = @At("HEAD"), cancellable = true)
+    private void onRenderTooltip(GuiGraphics graphics, int x, int y, CallbackInfo ci) {
+        AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
+        AbstractContainerScreenAccessor accessor = (AbstractContainerScreenAccessor) screen;
+        net.minecraft.world.inventory.Slot hoveredSlot = accessor.portablestorage$getHoveredSlot();
+        if (TooltipHandler.handleTooltip(screen, graphics, hoveredSlot, x, y, 
+                stack -> net.minecraft.client.gui.screens.Screen.getTooltipFromItem(Minecraft.getInstance(), stack))) {
+            ci.cancel();
         }
     }
 }

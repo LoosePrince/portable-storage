@@ -59,6 +59,12 @@ public class WarehouseEntry {
      * @param pinned 是否置顶
      */
     public void setPinned(boolean pinned) { this.pinned = pinned; }
+    
+    /**
+     * 设置最后更新时间
+     * @param timestamp 时间戳（毫秒）
+     */
+    public void setLastUpdated(long timestamp) { this.lastUpdated = timestamp; }
 
     /**
      * 增加物品数量
