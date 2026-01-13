@@ -1,5 +1,6 @@
 {
   "gui.portablestorage.count": "数量: %s",
+  "gui.portablestorage.update_time": "更新时间: %s",
   "gui.portablestorage.search": "搜索物品...",
   "gui.portablestorage.button.fold": "折叠仓库",
   "gui.portablestorage.button.unfold": "展开仓库",

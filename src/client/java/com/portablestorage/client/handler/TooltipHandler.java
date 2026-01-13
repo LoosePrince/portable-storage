@@ -2,6 +2,7 @@ package com.portablestorage.client.handler;
 
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
+import com.portablestorage.component.WarehouseEntry;
 import com.portablestorage.util.WarehouseConstants;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -11,6 +12,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
@@ -41,19 +46,60 @@ public class TooltipHandler {
                 int whSlotEnd = whStart + (wh.getVisibleRows() * WarehouseConstants.SLOTS_PER_ROW);
                 
                 if (hoveredSlot.index >= whStart && hoveredSlot.index < whSlotEnd) {
-                    long realCount = wh.getRealCount(hoveredSlot.index - whStart);
-                    if (realCount > 1) {
+                    int slotIndex = hoveredSlot.index - whStart;
+                    long realCount = wh.getRealCount(slotIndex);
+                    
+                    // 获取对应的仓库条目以获取更新时间
+                    List<WarehouseEntry> entries = wh.getSortedEntries();
+                    int actualIndex = slotIndex + (wh.getScrollOffset() * 9);
+                    
+                    if (actualIndex >= 0 && actualIndex < entries.size()) {
+                        WarehouseEntry entry = entries.get(actualIndex);
                         List<Component> tooltip = new ArrayList<>(tooltipProvider.apply(hoveredSlot.getItem()));
-                        tooltip.add(1, Component.translatable("gui.portablestorage.count", 
-                            Component.literal(String.format("%,d", realCount)).withStyle(ChatFormatting.WHITE)
-                        ).withStyle(ChatFormatting.YELLOW));
-                        graphics.renderComponentTooltip(Minecraft.getInstance().font, tooltip, x, y);
-                        return true;
+                        
+                        boolean hasCustomInfo = false;
+                        int insertIndex = 1;
+                        
+                        // 添加数量信息（数量大于1时显示）
+                        if (realCount > 1) {
+                            tooltip.add(insertIndex, Component.translatable("gui.portablestorage.count", 
+                                Component.literal(String.format("%,d", realCount)).withStyle(ChatFormatting.WHITE)
+                            ).withStyle(ChatFormatting.YELLOW));
+                            hasCustomInfo = true;
+                            insertIndex++;
+                        }
+                        
+                        // 添加更新时间信息（总是显示）
+                        long lastUpdated = entry.getLastUpdated();
+                        if (lastUpdated > 0) {
+                            String timeText = formatDateTime(lastUpdated);
+                            tooltip.add(insertIndex, Component.translatable("gui.portablestorage.update_time", 
+                                Component.literal(timeText).withStyle(ChatFormatting.WHITE)
+                            ).withStyle(ChatFormatting.GRAY));
+                            hasCustomInfo = true;
+                        }
+                        
+                        // 如果有自定义信息，则渲染自定义 tooltip
+                        if (hasCustomInfo) {
+                            graphics.renderComponentTooltip(Minecraft.getInstance().font, tooltip, x, y);
+                            return true;
+                        }
                     }
                 }
             }
         }
         return false;
+    }
+    
+    /**
+     * 格式化日期时间
+     * @param timestamp 时间戳（毫秒）
+     * @return 格式化后的日期时间字符串（格式：xxxx/xx/xx xx:xx）
+     */
+    private static String formatDateTime(long timestamp) {
+        LocalDateTime dateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.systemDefault());
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");
+        return dateTime.format(formatter);
     }
 }
 

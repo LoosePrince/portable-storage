@@ -184,6 +184,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                     // 创建条目快照，初始数量保持一致
                     WarehouseEntry snapshot = new WarehouseEntry(entry.getItemStack(), entry.getCount());
                     snapshot.setPinned(entry.isPinned());
+                    snapshot.setLastUpdated(entry.getLastUpdated());
                     frozenCache.add(snapshot);
                 }
             }
@@ -905,6 +906,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             // 聚合所有仓库的物品
             Map<WarehouseEntryKey, Long> mergedItems = new LinkedHashMap<>();
             Map<WarehouseEntryKey, Boolean> pinnedItems = new HashMap<>();
+            Map<WarehouseEntryKey, Long> lastUpdatedMap = new HashMap<>();
             Map<FluidVariant, Long> mergedFluids = new LinkedHashMap<>();
             long mergedExperience = 0;
 
@@ -914,6 +916,8 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                     WarehouseEntryKey key = new WarehouseEntryKey(entry.getItemStack());
                     mergedItems.put(key, mergedItems.getOrDefault(key, 0L) + entry.getCount());
                     if (entry.isPinned()) pinnedItems.put(key, true);
+                    // 保留最大的更新时间
+                    lastUpdatedMap.put(key, Math.max(lastUpdatedMap.getOrDefault(key, 0L), entry.getLastUpdated()));
                 }
                 // 聚合流体
                 for (Map.Entry<FluidVariant, Long> entry : pw.getFluidStorageMap().entrySet()) {
@@ -928,6 +932,11 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             for (Map.Entry<WarehouseEntryKey, Long> e : mergedItems.entrySet()) {
                 WarehouseEntry entry = new WarehouseEntry(e.getKey().toStack(), e.getValue());
                 if (pinnedItems.getOrDefault(e.getKey(), false)) entry.setPinned(true);
+                // 设置正确的更新时间
+                Long lastUpdated = lastUpdatedMap.get(e.getKey());
+                if (lastUpdated != null && lastUpdated > 0) {
+                    entry.setLastUpdated(lastUpdated);
+                }
                 baseCache.add(entry);
             }
             // 将聚合后的流体转换为 WarehouseEntry
@@ -1073,6 +1082,10 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                 
                 WarehouseEntry collapsedEntry = new WarehouseEntry(displayStack, totalCount);
                 collapsedEntry.setPinned(pinned);
+                // 设置正确的更新时间
+                if (lastUpdated > 0) {
+                    collapsedEntry.setLastUpdated(lastUpdated);
+                }
                 collapsed.add(collapsedEntry);
             } else {
                 collapsed.add(entries.get(0));
