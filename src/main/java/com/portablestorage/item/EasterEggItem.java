@@ -21,7 +21,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public class EasterEggItem extends Item {
-    private static final String API_URL = "https://api.baiwumm.com/api/hitokoto?type=d&format=json";
+    private static final String GITHUB_API_URL = "https://api.github.com/repos/LoosePrince/portable-storage/releases/tags/note";
+    private static final String HITOKOTO_API_URL = "https://api.baiwumm.com/api/hitokoto?type=d&format=json";
     private static final String DEFAULT_MESSAGE = "你合成我干什么？";
     private static final String NBT_CONTENT = "content";
     private static final String NBT_FROM = "from";
@@ -66,41 +67,59 @@ public class EasterEggItem extends Item {
 
         // 异步请求API，获取数据后显示消息
         ServerPlayer finalPlayer = player;
-        CompletableFuture.supplyAsync(() -> fetchHitokoto())
+        EasterEggItem instance = this;
+        CompletableFuture.supplyAsync(() -> {
+            // 首先尝试从 GitHub 获取 release 内容
+            String githubContent = instance.fetchGitHubRelease();
+            if (githubContent != null && !githubContent.trim().isEmpty()) {
+                return new MessageResult(githubContent, null, null, null, true);
+            }
+            // 如果 GitHub 没有内容，则获取一言
+            HitokotoResult hitokoto = instance.fetchHitokoto();
+            if (hitokoto != null && hitokoto.content != null && !hitokoto.content.isEmpty()) {
+                return new MessageResult(hitokoto.content, hitokoto.from, hitokoto.creator, hitokoto.fromWho, false);
+            }
+            return null;
+        })
             .thenAccept(result -> {
                 // 在主线程执行
                 finalPlayer.server.execute(() -> {
                     Component messageComponent;
                     
                     if (result != null && result.content != null && !result.content.isEmpty()) {
-                        // 构建悬停信息
-                        MutableComponent hoverTextBuilder = Component.literal(result.content).withStyle(ChatFormatting.GRAY);
-                        
-                        if (result.from != null && !result.from.isEmpty()) {
-                            if (result.fromWho != null && !result.fromWho.isEmpty()) {
-                                hoverTextBuilder = hoverTextBuilder.append(Component.literal("\n"))
-                                        .append(Component.literal("—— " + result.from + " · " + result.fromWho)
-                                                .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
-                            } else {
-                                hoverTextBuilder = hoverTextBuilder.append(Component.literal("\n"))
-                                        .append(Component.literal("—— " + result.from)
-                                                .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
+                        if (result.isGitHubContent) {
+                            // GitHub 内容，直接显示
+                            messageComponent = Component.literal(result.content).withStyle(ChatFormatting.GOLD);
+                        } else {
+                            // 一言内容，构建悬停信息
+                            MutableComponent hoverTextBuilder = Component.literal(result.content).withStyle(ChatFormatting.GRAY);
+                            
+                            if (result.from != null && !result.from.isEmpty()) {
+                                if (result.fromWho != null && !result.fromWho.isEmpty()) {
+                                    hoverTextBuilder = hoverTextBuilder.append(Component.literal("\n"))
+                                            .append(Component.literal("—— " + result.from + " · " + result.fromWho)
+                                                    .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
+                                } else {
+                                    hoverTextBuilder = hoverTextBuilder.append(Component.literal("\n"))
+                                            .append(Component.literal("—— " + result.from)
+                                                    .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
+                                }
                             }
+                            
+                            if (result.creator != null && !result.creator.isEmpty()) {
+                                hoverTextBuilder = hoverTextBuilder.append(Component.literal("\n"))
+                                        .append(Component.literal("创建者: " + result.creator)
+                                                .withStyle(ChatFormatting.DARK_GRAY));
+                            }
+                            
+                            final Component hoverText = hoverTextBuilder;
+                            
+                            // 创建带悬停事件的消息
+                            messageComponent = Component.literal(result.content)
+                                    .withStyle(style -> style.withHoverEvent(
+                                            new HoverEvent(HoverEvent.Action.SHOW_TEXT, hoverText)
+                                    ));
                         }
-                        
-                        if (result.creator != null && !result.creator.isEmpty()) {
-                            hoverTextBuilder = hoverTextBuilder.append(Component.literal("\n"))
-                                    .append(Component.literal("创建者: " + result.creator)
-                                            .withStyle(ChatFormatting.DARK_GRAY));
-                        }
-                        
-                        final Component hoverText = hoverTextBuilder;
-                        
-                        // 创建带悬停事件的消息
-                        messageComponent = Component.literal(result.content)
-                                .withStyle(style -> style.withHoverEvent(
-                                        new HoverEvent(HoverEvent.Action.SHOW_TEXT, hoverText)
-                                ));
                     } else {
                         // 默认消息，无悬停信息
                         messageComponent = Component.literal(DEFAULT_MESSAGE);
@@ -119,9 +138,100 @@ public class EasterEggItem extends Item {
             });
     }
 
+    /**
+     * 从 GitHub API 获取 release tag "note" 的内容
+     */
+    private String fetchGitHubRelease() {
+        try {
+            URI uri = URI.create(GITHUB_API_URL);
+            HttpURLConnection connection = (HttpURLConnection) uri.toURL().openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(5000);
+            connection.setRequestProperty("User-Agent", "Minecraft-Mod/PortableStorage");
+            connection.setRequestProperty("Accept", "application/vnd.github.v3+json");
+
+            int responseCode = connection.getResponseCode();
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                // 404 表示该 tag 不存在或没有内容，返回 null
+                return null;
+            }
+
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+
+                return parseGitHubRelease(response.toString());
+            }
+        } catch (Exception e) {
+            // 请求失败，返回 null，将使用一言
+            return null;
+        }
+    }
+
+    /**
+     * 解析 GitHub Release JSON，提取 body 字段
+     */
+    private String parseGitHubRelease(String json) {
+        try {
+            // 查找 "body" 字段
+            int bodyStart = json.indexOf("\"body\":\"") + 8;
+            if (bodyStart <= 7) {
+                // 尝试查找 "body":null 的情况
+                int bodyNullStart = json.indexOf("\"body\":null");
+                if (bodyNullStart > 0) {
+                    return null;
+                }
+                return null;
+            }
+
+            // 提取 body 内容（需要处理转义字符）
+            StringBuilder body = new StringBuilder();
+            boolean escaped = false;
+            for (int i = bodyStart; i < json.length(); i++) {
+                char c = json.charAt(i);
+                
+                if (escaped) {
+                    if (c == 'n') {
+                        body.append('\n');
+                    } else if (c == 'r') {
+                        body.append('\r');
+                    } else if (c == 't') {
+                        body.append('\t');
+                    } else if (c == '\\') {
+                        body.append('\\');
+                    } else if (c == '"') {
+                        body.append('"');
+                    } else {
+                        body.append(c);
+                    }
+                    escaped = false;
+                } else {
+                    if (c == '\\') {
+                        escaped = true;
+                    } else if (c == '"') {
+                        // 遇到结束引号，停止解析
+                        break;
+                    } else {
+                        body.append(c);
+                    }
+                }
+            }
+
+            String content = body.toString().trim();
+            return content.isEmpty() ? null : content;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private HitokotoResult fetchHitokoto() {
         try {
-            URI uri = URI.create(API_URL);
+            URI uri = URI.create(HITOKOTO_API_URL);
             HttpURLConnection connection = (HttpURLConnection) uri.toURL().openConnection();
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(5000);
@@ -236,5 +346,24 @@ public class EasterEggItem extends Item {
         String from;
         String creator;
         String fromWho;
+    }
+
+    /**
+     * 统一的消息结果类
+     */
+    private static class MessageResult {
+        String content;
+        String from;
+        String creator;
+        String fromWho;
+        boolean isGitHubContent;
+
+        MessageResult(String content, String from, String creator, String fromWho, boolean isGitHubContent) {
+            this.content = content;
+            this.from = from;
+            this.creator = creator;
+            this.fromWho = fromWho;
+            this.isGitHubContent = isGitHubContent;
+        }
     }
 }

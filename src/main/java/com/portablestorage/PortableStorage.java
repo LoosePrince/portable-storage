@@ -1,5 +1,6 @@
 package com.portablestorage;
 
+import com.portablestorage.command.PortableStorageCommand;
 import com.portablestorage.config.ModConfig;
 import com.portablestorage.event.PlayerDeathEventHandler;
 import com.portablestorage.item.ModItems;
@@ -9,6 +10,7 @@ import com.portablestorage.screen.ModScreenHandlers;
 import com.portablestorage.upgrade.HopperUpgrade;
 import com.portablestorage.upgrade.TrashCanUpgrade;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.resources.ResourceLocation;
@@ -61,6 +63,11 @@ public class PortableStorage implements ModInitializer {
         PlayerDeathEventHandler.register();
         com.portablestorage.event.WarehouseActivationHandler.register();
         com.portablestorage.event.SpaceRiftEventHandler.register();
+        
+        // 注册命令
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+            PortableStorageCommand.register(dispatcher);
+        });
         
         // 玩家加入时重置裂隙边界并同步配置
         net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
@@ -115,6 +122,9 @@ public class PortableStorage implements ModInitializer {
                     }
                 }
             }
+            
+            // 处理丢出任务
+            PortableStorageCommand.tickDropTasks(server);
         });
 
         // 玩家登出时清空垃圾桶升级中的物品并停止强制加载
