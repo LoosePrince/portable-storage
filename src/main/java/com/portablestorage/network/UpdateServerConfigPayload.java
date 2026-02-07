@@ -14,6 +14,8 @@ public record UpdateServerConfigPayload(
     long baseMaxItemStackSize,
     int maxItemNbtSize,
     String unconditionalWarehouse,
+    String baseWarehouseActivationItem,
+    String fullWarehouseActivationItem,
     int hopperRange,
     double hopperFrequency,
     long lavaInfiniteThreshold,
@@ -35,6 +37,8 @@ public record UpdateServerConfigPayload(
             buf.writeLong(payload.baseMaxItemStackSize);
             buf.writeInt(payload.maxItemNbtSize);
             buf.writeUtf(payload.unconditionalWarehouse);
+            buf.writeUtf(payload.baseWarehouseActivationItem);
+            buf.writeUtf(payload.fullWarehouseActivationItem);
             buf.writeInt(payload.hopperRange);
             buf.writeDouble(payload.hopperFrequency);
             buf.writeLong(payload.lavaInfiniteThreshold);
@@ -52,6 +56,8 @@ public record UpdateServerConfigPayload(
             buf.readInt(),
             buf.readLong(),
             buf.readInt(),
+            buf.readUtf(),
+            buf.readUtf(),
             buf.readUtf(),
             buf.readInt(),
             buf.readDouble(),
