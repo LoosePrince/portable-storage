@@ -146,6 +146,12 @@ public class WarehouseMenuHandler {
     }
 
     public static ItemStack handleQuickMove(AbstractContainerMenu menu, Player player, int index) {
+        // 仅处理已适配的界面，避免在精妙背包等模组菜单上误用 slotId 导致越界
+        if (!isAdaptedMenu(menu))
+            return null;
+        if (index < 0 || index >= menu.slots.size())
+            return null;
+
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         if (!warehouse.isEnabled())
             return null;
