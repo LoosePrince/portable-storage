@@ -37,6 +37,10 @@ public class ModConfig {
     public static boolean dropStorageOnDeath = true;
     /** 无条件开启仓库的模式（NONE/BASE/FULL） */
     public static String unconditionalWarehouse = "NONE";
+    /** 基础仓库激活道具的物品 ID（默认海洋之心） */
+    public static String baseWarehouseActivationItem = "minecraft:heart_of_the_sea";
+    /** 完整仓库激活道具的物品 ID（默认下界之星） */
+    public static String fullWarehouseActivationItem = "minecraft:nether_star";
     
     // ========== 仓库限制配置 ==========
     /** 最大存储类型数（-1 为不限制） */
@@ -116,6 +120,8 @@ public class ModConfig {
         enable3x3Crafting = config.getOrElse("server.enable3x3Crafting", true);
         dropStorageOnDeath = config.getOrElse("server.dropStorageOnDeath", true);
         unconditionalWarehouse = config.getOrElse("server.unconditionalWarehouse", "NONE").toUpperCase();
+        baseWarehouseActivationItem = config.getOrElse("server.baseWarehouseActivationItem", "minecraft:heart_of_the_sea");
+        fullWarehouseActivationItem = config.getOrElse("server.fullWarehouseActivationItem", "minecraft:nether_star");
         
         maxStorageTypes = ((Number) config.getOrElse("server.maxStorageTypes", -1)).intValue();
         maxItemStackSize = ((Number) config.getOrElse("server.maxItemStackSize", -1L)).longValue();
@@ -160,6 +166,8 @@ public class ModConfig {
         config.set("server.enable3x3Crafting", enable3x3Crafting);
         config.set("server.dropStorageOnDeath", dropStorageOnDeath);
         config.set("server.unconditionalWarehouse", unconditionalWarehouse);
+        config.set("server.baseWarehouseActivationItem", baseWarehouseActivationItem);
+        config.set("server.fullWarehouseActivationItem", fullWarehouseActivationItem);
         
         config.set("server.maxStorageTypes", maxStorageTypes);
         config.set("server.maxItemStackSize", maxItemStackSize);

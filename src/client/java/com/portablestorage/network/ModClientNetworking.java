@@ -20,6 +20,8 @@ public class ModClientNetworking {
                 ModConfig.baseMaxItemStackSize = payload.baseMaxItemStackSize();
                 ModConfig.maxItemNbtSize = payload.maxItemNbtSize();
                 ModConfig.unconditionalWarehouse = payload.unconditionalWarehouse();
+                ModConfig.baseWarehouseActivationItem = payload.baseWarehouseActivationItem();
+                ModConfig.fullWarehouseActivationItem = payload.fullWarehouseActivationItem();
                 ModConfig.hopperRange = payload.hopperRange();
                 ModConfig.hopperFrequency = payload.hopperFrequency();
                 ModConfig.lavaInfiniteThreshold = payload.lavaInfiniteThreshold();

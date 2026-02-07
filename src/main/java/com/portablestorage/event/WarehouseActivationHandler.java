@@ -3,10 +3,14 @@ package com.portablestorage.event;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.component.PlayerWarehouse.WarehouseType;
+import com.portablestorage.config.ModConfig;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
@@ -23,17 +27,27 @@ public class WarehouseActivationHandler {
             if (world.isClientSide) return InteractionResultHolder.pass(ItemStack.EMPTY);
 
             ItemStack stack = player.getItemInHand(hand);
-            if (stack.is(Items.NETHER_STAR) || stack.is(Items.HEART_OF_THE_SEA)) {
+            Item fullItem = BuiltInRegistries.ITEM.get(ResourceLocation.parse(ModConfig.fullWarehouseActivationItem));
+            Item baseItem = BuiltInRegistries.ITEM.get(ResourceLocation.parse(ModConfig.baseWarehouseActivationItem));
+            if (fullItem == Items.AIR) fullItem = Items.NETHER_STAR;
+            if (baseItem == Items.AIR) baseItem = Items.HEART_OF_THE_SEA;
+
+            WarehouseType targetType = null;
+            if (stack.is(fullItem)) targetType = WarehouseType.FULL;
+            else if (stack.is(baseItem)) targetType = WarehouseType.BASE;
+
+            if (targetType != null) {
                 PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
                 WarehouseType currentType = warehouse.getType();
-                WarehouseType targetType = stack.is(Items.NETHER_STAR) ? WarehouseType.FULL : WarehouseType.BASE;
+                Item activationItem = targetType == WarehouseType.FULL ? fullItem : baseItem;
+                Component itemName = Component.translatable(activationItem.getDescriptionId());
 
                 // 逻辑 1: 升级激活 (当前已开启，且目标等级更高)
                 if (warehouse.isEnabled() && targetType.ordinal() > currentType.ordinal()) {
                     warehouse.setType(targetType);
                     stack.shrink(1);
                     String typeKey = targetType == WarehouseType.FULL ? "full" : "base";
-                    player.displayClientMessage(Component.translatable("message.portablestorage.activated." + typeKey), false);
+                    player.displayClientMessage(Component.translatable("message.portablestorage.activated." + typeKey, itemName), false);
                     return InteractionResultHolder.success(player.getItemInHand(hand));
                 }
 
@@ -45,7 +59,7 @@ public class WarehouseActivationHandler {
                         warehouse.setEnabled(true);
                         stack.shrink(1);
                         String typeKey = targetType == WarehouseType.FULL ? "full" : "base";
-                        player.displayClientMessage(Component.translatable("message.portablestorage.activated." + typeKey), false);
+                        player.displayClientMessage(Component.translatable("message.portablestorage.activated." + typeKey, itemName), false);
                         return InteractionResultHolder.success(player.getItemInHand(hand));
                     }
 
@@ -61,7 +75,7 @@ public class WarehouseActivationHandler {
                         CONFIRMATION_MAP.remove(player.getUUID());
 
                         String typeKey = targetType == WarehouseType.FULL ? "full" : "base";
-                        player.displayClientMessage(Component.translatable("message.portablestorage.activated." + typeKey), false);
+                        player.displayClientMessage(Component.translatable("message.portablestorage.activated." + typeKey, itemName), false);
                         player.displayClientMessage(Component.translatable("message.portablestorage.activated.wiped").withStyle(ChatFormatting.RED, ChatFormatting.BOLD), false);
                         
                         return InteractionResultHolder.success(player.getItemInHand(hand));
@@ -69,7 +83,7 @@ public class WarehouseActivationHandler {
                         // 第一次触发：发出警告并记录时间
                         CONFIRMATION_MAP.put(player.getUUID(), now);
                         player.displayClientMessage(Component.translatable("message.portablestorage.activation_warning").withStyle(ChatFormatting.YELLOW), false);
-                        player.displayClientMessage(Component.translatable("message.portablestorage.activation_confirm_hint").withStyle(ChatFormatting.GOLD), false);
+                        player.displayClientMessage(Component.translatable("message.portablestorage.activation_confirm_hint", itemName).withStyle(ChatFormatting.GOLD), false);
                         return InteractionResultHolder.success(player.getItemInHand(hand));
                     }
                 }

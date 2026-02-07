@@ -24,6 +24,12 @@ dropStorageOnDeath = true
 # 无条件启用仓库 (NONE: 需要激活, BASE: 自动激活基础版, FULL: 自动激活完整版)
 unconditionalWarehouse = "NONE"
 
+# 基础仓库激活道具的物品 ID（持有时使用可激活基础版仓库，默认海洋之心）
+baseWarehouseActivationItem = "minecraft:heart_of_the_sea"
+
+# 完整仓库激活道具的物品 ID（持有时使用可激活完整版仓库，默认下界之星）
+fullWarehouseActivationItem = "minecraft:nether_star"
+
 # 仓库储存最大种类数 (-1: 不限制)
 maxStorageTypes = -1
 
