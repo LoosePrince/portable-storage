@@ -59,6 +59,8 @@ public class YACLConfig {
             ModConfig.baseMaxItemStackSize,
             ModConfig.maxItemNbtSize,
             ModConfig.unconditionalWarehouse,
+            ModConfig.baseWarehouseActivationItem,
+            ModConfig.fullWarehouseActivationItem,
             ModConfig.hopperRange,
             ModConfig.hopperFrequency,
             ModConfig.lavaInfiniteThreshold,
@@ -288,6 +290,37 @@ public class YACLConfig {
                                         .values(Arrays.asList("NONE", "BASE", "FULL"))
                                         .formatValue(v -> Component.translatable("gui.portablestorage.settings.unconditional_warehouse." + v.toLowerCase())))
                                 .available(canEditServerConfig())
+                                .build())
+                        .group(OptionGroup.createBuilder()
+                                .name(Component.translatable("gui.portablestorage.settings.group.warehouse_activation"))
+                                .option(Option.<String>createBuilder()
+                                        .name(Component.translatable("gui.portablestorage.settings.base_warehouse_activation_item"))
+                                        .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.base_warehouse_activation_item.desc")))
+                                        .binding(
+                                                "minecraft:heart_of_the_sea",
+                                                () -> ModConfig.baseWarehouseActivationItem,
+                                                val -> {
+                                                    ModConfig.baseWarehouseActivationItem = val;
+                                                    updateServerConfig();
+                                                }
+                                        )
+                                        .controller(StringControllerBuilder::create)
+                                        .available(canEditServerConfig())
+                                        .build())
+                                .option(Option.<String>createBuilder()
+                                        .name(Component.translatable("gui.portablestorage.settings.full_warehouse_activation_item"))
+                                        .description(OptionDescription.of(Component.translatable("gui.portablestorage.settings.full_warehouse_activation_item.desc")))
+                                        .binding(
+                                                "minecraft:nether_star",
+                                                () -> ModConfig.fullWarehouseActivationItem,
+                                                val -> {
+                                                    ModConfig.fullWarehouseActivationItem = val;
+                                                    updateServerConfig();
+                                                }
+                                        )
+                                        .controller(StringControllerBuilder::create)
+                                        .available(canEditServerConfig())
+                                        .build())
                                 .build())
                         .group(OptionGroup.createBuilder()
                                 .name(Component.translatable("gui.portablestorage.settings.group.hopper"))

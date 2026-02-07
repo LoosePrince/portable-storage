@@ -127,6 +127,8 @@ public class ModServerNetworking {
             ModConfig.baseMaxItemStackSize = payload.baseMaxItemStackSize();
             ModConfig.maxItemNbtSize = payload.maxItemNbtSize();
             ModConfig.unconditionalWarehouse = payload.unconditionalWarehouse();
+            ModConfig.baseWarehouseActivationItem = payload.baseWarehouseActivationItem();
+            ModConfig.fullWarehouseActivationItem = payload.fullWarehouseActivationItem();
             ModConfig.hopperRange = payload.hopperRange();
             ModConfig.hopperFrequency = payload.hopperFrequency();
             ModConfig.lavaInfiniteThreshold = payload.lavaInfiniteThreshold();
@@ -156,6 +158,8 @@ public class ModServerNetworking {
                 ModConfig.baseMaxItemStackSize,
                 ModConfig.maxItemNbtSize,
                 ModConfig.unconditionalWarehouse,
+                ModConfig.baseWarehouseActivationItem,
+                ModConfig.fullWarehouseActivationItem,
                 ModConfig.hopperRange,
                 ModConfig.hopperFrequency,
                 ModConfig.lavaInfiniteThreshold,

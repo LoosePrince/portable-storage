@@ -15,6 +15,8 @@ public record SyncConfigPayload(
     long baseMaxItemStackSize,
     int maxItemNbtSize,
     String unconditionalWarehouse,
+    String baseWarehouseActivationItem,
+    String fullWarehouseActivationItem,
     int hopperRange,
     double hopperFrequency,
     long lavaInfiniteThreshold,
@@ -30,7 +32,7 @@ public record SyncConfigPayload(
 
     public SyncConfigPayload(FriendlyByteBuf buf) {
         this(
-            buf.readBoolean(), 
+            buf.readBoolean(),
             buf.readBoolean(),
             buf.readBoolean(),
             buf.readInt(),
@@ -38,6 +40,8 @@ public record SyncConfigPayload(
             buf.readInt(),
             buf.readLong(),
             buf.readInt(),
+            buf.readUtf(),
+            buf.readUtf(),
             buf.readUtf(),
             buf.readInt(),
             buf.readDouble(),
@@ -65,6 +69,8 @@ public record SyncConfigPayload(
         buf.writeLong(baseMaxItemStackSize);
         buf.writeInt(maxItemNbtSize);
         buf.writeUtf(unconditionalWarehouse);
+        buf.writeUtf(baseWarehouseActivationItem);
+        buf.writeUtf(fullWarehouseActivationItem);
         buf.writeInt(hopperRange);
         buf.writeDouble(hopperFrequency);
         buf.writeLong(lavaInfiniteThreshold);
