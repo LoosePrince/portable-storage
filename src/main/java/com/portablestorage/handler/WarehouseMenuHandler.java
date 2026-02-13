@@ -146,7 +146,7 @@ public class WarehouseMenuHandler {
     }
 
     public static ItemStack handleQuickMove(AbstractContainerMenu menu, Player player, int index) {
-        // 仅处理已适配的界面，避免在精妙背包等模组菜单上误用 slotId 导致越界
+        // 1. 基础检查
         if (!isAdaptedMenu(menu))
             return null;
         if (index < 0 || index >= menu.slots.size())
@@ -157,64 +157,71 @@ public class WarehouseMenuHandler {
             return null;
 
         Slot slot = menu.slots.get(index);
-        boolean isWarehouseSlot = slot.container instanceof PlayerWarehouse || slot instanceof UpgradeSlot;
-
-        // 合成结果槽位完全交给原版逻辑处理
-        if (slot instanceof ResultSlot) {
-            return null;
-        }
-
-        // 在容器界面，如果没有工作台升级，禁止快捷移动到仓库
-        if (isContainerMenu(menu) && warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
-            if (isWarehouseSlot)
-                return ItemStack.EMPTY;
-            return null;
-        }
         if (slot == null || !slot.hasItem())
             return null;
 
-        ItemStack stackInSlot = slot.getItem();
-        ItemStack originalStack = stackInSlot.copy(); // 保留副本用于返回
+        // 2. 识别槽位类型
+        boolean isWarehouseSlot = slot.container instanceof PlayerWarehouse;
+        boolean isUpgradeSlot = slot instanceof UpgradeSlot;
+        boolean isPlayerInventory = slot.container instanceof Inventory;
 
-        // 处理仓库槽位和升级槽位
-        if (slot.container instanceof PlayerWarehouse warehouseSlot) {
-            // 未适配界面不应响应仓库交互
-            if (!isAdaptedMenu(menu)) {
-                return null;
-            }
-            // 快速交互：从仓库取出物品到背包
-            if (warehouse.isQuickInteraction() && !warehouse.isFolded()) {
-                int containerSlot = slot.getContainerSlot();
-                com.portablestorage.logic.WarehouseManager.tryTransferToInventory(warehouseSlot, containerSlot, player);
-                menu.broadcastChanges();
-                return ItemStack.EMPTY; // 返回空表示已处理
-            }
-            // 如果没有快速交互，返回null让原版逻辑处理（或者返回EMPTY阻止交互）
-            return ItemStack.EMPTY; // 阻止原版快速移动逻辑
+        // 3. 特殊限制检查
+        // 在容器界面，如果没有工作台升级，禁止快捷移动到/从仓库
+        if (isContainerMenu(menu) && warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
+            if (isWarehouseSlot || isUpgradeSlot)
+                return ItemStack.EMPTY;
+            return null;
         }
-        if (slot instanceof UpgradeSlot) {
-            // 未适配界面不应响应升级槽位交互
-            if (!isAdaptedMenu(menu)) {
-                return null;
+
+        ItemStack stackInSlot = slot.getItem();
+        ItemStack originalStack = stackInSlot.copy();
+
+        // 4. 分支处理
+
+        // 分支 A: 仓库槽位（取出到背包）
+        if (isWarehouseSlot) {
+            if (!warehouse.isFolded()) {
+                int containerSlot = slot.getContainerSlot();
+                com.portablestorage.logic.WarehouseManager.tryTransferToInventory((PlayerWarehouse) slot.container,
+                        containerSlot, player);
+                menu.broadcastChanges();
             }
+            return ItemStack.EMPTY;
+        }
+
+        // 分支 B: 升级槽位（取出到背包）
+        if (isUpgradeSlot) {
             if (!((AbstractContainerMenuAccessor) menu).invokeMoveItemStackTo(stackInSlot, 9, 45, true)) {
                 return ItemStack.EMPTY;
             }
             slot.setChanged();
-            return originalStack; // 返回副本表示成功
+            return originalStack;
         }
 
-        // 未适配界面不应响应快速存取
-        if (!isAdaptedMenu(menu)) {
+        // 分支 C: 玩家背包槽位
+        if (isPlayerInventory) {
+            if (warehouse.isQuickInteraction() && !warehouse.isFolded()) {
+                // 尝试存入仓库
+                ItemStack remaining = WarehouseManager.addFluid(warehouse, stackInSlot, player);
+                if (remaining.getCount() == originalStack.getCount()) {
+                    WarehouseManager.addItem(warehouse, stackInSlot, player);
+                    remaining = stackInSlot;
+                }
+
+                if (remaining.getCount() < originalStack.getCount()) {
+                    slot.set(remaining);
+                    slot.setChanged();
+                    return originalStack;
+                }
+            }
+            // 存入失败或未开启快速存取，交给原版处理（移动到容器）
             return null;
         }
 
-        // 快速交互：尝试存入仓库
-        if (warehouse.isQuickInteraction() && !warehouse.isFolded()) {
-            // 优先尝试作为流体桶存入
+        // 分支 D: 普通容器槽位（如铁砧结果、熔炉、箱子等）
+        if (warehouse.isQuickInteraction() && !warehouse.isFolded() && !isSpecialSlot(slot, menu)) {
+            // 尝试存入仓库
             ItemStack remaining = WarehouseManager.addFluid(warehouse, stackInSlot, player);
-
-            // 非流体则作为普通物品存入
             if (remaining.getCount() == originalStack.getCount()) {
                 WarehouseManager.addItem(warehouse, stackInSlot, player);
                 remaining = stackInSlot;
@@ -223,45 +230,45 @@ public class WarehouseMenuHandler {
             if (remaining.getCount() < originalStack.getCount()) {
                 slot.set(remaining);
                 slot.setChanged();
-                return originalStack; // 返回副本表示成功
+                return originalStack;
             }
         }
 
-        // 未开启快速交互或仓库已满：在容器和背包间移动
-        int invStart = -1;
-        int invEnd = -1;
-        for (int i = 0; i < menu.slots.size(); i++) {
-            Slot s = menu.slots.get(i);
-            if (s.container instanceof Inventory && s.getContainerSlot() < 36) {
-                if (invStart == -1)
-                    invStart = i;
-                invEnd = i + 1;
-            }
-        }
+        // 始终交给原版处理，确保触发 onTake 等逻辑，并移动到玩家背包
+        return null;
+    }
 
-        if (invStart != -1) {
-            AbstractContainerMenuAccessor accessor = (AbstractContainerMenuAccessor) menu;
-            boolean moved = false;
-            // 从背包移入容器
-            if (index >= invStart && index < invEnd) {
-                moved = accessor.invokeMoveItemStackTo(stackInSlot, 0, invStart, false);
-            }
-            // 从容器移入背包
-            else if (index < invStart) {
-                moved = accessor.invokeMoveItemStackTo(stackInSlot, invStart, invEnd, true);
-            }
+    /**
+     * 识别具有特殊逻辑的槽位（如合成结果槽），这些槽位不应直接存入仓库
+     */
+    private static boolean isSpecialSlot(Slot slot, AbstractContainerMenu menu) {
+        // 1. 基础类型检查
+        if (slot instanceof ResultSlot)
+            return true;
 
-            if (moved) {
-                if (stackInSlot.isEmpty()) {
-                    slot.set(ItemStack.EMPTY);
-                } else {
-                    slot.setChanged();
-                }
-                return originalStack; // 返回原始副本表示成功
-            }
-        }
+        // 2. 类名检查（涵盖 FurnaceResultSlot, CraftingResultSlot 等）
+        String className = slot.getClass().getSimpleName();
+        if (className.contains("Result"))
+            return true;
 
-        return null; // 返回 null 让原版逻辑继续处理
+        // 3. 针对特定菜单的索引检查（针对没有继承 ResultSlot 的匿名内部类）
+        int index = slot.getContainerSlot();
+        if (menu instanceof AnvilMenu && index == 2)
+            return true;
+        if (menu instanceof SmithingMenu && index == 3)
+            return true;
+        if (menu instanceof LoomMenu && index == 3)
+            return true;
+        if (menu instanceof CartographyTableMenu && index == 2)
+            return true;
+        if (menu instanceof GrindstoneMenu && index == 2)
+            return true;
+        if (menu instanceof StonecutterMenu && index == 1)
+            return true;
+        if (menu instanceof MerchantMenu && index == 2)
+            return true;
+
+        return false;
     }
 
     public static ItemStack handleCraftingQuickMove(AbstractContainerMenu menu, List<Slot> slots,
