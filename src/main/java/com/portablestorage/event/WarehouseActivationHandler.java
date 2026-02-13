@@ -27,8 +27,8 @@ public class WarehouseActivationHandler {
             if (world.isClientSide) return InteractionResultHolder.pass(ItemStack.EMPTY);
 
             ItemStack stack = player.getItemInHand(hand);
-            Item fullItem = BuiltInRegistries.ITEM.get(ResourceLocation.parse(ModConfig.fullWarehouseActivationItem));
-            Item baseItem = BuiltInRegistries.ITEM.get(ResourceLocation.parse(ModConfig.baseWarehouseActivationItem));
+            Item fullItem = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(ModConfig.fullWarehouseActivationItem));
+            Item baseItem = BuiltInRegistries.ITEM.get(ResourceLocation.tryParse(ModConfig.baseWarehouseActivationItem));
             if (fullItem == Items.AIR) fullItem = Items.NETHER_STAR;
             if (baseItem == Items.AIR) baseItem = Items.HEART_OF_THE_SEA;
 

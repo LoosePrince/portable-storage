@@ -326,9 +326,9 @@ public class PortableStorageCommand {
                         continue;
                     }
                     
-                    // 检查是否为折叠项
-                    net.minecraft.world.item.component.CustomData customData = itemStack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
-                    boolean isCollapsed = customData != null && customData.copyTag().getBoolean(com.portablestorage.util.WarehouseConstants.SMART_COLLAPSE_TAG);
+                    // 检查是否为折叠项（在 1.20.1 中使用 NBT 标记）
+                    net.minecraft.nbt.CompoundTag tag = itemStack.getTag();
+                    boolean isCollapsed = tag != null && tag.getBoolean(com.portablestorage.util.WarehouseConstants.SMART_COLLAPSE_TAG);
                     if (isCollapsed) {
                         continue;
                     }
