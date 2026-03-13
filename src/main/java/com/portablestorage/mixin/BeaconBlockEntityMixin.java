@@ -23,7 +23,7 @@ public abstract class BeaconBlockEntityMixin {
      */
     @Inject(method = "applyEffects", at = @At("TAIL"))
     private static void portablestorage$applyAvatarEffects(Level level, BlockPos pos, int levels, Holder<MobEffect> primary, Holder<MobEffect> secondary, CallbackInfo ci) {
-        if (level == null || level.isClientSide || primary == null) return;
+        if (level == null || level.isClientSide() || primary == null) return;
         
         int range = levels * 10 + 10;
         // 使用与原版完全一致的 AABB 计算方式

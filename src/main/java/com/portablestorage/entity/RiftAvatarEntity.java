@@ -1,8 +1,8 @@
 package com.portablestorage.entity;
 
-import net.minecraft.nbt.CompoundTag;
+import java.util.UUID;
+
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -10,9 +10,6 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-
-import java.util.Collections;
-import java.util.UUID;
 
 public class RiftAvatarEntity extends LivingEntity {
     private UUID ownerId;
@@ -41,14 +38,13 @@ public class RiftAvatarEntity extends LivingEntity {
     }
 
     private ServerPlayer getOwnerPlayer() {
-        if (ownerId == null) return null;
-        if (this.level().isClientSide) return null;
+        if (ownerId == null) {
+            return null;
+        }
+        if (this.level().isClientSide()) {
+            return null;
+        }
         return this.level().getServer().getPlayerList().getPlayer(ownerId);
-    }
-
-    @Override
-    public Iterable<ItemStack> getArmorSlots() {
-        return Collections.emptyList();
     }
 
     @Override
@@ -63,16 +59,6 @@ public class RiftAvatarEntity extends LivingEntity {
     @Override
     public net.minecraft.world.entity.HumanoidArm getMainArm() {
         return net.minecraft.world.entity.HumanoidArm.RIGHT;
-    }
-
-    @Override
-    public boolean hurt(DamageSource source, float amount) {
-        ServerPlayer owner = getOwnerPlayer();
-        if (owner != null) {
-            owner.hurt(source, amount);
-            return true;
-        }
-        return false;
     }
 
     @Override
@@ -96,27 +82,29 @@ public class RiftAvatarEntity extends LivingEntity {
     }
 
     @Override
-    public void readAdditionalSaveData(CompoundTag compound) {
-        super.readAdditionalSaveData(compound);
-        if (compound.hasUUID("OwnerId")) {
-            this.ownerId = compound.getUUID("OwnerId");
-        }
+    public void readAdditionalSaveData(net.minecraft.world.level.storage.ValueInput input) {
+        super.readAdditionalSaveData(input);
+        input.getString("OwnerId").ifPresent(owner -> {
+            try {
+                this.ownerId = UUID.fromString(owner);
+            } catch (IllegalArgumentException ignored) {
+            }
+        });
     }
 
     @Override
-    public void addAdditionalSaveData(CompoundTag compound) {
-        super.addAdditionalSaveData(compound);
+    public void addAdditionalSaveData(net.minecraft.world.level.storage.ValueOutput output) {
+        super.addAdditionalSaveData(output);
         if (this.ownerId != null) {
-            compound.putUUID("OwnerId", this.ownerId);
+            output.putString("OwnerId", this.ownerId.toString());
         }
     }
 
     @Override
     public void tick() {
-        if (!this.level().isClientSide && this.tickCount % 20 == 0) {
+        if (!this.level().isClientSide() && this.tickCount % 20 == 0) {
             this.setHealth(this.getMaxHealth());
         }
         super.tick();
     }
 }
-

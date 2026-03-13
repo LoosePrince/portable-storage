@@ -8,6 +8,17 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
  * 处理服务端发送到客户端的网络数据包
  */
 public class ModClientNetworking {
+    // 客户端缓存：当前玩家是否被服务端允许编辑服务器配置
+    private static volatile boolean canEditServerConfig = false;
+
+    public static boolean canEditServerConfig() {
+        return canEditServerConfig;
+    }
+
+    public static void requestConfigPermission() {
+        ClientPlayNetworking.send(new C2SQueryConfigPermissionPayload());
+    }
+
     public static void registerClientReceivers() {
         ClientPlayNetworking.registerGlobalReceiver(SyncConfigPayload.TYPE, (payload, context) -> {
             context.client().execute(() -> {
@@ -30,6 +41,12 @@ public class ModClientNetworking {
                 ModConfig.riftChunkSize = payload.riftChunkSize();
                 ModConfig.enableRiftForcedLoading = payload.enableRiftForcedLoading();
                 ModConfig.riftForcedLoadingRange = payload.riftForcedLoadingRange();
+            });
+        });
+
+        ClientPlayNetworking.registerGlobalReceiver(S2CConfigPermissionResultPayload.TYPE, (payload, context) -> {
+            context.client().execute(() -> {
+                canEditServerConfig = payload.canEdit();
             });
         });
 

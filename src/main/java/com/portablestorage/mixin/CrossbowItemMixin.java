@@ -1,9 +1,16 @@
 package com.portablestorage.mixin;
 
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.logic.WarehouseManager;
+
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.CrossbowItem;
@@ -12,29 +19,33 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.ChargedProjectiles;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.Level;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(CrossbowItem.class)
 public abstract class CrossbowItemMixin {
 
     @Inject(method = "releaseUsing", at = @At("TAIL"))
-    private void onStoppedUsing(ItemStack stack, Level level, LivingEntity user, int remainingUseTicks, CallbackInfo ci) {
-        if (level.isClientSide) return;
-        if (!(user instanceof ServerPlayer player)) return;
-        if (player.getAbilities().instabuild) return;
+    private void onStoppedUsing(ItemStack stack, Level level, LivingEntity user, int remainingUseTicks,
+            CallbackInfoReturnable<?> ci) {
+        if (level.isClientSide())
+            return;
+        if (!(user instanceof ServerPlayer player))
+            return;
+        if (player.getAbilities().instabuild)
+            return;
 
         // 检查弩是否已装填
         ChargedProjectiles chargedProjectiles = stack.get(DataComponents.CHARGED_PROJECTILES);
-        if (chargedProjectiles == null || chargedProjectiles.isEmpty()) return;
+        if (chargedProjectiles == null || chargedProjectiles.isEmpty())
+            return;
 
         // 优先消耗背包中的弹药（原版逻辑会处理）
-        if (hasAnyAmmo(player)) return;
+        if (hasAnyAmmo(player))
+            return;
 
-        PlayerWarehouse warehouse = ModComponents.getWarehouse(player.getServer(), player.getUUID());
-        if (warehouse == null || !warehouse.isEnabled()) return;
+        PlayerWarehouse warehouse = ModComponents.getWarehouse(((ServerLevel) player.level()).getServer(),
+                player.getUUID());
+        if (warehouse == null || !warehouse.isEnabled())
+            return;
 
         // 查找合适的弹药
         ItemStack matchedAmmo = null;
@@ -45,7 +56,8 @@ public abstract class CrossbowItemMixin {
                     matchedAmmo = s;
                     break;
                 }
-                if (matchedAmmo == null) matchedAmmo = s;
+                if (matchedAmmo == null)
+                    matchedAmmo = s;
             }
         }
 
@@ -80,13 +92,14 @@ public abstract class CrossbowItemMixin {
 
     private boolean hasAnyAmmo(ServerPlayer player) {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            if (isAmmo(player.getInventory().getItem(i))) return true;
+            if (isAmmo(player.getInventory().getItem(i)))
+                return true;
         }
         return false;
     }
 
     private boolean isAmmo(ItemStack stack) {
-        return !stack.isEmpty() && (stack.is(Items.ARROW) || stack.is(Items.TIPPED_ARROW) || stack.is(Items.SPECTRAL_ARROW) || stack.is(Items.FIREWORK_ROCKET));
+        return !stack.isEmpty() && (stack.is(Items.ARROW) || stack.is(Items.TIPPED_ARROW)
+                || stack.is(Items.SPECTRAL_ARROW) || stack.is(Items.FIREWORK_ROCKET));
     }
 }
-

@@ -55,23 +55,4 @@ public abstract class ContainerScreensMixin {
         }
     }
 
-    /**
-     * 在 render 方法返回前注入，绘制覆盖层和文本（在原版槽位高亮之后）
-     * 注意：排除 InventoryScreen 和 CraftingWarehouseScreen
-     */
-    @Inject(method = "render", at = @At("RETURN"))
-    private void onRenderReturn(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-        // 排除 InventoryScreen，因为它由 InventoryScreenMixin 处理
-        if ((Object) this instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen)
-            return;
-        // 排除 CraftingWarehouseScreen，因为它有自己的实现
-        if ((Object) this instanceof com.portablestorage.screen.CraftingWarehouseScreen)
-            return;
-
-        WarehouseScreen screen = (WarehouseScreen) this;
-        var warehouseWidget = screen.portablestorage$getWarehouseWidget();
-        if (warehouseWidget != null && warehouseWidget.shouldShow()) {
-            warehouseWidget.renderOverlays(graphics, mouseX, mouseY, partialTick);
-        }
-    }
 }

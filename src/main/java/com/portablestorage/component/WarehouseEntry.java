@@ -101,7 +101,13 @@ public class WarehouseEntry {
      */
     public CompoundTag toNbt(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
-        tag.put("item", itemStack.saveOptional(registries));
+        // 使用 ItemStack.CODEC + registries 序列化
+        var ops = net.minecraft.nbt.NbtOps.INSTANCE;
+        var ctx = registries.createSerializationContext(ops);
+        net.minecraft.world.item.ItemStack.CODEC.encodeStart(ctx, itemStack)
+                .resultOrPartial(__ -> {
+                })
+                .ifPresent(nbt -> tag.put("item", nbt));
         tag.putLong("count", count);
         tag.putLong("lastUpdated", lastUpdated);
         tag.putBoolean("pinned", pinned);
@@ -115,12 +121,40 @@ public class WarehouseEntry {
      * @return 仓库条目实例
      */
     public static WarehouseEntry fromNbt(CompoundTag tag, HolderLookup.Provider registries) {
-        ItemStack stack = ItemStack.parseOptional(registries, tag.getCompound("item"));
-        long count = tag.getLong("count");
+        java.util.Optional<CompoundTag> itemTagOpt = tag.getCompound("item");
+        ItemStack stack = itemFromNbt(itemTagOpt.orElse(new CompoundTag()), registries);
+        long count = tag.getLong("count").orElse(0L);
         WarehouseEntry entry = new WarehouseEntry(stack, count);
-        entry.lastUpdated = tag.getLong("lastUpdated");
-        entry.pinned = tag.getBoolean("pinned");
+        entry.lastUpdated = tag.getLong("lastUpdated").orElse(0L);
+        entry.pinned = tag.getBoolean("pinned").orElse(false);
         return entry;
+    }
+
+    public static ItemStack itemFromNbt(CompoundTag tag, HolderLookup.Provider registries) {
+        // 使用 ItemStack.CODEC 进行反序列化，避免依赖已移除的 parseOptional
+        var ops = net.minecraft.nbt.NbtOps.INSTANCE;
+        var ctx = registries.createSerializationContext(ops);
+        return net.minecraft.world.item.ItemStack.CODEC.parse(ctx, tag)
+                .resultOrPartial(__ -> {
+                })
+                .orElse(ItemStack.EMPTY);
+    }
+
+    public static CompoundTag itemToNbt(ItemStack stack, HolderLookup.Provider registries) {
+        CompoundTag tag = new CompoundTag();
+        var ops = net.minecraft.nbt.NbtOps.INSTANCE;
+        var ctx = registries.createSerializationContext(ops);
+        net.minecraft.world.item.ItemStack.CODEC.encodeStart(ctx, stack)
+                .resultOrPartial(__ -> {
+                })
+                .ifPresent(nbt -> {
+                    if (nbt instanceof CompoundTag compound) {
+                        tag.merge(compound);
+                    } else {
+                        tag.put("stack", nbt);
+                    }
+                });
+        return tag;
     }
 }
 

@@ -345,7 +345,7 @@ public class WarehouseConstants {
     /** 数量文本相对 Y 坐标 */
     public static final int QUANTITY_TEXT_Y_RELATIVE = 11;
     /** 数量文本颜色（白色） */
-    public static final int QUANTITY_TEXT_COLOR = 0xFFFFFF;
+    public static final int QUANTITY_TEXT_COLOR = 0xFFFFFFFF;
     /** 数量文本颜色（零数量时的灰色） */
     public static final int QUANTITY_TEXT_COLOR_ZERO = 0xFFAAAAAA;
 

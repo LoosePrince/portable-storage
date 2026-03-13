@@ -1,18 +1,40 @@
 package com.portablestorage.handler;
 
+import java.util.List;
+
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.mixin.accessor.AbstractContainerMenuAccessor;
+import com.portablestorage.upgrade.UpgradeSlot;
 import com.portablestorage.util.WarehouseConstants;
 import com.portablestorage.util.WarehouseUtils;
-import com.portablestorage.upgrade.UpgradeSlot;
+
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.*;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.AnvilMenu;
+import net.minecraft.world.inventory.BeaconMenu;
+import net.minecraft.world.inventory.BlastFurnaceMenu;
+import net.minecraft.world.inventory.BrewingStandMenu;
+import net.minecraft.world.inventory.CartographyTableMenu;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.CraftingContainer;
+import net.minecraft.world.inventory.DispenserMenu;
+import net.minecraft.world.inventory.EnchantmentMenu;
+import net.minecraft.world.inventory.FurnaceMenu;
+import net.minecraft.world.inventory.GrindstoneMenu;
+import net.minecraft.world.inventory.HopperMenu;
+import net.minecraft.world.inventory.InventoryMenu;
+import net.minecraft.world.inventory.LoomMenu;
+import net.minecraft.world.inventory.MerchantMenu;
+import net.minecraft.world.inventory.ResultSlot;
+import net.minecraft.world.inventory.ShulkerBoxMenu;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.inventory.SmithingMenu;
+import net.minecraft.world.inventory.SmokerMenu;
+import net.minecraft.world.inventory.StonecutterMenu;
 import net.minecraft.world.item.ItemStack;
-
-import java.util.List;
 
 /**
  * 仓库菜单处理器
@@ -299,7 +321,7 @@ public class WarehouseMenuHandler {
                         while (slot.hasItem()) {
                             ItemStack currentResult = slot.getItem();
                             ItemStack resultCopy = currentResult.copy();
-                            currentResult.getItem().onCraftedBy(currentResult, player.level(), player);
+                            currentResult.getItem().onCraftedBy(currentResult, player);
                             if (!accessor.invokeMoveItemStackTo(currentResult, invStart, invEnd, true)) {
                                 break;
                             }

@@ -1,9 +1,16 @@
 package com.portablestorage.mixin;
 
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.logic.WarehouseManager;
+
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.BowItem;
@@ -11,25 +18,28 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.Level;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(BowItem.class)
 public abstract class BowItemMixin {
 
     @Inject(method = "releaseUsing", at = @At("HEAD"))
-    private void onStoppedUsing(ItemStack stack, Level level, LivingEntity user, int remainingUseTicks, CallbackInfo ci) {
-        if (level.isClientSide) return;
-        if (!(user instanceof ServerPlayer player)) return;
-        if (player.getAbilities().instabuild) return;
+    private void onStoppedUsing(ItemStack stack, Level level, LivingEntity user, int remainingUseTicks,
+            CallbackInfoReturnable<?> ci) {
+        if (level.isClientSide())
+            return;
+        if (!(user instanceof ServerPlayer player))
+            return;
+        if (player.getAbilities().instabuild)
+            return;
 
         // 优先消耗背包中的箭（原版逻辑会处理）
-        if (hasAnyArrow(player)) return;
+        if (hasAnyArrow(player))
+            return;
 
-        PlayerWarehouse warehouse = ModComponents.getWarehouse(player.getServer(), player.getUUID());
-        if (warehouse == null || !warehouse.isEnabled()) return;
+        PlayerWarehouse warehouse = ModComponents.getWarehouse(((ServerLevel) player.level()).getServer(),
+                player.getUUID());
+        if (warehouse == null || !warehouse.isEnabled())
+            return;
 
         // 查找合适的箭
         ItemStack matchedArrow = null;
@@ -40,7 +50,8 @@ public abstract class BowItemMixin {
                     matchedArrow = s;
                     break;
                 }
-                if (matchedArrow == null) matchedArrow = s;
+                if (matchedArrow == null)
+                    matchedArrow = s;
             }
         }
 
@@ -76,13 +87,14 @@ public abstract class BowItemMixin {
     private boolean hasAnyArrow(ServerPlayer player) {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack s = player.getInventory().getItem(i);
-            if (!s.isEmpty() && (s.is(Items.ARROW) || s.is(Items.TIPPED_ARROW) || s.is(Items.SPECTRAL_ARROW))) return true;
+            if (!s.isEmpty() && (s.is(Items.ARROW) || s.is(Items.TIPPED_ARROW) || s.is(Items.SPECTRAL_ARROW)))
+                return true;
         }
         return false;
     }
 
     private boolean isArrow(ItemStack stack) {
-        return !stack.isEmpty() && (stack.is(Items.ARROW) || stack.is(Items.TIPPED_ARROW) || stack.is(Items.SPECTRAL_ARROW));
+        return !stack.isEmpty()
+                && (stack.is(Items.ARROW) || stack.is(Items.TIPPED_ARROW) || stack.is(Items.SPECTRAL_ARROW));
     }
 }
-

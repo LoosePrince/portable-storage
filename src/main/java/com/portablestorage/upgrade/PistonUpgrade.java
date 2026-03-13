@@ -1,20 +1,21 @@
 package com.portablestorage.upgrade;
 
+import java.util.List;
+
 import com.portablestorage.PortableStorage;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.logic.WarehouseManager;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
-import java.util.List;
-
 public class PistonUpgrade extends UpgradeType {
-    public static final ResourceLocation ID = PortableStorage.id("piston");
+    public static final Identifier ID = PortableStorage.id("piston");
 
     public PistonUpgrade() {
         super(ID, null, stack -> stack.is(Items.PISTON) || stack.is(Items.STICKY_PISTON));
@@ -41,8 +42,9 @@ public class PistonUpgrade extends UpgradeType {
 
     private void replenishHand(PlayerWarehouse warehouse, ServerPlayer player, InteractionHand hand) {
         ItemStack handStack = player.getItemInHand(hand);
-        if (handStack.isEmpty() || !handStack.isStackable()) return;
-        
+        if (handStack.isEmpty() || !handStack.isStackable())
+            return;
+
         if (handStack.getCount() < handStack.getMaxStackSize()) {
             int toAdd = handStack.getMaxStackSize() - handStack.getCount();
             ItemStack taken = WarehouseManager.takeMatching(warehouse, handStack, toAdd, true);
@@ -52,4 +54,3 @@ public class PistonUpgrade extends UpgradeType {
         }
     }
 }
-

@@ -1,7 +1,10 @@
 package com.portablestorage.block;
 
+import org.jetbrains.annotations.Nullable;
+
 import com.mojang.serialization.MapCodec;
 import com.portablestorage.block.entity.BoundBarrelBlockEntity;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -18,15 +21,13 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
-import net.minecraft.world.level.block.state.properties.DirectionProperty;
+import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.phys.BlockHitResult;
-import org.jetbrains.annotations.Nullable;
 
 public class BoundBarrelBlock extends BaseEntityBlock {
     public static final MapCodec<BoundBarrelBlock> CODEC = simpleCodec(BoundBarrelBlock::new);
-    public static final DirectionProperty FACING = BlockStateProperties.FACING;
-    public static final BooleanProperty OPEN = BlockStateProperties.OPEN;
+    public static final Property<Direction> FACING = BlockStateProperties.FACING;
+    public static final Property<Boolean> OPEN = BlockStateProperties.OPEN;
 
     public BoundBarrelBlock(Properties properties) {
         super(properties);
@@ -54,16 +55,19 @@ public class BoundBarrelBlock extends BaseEntityBlock {
     }
 
     @Override
-    public InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
-        if (level.isClientSide) {
+    public InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
+            BlockHitResult hitResult) {
+        if (level.isClientSide()) {
             return InteractionResult.SUCCESS;
         } else {
             BlockEntity blockEntity = level.getBlockEntity(pos);
             if (blockEntity instanceof BoundBarrelBlockEntity boundBarrel) {
                 // 权限检查：只有所有者可以打开界面
                 if (boundBarrel.getOwnerUuid() != null && !boundBarrel.getOwnerUuid().equals(player.getUUID())) {
-                    player.displayClientMessage(Component.translatable("message.portablestorage.bound_barrel_no_permission")
-                        .withStyle(net.minecraft.ChatFormatting.RED), true);
+                    player.displayClientMessage(
+                            Component.translatable("message.portablestorage.bound_barrel_no_permission")
+                                    .withStyle(net.minecraft.ChatFormatting.RED),
+                            true);
                     return InteractionResult.FAIL;
                 }
                 player.openMenu(boundBarrel);
@@ -73,13 +77,26 @@ public class BoundBarrelBlock extends BaseEntityBlock {
     }
 
     @Override
-    public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer,
+            ItemStack stack) {
         if (stack.has(net.minecraft.core.component.DataComponents.CUSTOM_DATA)) {
             BlockEntity blockEntity = level.getBlockEntity(pos);
             if (blockEntity instanceof BoundBarrelBlockEntity boundBarrel) {
-                net.minecraft.nbt.CompoundTag tag = stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA).copyTag();
-                if (tag.hasUUID("owner")) {
-                    boundBarrel.setOwner(tag.getUUID("owner"), tag.getString("ownerName"));
+                net.minecraft.nbt.CompoundTag tag = stack
+                        .get(net.minecraft.core.component.DataComponents.CUSTOM_DATA)
+                        .copyTag();
+                if (tag.contains("owner")) {
+                    java.util.Optional<String> ownerStrOpt = tag.getString("owner");
+                    java.util.Optional<String> ownerNameOpt = tag.getString("ownerName");
+                    if (ownerStrOpt.isPresent()) {
+                        try {
+                            java.util.UUID ownerUuid = java.util.UUID.fromString(ownerStrOpt.get());
+                            String ownerName = ownerNameOpt.orElse("");
+                            boundBarrel.setOwner(ownerUuid, ownerName);
+                        } catch (IllegalArgumentException ignored) {
+                            // ignore invalid UUID format
+                        }
+                    }
                 }
             }
         }
@@ -89,7 +106,7 @@ public class BoundBarrelBlock extends BaseEntityBlock {
     public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
         BlockEntity blockEntity = level.getBlockEntity(pos);
         if (blockEntity instanceof BoundBarrelBlockEntity boundBarrel) {
-            if (!level.isClientSide && !player.isCreative()) {
+            if (!level.isClientSide() && !player.isCreative()) {
                 boundBarrel.setHandledByPlayer(true); // 标记已由玩家处理掉落
                 ItemStack drop;
                 // 只有所有者在 Shift (蹲下) 时破坏才掉落绑定木桶，否则掉落普通木桶
@@ -97,13 +114,14 @@ public class BoundBarrelBlock extends BaseEntityBlock {
                     drop = new ItemStack(com.portablestorage.item.ModItems.BOUND_BARREL);
                     // 保存所有者信息到物品
                     net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
-                    tag.putUUID("owner", boundBarrel.getOwnerUuid());
+                    tag.putString("owner", boundBarrel.getOwnerUuid().toString());
                     tag.putString("ownerName", boundBarrel.getOwnerName());
-                    drop.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(tag));
+                    drop.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
+                            net.minecraft.world.item.component.CustomData.of(tag));
                 } else {
                     drop = new ItemStack(net.minecraft.world.item.Items.BARREL);
                 }
-                
+
                 popResource(level, pos, drop);
                 net.minecraft.world.Containers.dropContents(level, pos, boundBarrel.getInventory());
             }
@@ -111,20 +129,13 @@ public class BoundBarrelBlock extends BaseEntityBlock {
         return super.playerWillDestroy(level, pos, state, player);
     }
 
-    @Override
-    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
-        if (!state.is(newState.getBlock())) {
-            BlockEntity blockEntity = level.getBlockEntity(pos);
-            if (blockEntity instanceof BoundBarrelBlockEntity boundBarrel) {
-                // 如果不是由玩家破坏（例如爆炸、活塞），则掉落普通木桶和内部物品
-                if (!boundBarrel.isHandledByPlayer()) {
-                    if (!level.isClientSide) {
-                        popResource(level, pos, new ItemStack(net.minecraft.world.item.Items.BARREL));
-                        net.minecraft.world.Containers.dropContents(level, pos, boundBarrel.getInventory());
-                    }
-                }
+    public void onBroken(net.minecraft.world.level.LevelAccessor world, BlockPos pos, BlockState state) {
+        BlockEntity blockEntity = world.getBlockEntity(pos);
+        if (blockEntity instanceof BoundBarrelBlockEntity boundBarrel && !boundBarrel.isHandledByPlayer()) {
+            if (world instanceof Level level && !level.isClientSide()) {
+                popResource(level, pos, new ItemStack(net.minecraft.world.item.Items.BARREL));
+                net.minecraft.world.Containers.dropContents(level, pos, boundBarrel.getInventory());
             }
-            super.onRemove(state, level, pos, newState, moved);
         }
     }
 
@@ -134,4 +145,3 @@ public class BoundBarrelBlock extends BaseEntityBlock {
         return new BoundBarrelBlockEntity(pos, state);
     }
 }
-

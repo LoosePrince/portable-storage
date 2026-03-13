@@ -1,23 +1,30 @@
 package com.portablestorage.mixin.client;
 
-import com.portablestorage.client.gui.WarehouseScreen;
-import com.portablestorage.config.ModConfig;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.gui.screens.inventory.InventoryScreen;
-import net.minecraft.client.gui.screens.inventory.EffectRenderingInventoryScreen;
-import net.minecraft.world.inventory.InventoryMenu;
-import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(InventoryScreen.class)
-public abstract class InventoryScreenMixin extends EffectRenderingInventoryScreen<InventoryMenu> {
+import com.portablestorage.client.gui.WarehouseScreen;
+import com.portablestorage.config.ModConfig;
 
-    public InventoryScreenMixin(InventoryMenu menu, net.minecraft.world.entity.player.Inventory playerInventory, Component title) {
-        super(menu, playerInventory, title);
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.screens.inventory.AbstractRecipeBookScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.gui.screens.recipebook.RecipeBookComponent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.InventoryMenu;
+
+@Mixin(InventoryScreen.class)
+public abstract class InventoryScreenMixin extends AbstractRecipeBookScreen<InventoryMenu> {
+
+    public InventoryScreenMixin(InventoryMenu menu,
+            RecipeBookComponent<InventoryMenu> recipeBook,
+            Inventory playerInventory,
+            Component title) {
+        super(menu, recipeBook, playerInventory, title);
     }
 
     @Inject(method = "init", at = @At("RETURN"))

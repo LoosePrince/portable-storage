@@ -5,6 +5,7 @@ import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.mixin.accessor.AbstractContainerMenuAccessor;
 import com.portablestorage.upgrade.ExperienceUpgrade;
+
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
@@ -132,7 +133,7 @@ public class WarehouseInteractionHandler {
 
     private static void handleExperienceClick(PlayerWarehouse warehouse, int slotIndex, int button, ClickType clickType,
             Player player) {
-        if (player.level().isClientSide)
+        if (player.level().isClientSide())
             return;
 
         ItemStack upgradeStack = warehouse.getUpgrade(ExperienceUpgrade.ID);

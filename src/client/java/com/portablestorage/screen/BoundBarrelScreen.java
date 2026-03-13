@@ -2,12 +2,14 @@ package com.portablestorage.screen;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
 
 public class BoundBarrelScreen extends AbstractContainerScreen<BoundBarrelScreenHandler> {
-    private static final ResourceLocation HOPPER_LOCATION = ResourceLocation.withDefaultNamespace("textures/gui/container/hopper.png");
+    private static final Identifier HOPPER_LOCATION = Identifier.fromNamespaceAndPath("minecraft",
+            "textures/gui/container/hopper.png");
 
     public BoundBarrelScreen(BoundBarrelScreenHandler handler, Inventory inventory, Component title) {
         super(handler, inventory, title);
@@ -25,7 +27,7 @@ public class BoundBarrelScreen extends AbstractContainerScreen<BoundBarrelScreen
 
     @Override
     protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
-        guiGraphics.blit(HOPPER_LOCATION, this.leftPos, this.topPos, 0, 0, this.imageWidth, this.imageHeight);
+        guiGraphics.blit(RenderPipelines.GUI_TEXTURED, HOPPER_LOCATION, this.leftPos, this.topPos, 0, 0,
+                this.imageWidth, this.imageHeight, this.imageWidth, this.imageHeight, 256, 256);
     }
 }
-

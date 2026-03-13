@@ -1,26 +1,28 @@
 package com.portablestorage.item;
 
-import net.minecraft.ChatFormatting;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.HoverEvent;
-import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.CustomData;
-import net.minecraft.world.level.Level;
-
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.component.TooltipDisplay;
 
 public class EasterEggItem extends Item {
     private static final String GITHUB_API_URL = "https://api.github.com/repos/LoosePrince/portable-storage/releases/tags/note";
@@ -36,9 +38,11 @@ public class EasterEggItem extends Item {
     }
 
     @Override
-    public void inventoryTick(ItemStack stack, Level level, net.minecraft.world.entity.Entity entity, int slotId, boolean isSelected) {
-        if (level.isClientSide || !(entity instanceof ServerPlayer player)) return;
-        if (stack.isEmpty() || player.getAbilities().instabuild) return;
+    public void inventoryTick(ItemStack stack, ServerLevel level, Entity entity, EquipmentSlot slot) {
+        if (level.isClientSide() || !(entity instanceof ServerPlayer player))
+            return;
+        if (stack.isEmpty() || player.getAbilities().instabuild)
+            return;
 
         // 检查是否已经处理过（避免重复触发）
         CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
@@ -53,7 +57,7 @@ public class EasterEggItem extends Item {
 
         // 先消耗彩蛋物品
         stack.shrink(1);
-        
+
         // 给予玩家书与笔和羽毛
         ItemStack writableBook = new ItemStack(Items.WRITABLE_BOOK, 1);
         ItemStack feather = new ItemStack(Items.FEATHER, 1);
@@ -81,61 +85,57 @@ public class EasterEggItem extends Item {
             }
             return null;
         })
-            .thenAccept(result -> {
-                // 在主线程执行
-                finalPlayer.server.execute(() -> {
-                    Component messageComponent;
-                    
-                    if (result != null && result.content != null && !result.content.isEmpty()) {
-                        if (result.isGitHubContent) {
-                            // GitHub 内容，直接显示
-                            messageComponent = Component.literal(result.content).withStyle(ChatFormatting.GOLD);
-                        } else {
-                            // 一言内容，构建悬停信息
-                            MutableComponent hoverTextBuilder = Component.literal(result.content).withStyle(ChatFormatting.GRAY);
-                            
-                            if (result.from != null && !result.from.isEmpty()) {
-                                if (result.fromWho != null && !result.fromWho.isEmpty()) {
-                                    hoverTextBuilder = hoverTextBuilder.append(Component.literal("\n"))
-                                            .append(Component.literal("—— " + result.from + " · " + result.fromWho)
-                                                    .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
-                                } else {
-                                    hoverTextBuilder = hoverTextBuilder.append(Component.literal("\n"))
-                                            .append(Component.literal("—— " + result.from)
-                                                    .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
+                .thenAccept(result -> {
+                    // 在主线程执行
+                    ((ServerLevel) finalPlayer.level()).getServer().execute(() -> {
+                        Component messageComponent;
+
+                        if (result != null && result.content != null && !result.content.isEmpty()) {
+                            if (result.isGitHubContent) {
+                                // GitHub 内容，直接显示
+                                messageComponent = Component.literal(result.content).withStyle(ChatFormatting.GOLD);
+                            } else {
+                                // 一言内容，构建悬停信息
+                                MutableComponent hoverTextBuilder = Component.literal(result.content)
+                                        .withStyle(ChatFormatting.GRAY);
+
+                                if (result.from != null && !result.from.isEmpty()) {
+                                    if (result.fromWho != null && !result.fromWho.isEmpty()) {
+                                        hoverTextBuilder = hoverTextBuilder.append(Component.literal("\n"))
+                                                .append(Component.literal("—— " + result.from + " · " + result.fromWho)
+                                                        .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
+                                    } else {
+                                        hoverTextBuilder = hoverTextBuilder.append(Component.literal("\n"))
+                                                .append(Component.literal("—— " + result.from)
+                                                        .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
+                                    }
                                 }
+
+                                if (result.creator != null && !result.creator.isEmpty()) {
+                                    hoverTextBuilder = hoverTextBuilder.append(Component.literal("\n"))
+                                            .append(Component.literal("创建者: " + result.creator)
+                                                    .withStyle(ChatFormatting.DARK_GRAY));
+                                }
+
+                                // 直接显示完整内容（不再添加悬停事件，避免新版 HoverEvent API 兼容问题）
+                                messageComponent = hoverTextBuilder;
                             }
-                            
-                            if (result.creator != null && !result.creator.isEmpty()) {
-                                hoverTextBuilder = hoverTextBuilder.append(Component.literal("\n"))
-                                        .append(Component.literal("创建者: " + result.creator)
-                                                .withStyle(ChatFormatting.DARK_GRAY));
-                            }
-                            
-                            final Component hoverText = hoverTextBuilder;
-                            
-                            // 创建带悬停事件的消息
-                            messageComponent = Component.literal(result.content)
-                                    .withStyle(style -> style.withHoverEvent(
-                                            new HoverEvent(HoverEvent.Action.SHOW_TEXT, hoverText)
-                                    ));
+                        } else {
+                            // 默认消息，无悬停信息
+                            messageComponent = Component.literal(DEFAULT_MESSAGE);
                         }
-                    } else {
-                        // 默认消息，无悬停信息
-                        messageComponent = Component.literal(DEFAULT_MESSAGE);
-                    }
-                    
-                    // 显示消息
-                    finalPlayer.displayClientMessage(messageComponent, false);
+
+                        // 显示消息
+                        finalPlayer.displayClientMessage(messageComponent, false);
+                    });
+                })
+                .exceptionally(ex -> {
+                    // 请求失败，显示默认消息
+                    ((ServerLevel) finalPlayer.level()).getServer().execute(() -> {
+                        finalPlayer.displayClientMessage(Component.literal(DEFAULT_MESSAGE), false);
+                    });
+                    return null;
                 });
-            })
-            .exceptionally(ex -> {
-                // 请求失败，显示默认消息
-                finalPlayer.server.execute(() -> {
-                    finalPlayer.displayClientMessage(Component.literal(DEFAULT_MESSAGE), false);
-                });
-                return null;
-            });
     }
 
     /**
@@ -194,7 +194,7 @@ public class EasterEggItem extends Item {
             boolean escaped = false;
             for (int i = bodyStart; i < json.length(); i++) {
                 char c = json.charAt(i);
-                
+
                 if (escaped) {
                     if (c == 'n') {
                         body.append('\n');
@@ -262,7 +262,7 @@ public class EasterEggItem extends Item {
         try {
             // 简单的JSON解析（因为结构固定）
             HitokotoResult result = new HitokotoResult();
-            
+
             // 提取content字段
             int contentStart = json.indexOf("\"content\":\"") + 11;
             if (contentStart > 10) {
@@ -312,36 +312,39 @@ public class EasterEggItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag type) {
-        tooltip.add(Component.translatable("tooltip.portablestorage.easter_egg.desc"));
-        
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display,
+            Consumer<Component> adder, TooltipFlag type) {
+        adder.accept(Component.translatable("tooltip.portablestorage.easter_egg.desc"));
+
         // 显示详细信息（如果物品有存储的数据）
         CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
         if (customData != null) {
             CompoundTag tag = customData.copyTag();
             if (tag.contains(NBT_CONTENT)) {
-                tooltip.add(Component.literal(""));
-                tooltip.add(Component.literal(tag.getString(NBT_CONTENT)).withStyle(ChatFormatting.GRAY));
-                
+                adder.accept(Component.literal(""));
+                adder.accept(Component.literal(tag.getString(NBT_CONTENT).orElse("")).withStyle(ChatFormatting.GRAY));
+
                 if (tag.contains(NBT_FROM)) {
-                    String from = tag.getString(NBT_FROM);
-                    if (tag.contains(NBT_FROM_WHO) && !tag.getString(NBT_FROM_WHO).isEmpty()) {
-                        tooltip.add(Component.literal("—— " + from + " · " + tag.getString(NBT_FROM_WHO))
+                    String from = tag.getString(NBT_FROM).orElse("");
+                    if (tag.contains(NBT_FROM_WHO) && tag.getString(NBT_FROM_WHO).isPresent()
+                            && !tag.getString(NBT_FROM_WHO).get().isEmpty()) {
+                        adder.accept(Component.literal("—— " + from + " · " + tag.getString(NBT_FROM_WHO).orElse(""))
                                 .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
                     } else {
-                        tooltip.add(Component.literal("—— " + from)
+                        adder.accept(Component.literal("—— " + from)
                                 .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
                     }
                 }
-                
-                if (tag.contains(NBT_CREATOR) && !tag.getString(NBT_CREATOR).isEmpty()) {
-                    tooltip.add(Component.literal("创建者: " + tag.getString(NBT_CREATOR))
+
+                if (tag.contains(NBT_CREATOR) && tag.getString(NBT_CREATOR).isPresent()
+                        && !tag.getString(NBT_CREATOR).get().isEmpty()) {
+                    adder.accept(Component.literal("创建者: " + tag.getString(NBT_CREATOR).orElse(""))
                             .withStyle(ChatFormatting.DARK_GRAY));
                 }
             }
         }
-        
-        super.appendHoverText(stack, context, tooltip, type);
+
+        super.appendHoverText(stack, context, display, adder, type);
     }
 
     private static class HitokotoResult {

@@ -1,15 +1,34 @@
 package com.portablestorage.client.gui;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import com.mojang.blaze3d.platform.InputConstants;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
 import com.portablestorage.config.YACLConfig;
-import com.portablestorage.network.*;
-import com.portablestorage.util.*;
 import com.portablestorage.mixin.client.AbstractContainerScreenAccessor;
 import com.portablestorage.mixin.client.ScreenAccessor;
+import com.portablestorage.network.C2SDoubleClickQuickStorePayload;
+import com.portablestorage.network.C2SDropWarehouseItemPayload;
+import com.portablestorage.network.C2STogglePinnedPayload;
+import com.portablestorage.network.C2SUpdateFrozenStatePayload;
+import com.portablestorage.network.C2SUpdateWarehouseStatePayload;
+import com.portablestorage.network.C2SUpgradeInteractionPayload;
+import com.portablestorage.network.OpenCraftingPayload;
+import com.portablestorage.network.QuickTransferPayload;
+import com.portablestorage.network.RefillPayload;
+import com.portablestorage.util.StoragePosition;
+import com.portablestorage.util.WarehouseConstants;
+import com.portablestorage.util.WarehouseRenderer;
+import com.portablestorage.util.WarehouseSetting;
+import com.portablestorage.util.WarehouseUtils;
+
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -17,20 +36,20 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.inventory.ResultSlot;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-
-import java.util.*;
 
 /**
  * 仓库界面组件
  * 管理仓库 UI 的渲染、交互和状态更新
  */
 public class WarehouseWidget {
-    private static final ResourceLocation WAREHOUSE_SLOT_TEXTURE = com.portablestorage.PortableStorage
+    private static final Identifier WAREHOUSE_SLOT_TEXTURE = com.portablestorage.PortableStorage
             .id("textures/gui/slot.png");
 
     private final AbstractContainerScreen<?> screen;
@@ -232,9 +251,10 @@ public class WarehouseWidget {
         });
         this.searchBox.setEditable(true);
         this.searchBox.setBordered(false);
-        this.searchBox.setTextColor(0xFFFFFF);
-        this.searchBox
-                .setHint(Component.translatable("gui.portablestorage.search").withStyle(ChatFormatting.DARK_GRAY));
+        this.searchBox.setTextColor(0xFFFFFFFF);
+        this.searchBox.setTextColorUneditable(0xFFFFFFFF);
+        this.searchBox.setHint(Component.translatable("gui.portablestorage.search")
+                .withStyle(style -> style.withColor(0x666666)));
         this.searchBox.visible = !warehouse.isFolded();
         this.searchBox.active = !warehouse.isFolded();
 
@@ -325,20 +345,41 @@ public class WarehouseWidget {
         renderOverlaysAndText(graphics, mouseX, mouseY);
     }
 
+    public void renderPreTooltipOverlays(GuiGraphics graphics) {
+        if (!shouldShow()) {
+            return;
+        }
+
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null) {
+            return;
+        }
+
+        AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
+        int leftPos = screenAccessor.portablestorage$getLeftPos();
+        int topPos = screenAccessor.portablestorage$getTopPos();
+        int imageHeight = screenAccessor.portablestorage$getImageHeight();
+        var font = ((ScreenAccessor) screen).portablestorage$getFont();
+
+        WarehouseRenderer.renderPinnedOverlays(graphics, leftPos, topPos, warehouse, imageHeight);
+        WarehouseRenderer.renderQuantityTexts(graphics, font, leftPos, topPos, warehouse, imageHeight);
+    }
+
     private void renderCraftingBg(GuiGraphics graphics) {
         AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
         int cx = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.CRAFT_3X3_X - 1;
         int cy = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.CRAFT_3X3_Y - 1;
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 3; col++) {
-                graphics.blit(WAREHOUSE_SLOT_TEXTURE, cx + col * 18, cy + row * 18, 0, 0, 18, 18, 18, 18);
+                graphics.blit(RenderPipelines.GUI_TEXTURED, WAREHOUSE_SLOT_TEXTURE, cx + col * 18, cy + row * 18,
+                        0, 0, 18, 18, 18, 18, 18, 18);
             }
         }
     }
 
     private void handleFrozenMode() {
-        boolean isPressed = net.minecraft.client.gui.screens.Screen.hasShiftDown()
-                && net.minecraft.client.gui.screens.Screen.hasControlDown();
+        boolean isPressed = InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), InputConstants.KEY_LSHIFT)
+                && InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), InputConstants.KEY_LCONTROL);
         if (isPressed != warehouse.isFrozen()) {
             warehouse.setFrozen(isPressed);
             ClientPlayNetworking.send(new C2SUpdateFrozenStatePayload(isPressed));
@@ -359,7 +400,7 @@ public class WarehouseWidget {
             minecraft.setScreen(new InventoryScreen(minecraft.player));
         } else {
             // 对于容器方块界面，尝试通过 init 重新排布
-            screen.init(minecraft, minecraft.getWindow().getGuiScaledWidth(),
+            screen.init(minecraft.getWindow().getGuiScaledWidth(),
                     minecraft.getWindow().getGuiScaledHeight());
         }
     }
@@ -422,10 +463,8 @@ public class WarehouseWidget {
             foldY = topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
         }
 
-        WarehouseRenderer.renderPinnedOverlays(graphics, leftPos, topPos, warehouse, imageHeight);
         WarehouseRenderer.renderAllTooltips(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse, imageHeight,
                 foldX, foldY, indentSidebar);
-        WarehouseRenderer.renderQuantityTexts(graphics, font, leftPos, topPos, warehouse, imageHeight);
     }
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
@@ -448,8 +487,8 @@ public class WarehouseWidget {
                         int visualIndex = ((com.portablestorage.upgrade.UpgradeSlot) slot).getVisualIndex();
                         int actualIndex = visualIndex + warehouse.getUpgradeScrollOffset();
                         if (actualIndex >= 0 && actualIndex < all.size()) {
-                            ClientPlayNetworking
-                                    .send(new C2SUpgradeInteractionPayload(all.get(actualIndex).getId(), button));
+                            ClientPlayNetworking.send(
+                                    new C2SUpgradeInteractionPayload(all.get(actualIndex).getId(), button));
                             return true;
                         }
                     }
@@ -463,8 +502,12 @@ public class WarehouseWidget {
             if (button == 0) { // 左键：智能折叠搜索
                 ItemStack stack = clickedSlot.getItem();
                 var customData = stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
-                boolean isCollapsed = customData != null
-                        && customData.copyTag().getBoolean(WarehouseConstants.SMART_COLLAPSE_TAG);
+                boolean isCollapsed = false;
+                if (customData != null) {
+                    java.util.Optional<Boolean> collapsedOpt = customData.copyTag()
+                            .getBoolean(WarehouseConstants.SMART_COLLAPSE_TAG);
+                    isCollapsed = collapsedOpt.orElse(false);
+                }
                 if (warehouse.isSmartCollapse() && warehouse.getSearchText().isEmpty() && isCollapsed) {
                     String itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem())
                             .toString();
@@ -486,8 +529,10 @@ public class WarehouseWidget {
 
         // 快速交互（Shift + 点击）
         // 未适配界面不应响应快速存取
-        if (net.minecraft.client.gui.screens.Screen.hasShiftDown() && warehouse.isQuickInteraction()
-                && !warehouse.isFolded() && com.portablestorage.handler.WarehouseMenuHandler.isAdaptedMenu(screen.getMenu())) {
+        if (InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), InputConstants.KEY_LSHIFT)
+                && warehouse.isQuickInteraction()
+                && !warehouse.isFolded()
+                && com.portablestorage.handler.WarehouseMenuHandler.isAdaptedMenu(screen.getMenu())) {
             if (clickedSlot != null && (clickedSlot.container instanceof PlayerWarehouse
                     || clickedSlot.container instanceof net.minecraft.world.entity.player.Inventory)) {
                 // 检测双击事件
@@ -653,7 +698,11 @@ public class WarehouseWidget {
 
         if (mouseX >= craftingX && mouseX < craftingX + 18 && mouseY >= craftingY && mouseY < craftingY + 18) {
             if (!warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
-                ClientPlayNetworking.send(new OpenCraftingPayload());
+                if (screen instanceof com.portablestorage.screen.CraftingWarehouseScreen craftingScreen) {
+                    craftingScreen.returnToInventoryScreen();
+                } else {
+                    ClientPlayNetworking.send(new OpenCraftingPayload());
+                }
             }
             return true;
         }
@@ -760,17 +809,20 @@ public class WarehouseWidget {
                 this.searchBox.setFocused(false);
                 return true;
             }
-            if (this.searchBox.keyPressed(keyCode, scanCode, modifiers))
+            KeyEvent event = new KeyEvent(keyCode, scanCode, modifiers);
+            if (this.searchBox.keyPressed(event))
                 return true;
             return true;
         }
 
         if (shouldShow() && !warehouse.isFolded()) {
             Minecraft minecraft = Minecraft.getInstance();
-            if (minecraft.options.keyDrop.matches(keyCode, scanCode)) {
+            KeyEvent event = new KeyEvent(keyCode, scanCode, modifiers);
+            if (minecraft.options.keyDrop.matches(event)) {
                 Slot hSlot = ((AbstractContainerScreenAccessor) screen).portablestorage$getHoveredSlot();
                 if (hSlot != null && hSlot.container instanceof PlayerWarehouse && hSlot.hasItem()) {
-                    boolean dropFullStack = net.minecraft.client.gui.screens.Screen.hasControlDown();
+                    boolean dropFullStack = InputConstants.isKeyDown(Minecraft.getInstance().getWindow(),
+                            InputConstants.KEY_LCONTROL);
                     ClientPlayNetworking.send(new C2SDropWarehouseItemPayload(hSlot.index, dropFullStack));
                     return true;
                 }

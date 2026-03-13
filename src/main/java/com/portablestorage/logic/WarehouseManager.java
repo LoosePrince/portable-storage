@@ -1,9 +1,12 @@
 package com.portablestorage.logic;
 
+import java.util.List;
+
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.component.WarehouseEntry;
 import com.portablestorage.mixin.accessor.AbstractContainerMenuAccessor;
 import com.portablestorage.util.WarehouseConstants;
+
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
@@ -14,8 +17,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.material.Fluids;
-
-import java.util.*;
+import net.minecraft.world.item.crafting.Ingredient;
 
 /**
  * 仓库业务逻辑处理器
@@ -34,7 +36,8 @@ public class WarehouseManager {
      * 处理物品存入逻辑（带Player参数用于获取registries）
      */
     public static void addItem(PlayerWarehouse warehouse, ItemStack stack, Player player) {
-        if (stack.isEmpty()) return;
+        if (stack.isEmpty())
+            return;
 
         // 检查物品 NBT 大小限制
         if (player != null && !checkItemNbtSize(stack, player)) {
@@ -52,7 +55,8 @@ public class WarehouseManager {
                 int bucketsStored = (int) (inserted / FluidConstants.BUCKET);
                 stack.shrink(bucketsStored);
             }
-            if (stack.isEmpty()) return;
+            if (stack.isEmpty())
+                return;
         }
 
         addItemInternal(warehouse, stack);
@@ -107,8 +111,10 @@ public class WarehouseManager {
             if (stored > 0) {
                 ItemStack emptyBuckets = new ItemStack(Items.BUCKET, stored);
                 stack.shrink(stored);
-                if (stack.isEmpty()) return emptyBuckets;
-                if (!player.getInventory().add(emptyBuckets)) player.drop(emptyBuckets, false);
+                if (stack.isEmpty())
+                    return emptyBuckets;
+                if (!player.getInventory().add(emptyBuckets))
+                    player.drop(emptyBuckets, false);
                 return stack;
             }
         }
@@ -120,18 +126,21 @@ public class WarehouseManager {
      * 内部物品存入实现（处理堆叠限制等）
      */
     private static void addItemInternal(PlayerWarehouse warehouse, ItemStack stack) {
-        if (stack.isEmpty()) return;
-        
+        if (stack.isEmpty())
+            return;
+
         List<PlayerWarehouse> group = warehouse.getSharedGroupWarehouses();
         // 优先存入当前仓库，然后是组内其他仓库
         for (PlayerWarehouse pw : group) {
             addItemToSingleWarehouse(pw, stack);
-            if (stack.isEmpty()) break;
+            if (stack.isEmpty())
+                break;
         }
     }
 
     private static void addItemToSingleWarehouse(PlayerWarehouse warehouse, ItemStack stack) {
-        if (stack.isEmpty()) return;
+        if (stack.isEmpty())
+            return;
         long limit = warehouse.getMaxItemStackSize();
         boolean changed = false;
 
@@ -186,10 +195,12 @@ public class WarehouseManager {
      * 尝试将仓库物品转移到玩家背包
      */
     public static void tryTransferToInventory(PlayerWarehouse warehouse, int slotIndex, Player player) {
-        if (!warehouse.isEnabled() || !warehouse.isQuickInteraction()) return;
+        if (!warehouse.isEnabled() || !warehouse.isQuickInteraction())
+            return;
 
         ItemStack stackInSlot = warehouse.getItem(slotIndex);
-        if (stackInSlot.isEmpty()) return;
+        if (stackInSlot.isEmpty())
+            return;
 
         // 流体提取逻辑
         if (isVirtualFluid(stackInSlot.getItem())) {
@@ -201,7 +212,8 @@ public class WarehouseManager {
                     ItemStack bucketStack = slot.getItem();
 
                     bucketStack.shrink(1);
-                    if (bucketStack.isEmpty()) slot.set(ItemStack.EMPTY);
+                    if (bucketStack.isEmpty())
+                        slot.set(ItemStack.EMPTY);
 
                     if (!player.getInventory().add(fluidBucket)) {
                         player.drop(fluidBucket, false);
@@ -235,14 +247,16 @@ public class WarehouseManager {
             if (slot.container instanceof Inventory) {
                 int containerSlot = slot.getContainerSlot();
                 if (containerSlot >= 0 && containerSlot < 36) {
-                    if (inventoryStart == -1) inventoryStart = i;
+                    if (inventoryStart == -1)
+                        inventoryStart = i;
                     inventoryEnd = i + 1;
                 }
             }
         }
 
-        if (inventoryStart != -1 && ((AbstractContainerMenuAccessor) player.containerMenu).invokeMoveItemStackTo(resultStack,
-                inventoryStart, inventoryEnd, true)) {
+        if (inventoryStart != -1
+                && ((AbstractContainerMenuAccessor) player.containerMenu).invokeMoveItemStackTo(resultStack,
+                        inventoryStart, inventoryEnd, true)) {
             int movedCount = toTake - resultStack.getCount();
             // 确保只移除实际移动的数量，防止刷物品
             if (movedCount > 0 && movedCount <= toTake) {
@@ -262,8 +276,11 @@ public class WarehouseManager {
             ItemStack itemType = entry.getItemStack();
 
             CustomData customData = itemType.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
-            boolean isCollapsed = customData != null && customData.copyTag().getBoolean(WarehouseConstants.SMART_COLLAPSE_TAG);
-            
+            boolean isCollapsed = false;
+            if (customData != null) {
+                isCollapsed = customData.copyTag().getBoolean(WarehouseConstants.SMART_COLLAPSE_TAG).orElse(false);
+            }
+
             // 严禁提取折叠项
             if (isCollapsed) {
                 return ItemStack.EMPTY;
@@ -287,13 +304,14 @@ public class WarehouseManager {
                 for (PlayerWarehouse pw : group) {
                     try (Transaction transaction = Transaction.openOuter()) {
                         long toExtract = (long) amount * FluidConstants.BUCKET - totalExtracted;
-                        if (toExtract <= 0) break;
+                        if (toExtract <= 0)
+                            break;
                         long extracted = pw.extract(fluid, toExtract, transaction);
                         transaction.commit();
                         totalExtracted += extracted;
                     }
                 }
-                
+
                 int bucketsExtracted = (int) (totalExtracted / FluidConstants.BUCKET);
                 if (bucketsExtracted > 0) {
                     return itemType.copyWithCount(bucketsExtracted);
@@ -309,10 +327,11 @@ public class WarehouseManager {
 
             long remainingToRemove = toRemoveTotal;
             List<PlayerWarehouse> group = warehouse.getSharedGroupWarehouses();
-            
+
             // 优先从当前仓库提取
             for (PlayerWarehouse pw : group) {
-                if (remainingToRemove <= 0) break;
+                if (remainingToRemove <= 0)
+                    break;
                 remainingToRemove -= removeFromSingleWarehouse(pw, itemType, (int) remainingToRemove);
             }
 
@@ -334,11 +353,13 @@ public class WarehouseManager {
                 if (canTake > 0) {
                     entry.subtract(canTake);
                     removed += (int) canTake;
-                    if (entry.getCount() <= 0) storage.remove(i);
+                    if (entry.getCount() <= 0)
+                        storage.remove(i);
                     warehouse.markDirty();
                 }
             }
-            if (removed >= amount) break;
+            if (removed >= amount)
+                break;
         }
         return removed;
     }
@@ -346,30 +367,35 @@ public class WarehouseManager {
     /**
      * 补货逻辑用的匹配提取
      */
-    public static ItemStack takeMatching(PlayerWarehouse warehouse, ItemStack template, int amount, boolean matchComponents) {
+    public static ItemStack takeMatching(PlayerWarehouse warehouse, ItemStack template, int amount,
+            boolean matchComponents) {
         int totalTaken = 0;
         ItemStack result = template.copyWithCount(0);
-        
+
         List<PlayerWarehouse> group = warehouse.getSharedGroupWarehouses();
         // 优先从当前仓库提取
         for (PlayerWarehouse pw : group) {
-            if (totalTaken >= amount) break;
-            
+            if (totalTaken >= amount)
+                break;
+
             List<WarehouseEntry> storage = pw.getStorageList();
             for (int i = storage.size() - 1; i >= 0; i--) {
                 WarehouseEntry entry = storage.get(i);
-                boolean matches = matchComponents ? entry.matches(template) : entry.getItemStack().is(template.getItem());
+                boolean matches = matchComponents ? entry.matches(template)
+                        : entry.getItemStack().is(template.getItem());
 
                 if (matches) {
                     long canTake = Math.min(amount - totalTaken, entry.getCount());
                     if (canTake > 0) {
                         entry.subtract(canTake);
                         totalTaken += (int) canTake;
-                        if (entry.getCount() <= 0) storage.remove(i);
+                        if (entry.getCount() <= 0)
+                            storage.remove(i);
                         pw.markDirty();
                     }
                 }
-                if (totalTaken >= amount) break;
+                if (totalTaken >= amount)
+                    break;
             }
         }
 
@@ -380,6 +406,61 @@ public class WarehouseManager {
         return result;
     }
 
+    /**
+     * 按配方 Ingredient 从仓库提取物品，用于自动配方填充。
+     * 使用 Ingredient.test 判断，而不是依赖具体物品类型列表，避免使用已废弃的 API。
+     */
+    public static ItemStack takeMatchingIngredient(PlayerWarehouse warehouse, Ingredient ingredient, int amount) {
+        if (ingredient == null || ingredient.isEmpty() || amount <= 0) {
+            return ItemStack.EMPTY;
+        }
+
+        int totalTaken = 0;
+        ItemStack result = ItemStack.EMPTY;
+
+        List<PlayerWarehouse> group = warehouse.getSharedGroupWarehouses();
+        outer: for (PlayerWarehouse pw : group) {
+            List<WarehouseEntry> storage = pw.getStorageList();
+            for (int i = storage.size() - 1; i >= 0; i--) {
+                WarehouseEntry entry = storage.get(i);
+                ItemStack entryStack = entry.getItemStack();
+
+                if (!ingredient.test(entryStack)) {
+                    continue;
+                }
+
+                long canTake = Math.min(amount - totalTaken, entry.getCount());
+                if (canTake <= 0) {
+                    continue;
+                }
+
+                entry.subtract(canTake);
+                totalTaken += (int) canTake;
+                if (entry.getCount() <= 0) {
+                    storage.remove(i);
+                }
+                pw.markDirty();
+
+                if (result.isEmpty()) {
+                    result = entryStack.copyWithCount((int) canTake);
+                } else {
+                    result.grow((int) canTake);
+                }
+
+                if (totalTaken >= amount) {
+                    break outer;
+                }
+            }
+        }
+
+        if (totalTaken > 0) {
+            warehouse.markDirty();
+            return result;
+        }
+
+        return ItemStack.EMPTY;
+    }
+
     // 辅助方法
 
     private static void handleExperienceQuickTransfer(PlayerWarehouse warehouse, Player player) {
@@ -388,8 +469,9 @@ public class WarehouseManager {
         for (PlayerWarehouse pw : group) {
             availableXp += pw.getExperience();
         }
-        
-        if (availableXp < 11) return; // 11 XP per bottle
+
+        if (availableXp < 11)
+            return; // 11 XP per bottle
 
         int totalBottlesFilled = 0;
         // 扫描玩家整个背包找玻璃瓶
@@ -402,19 +484,20 @@ public class WarehouseManager {
                     if (stack.is(Items.GLASS_BOTTLE)) {
                         int canFill = (int) (availableXp / 11);
                         int toFill = Math.min(stack.getCount(), canFill);
-                        
+
                         if (toFill > 0) {
                             stack.shrink(toFill);
-                            if (stack.isEmpty()) slot.set(ItemStack.EMPTY);
-                            
+                            if (stack.isEmpty())
+                                slot.set(ItemStack.EMPTY);
+
                             ItemStack expBottles = new ItemStack(Items.EXPERIENCE_BOTTLE, toFill);
                             if (!player.getInventory().add(expBottles)) {
                                 player.drop(expBottles, false);
                             }
-                            
+
                             long usedXp = (long) toFill * 11;
                             availableXp -= usedXp;
-                            
+
                             // 从组内扣除经验
                             long remainingToRemove = usedXp;
                             for (PlayerWarehouse pw : group) {
@@ -423,18 +506,20 @@ public class WarehouseManager {
                                     pw.addExperience(-fromThis);
                                     remainingToRemove -= fromThis;
                                 }
-                                if (remainingToRemove <= 0) break;
+                                if (remainingToRemove <= 0)
+                                    break;
                             }
-                            
+
                             totalBottlesFilled += toFill;
                             slot.setChanged();
                         }
                     }
                 }
             }
-            if (availableXp < 11) break;
+            if (availableXp < 11)
+                break;
         }
-        
+
         if (totalBottlesFilled > 0) {
             warehouse.markDirty();
             player.containerMenu.broadcastChanges();
@@ -442,9 +527,12 @@ public class WarehouseManager {
     }
 
     private static net.minecraft.world.item.Item getVirtualFluidForItem(net.minecraft.world.item.Item item) {
-        if (item == Items.LAVA_BUCKET) return com.portablestorage.item.ModItems.VIRTUAL_LAVA;
-        if (item == Items.WATER_BUCKET) return com.portablestorage.item.ModItems.VIRTUAL_WATER;
-        if (item == Items.MILK_BUCKET) return com.portablestorage.item.ModItems.VIRTUAL_MILK;
+        if (item == Items.LAVA_BUCKET)
+            return com.portablestorage.item.ModItems.VIRTUAL_LAVA;
+        if (item == Items.WATER_BUCKET)
+            return com.portablestorage.item.ModItems.VIRTUAL_WATER;
+        if (item == Items.MILK_BUCKET)
+            return com.portablestorage.item.ModItems.VIRTUAL_MILK;
         return null;
     }
 
@@ -455,15 +543,20 @@ public class WarehouseManager {
     }
 
     public static FluidVariant getFluidForVirtualItem(net.minecraft.world.item.Item item) {
-        if (item == com.portablestorage.item.ModItems.VIRTUAL_LAVA) return FluidVariant.of(Fluids.LAVA);
-        if (item == com.portablestorage.item.ModItems.VIRTUAL_WATER) return FluidVariant.of(Fluids.WATER);
+        if (item == com.portablestorage.item.ModItems.VIRTUAL_LAVA)
+            return FluidVariant.of(Fluids.LAVA);
+        if (item == com.portablestorage.item.ModItems.VIRTUAL_WATER)
+            return FluidVariant.of(Fluids.WATER);
         return null;
     }
 
     private static ItemStack getFluidBucket(net.minecraft.world.item.Item virtualFluid) {
-        if (virtualFluid == com.portablestorage.item.ModItems.VIRTUAL_LAVA) return new ItemStack(Items.LAVA_BUCKET);
-        if (virtualFluid == com.portablestorage.item.ModItems.VIRTUAL_WATER) return new ItemStack(Items.WATER_BUCKET);
-        if (virtualFluid == com.portablestorage.item.ModItems.VIRTUAL_MILK) return new ItemStack(Items.MILK_BUCKET);
+        if (virtualFluid == com.portablestorage.item.ModItems.VIRTUAL_LAVA)
+            return new ItemStack(Items.LAVA_BUCKET);
+        if (virtualFluid == com.portablestorage.item.ModItems.VIRTUAL_WATER)
+            return new ItemStack(Items.WATER_BUCKET);
+        if (virtualFluid == com.portablestorage.item.ModItems.VIRTUAL_MILK)
+            return new ItemStack(Items.MILK_BUCKET);
         return ItemStack.EMPTY;
     }
 
@@ -471,7 +564,8 @@ public class WarehouseManager {
         for (int i = 0; i < player.containerMenu.slots.size(); i++) {
             Slot slot = player.containerMenu.slots.get(i);
             // 仅搜索玩家主背包和快捷栏
-            if (slot.container instanceof Inventory && slot.getContainerSlot() < 36 && slot.getItem().is(Items.BUCKET)) {
+            if (slot.container instanceof Inventory && slot.getContainerSlot() < 36
+                    && slot.getItem().is(Items.BUCKET)) {
                 return i;
             }
         }
@@ -480,7 +574,8 @@ public class WarehouseManager {
 
     /**
      * 检查物品NBT数据大小是否超过限制
-     * @param stack 要检查的物品
+     * 
+     * @param stack  要检查的物品
      * @param player 玩家对象，用于获取registries
      * @return true表示可以存入，false表示超过限制
      */
@@ -495,14 +590,16 @@ public class WarehouseManager {
             if (player == null || player.level() == null) {
                 return true; // 无法获取registries，允许存入
             }
-            
-            net.minecraft.core.HolderLookup.Provider registries = player.level().registryAccess();
-            net.minecraft.nbt.Tag savedTag = stack.saveOptional(registries);
-            
+
+            net.minecraft.nbt.Tag savedTag = net.minecraft.world.item.ItemStack.CODEC
+                    .encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, stack)
+                    .result()
+                    .orElse(null);
+
             if (savedTag == null) {
                 return true; // 没有NBT数据，允许存入
             }
-            
+
             // 将NBT序列化为字节数组来计算大小
             // 使用 Tag 而不是 CompoundTag，因为 saveOptional 可能返回其他类型的 Tag
             java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
@@ -510,7 +607,7 @@ public class WarehouseManager {
                 net.minecraft.nbt.NbtIo.writeUnnamedTag(savedTag, dos);
             }
             int size = baos.size();
-            
+
             return size <= maxSize;
         } catch (Exception e) {
             // 如果检查失败，允许存入（避免阻止正常物品）
@@ -519,5 +616,3 @@ public class WarehouseManager {
         }
     }
 }
-
-

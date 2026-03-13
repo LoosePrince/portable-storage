@@ -27,9 +27,6 @@
 		],
 		"jei_mod_plugin": [
 			"com.portablestorage.jei.PortableStorageJeiPlugin"
-		],
-		"emi": [
-			"com.portablestorage.emi.PortableStorageEmiPlugin"
 		]
 	},
 	"custom": {
