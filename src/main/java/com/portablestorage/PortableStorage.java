@@ -18,6 +18,7 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.players.NameAndId;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -114,6 +115,12 @@ public class PortableStorage implements ModInitializer {
                     ModConfig.riftChunkSize,
                     ModConfig.enableRiftForcedLoading,
                     ModConfig.riftForcedLoadingRange));
+
+            // 同步配置时顺便下发当前玩家是否有编辑服务端配置的权限，
+            // 避免客户端首次打开设置界面时因为权限尚未返回而整页灰掉。
+            boolean canEdit = ModConfig.allowHotReload
+                    && server.getPlayerList().isOp(new NameAndId(player.getGameProfile()));
+            sender.sendPacket(new com.portablestorage.network.S2CConfigPermissionResultPayload(canEdit));
 
             // Scoreboard 组件在 join 初期有同步时序问题；延迟一拍强制同步仓库状态到客户端。
             server.execute(() -> com.portablestorage.component.ModComponents.WAREHOUSE.sync(player.level().getScoreboard()));

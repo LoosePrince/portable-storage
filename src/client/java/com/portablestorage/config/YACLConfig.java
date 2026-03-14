@@ -141,9 +141,6 @@ public class YACLConfig {
         }
 
         public static Screen create(Screen parent) {
-                // 打开设置界面时向服务端请求一次权限结果（异步返回并缓存在 ModClientNetworking 中）
-                com.portablestorage.network.ModClientNetworking.requestConfigPermission();
-
                 return YetAnotherConfigLib.createBuilder()
                                 .title(Component.translatable("gui.portablestorage.settings.title"))
                                 .category(ConfigCategory.createBuilder()
@@ -192,7 +189,15 @@ public class YACLConfig {
                                                                 .binding(
                                                                                 true,
                                                                                 () -> ModConfig.hideRecipeBook,
-                                                                                val -> ModConfig.hideRecipeBook = val)
+                                                                                val -> {
+                                                                                        // 当偏移背包界面或采用横向布局时，始终强制隐藏配方书按钮
+                                                                                        if (ModConfig.storagePosition.isHorizontal()
+                                                                                                        || ModConfig.offsetInventory) {
+                                                                                                ModConfig.hideRecipeBook = true;
+                                                                                        } else {
+                                                                                                ModConfig.hideRecipeBook = val;
+                                                                                        }
+                                                                                })
                                                                 .controller(BooleanControllerBuilder::create)
                                                                 .build())
                                                 .option(Option.<Boolean>createBuilder()
@@ -223,6 +228,8 @@ public class YACLConfig {
                                                                 .option(Option.<Integer>createBuilder()
                                                                                 .name(Component.translatable(
                                                                                                 "gui.portablestorage.settings.sort_mode"))
+                                                                                .description(OptionDescription.of(Component
+                                                                                                .translatable("gui.portablestorage.settings.sort_mode.desc")))
                                                                                 .binding(
                                                                                                 0,
                                                                                                 () -> getWarehouse() != null
@@ -243,6 +250,8 @@ public class YACLConfig {
                                                                 .option(Option.<Boolean>createBuilder()
                                                                                 .name(Component.translatable(
                                                                                                 "gui.portablestorage.settings.sort_order"))
+                                                                                .description(OptionDescription.of(Component
+                                                                                                .translatable("gui.portablestorage.settings.sort_order.desc")))
                                                                                 .binding(
                                                                                                 true,
                                                                                                 () -> getWarehouse() != null
@@ -264,6 +273,8 @@ public class YACLConfig {
                                                                 .option(Option.<Boolean>createBuilder()
                                                                                 .name(Component.translatable(
                                                                                                 "gui.portablestorage.settings.quick_interaction"))
+                                                                                .description(OptionDescription.of(Component
+                                                                                                .translatable("gui.portablestorage.settings.quick_interaction.desc")))
                                                                                 .binding(
                                                                                                 true,
                                                                                                 () -> getWarehouse() != null
@@ -278,6 +289,8 @@ public class YACLConfig {
                                                                 .option(Option.<Boolean>createBuilder()
                                                                                 .name(Component.translatable(
                                                                                                 "gui.portablestorage.settings.smart_collapse"))
+                                                                                .description(OptionDescription.of(Component
+                                                                                                .translatable("gui.portablestorage.settings.smart_collapse.desc")))
                                                                                 .binding(
                                                                                                 false,
                                                                                                 () -> getWarehouse() != null
@@ -292,6 +305,8 @@ public class YACLConfig {
                                                                 .option(Option.<Boolean>createBuilder()
                                                                                 .name(Component.translatable(
                                                                                                 "gui.portablestorage.settings.craft_refill"))
+                                                                                .description(OptionDescription.of(Component
+                                                                                                .translatable("gui.portablestorage.settings.craft_refill.desc")))
                                                                                 .binding(
                                                                                                 true,
                                                                                                 () -> getWarehouse() != null

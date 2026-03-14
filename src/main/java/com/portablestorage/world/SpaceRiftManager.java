@@ -67,6 +67,7 @@ public class SpaceRiftManager {
 
         ChunkPos origin = new ChunkPos(warehouse.getRiftPlotX(), warehouse.getRiftPlotZ());
         ensurePlotInitialized(riftLevel, origin, warehouse);
+        updatePlotForcedLoading(player, warehouse, true);
 
         // 传送
         BlockPos lastPos = warehouse.getRiftLastPos();

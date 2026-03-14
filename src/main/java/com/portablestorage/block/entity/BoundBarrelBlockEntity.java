@@ -104,7 +104,12 @@ public class BoundBarrelBlockEntity extends BlockEntity implements SidedStorageB
         // 保存物品栏：使用 ItemStack.CODEC 列表
         var list = out.list("inventory", ItemStack.CODEC);
         for (int i = 0; i < inventory.getContainerSize(); i++) {
-            list.add(inventory.getItem(i));
+            ItemStack stack = inventory.getItem(i);
+            // 1.21.11 的 ItemStack.CODEC 不再允许 0 个 air，
+            // 这里跳过空槽，加载时会自动补 EMPTY。
+            if (!stack.isEmpty()) {
+                list.add(stack);
+            }
         }
     }
 
