@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_bound_barrel": {
+      "conditions": {
+        "items": [
+          {
+            "items": "portablestorage:bound_barrel"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "portablestorage:unbind_barrel"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_bound_barrel"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "portablestorage:unbind_barrel"
+    ]
+  }
+}

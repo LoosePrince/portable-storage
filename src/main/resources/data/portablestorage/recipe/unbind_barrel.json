@@ -1,13 +1,11 @@
 {
   "type": "minecraft:crafting_shapeless",
+  "category": "misc",
   "ingredients": [
-    {
-      "item": "portablestorage:bound_barrel"
-    }
+    "portablestorage:bound_barrel"
   ],
   "result": {
     "count": 1,
     "id": "minecraft:barrel"
   }
 }
-
