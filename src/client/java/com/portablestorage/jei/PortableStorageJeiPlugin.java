@@ -132,7 +132,14 @@ public class PortableStorageJeiPlugin implements IModPlugin {
         public IRecipeTransferError transferRecipe(T container, RecipeHolder<CraftingRecipe> recipeHolder,
                 IRecipeSlotsView recipeSlots, Player player, boolean maxStack, boolean doTransfer) {
             if (doTransfer) {
-                ClientPlayNetworking.send(new C2SRecipeTransferPayload(recipeHolder.id().toString(), maxStack));
+                String recipeId = recipeHolder.id().toString();
+                if (recipeId.contains(" / ")) {
+                    recipeId = recipeId.substring(recipeId.indexOf(" / ") + 3);
+                }
+                if (recipeId.endsWith("]")) {
+                    recipeId = recipeId.substring(0, recipeId.length() - 1);
+                }
+                ClientPlayNetworking.send(new C2SRecipeTransferPayload(recipeId, maxStack));
             }
             return null;
         }
