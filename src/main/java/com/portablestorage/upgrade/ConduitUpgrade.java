@@ -73,20 +73,29 @@ public class ConduitUpgrade extends UpgradeType {
     @Override
     public List<Component> getTooltip(PlayerWarehouse warehouse, ItemStack stack) {
         List<Component> tooltips = super.getTooltip(warehouse, stack);
-        String desc = net.minecraft.locale.Language.getInstance().getOrDefault("upgrade.portablestorage.conduit.desc");
-        for (String line : desc.split("\n")) {
-            tooltips.add(Component.literal(line).withStyle(ChatFormatting.GRAY));
-        }
+        tooltips.add(Component.translatable("upgrade.portablestorage.conduit.desc").withStyle(ChatFormatting.GRAY));
+
         long count = getConduitBlockCount(warehouse);
-        tooltips.add(Component
-                .translatable("upgrade.portablestorage.conduit.blocks", count, BLOCKS_FOR_CONDUIT_POWER,
-                        BLOCKS_FOR_ATTACK)
-                .withStyle(ChatFormatting.GRAY));
+        tooltips.add(Component.literal(" "));
+        Component powerText = Component.translatable("upgrade.portablestorage.conduit.count_units",
+                count, BLOCKS_FOR_CONDUIT_POWER)
+                .withStyle(count >= BLOCKS_FOR_CONDUIT_POWER ? ChatFormatting.GREEN : ChatFormatting.RED);
+        tooltips.add(Component.translatable("upgrade.portablestorage.conduit.conduit_power", powerText)
+                .withStyle(ChatFormatting.YELLOW));
+
+        Component attackText = Component.translatable("upgrade.portablestorage.conduit.count_units",
+                count, BLOCKS_FOR_ATTACK)
+                .withStyle(count >= BLOCKS_FOR_ATTACK ? ChatFormatting.GREEN : ChatFormatting.RED);
+        tooltips.add(Component.translatable("upgrade.portablestorage.conduit.attack_mode", attackText)
+                .withStyle(ChatFormatting.YELLOW));
+
         int mode = getMode(stack);
         tooltips.add(Component.literal(" "));
         tooltips.add(Component.translatable("upgrade.portablestorage.conduit.mode",
                 Component.translatable("upgrade.portablestorage.conduit.mode." + mode).withStyle(ChatFormatting.YELLOW))
-                .withStyle(ChatFormatting.GRAY));
+                .withStyle(ChatFormatting.YELLOW));
+
+        tooltips.add(Component.literal(" "));
         tooltips.add(Component.translatable("upgrade.portablestorage.conduit.toggle_hint")
                 .withStyle(ChatFormatting.DARK_GRAY));
         return tooltips;

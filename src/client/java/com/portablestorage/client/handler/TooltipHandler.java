@@ -81,9 +81,14 @@ public class TooltipHandler {
                                     Component.literal(timeText).withStyle(ChatFormatting.WHITE))
                                     .withStyle(ChatFormatting.GRAY));
                             hasCustomInfo = true;
+                            insertIndex++;
                         }
 
-                        // 如果有自定义信息，则渲染自定义 tooltip
+                        if (entry.isPinned()) {
+                            tooltip.add(insertIndex, Component.translatable("gui.portablestorage.button.unpin_hint"));
+                            hasCustomInfo = true;
+                        }
+
                         if (hasCustomInfo) {
                             List<net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent> components = tooltip
                                     .stream()

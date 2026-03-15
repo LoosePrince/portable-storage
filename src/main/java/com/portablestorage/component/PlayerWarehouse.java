@@ -621,6 +621,14 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         this.sortedCache = null;
     }
 
+    /** 清除所有缓存（含 baseCache），不触发 onChanged。供客户端应用服务端 pinned 更新后刷新显示。 */
+    public void invalidateAllCaches() {
+        this.baseCache = null;
+        this.filteredCache = null;
+        this.collapsedCache = null;
+        this.sortedCache = null;
+    }
+
     // ========== Container 接口实现 ==========
 
     @Override
@@ -895,25 +903,10 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         if (actualIndex >= 0 && actualIndex < sorted.size()) {
             WarehouseEntry entry = sorted.get(actualIndex);
             boolean newState = !entry.isPinned();
-
-            // 如果是折叠后的项，我们需要找到所有原始项并同步状态
-            net.minecraft.world.item.component.CustomData customData = entry.getItemStack()
-                    .get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
-            boolean isCollapsed = false;
-            if (customData != null) {
-                java.util.Optional<Boolean> collapsedOpt = customData.copyTag()
-                        .getBoolean(com.portablestorage.util.WarehouseConstants.SMART_COLLAPSE_TAG);
-                isCollapsed = collapsedOpt.orElse(false);
-            }
-
-            if (isCollapsed) {
-                for (WarehouseEntry e : storage) {
-                    if (e.getItemStack().getItem() == entry.getItemStack().getItem()) {
-                        e.setPinned(newState);
-                    }
-                }
-            } else {
-                entry.setPinned(newState);
+            net.minecraft.world.item.Item item = entry.getItemStack().getItem();
+            for (WarehouseEntry e : storage) {
+                if (e.getItemStack().getItem() == item)
+                    e.setPinned(newState);
             }
             markDirty();
         }

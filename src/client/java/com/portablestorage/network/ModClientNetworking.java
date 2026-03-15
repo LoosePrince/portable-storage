@@ -62,6 +62,25 @@ public class ModClientNetworking {
                 context.client().setScreen(com.portablestorage.config.YACLConfig.createFoodFilterScreen(context.client().screen, payload.filters(), payload.blacklist()));
             });
         });
+
+        ClientPlayNetworking.registerGlobalReceiver(S2CWarehousePinnedUpdatePayload.TYPE, (payload, context) -> {
+            context.client().execute(() -> {
+                var client = context.client();
+                if (client.player == null) return;
+                var warehouse = com.portablestorage.component.ModComponents.get(client.player)
+                        .getWarehouse(client.player.getUUID());
+                var sorted = warehouse.getSortedEntries();
+                if (payload.sortedIndex() >= 0 && payload.sortedIndex() < sorted.size()) {
+                    var item = sorted.get(payload.sortedIndex()).getItemStack().getItem();
+                    for (var e : warehouse.getStorageList()) {
+                        if (e.getItemStack().getItem() == item) {
+                            e.setPinned(payload.pinned());
+                        }
+                    }
+                    warehouse.invalidateAllCaches();
+                }
+            });
+        });
     }
 }
 

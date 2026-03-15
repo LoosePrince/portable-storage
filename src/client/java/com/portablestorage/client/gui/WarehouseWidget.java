@@ -496,7 +496,27 @@ public class WarehouseWidget {
             }
         }
 
-        // 主槽位交互（左键/中键）
+        // 仓库物品格中键：切换收藏
+        if (!warehouse.isFolded() && button == 2) {
+            int baseX = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.getSlotLogicX();
+            int baseY = screenAccessor.portablestorage$getTopPos()
+                    + WarehouseConstants.getSlotLogicY(warehouse.getVisibleRows(),
+                            screenAccessor.portablestorage$getImageHeight(), warehouse.isFolded());
+            int gridW = WarehouseConstants.SLOTS_PER_ROW * WarehouseConstants.SLOT_SIZE;
+            int gridH = warehouse.getVisibleRows() * WarehouseConstants.SLOT_SIZE;
+            if (mouseX >= baseX && mouseX < baseX + gridW && mouseY >= baseY && mouseY < baseY + gridH) {
+                int col = (int) ((mouseX - baseX) / WarehouseConstants.SLOT_SIZE);
+                int row = (int) ((mouseY - baseY) / WarehouseConstants.SLOT_SIZE);
+                int visibleIndex = row * WarehouseConstants.SLOTS_PER_ROW + col;
+                int sortedIndex = visibleIndex + warehouse.getScrollOffset() * WarehouseConstants.SLOTS_PER_ROW;
+                if (sortedIndex >= 0 && sortedIndex < warehouse.getSortedEntries().size()) {
+                    ClientPlayNetworking.send(new C2STogglePinnedPayload(visibleIndex));
+                    return true;
+                }
+            }
+        }
+
+        // 主槽位交互（左键）
         Slot clickedSlot = getHoveredSlot(mouseX, mouseY);
         if (clickedSlot != null && clickedSlot.container instanceof PlayerWarehouse && clickedSlot.hasItem()) {
             if (button == 0) { // 左键：智能折叠搜索
@@ -521,9 +541,6 @@ public class WarehouseWidget {
                     }
                     return true;
                 }
-            } else if (button == 2) { // 中键：切换置顶
-                ClientPlayNetworking.send(new C2STogglePinnedPayload(clickedSlot.getContainerSlot()));
-                return true;
             }
         }
 

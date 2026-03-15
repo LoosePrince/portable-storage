@@ -42,6 +42,8 @@ public class ModNetworking {
                 PayloadTypeRegistry.playS2C().register(S2COpenHopperFilterPayload.TYPE,
                                 S2COpenHopperFilterPayload.CODEC);
                 PayloadTypeRegistry.playS2C().register(S2COpenFoodFilterPayload.TYPE, S2COpenFoodFilterPayload.CODEC);
+                PayloadTypeRegistry.playS2C().register(S2CWarehousePinnedUpdatePayload.TYPE,
+                                S2CWarehousePinnedUpdatePayload.CODEC);
         }
 
         public static void registerServerReceivers() {

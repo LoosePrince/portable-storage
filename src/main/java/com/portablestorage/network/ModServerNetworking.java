@@ -401,9 +401,16 @@ public class ModServerNetworking {
 
     public static void handleTogglePinned(C2STogglePinnedPayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
-            PlayerWarehouse warehouse = getWarehouse(context.player());
+            ServerPlayer player = context.player();
+            PlayerWarehouse warehouse = getWarehouse(player);
             warehouse.togglePinned(payload.slotId());
-            syncChanges(context.player());
+            syncChanges(player);
+            int sortedIndex = payload.slotId() + warehouse.getScrollOffset() * 9;
+            var sorted = warehouse.getSortedEntries();
+            if (sortedIndex >= 0 && sortedIndex < sorted.size()) {
+                boolean pinned = sorted.get(sortedIndex).isPinned();
+                ServerPlayNetworking.send(player, new S2CWarehousePinnedUpdatePayload(sortedIndex, pinned));
+            }
         });
     }
 
