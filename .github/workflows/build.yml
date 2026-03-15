@@ -138,6 +138,8 @@ jobs:
           loaders: fabric
           game-versions: ${{ needs.build.outputs.minecraft_version }}
           java: 21
+          dependencies: |
+            dev.isxander.yacl3(optional){modrinth:yacl}{curseforge:yacl}
           
           # CurseForge 配置
           curseforge-id: 1365553

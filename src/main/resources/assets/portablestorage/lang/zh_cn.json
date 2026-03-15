@@ -22,6 +22,7 @@
   "gui.portablestorage.on": "开启",
   "gui.portablestorage.off": "关闭",
   "gui.portablestorage.button.settings_hint": "§8[中键] 打开设置",
+  "gui.portablestorage.yacl_missing": "未检测到 Yet Another Config Lib(YACL)，无法打开设置界面。",
   "gui.portablestorage.button.unpin_hint": "§8[中键] 取消收藏",
   "gui.portablestorage.settings.title": "Portable Storage 设置",
   "gui.portablestorage.settings.tab.client": "客户端设置",

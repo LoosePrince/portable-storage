@@ -616,7 +616,15 @@ public class WarehouseWidget {
         }
         if (mouseX >= foldButtonX && mouseX < foldButtonX + 18 && mouseY >= foldButtonY && mouseY < foldButtonY + 18) {
             if (button == 2) { // 中键：打开设置
-                minecraft.setScreen(YACLConfig.create(screen));
+                if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("dev.isxander.yacl3")) {
+                    minecraft.setScreen(YACLConfig.create(screen));
+                } else {
+                    if (minecraft.player != null) {
+                        minecraft.player.displayClientMessage(
+                                net.minecraft.network.chat.Component.translatable("gui.portablestorage.yacl_missing"),
+                                true);
+                    }
+                }
                 return true;
             }
             if (button == 0) { // 左键：折叠/展开
