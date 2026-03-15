@@ -198,6 +198,25 @@ public class WarehouseMenuHandler {
         ItemStack stackInSlot = slot.getItem();
         ItemStack originalStack = stackInSlot.copy();
 
+        AbstractContainerMenuAccessor accessor = (AbstractContainerMenuAccessor) menu;
+
+        // 计算玩家物品栏范围（包含背包+快捷栏），同时显式排除仓库/升级槽位
+        int invStart = -1;
+        int invEnd = -1;
+        List<Slot> slots = menu.slots;
+        for (int i = 0; i < slots.size(); i++) {
+            Slot s = slots.get(i);
+            if (s.container instanceof Inventory && !(s instanceof UpgradeSlot)) {
+                int containerSlot = s.getContainerSlot();
+                // 0-35: 背包+快捷栏
+                if (containerSlot >= 0 && containerSlot < 36) {
+                    if (invStart == -1)
+                        invStart = i;
+                    invEnd = i + 1;
+                }
+            }
+        }
+
         // 4. 分支处理
 
         // 分支 A: 仓库槽位（取出到背包）
@@ -213,7 +232,8 @@ public class WarehouseMenuHandler {
 
         // 分支 B: 升级槽位（取出到背包）
         if (isUpgradeSlot) {
-            if (!((AbstractContainerMenuAccessor) menu).invokeMoveItemStackTo(stackInSlot, 9, 45, true)) {
+            // 仅在玩家物品栏范围内移动，避免写入仓库槽位
+            if (invStart == -1 || !accessor.invokeMoveItemStackTo(stackInSlot, invStart, invEnd, true)) {
                 return ItemStack.EMPTY;
             }
             slot.setChanged();
@@ -236,27 +256,39 @@ public class WarehouseMenuHandler {
                     return originalStack;
                 }
             }
-            // 存入失败或未开启快速存取，交给原版处理（移动到容器）
+            // 存入失败或未开启快速存取：不再拦截，从背包到容器的逻辑交给原版处理
+            // 这样我们只接管「从容器取出」路径，避免引入额外行为差异
             return null;
         }
 
         // 分支 D: 普通容器槽位（如铁砧结果、熔炉、箱子等）
-        if (warehouse.isQuickInteraction() && !warehouse.isFolded() && !isSpecialSlot(slot, menu)) {
-            // 尝试存入仓库
-            ItemStack remaining = WarehouseManager.addFluid(warehouse, stackInSlot, player);
-            if (remaining.getCount() == originalStack.getCount()) {
-                WarehouseManager.addItem(warehouse, stackInSlot, player);
-                remaining = stackInSlot;
+        if (!isSpecialSlot(slot, menu)) {
+            if (warehouse.isQuickInteraction() && !warehouse.isFolded()) {
+                // 快速存取开启：优先尝试存入仓库
+                ItemStack remaining = WarehouseManager.addFluid(warehouse, stackInSlot, player);
+                if (remaining.getCount() == originalStack.getCount()) {
+                    WarehouseManager.addItem(warehouse, stackInSlot, player);
+                    remaining = stackInSlot;
+                }
+
+                if (remaining.getCount() < originalStack.getCount()) {
+                    slot.set(remaining);
+                    slot.setChanged();
+                    return originalStack;
+                }
             }
 
-            if (remaining.getCount() < originalStack.getCount()) {
-                slot.set(remaining);
+            // 快速存取关闭或存入失败：仅在玩家物品栏范围内移动，避免写入仓库槽位
+            if (invStart != -1 && accessor.invokeMoveItemStackTo(stackInSlot, invStart, invEnd, true)) {
                 slot.setChanged();
+                // 如果从合成格中取出或影响到合成配方，刷新结果
+                notifyCraftingChanged(menu);
                 return originalStack;
             }
+            return ItemStack.EMPTY;
         }
 
-        // 始终交给原版处理，确保触发 onTake 等逻辑，并移动到玩家背包
+        // 特殊槽位：交给原版处理
         return null;
     }
 
@@ -346,6 +378,20 @@ public class WarehouseMenuHandler {
             }
         }
         return null;
+    }
+
+    /**
+     * 当通过自定义快捷移动逻辑改变了合成格或其相关槽位时，
+     * 主动触发一次合成结果刷新。
+     */
+    private static void notifyCraftingChanged(AbstractContainerMenu menu) {
+        // 查找当前菜单中的任意 CraftingContainer，并调用 slotsChanged
+        for (Slot s : menu.slots) {
+            if (s.container instanceof CraftingContainer crafting) {
+                menu.slotsChanged(crafting);
+                break;
+            }
+        }
     }
 
     public static boolean isContainerMenu(AbstractContainerMenu menu) {
