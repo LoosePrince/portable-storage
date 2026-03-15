@@ -41,6 +41,7 @@ public class ModClientNetworking {
                 ModConfig.riftChunkSize = payload.riftChunkSize();
                 ModConfig.enableRiftForcedLoading = payload.enableRiftForcedLoading();
                 ModConfig.riftForcedLoadingRange = payload.riftForcedLoadingRange();
+                ModConfig.enableConduitUpgrade = payload.enableConduitUpgrade();
             });
         });
 

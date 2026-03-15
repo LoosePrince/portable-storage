@@ -62,6 +62,7 @@ public class PortableStorage implements ModInitializer {
         com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.PistonUpgrade());
         com.portablestorage.upgrade.UpgradeRegistry
                 .register(new com.portablestorage.upgrade.EnchantedGoldenAppleUpgrade());
+        com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.ConduitUpgrade());
 
         ModScreenHandlers.register();
         ModNetworking.registerC2SPayloads();
@@ -114,7 +115,8 @@ public class PortableStorage implements ModInitializer {
                     ModConfig.riftUpgradeItem,
                     ModConfig.riftChunkSize,
                     ModConfig.enableRiftForcedLoading,
-                    ModConfig.riftForcedLoadingRange));
+                    ModConfig.riftForcedLoadingRange,
+                    ModConfig.enableConduitUpgrade));
 
             // 同步配置时顺便下发当前玩家是否有编辑服务端配置的权限，
             // 避免客户端首次打开设置界面时因为权限尚未返回而整页灰掉。

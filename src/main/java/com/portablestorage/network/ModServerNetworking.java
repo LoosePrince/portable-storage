@@ -155,6 +155,7 @@ public class ModServerNetworking {
             ModConfig.riftChunkSize = payload.riftChunkSize();
             ModConfig.enableRiftForcedLoading = payload.enableRiftForcedLoading();
             ModConfig.riftForcedLoadingRange = payload.riftForcedLoadingRange();
+            ModConfig.enableConduitUpgrade = payload.enableConduitUpgrade();
 
             // 保存到文件
             ModConfig.save();
@@ -185,7 +186,8 @@ public class ModServerNetworking {
                     ModConfig.riftUpgradeItem,
                     ModConfig.riftChunkSize,
                     ModConfig.enableRiftForcedLoading,
-                    ModConfig.riftForcedLoadingRange);
+                    ModConfig.riftForcedLoadingRange,
+                    ModConfig.enableConduitUpgrade);
 
             for (ServerPlayer p : context.server().getPlayerList().getPlayers()) {
                 ServerPlayNetworking.send(p, sync);

@@ -44,3 +44,6 @@ baseMaxItemStackSize = -1
 
 # 物品NBT数据最大大小（字节，-1: 不限制，默认10KB）
 maxItemNbtSize = 10240
+
+# 是否启用潮涌核心升级（禁用时该升级槽位不显示且效果无效）
+enableConduitUpgrade = true

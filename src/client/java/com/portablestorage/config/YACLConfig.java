@@ -78,7 +78,8 @@ public class YACLConfig {
                                 ModConfig.riftUpgradeItem,
                                 ModConfig.riftChunkSize,
                                 ModConfig.enableRiftForcedLoading,
-                                ModConfig.riftForcedLoadingRange));
+                                ModConfig.riftForcedLoadingRange,
+                                ModConfig.enableConduitUpgrade));
         }
 
         private static boolean canEditServerConfig() {
@@ -363,6 +364,21 @@ public class YACLConfig {
                                                                                 () -> ModConfig.dropStorageOnDeath,
                                                                                 val -> {
                                                                                         ModConfig.dropStorageOnDeath = val;
+                                                                                        updateServerConfig();
+                                                                                })
+                                                                .controller(BooleanControllerBuilder::create)
+                                                                .available(canEditServerConfig())
+                                                                .build())
+                                                .option(Option.<Boolean>createBuilder()
+                                                                .name(Component.translatable(
+                                                                                "gui.portablestorage.settings.enable_conduit_upgrade"))
+                                                                .description(OptionDescription.of(Component
+                                                                                .translatable("gui.portablestorage.settings.enable_conduit_upgrade.desc")))
+                                                                .binding(
+                                                                                true,
+                                                                                () -> ModConfig.enableConduitUpgrade,
+                                                                                val -> {
+                                                                                        ModConfig.enableConduitUpgrade = val;
                                                                                         updateServerConfig();
                                                                                 })
                                                                 .controller(BooleanControllerBuilder::create)

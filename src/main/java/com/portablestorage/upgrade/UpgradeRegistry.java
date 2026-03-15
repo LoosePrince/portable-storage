@@ -4,6 +4,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+
+import com.portablestorage.PortableStorage;
+import com.portablestorage.config.ModConfig;
 
 import net.minecraft.resources.Identifier;
 
@@ -16,6 +20,8 @@ public class UpgradeRegistry {
     private static final Map<Identifier, UpgradeType> UPGRADES = new LinkedHashMap<>();
     /** 排序后的升级 ID 列表 */
     private static final List<Identifier> SORTED_IDS = new ArrayList<>();
+    /** 潮涌核心升级 ID，用于按配置过滤 */
+    private static final Identifier CONDUIT_UPGRADE_ID = PortableStorage.id("conduit");
 
     /**
      * 注册升级类型
@@ -40,21 +46,25 @@ public class UpgradeRegistry {
     }
 
     /**
-     * 获取所有已注册的升级类型
-     * 
+     * 获取所有已注册的升级类型（按配置过滤，如禁用潮涌核心升级则不含该槽位）
+     *
      * @return 升级类型列表
      */
     public static List<UpgradeType> getAllUpgrades() {
-        return new ArrayList<>(UPGRADES.values());
+        List<UpgradeType> list = new ArrayList<>(UPGRADES.values());
+        if (!ModConfig.enableConduitUpgrade) {
+            list = list.stream().filter(t -> !t.getId().equals(CONDUIT_UPGRADE_ID)).collect(Collectors.toList());
+        }
+        return list;
     }
 
     /**
-     * 获取已注册的升级数量
-     * 
+     * 获取当前可见的升级数量（与 getAllUpgrades().size() 一致）
+     *
      * @return 升级数量
      */
     public static int getUpgradeCount() {
-        return UPGRADES.size();
+        return getAllUpgrades().size();
     }
 
     /**

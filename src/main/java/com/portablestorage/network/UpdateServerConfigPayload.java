@@ -23,7 +23,8 @@ public record UpdateServerConfigPayload(
     String riftUpgradeItem,
     int riftChunkSize,
     boolean enableRiftForcedLoading,
-    int riftForcedLoadingRange
+    int riftForcedLoadingRange,
+    boolean enableConduitUpgrade
 ) implements CustomPacketPayload {
     public static final Type<UpdateServerConfigPayload> TYPE = new Type<>(PortableStorage.id("update_server_config"));
 
@@ -47,6 +48,7 @@ public record UpdateServerConfigPayload(
             buf.writeInt(payload.riftChunkSize);
             buf.writeBoolean(payload.enableRiftForcedLoading);
             buf.writeInt(payload.riftForcedLoadingRange);
+            buf.writeBoolean(payload.enableConduitUpgrade);
         },
         buf -> new UpdateServerConfigPayload(
             buf.readBoolean(),
@@ -66,7 +68,8 @@ public record UpdateServerConfigPayload(
             buf.readUtf(),
             buf.readInt(),
             buf.readBoolean(),
-            buf.readInt()
+            buf.readInt(),
+            buf.readBoolean()
         )
     );
 

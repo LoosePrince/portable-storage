@@ -123,8 +123,7 @@ public class PortableStorageJeiPlugin implements IModPlugin {
         @Override
         public mezz.jei.api.recipe.RecipeType<RecipeHolder<CraftingRecipe>> getRecipeType() {
             @SuppressWarnings("unchecked")
-            mezz.jei.api.recipe.RecipeType<RecipeHolder<CraftingRecipe>> type =
-                    (mezz.jei.api.recipe.RecipeType<RecipeHolder<CraftingRecipe>>) (Object) RecipeTypes.CRAFTING;
+            mezz.jei.api.recipe.RecipeType<RecipeHolder<CraftingRecipe>> type = (mezz.jei.api.recipe.RecipeType<RecipeHolder<CraftingRecipe>>) (Object) RecipeTypes.CRAFTING;
             return type;
         }
 

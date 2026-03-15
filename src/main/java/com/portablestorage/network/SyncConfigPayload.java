@@ -24,7 +24,8 @@ public record SyncConfigPayload(
     String riftUpgradeItem,
     int riftChunkSize,
     boolean enableRiftForcedLoading,
-    int riftForcedLoadingRange
+    int riftForcedLoadingRange,
+    boolean enableConduitUpgrade
 ) implements CustomPacketPayload {
     public static final Type<SyncConfigPayload> TYPE = new Type<>(PortableStorage.id("sync_config"));
 
@@ -49,6 +50,7 @@ public record SyncConfigPayload(
             buf.writeInt(payload.riftChunkSize);
             buf.writeBoolean(payload.enableRiftForcedLoading);
             buf.writeInt(payload.riftForcedLoadingRange);
+            buf.writeBoolean(payload.enableConduitUpgrade);
         },
         buf -> new SyncConfigPayload(
             buf.readBoolean(), 
@@ -69,7 +71,8 @@ public record SyncConfigPayload(
             buf.readUtf(),
             buf.readInt(),
             buf.readBoolean(),
-            buf.readInt()
+            buf.readInt(),
+            buf.readBoolean()
         )
     );
 

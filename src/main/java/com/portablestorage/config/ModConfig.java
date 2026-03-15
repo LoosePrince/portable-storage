@@ -75,6 +75,9 @@ public class ModConfig {
     public static boolean enableRiftForcedLoading = true;
     /** 裂隙强制加载范围 */
     public static int riftForcedLoadingRange = 1;
+
+    /** 是否启用潮涌核心升级 */
+    public static boolean enableConduitUpgrade = true;
     
     // ========== 运行时状态 ==========
     /** 运行时启用的 3x3 合成状态（由服务端下发决定） */
@@ -136,6 +139,7 @@ public class ModConfig {
         riftChunkSize = ((Number) config.getOrElse("server.riftChunkSize", 1)).intValue();
         enableRiftForcedLoading = config.getOrElse("server.enableRiftForcedLoading", true);
         riftForcedLoadingRange = ((Number) config.getOrElse("server.riftForcedLoadingRange", 1)).intValue();
+        enableConduitUpgrade = config.getOrElse("server.enableConduitUpgrade", true);
         
         // 初始时设置为本地配置值
         active3x3Crafting = enable3x3Crafting;
@@ -182,6 +186,7 @@ public class ModConfig {
         config.set("server.riftChunkSize", riftChunkSize);
         config.set("server.enableRiftForcedLoading", enableRiftForcedLoading);
         config.set("server.riftForcedLoadingRange", riftForcedLoadingRange);
+        config.set("server.enableConduitUpgrade", enableConduitUpgrade);
         
         config.save();
         config.close();
