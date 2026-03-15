@@ -25,6 +25,11 @@ public class ServerPlayerMixin {
 
     @Inject(method = "setRespawnPosition", at = @At("HEAD"), cancellable = true)
     private void onSetRespawnPosition(ServerPlayer.RespawnConfig config, boolean sendMessage, CallbackInfo ci) {
+        // 某些情况下（例如客户端异常发包）config 可能为 null，此时直接交给原版逻辑处理
+        if (config == null) {
+            return;
+        }
+
         ServerPlayer player = (ServerPlayer) (Object) this;
         // 设置重生点可能在 isSleeping() 变为 true 之前触发，故仅用“是否在临时床列表”判断
         if (!config.forced() && BedUpgrade.PLAYER_TEMP_BEDS.containsKey(player.getUUID())) {
