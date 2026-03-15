@@ -5,8 +5,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import com.portablestorage.component.ModComponents;
-import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.handler.WarehouseMenuHandler;
 import com.portablestorage.upgrade.BedUpgrade;
 
@@ -28,12 +26,9 @@ public class ServerPlayerMixin {
     @Inject(method = "setRespawnPosition", at = @At("HEAD"), cancellable = true)
     private void onSetRespawnPosition(ServerPlayer.RespawnConfig config, boolean sendMessage, CallbackInfo ci) {
         ServerPlayer player = (ServerPlayer) (Object) this;
-        if (player.isSleeping() && !config.forced()) {
-            PlayerWarehouse warehouse = ModComponents.getWarehouse(
-                    ((net.minecraft.server.level.ServerLevel) player.level()).getServer(), player.getUUID());
-            if (warehouse != null && warehouse.isEnabled() && !warehouse.getUpgrade(BedUpgrade.ID).isEmpty()) {
-                ci.cancel();
-            }
+        // 设置重生点可能在 isSleeping() 变为 true 之前触发，故仅用“是否在临时床列表”判断
+        if (!config.forced() && BedUpgrade.PLAYER_TEMP_BEDS.containsKey(player.getUUID())) {
+            ci.cancel();
         }
     }
 
