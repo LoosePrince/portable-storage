@@ -219,5 +219,6 @@
   "command.portablestorage.drop.started": "已开始为玩家 %s 持续丢出物品",
   "command.portablestorage.drop.stopped": "已停止玩家 %s 的丢出任务",
   "command.portablestorage.drop.not_running": "玩家 %s 没有正在运行的丢出任务",
-  "command.portablestorage.drop.completed": "仓库已清空，丢出任务完成"
+  "command.portablestorage.drop.completed": "仓库已清空，丢出任务完成",
+  "portablestorage.modmenu.qq_group": "QQ群"
 }

@@ -9,7 +9,8 @@
 	],
 	"contact": {
 		"homepage": "https://github.com/LoosePrince/portable-storage",
-		"sources": "https://github.com/LoosePrince/portable-storage"
+		"sources": "https://github.com/LoosePrince/portable-storage",
+		"issues": "https://github.com/LoosePrince/portable-storage/issues"
 	},
 	"license": "MIT",
 	"icon": "assets/portablestorage/icon.png",
@@ -27,12 +28,20 @@
 		],
 		"jei_mod_plugin": [
 			"com.portablestorage.jei.PortableStorageJeiPlugin"
+		],
+		"modmenu": [
+			"com.portablestorage.client.PortableStorageModMenuApi"
 		]
 	},
 	"custom": {
 		"cardinal-components": [
 			"portablestorage:warehouse"
-		]
+		],
+		"modmenu": {
+			"links": {
+				"portablestorage.modmenu.qq_group": "https://jq.qq.com/?_wv=1027&k=2oUF0gg9"
+			}
+		}
 	},
 	"mixins": [
 		"portablestorage.mixins.json",
