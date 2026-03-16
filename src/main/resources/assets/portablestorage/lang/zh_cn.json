@@ -170,6 +170,7 @@
   "tooltip.portablestorage.experience.withdraw": "§8[左键] §7取出 §f%s §7级经验",
   "tooltip.portablestorage.experience.deposit": "§8[右键] §7存入 §f%s §7级经验",
   "tooltip.portablestorage.experience.exchange": "§8[持有玻璃瓶右键] §7换取附魔之瓶 §8(消耗 11 点经验)",
+  "tooltip.portablestorage.experience.maintain_blocked": "需关闭等级维持才能存取经验",
   "upgrade.portablestorage.spectral_arrow.name": "光灵箭升级",
   "upgrade.portablestorage.spectral_arrow.desc": "§7射出的普通箭矢命中生物时将使其获得 10s 发光效果。",
   "upgrade.portablestorage.bed.name": "床升级",

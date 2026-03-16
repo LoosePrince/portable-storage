@@ -11,6 +11,7 @@ import java.util.function.Function;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.component.WarehouseEntry;
+import com.portablestorage.item.ModItems;
 import com.portablestorage.util.WarehouseConstants;
 
 import net.minecraft.ChatFormatting;
@@ -64,8 +65,8 @@ public class TooltipHandler {
                         boolean hasCustomInfo = false;
                         int insertIndex = 1;
 
-                        // 添加数量信息（数量大于1时显示）
-                        if (realCount > 1) {
+                        // 添加数量信息（数量大于1时显示），但“瓶装经验”有独立数量显示，不再叠加这行
+                        if (realCount > 1 && !hoveredSlot.getItem().is(ModItems.BOTTLED_EXPERIENCE)) {
                             tooltip.add(insertIndex, Component.translatable("gui.portablestorage.count",
                                     Component.literal(String.format("%,d", realCount)).withStyle(ChatFormatting.WHITE))
                                     .withStyle(ChatFormatting.YELLOW));

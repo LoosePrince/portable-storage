@@ -1144,20 +1144,31 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                         .translatable("tooltip.portablestorage.experience.stored", mergedExperience)
                         .withStyle(net.minecraft.ChatFormatting.GRAY));
                 lore.add(net.minecraft.network.chat.Component.literal(" "));
-                // 获取当前仓库的升级阶数
+                // 获取当前仓库的升级阶数与等级维持状态
                 ItemStack upgradeStack = getUpgrade(com.portablestorage.upgrade.ExperienceUpgrade.ID);
                 int step = upgradeStack.isEmpty() ? 0
                         : com.portablestorage.upgrade.ExperienceUpgrade.getStep(upgradeStack);
+                boolean maintain = !upgradeStack.isEmpty()
+                        && com.portablestorage.upgrade.ExperienceUpgrade.isMaintaining(upgradeStack);
+
+                net.minecraft.ChatFormatting hintColor = maintain ? net.minecraft.ChatFormatting.RED
+                        : net.minecraft.ChatFormatting.GRAY;
 
                 lore.add(net.minecraft.network.chat.Component
                         .translatable("tooltip.portablestorage.experience.withdraw", step)
-                        .withStyle(net.minecraft.ChatFormatting.GRAY));
+                        .withStyle(hintColor));
                 lore.add(net.minecraft.network.chat.Component
                         .translatable("tooltip.portablestorage.experience.deposit", step)
-                        .withStyle(net.minecraft.ChatFormatting.GRAY));
+                        .withStyle(hintColor));
                 lore.add(
                         net.minecraft.network.chat.Component.translatable("tooltip.portablestorage.experience.exchange")
-                                .withStyle(net.minecraft.ChatFormatting.GRAY));
+                                .withStyle(hintColor));
+
+                if (maintain) {
+                    lore.add(net.minecraft.network.chat.Component
+                            .translatable("tooltip.portablestorage.experience.maintain_blocked")
+                            .withStyle(net.minecraft.ChatFormatting.RED));
+                }
 
                 xpStack.set(net.minecraft.core.component.DataComponents.LORE,
                         new net.minecraft.world.item.component.ItemLore(lore));

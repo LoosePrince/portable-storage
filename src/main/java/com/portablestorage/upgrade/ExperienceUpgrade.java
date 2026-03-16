@@ -171,4 +171,17 @@ public class ExperienceUpgrade extends UpgradeType {
         }
         return STEPS[0];
     }
+
+    /**
+     * 当前经验升级是否处于“等级维持”模式
+     */
+    public static boolean isMaintaining(ItemStack stack) {
+        if (stack.isEmpty())
+            return false;
+        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
+        if (data == null)
+            return false;
+        var tag = data.copyTag();
+        return tag.getBoolean(TAG_MAINTAIN).orElse(false);
+    }
 }

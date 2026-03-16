@@ -6,6 +6,8 @@ import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.mixin.accessor.AbstractContainerMenuAccessor;
 import com.portablestorage.upgrade.ExperienceUpgrade;
 
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
@@ -139,6 +141,15 @@ public class WarehouseInteractionHandler {
         ItemStack upgradeStack = warehouse.getUpgrade(ExperienceUpgrade.ID);
         if (upgradeStack.isEmpty())
             return;
+
+        // 等级维持模式下禁用左右键交互，并给出红色提示
+        if (ExperienceUpgrade.isMaintaining(upgradeStack)) {
+            player.displayClientMessage(
+                    Component.translatable("tooltip.portablestorage.experience.maintain_blocked")
+                            .withStyle(ChatFormatting.RED),
+                    true);
+            return;
+        }
 
         int levels = ExperienceUpgrade.getStep(upgradeStack);
         ItemStack cursorStack = player.containerMenu.getCarried();
