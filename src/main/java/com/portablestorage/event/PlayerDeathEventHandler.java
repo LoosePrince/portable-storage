@@ -15,6 +15,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.gamerules.GameRules;
 
@@ -80,7 +81,18 @@ public class PlayerDeathEventHandler {
         }
 
         ItemEntity itemEntity = new ItemEntity(dropLevel, x, y, z, keyStack);
+        // 为掉落的钥匙实体打上标记和拥有者 UUID，供 ItemEntityMixin 做保护逻辑。
+        // 这里复用自定义数据组件，在原有 NBT 上附加标记字段。
+        net.minecraft.world.item.ItemStack entityStack = itemEntity.getItem();
+        CustomData customData = entityStack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+        net.minecraft.nbt.CompoundTag tag = customData != null ? customData.copyTag()
+                : new net.minecraft.nbt.CompoundTag();
+        tag.putBoolean("portablestorage_is_warehouse_key", true);
+        tag.putString("portablestorage_owner_uuid", player.getUUID().toString());
+        entityStack.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, CustomData.of(tag));
         itemEntity.setDeltaMovement(0, 0.2, 0);
+        // 掉落的仓库钥匙实体本身无敌，避免被环境摧毁
+        itemEntity.setInvulnerable(true);
         itemEntity.setPickUpDelay(40);
         dropLevel.addFreshEntity(itemEntity);
     }

@@ -16,6 +16,7 @@
 		"PlayerProjectileMixin",
 		"BowItemMixin",
 		"CrossbowItemMixin",
+		"ItemEntityMixin",
 		"accessor.SlotAccessor",
 		"accessor.AbstractContainerMenuAccessor"
 	],
