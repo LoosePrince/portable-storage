@@ -57,6 +57,6 @@
 		"fabric-api": "*"
 	},
 	"suggests": {
-		"dev.isxander.yacl3": ">=3.8.2+1.21.11-fabric"
+		"yet_another_config_lib_v3": ">=3.8.2+1.21.11-fabric"
 	}
 }

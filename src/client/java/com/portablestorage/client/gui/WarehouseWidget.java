@@ -616,7 +616,9 @@ public class WarehouseWidget {
         }
         if (mouseX >= foldButtonX && mouseX < foldButtonX + 18 && mouseY >= foldButtonY && mouseY < foldButtonY + 18) {
             if (button == 2) { // 中键：打开设置
-                if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("dev.isxander.yacl3")) {
+                var loader = net.fabricmc.loader.api.FabricLoader.getInstance();
+                boolean hasYacl = loader.isModLoaded("yet_another_config_lib_v3");
+                if (hasYacl) {
                     minecraft.setScreen(YACLConfig.create(screen));
                 } else {
                     if (minecraft.player != null) {
