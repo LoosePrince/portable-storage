@@ -27,11 +27,6 @@ public class ModItems {
     public static final Item BOTTLED_EXPERIENCE = register("bottled_experience", Item::new,
             new Item.Properties().stacksTo(64));
 
-    // 彩蛋物品
-    public static final Item EASTER_EGG = register("easter_egg",
-            EasterEggItem::new,
-            new Item.Properties().stacksTo(64));
-
     private static <T extends Item> T register(String name, Function<Item.Properties, T> factory,
             Item.Properties properties) {
         ResourceKey<Item> key = ResourceKey.create(Registries.ITEM, PortableStorage.id(name));

@@ -89,8 +89,6 @@
   "gui.portablestorage.settings.water_infinite_threshold": "水无限阈值(桶)",
   "gui.portablestorage.settings.water_infinite_threshold.desc": "当仓库中水数量达到此值时，将变为无限水，存取不再消耗/增加。设置为 -1 以禁用此功能。默认值为 2 桶。",
   "item.portablestorage.storage_key": "便携仓库钥匙",
-  "item.portablestorage.easter_egg": "???",
-  "tooltip.portablestorage.easter_egg.desc": "彩蛋，打开看看",
   "tooltip.portablestorage.bound_to": "绑定至: %s",
   "tooltip.portablestorage.key_use_hint": "右键使用以重新激活你的便携仓库",
   "message.portablestorage.key_not_owner": "你不是这把钥匙的主人！",
