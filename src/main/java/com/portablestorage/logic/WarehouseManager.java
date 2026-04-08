@@ -90,15 +90,17 @@ public class WarehouseManager {
                 if (bucketsStored > 0) {
                     ItemStack emptyBuckets = new ItemStack(Items.BUCKET, bucketsStored);
                     stack.shrink(bucketsStored);
+                    // 将转换出的空桶直接存入仓库，避免留在背包/槽位中
+                    addItem(warehouse, emptyBuckets, player);
 
-                    if (stack.isEmpty()) {
-                        return emptyBuckets;
-                    } else {
+                    // 仓库放不下的空桶作为兜底返还玩家，避免物品丢失
+                    if (!emptyBuckets.isEmpty()) {
                         if (!player.getInventory().add(emptyBuckets)) {
                             player.drop(emptyBuckets, false);
                         }
-                        return stack;
                     }
+
+                    return stack;
                 }
             }
         } else {
@@ -111,9 +113,10 @@ public class WarehouseManager {
             if (stored > 0) {
                 ItemStack emptyBuckets = new ItemStack(Items.BUCKET, stored);
                 stack.shrink(stored);
-                if (stack.isEmpty())
-                    return emptyBuckets;
-                if (!player.getInventory().add(emptyBuckets))
+                // 将转换出的空桶直接存入仓库，避免留在背包/槽位中
+                addItem(warehouse, emptyBuckets, player);
+                // 仓库放不下的空桶作为兜底返还玩家，避免物品丢失
+                if (!emptyBuckets.isEmpty() && !player.getInventory().add(emptyBuckets))
                     player.drop(emptyBuckets, false);
                 return stack;
             }
