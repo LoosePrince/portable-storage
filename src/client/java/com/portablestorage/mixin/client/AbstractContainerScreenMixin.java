@@ -15,6 +15,7 @@ import com.portablestorage.handler.WarehouseMenuHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -62,7 +63,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
             warehouseWidget.removed();
     }
 
-    @Inject(method = "renderSlot", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "extractSlot", at = @At("HEAD"), cancellable = true)
     private void onRenderSlot(GuiGraphicsExtractor graphics, net.minecraft.world.inventory.Slot slot, int x, int y,
             CallbackInfo ci) {
         if (slot.container instanceof com.portablestorage.component.PlayerWarehouse
@@ -103,10 +104,10 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
         }
     }
 
-    @Inject(method = "renderTooltip", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "extractTooltip", at = @At("HEAD"), cancellable = true)
     private void onRenderTooltip(GuiGraphicsExtractor graphics, int x, int y, CallbackInfo ci) {
         if (warehouseWidget != null) {
-            warehouseWidget.renderPreTooltipOverlays(graphics);
+            warehouseWidget.renderPreTooltipOverlays(graphics, x, y);
         }
 
         AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
@@ -118,15 +119,20 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
         }
     }
 
-    @Inject(method = "render", at = @At("RETURN"))
-    private void onRenderReturn(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-        if ((Object) this instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen) {
+    @Inject(method = "extractRenderState", at = @At("HEAD"))
+    private void onExtractRenderStateHead(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick,
+            CallbackInfo ci) {
+        // InventoryScreen needs to draw warehouse background after its own background pass.
+        if ((Object) this instanceof InventoryScreen) {
             return;
         }
-        if ((Object) this instanceof com.portablestorage.screen.CraftingWarehouseScreen) {
-            return;
+        if (warehouseWidget != null && warehouseWidget.shouldShow()) {
+            warehouseWidget.renderBackground(graphics, mouseX, mouseY);
         }
+    }
 
+    @Inject(method = "extractRenderState", at = @At("RETURN"))
+    private void onRenderReturn(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         if (warehouseWidget != null && warehouseWidget.shouldShow()) {
             warehouseWidget.renderOverlays(graphics, mouseX, mouseY, partialTick);
         }

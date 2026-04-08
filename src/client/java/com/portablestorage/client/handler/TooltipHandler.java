@@ -38,10 +38,10 @@ public class TooltipHandler {
         if (!wh.isEnabled() || wh.isFolded())
             return false;
 
-        if (hoveredSlot != null && hoveredSlot.container == wh) {
+        if (hoveredSlot != null && hoveredSlot.container instanceof PlayerWarehouse hoveredWarehouse) {
             int whStart = -1;
             for (int i = 0; i < screen.getMenu().slots.size(); i++) {
-                if (screen.getMenu().slots.get(i).container == wh) {
+                if (screen.getMenu().slots.get(i).container instanceof PlayerWarehouse) {
                     whStart = i;
                     break;
                 }
@@ -52,11 +52,11 @@ public class TooltipHandler {
 
                 if (hoveredSlot.index >= whStart && hoveredSlot.index < whSlotEnd) {
                     int slotIndex = hoveredSlot.index - whStart;
-                    long realCount = wh.getRealCount(slotIndex);
+                    long realCount = hoveredWarehouse.getRealCount(slotIndex);
 
                     // 获取对应的仓库条目以获取更新时间
-                    List<WarehouseEntry> entries = wh.getSortedEntries();
-                    int actualIndex = slotIndex + (wh.getScrollOffset() * 9);
+                    List<WarehouseEntry> entries = hoveredWarehouse.getSortedEntries();
+                    int actualIndex = slotIndex + (hoveredWarehouse.getScrollOffset() * 9);
 
                     if (actualIndex >= 0 && actualIndex < entries.size()) {
                         WarehouseEntry entry = entries.get(actualIndex);
@@ -91,7 +91,8 @@ public class TooltipHandler {
                         }
 
                         if (hasCustomInfo) {
-                            graphics.setTooltipForNextFrame(Minecraft.getInstance().font, tooltip.stream().map(Component::getVisualOrderText).toList(), x, y);
+                            graphics.setTooltipForNextFrame(Minecraft.getInstance().font,
+                                    tooltip.stream().map(Component::getVisualOrderText).toList(), x, y);
                             return true;
                         }
                     }
@@ -103,7 +104,7 @@ public class TooltipHandler {
 
     /**
      * 格式化日期时间
-     * 
+     *
      * @param timestamp 时间戳（毫秒）
      * @return 格式化后的日期时间字符串（格式：xxxx/xx/xx xx:xx）
      */

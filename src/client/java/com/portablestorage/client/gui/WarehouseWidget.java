@@ -216,10 +216,7 @@ public class WarehouseWidget {
         screenAccessor.portablestorage$setLeftPos(targetLeftPos);
         screenAccessor.portablestorage$setTopPos(targetTopPos);
 
-        // 仅在生存模式背包且启用 3x3 时调整 imageHeight，避免破坏容器界面对齐
-        if (screen instanceof InventoryScreen && WarehouseUtils.is3x3Enabled(Minecraft.getInstance().player)) {
-            screenAccessor.portablestorage$setImageHeight(WarehouseConstants.VANILLA_INVENTORY_HEIGHT);
-        }
+        // 26.1 中 imageHeight 已不可在初始化后修改；这里仅调整位置，不再写入 imageHeight。
 
         // 同步移动所有关联组件（输入框、原版按钮等）
         if (dx != 0 || dy != 0) {
@@ -341,11 +338,10 @@ public class WarehouseWidget {
         // 更新搜索框位置
         updateSearchBoxState();
 
-        // 渲染覆盖层、提示和数量文本
-        renderOverlaysAndText(graphics, mouseX, mouseY);
+        // 覆盖层与文本在 tooltip 阶段统一处理，避免被后续流程覆盖
     }
 
-    public void renderPreTooltipOverlays(GuiGraphicsExtractor graphics) {
+    public void renderPreTooltipOverlays(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         if (!shouldShow()) {
             return;
         }
@@ -363,6 +359,34 @@ public class WarehouseWidget {
 
         WarehouseRenderer.renderPinnedOverlays(graphics, leftPos, topPos, warehouse, imageHeight);
         WarehouseRenderer.renderQuantityTexts(graphics, font, leftPos, topPos, warehouse, imageHeight);
+
+        int foldX, foldY;
+        boolean indentSidebar = false;
+        int x = leftPos + WarehouseConstants.getWarehouseXOffset();
+        int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight,
+                warehouse.isFolded());
+        if (screen instanceof com.portablestorage.screen.CraftingWarehouseScreen) {
+            foldX = leftPos + 84;
+            foldY = topPos + 53;
+        } else if (isContainerInterface()) {
+            if (warehouse.isFolded()) {
+                foldX = leftPos + 172;
+                foldY = topPos + imageHeight - 24;
+            } else {
+                foldX = x + WarehouseConstants.getSidebarXOffset();
+                foldY = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight,
+                        warehouse.isFolded());
+                indentSidebar = true;
+            }
+        } else if (screen instanceof com.portablestorage.screen.BoundBarrelScreen) {
+            foldX = leftPos + 151;
+            foldY = topPos + 32;
+        } else {
+            foldX = leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
+            foldY = topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
+        }
+        WarehouseRenderer.renderAllTooltips(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse, imageHeight,
+                foldX, foldY, indentSidebar);
     }
 
     private void renderCraftingBg(GuiGraphicsExtractor graphics) {
@@ -428,43 +452,6 @@ public class WarehouseWidget {
             this.searchBox.visible = !warehouse.isFolded();
             this.searchBox.active = !warehouse.isFolded();
         }
-    }
-
-    private void renderOverlaysAndText(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
-        int leftPos = screenAccessor.portablestorage$getLeftPos();
-        int topPos = screenAccessor.portablestorage$getTopPos();
-        int imageHeight = screenAccessor.portablestorage$getImageHeight();
-        var font = ((ScreenAccessor) screen).portablestorage$getFont();
-
-        int foldX, foldY;
-        boolean indentSidebar = false;
-        int x = leftPos + WarehouseConstants.getWarehouseXOffset();
-        int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight,
-                warehouse.isFolded());
-        if (screen instanceof com.portablestorage.screen.CraftingWarehouseScreen) {
-            foldX = leftPos + 84;
-            foldY = topPos + 53;
-        } else if (isContainerInterface()) {
-            if (warehouse.isFolded()) {
-                foldX = leftPos + 172;
-                foldY = topPos + imageHeight - 24;
-            } else {
-                foldX = x + WarehouseConstants.getSidebarXOffset();
-                foldY = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight,
-                        warehouse.isFolded());
-                indentSidebar = true;
-            }
-        } else if (screen instanceof com.portablestorage.screen.BoundBarrelScreen) {
-            foldX = leftPos + 151;
-            foldY = topPos + 32;
-        } else {
-            foldX = leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
-            foldY = topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
-        }
-
-        WarehouseRenderer.renderAllTooltips(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse, imageHeight,
-                foldX, foldY, indentSidebar);
     }
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {

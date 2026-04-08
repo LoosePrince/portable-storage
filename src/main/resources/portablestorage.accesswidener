@@ -1,4 +1,4 @@
-accessWidener v2 named
+accessWidener v2 official
 
 # 使 Slot 的坐标字段可访问且可修改 (移除 final)
 accessible field net/minecraft/world/inventory/Slot x I

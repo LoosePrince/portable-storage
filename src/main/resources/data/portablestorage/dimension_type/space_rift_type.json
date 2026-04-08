@@ -7,6 +7,7 @@
   "ambient_light": 1.0,
   "fixed_time": 6000,
   "has_raids": false,
+  "has_ender_dragon_fight": false,
   "respawn_anchor_works": false,
   "bed_works": true,
   "piglin_safe": false,
