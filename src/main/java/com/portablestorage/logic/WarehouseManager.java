@@ -208,6 +208,12 @@ public class WarehouseManager {
             if (emptyBucketSlot != -1) {
                 ItemStack fluidBucket = getFluidBucket(stackInSlot.getItem());
                 if (!fluidBucket.isEmpty()) {
+                    // 先尝试扣除仓库库存，避免库存为 0 时仍能产出流体桶
+                    ItemStack extracted = removeItem(warehouse, slotIndex, 1, true);
+                    if (extracted.isEmpty()) {
+                        return;
+                    }
+
                     Slot slot = player.containerMenu.getSlot(emptyBucketSlot);
                     ItemStack bucketStack = slot.getItem();
 
@@ -218,8 +224,6 @@ public class WarehouseManager {
                     if (!player.getInventory().add(fluidBucket)) {
                         player.drop(fluidBucket, false);
                     }
-
-                    removeItem(warehouse, slotIndex, 1, true);
                     player.containerMenu.broadcastChanges();
                 }
             }
