@@ -1525,10 +1525,10 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         for (Map.Entry<FluidVariant, Long> entry : fluidStorage.entrySet()) {
             CompoundTag fluidTag = new CompoundTag();
             fluidTag.putString("fluid", BuiltInRegistries.FLUID.getKey(entry.getKey().getFluid()).toString());
-            net.minecraft.core.component.DataComponentPatch patch = entry.getKey().getComponents();
+            net.minecraft.core.component.DataComponentMap patch = entry.getKey().getComponents();
             if (!patch.isEmpty()) {
                 fluidTag.put("components",
-                        net.minecraft.core.component.DataComponentPatch.CODEC
+                        net.minecraft.core.component.DataComponentMap.CODEC
                                 .encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, patch)
                                 .getOrThrow());
             }

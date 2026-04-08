@@ -30,7 +30,7 @@ import com.portablestorage.util.WarehouseUtils;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -264,7 +264,7 @@ public class WarehouseWidget {
     /**
      * 渲染仓库背景（在 renderBg 之后调用，在原版槽位高亮之前）
      */
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY) {
+    public void renderBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         if (WarehouseUtils.is3x3Enabled(Minecraft.getInstance().player) && screen instanceof InventoryScreen) {
             renderCraftingBg(graphics);
         }
@@ -324,7 +324,7 @@ public class WarehouseWidget {
     /**
      * 渲染覆盖层和文本（在 render 返回前调用，在原版槽位高亮之后）
      */
-    public void renderOverlays(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void renderOverlays(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         if (!shouldShow())
             return;
 
@@ -345,7 +345,7 @@ public class WarehouseWidget {
         renderOverlaysAndText(graphics, mouseX, mouseY);
     }
 
-    public void renderPreTooltipOverlays(GuiGraphics graphics) {
+    public void renderPreTooltipOverlays(GuiGraphicsExtractor graphics) {
         if (!shouldShow()) {
             return;
         }
@@ -365,7 +365,7 @@ public class WarehouseWidget {
         WarehouseRenderer.renderQuantityTexts(graphics, font, leftPos, topPos, warehouse, imageHeight);
     }
 
-    private void renderCraftingBg(GuiGraphics graphics) {
+    private void renderCraftingBg(GuiGraphicsExtractor graphics) {
         AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
         int cx = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.CRAFT_3X3_X - 1;
         int cy = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.CRAFT_3X3_Y - 1;
@@ -430,7 +430,7 @@ public class WarehouseWidget {
         }
     }
 
-    private void renderOverlaysAndText(GuiGraphics graphics, int mouseX, int mouseY) {
+    private void renderOverlaysAndText(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
         int leftPos = screenAccessor.portablestorage$getLeftPos();
         int topPos = screenAccessor.portablestorage$getTopPos();
@@ -622,9 +622,8 @@ public class WarehouseWidget {
                     minecraft.setScreen(YACLConfig.create(screen));
                 } else {
                     if (minecraft.player != null) {
-                        minecraft.player.displayClientMessage(
-                                net.minecraft.network.chat.Component.translatable("gui.portablestorage.yacl_missing"),
-                                true);
+                        minecraft.player.sendSystemMessage(
+                                net.minecraft.network.chat.Component.translatable("gui.portablestorage.yacl_missing"));
                     }
                 }
                 return true;

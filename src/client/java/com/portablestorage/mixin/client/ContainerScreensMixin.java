@@ -1,7 +1,7 @@
 package com.portablestorage.mixin.client;
 
 import com.portablestorage.client.gui.WarehouseScreen;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -40,7 +40,7 @@ public abstract class ContainerScreensMixin {
      * 注意：排除 InventoryScreen 和 CraftingWarehouseScreen
      */
     @Inject(method = "renderBg", at = @At("RETURN"))
-    private void onRenderBgReturn(GuiGraphics graphics, float partialTick, int mouseX, int mouseY, CallbackInfo ci) {
+    private void onRenderBgReturn(GuiGraphicsExtractor graphics, float partialTick, int mouseX, int mouseY, CallbackInfo ci) {
         // 排除 InventoryScreen，因为它由 InventoryScreenMixin 处理
         if ((Object) this instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen)
             return;

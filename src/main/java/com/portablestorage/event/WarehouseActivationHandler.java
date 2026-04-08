@@ -59,8 +59,8 @@ public class WarehouseActivationHandler {
                     warehouse.setType(targetType);
                     stack.shrink(1);
                     String typeKey = targetType == WarehouseType.FULL ? "full" : "base";
-                    player.displayClientMessage(
-                            Component.translatable("message.portablestorage.activated." + typeKey, itemName), false);
+                    player.sendSystemMessage(
+                            Component.translatable("message.portablestorage.activated." + typeKey, itemName));
                     return InteractionResult.SUCCESS;
                 }
 
@@ -72,9 +72,8 @@ public class WarehouseActivationHandler {
                         warehouse.setEnabled(true);
                         stack.shrink(1);
                         String typeKey = targetType == WarehouseType.FULL ? "full" : "base";
-                        player.displayClientMessage(
-                                Component.translatable("message.portablestorage.activated." + typeKey, itemName),
-                                false);
+                        player.sendSystemMessage(
+                                Component.translatable("message.portablestorage.activated." + typeKey, itemName));
                         return InteractionResult.SUCCESS;
                     }
 
@@ -90,30 +89,27 @@ public class WarehouseActivationHandler {
                         CONFIRMATION_MAP.remove(player.getUUID());
 
                         String typeKey = targetType == WarehouseType.FULL ? "full" : "base";
-                        player.displayClientMessage(
-                                Component.translatable("message.portablestorage.activated." + typeKey, itemName),
-                                false);
-                        player.displayClientMessage(Component.translatable("message.portablestorage.activated.wiped")
-                                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD), false);
+                        player.sendSystemMessage(
+                                Component.translatable("message.portablestorage.activated." + typeKey, itemName));
+                        player.sendSystemMessage(Component.translatable("message.portablestorage.activated.wiped")
+                                .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
 
                         return InteractionResult.SUCCESS;
                     } else {
                         // 第一次触发：发出警告并记录时间
                         CONFIRMATION_MAP.put(player.getUUID(), now);
-                        player.displayClientMessage(Component.translatable("message.portablestorage.activation_warning")
-                                .withStyle(ChatFormatting.YELLOW), false);
-                        player.displayClientMessage(
+                        player.sendSystemMessage(Component.translatable("message.portablestorage.activation_warning")
+                                .withStyle(ChatFormatting.YELLOW));
+                        player.sendSystemMessage(
                                 Component.translatable("message.portablestorage.activation_confirm_hint", itemName)
-                                        .withStyle(ChatFormatting.GOLD),
-                                false);
+                                        .withStyle(ChatFormatting.GOLD));
                         return InteractionResult.SUCCESS;
                     }
                 }
 
                 // 如果已经开启且等级不匹配
                 if (warehouse.isEnabled()) {
-                    player.displayClientMessage(Component.translatable("message.portablestorage.already_enabled"),
-                            true);
+                    player.sendSystemMessage(Component.translatable("message.portablestorage.already_enabled"));
                 }
             }
 

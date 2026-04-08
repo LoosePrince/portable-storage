@@ -9,40 +9,40 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
  */
 public class ModNetworking {
         public static void registerC2SPayloads() {
-                PayloadTypeRegistry.playC2S().register(C2SUpdateWarehouseStatePayload.TYPE,
+                PayloadTypeRegistry.serverboundPlay().register(C2SUpdateWarehouseStatePayload.TYPE,
                                 C2SUpdateWarehouseStatePayload.CODEC);
-                PayloadTypeRegistry.playC2S().register(QuickTransferPayload.TYPE, QuickTransferPayload.CODEC);
-                PayloadTypeRegistry.playC2S().register(OpenCraftingPayload.TYPE, OpenCraftingPayload.CODEC);
-                PayloadTypeRegistry.playC2S().register(RefillPayload.TYPE, RefillPayload.CODEC);
-                PayloadTypeRegistry.playC2S().register(UpdateServerConfigPayload.TYPE, UpdateServerConfigPayload.CODEC);
-                PayloadTypeRegistry.playC2S().register(C2SUpgradeInteractionPayload.TYPE,
+                PayloadTypeRegistry.serverboundPlay().register(QuickTransferPayload.TYPE, QuickTransferPayload.CODEC);
+                PayloadTypeRegistry.serverboundPlay().register(OpenCraftingPayload.TYPE, OpenCraftingPayload.CODEC);
+                PayloadTypeRegistry.serverboundPlay().register(RefillPayload.TYPE, RefillPayload.CODEC);
+                PayloadTypeRegistry.serverboundPlay().register(UpdateServerConfigPayload.TYPE, UpdateServerConfigPayload.CODEC);
+                PayloadTypeRegistry.serverboundPlay().register(C2SUpgradeInteractionPayload.TYPE,
                                 C2SUpgradeInteractionPayload.CODEC);
-                PayloadTypeRegistry.playC2S().register(C2SUpdateHopperFiltersPayload.TYPE,
+                PayloadTypeRegistry.serverboundPlay().register(C2SUpdateHopperFiltersPayload.TYPE,
                                 C2SUpdateHopperFiltersPayload.CODEC);
-                PayloadTypeRegistry.playC2S().register(C2SUpdateFoodFiltersPayload.TYPE,
+                PayloadTypeRegistry.serverboundPlay().register(C2SUpdateFoodFiltersPayload.TYPE,
                                 C2SUpdateFoodFiltersPayload.CODEC);
-                PayloadTypeRegistry.playC2S().register(C2STogglePinnedPayload.TYPE, C2STogglePinnedPayload.CODEC);
-                PayloadTypeRegistry.playC2S().register(C2SRecipeTransferPayload.TYPE, C2SRecipeTransferPayload.CODEC);
-                PayloadTypeRegistry.playC2S().register(C2SUpdateForbiddenPlayersPayload.TYPE,
+                PayloadTypeRegistry.serverboundPlay().register(C2STogglePinnedPayload.TYPE, C2STogglePinnedPayload.CODEC);
+                PayloadTypeRegistry.serverboundPlay().register(C2SRecipeTransferPayload.TYPE, C2SRecipeTransferPayload.CODEC);
+                PayloadTypeRegistry.serverboundPlay().register(C2SUpdateForbiddenPlayersPayload.TYPE,
                                 C2SUpdateForbiddenPlayersPayload.CODEC);
-                PayloadTypeRegistry.playC2S().register(C2SDropWarehouseItemPayload.TYPE,
+                PayloadTypeRegistry.serverboundPlay().register(C2SDropWarehouseItemPayload.TYPE,
                                 C2SDropWarehouseItemPayload.CODEC);
-                PayloadTypeRegistry.playC2S().register(C2SUpdateFrozenStatePayload.TYPE,
+                PayloadTypeRegistry.serverboundPlay().register(C2SUpdateFrozenStatePayload.TYPE,
                                 C2SUpdateFrozenStatePayload.CODEC);
-                PayloadTypeRegistry.playC2S().register(C2SDoubleClickQuickStorePayload.TYPE,
+                PayloadTypeRegistry.serverboundPlay().register(C2SDoubleClickQuickStorePayload.TYPE,
                                 C2SDoubleClickQuickStorePayload.CODEC);
-                PayloadTypeRegistry.playC2S().register(C2SQueryConfigPermissionPayload.TYPE,
+                PayloadTypeRegistry.serverboundPlay().register(C2SQueryConfigPermissionPayload.TYPE,
                                 C2SQueryConfigPermissionPayload.CODEC);
         }
 
         public static void registerS2CPayloads() {
-                PayloadTypeRegistry.playS2C().register(SyncConfigPayload.TYPE, SyncConfigPayload.CODEC);
-                PayloadTypeRegistry.playS2C().register(S2CConfigPermissionResultPayload.TYPE,
+                PayloadTypeRegistry.clientboundPlay().register(SyncConfigPayload.TYPE, SyncConfigPayload.CODEC);
+                PayloadTypeRegistry.clientboundPlay().register(S2CConfigPermissionResultPayload.TYPE,
                                 S2CConfigPermissionResultPayload.CODEC);
-                PayloadTypeRegistry.playS2C().register(S2COpenHopperFilterPayload.TYPE,
+                PayloadTypeRegistry.clientboundPlay().register(S2COpenHopperFilterPayload.TYPE,
                                 S2COpenHopperFilterPayload.CODEC);
-                PayloadTypeRegistry.playS2C().register(S2COpenFoodFilterPayload.TYPE, S2COpenFoodFilterPayload.CODEC);
-                PayloadTypeRegistry.playS2C().register(S2CWarehousePinnedUpdatePayload.TYPE,
+                PayloadTypeRegistry.clientboundPlay().register(S2COpenFoodFilterPayload.TYPE, S2COpenFoodFilterPayload.CODEC);
+                PayloadTypeRegistry.clientboundPlay().register(S2CWarehousePinnedUpdatePayload.TYPE,
                                 S2CWarehousePinnedUpdatePayload.CODEC);
         }
 

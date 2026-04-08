@@ -10,7 +10,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -21,7 +20,7 @@ import net.minecraft.world.item.Items;
  */
 public class WarehouseInteractionHandler {
 
-    public static boolean handleClicked(AbstractContainerMenu menu, int slotId, int button, ClickType clickType,
+    public static boolean handleClicked(AbstractContainerMenu menu, int slotId, int button, Object clickType,
             Player player) {
         // 排除创造模式背包菜单的交互
         if (menu instanceof net.minecraft.world.inventory.InventoryMenu && player.getAbilities().instabuild)
@@ -64,7 +63,7 @@ public class WarehouseInteractionHandler {
             if (warehouseStart == -1)
                 return false;
 
-            if (clickType == ClickType.QUICK_MOVE) {
+            if (isQuickMove(clickType)) {
                 return true; // 已拦截
             }
 
@@ -91,7 +90,7 @@ public class WarehouseInteractionHandler {
             if (!warehouse.isEnabled())
                 return false;
 
-            if (clickType == ClickType.QUICK_MOVE) {
+            if (isQuickMove(clickType)) {
                 ItemStack stackInSlot = slot.getItem();
                 if (!stackInSlot.isEmpty()) {
                     if (((AbstractContainerMenuAccessor) menu).invokeMoveItemStackTo(stackInSlot, 9, 45, true)) {
@@ -133,7 +132,7 @@ public class WarehouseInteractionHandler {
         return false;
     }
 
-    private static void handleExperienceClick(PlayerWarehouse warehouse, int slotIndex, int button, ClickType clickType,
+    private static void handleExperienceClick(PlayerWarehouse warehouse, int slotIndex, int button, Object clickType,
             Player player) {
         if (player.level().isClientSide())
             return;
@@ -144,10 +143,9 @@ public class WarehouseInteractionHandler {
 
         // 等级维持模式下禁用左右键交互，并给出红色提示
         if (ExperienceUpgrade.isMaintaining(upgradeStack)) {
-            player.displayClientMessage(
+            player.sendSystemMessage(
                     Component.translatable("tooltip.portablestorage.experience.maintain_blocked")
-                            .withStyle(ChatFormatting.RED),
-                    true);
+                            .withStyle(ChatFormatting.RED));
             return;
         }
 
@@ -202,5 +200,9 @@ public class WarehouseInteractionHandler {
                 WarehouseManager.addItem(warehouse, cursorStack);
             }
         }
+    }
+
+    private static boolean isQuickMove(Object clickType) {
+        return clickType != null && "QUICK_MOVE".equals(clickType.toString());
     }
 }

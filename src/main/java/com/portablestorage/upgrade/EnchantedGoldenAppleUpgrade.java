@@ -81,8 +81,8 @@ public class EnchantedGoldenAppleUpgrade extends UpgradeType {
             int threshold = getThreshold(stack);
             Component status = threshold == 0 ? Component.translatable("gui.portablestorage.off")
                     : Component.literal(String.valueOf(threshold));
-            player.displayClientMessage(
-                    Component.translatable("upgrade.portablestorage.enchanted_golden_apple.threshold", status), true);
+            player.sendSystemMessage(
+                    Component.translatable("upgrade.portablestorage.enchanted_golden_apple.threshold", status));
         }
     }
 
@@ -148,7 +148,7 @@ public class EnchantedGoldenAppleUpgrade extends UpgradeType {
             }
             warehouse.markDirty();
 
-            player.displayClientMessage(
+            player.sendSystemMessage(
                     Component.translatable("upgrade.portablestorage.enchanted_golden_apple.auto_eat",
                             foodName),
                     true);

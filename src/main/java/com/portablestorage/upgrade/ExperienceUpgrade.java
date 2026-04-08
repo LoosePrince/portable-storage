@@ -74,8 +74,8 @@ public class ExperienceUpgrade extends UpgradeType {
             warehouse.markDirty();
 
             int step = getStep(stack);
-            player.displayClientMessage(Component.translatable("upgrade.portablestorage.experience.access_level",
-                    Component.literal(String.valueOf(step))), true);
+            player.sendSystemMessage(Component.translatable("upgrade.portablestorage.experience.access_level",
+                    Component.literal(String.valueOf(step))));
         }
     }
 
@@ -95,8 +95,8 @@ public class ExperienceUpgrade extends UpgradeType {
             warehouse.markDirty();
 
             boolean maintain = stack.get(DataComponents.CUSTOM_DATA).copyTag().getBoolean(TAG_MAINTAIN).orElse(false);
-            player.displayClientMessage(Component.translatable("upgrade.portablestorage.experience.maintain",
-                    Component.translatable(maintain ? "gui.portablestorage.on" : "gui.portablestorage.off")), true);
+            player.sendSystemMessage(Component.translatable("upgrade.portablestorage.experience.maintain",
+                    Component.translatable(maintain ? "gui.portablestorage.on" : "gui.portablestorage.off")));
         }
     }
 

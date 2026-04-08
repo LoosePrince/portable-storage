@@ -16,7 +16,7 @@ import com.portablestorage.util.WarehouseConstants;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.Slot;
@@ -24,7 +24,7 @@ import net.minecraft.world.item.ItemStack;
 
 public class TooltipHandler {
 
-    public static boolean handleTooltip(AbstractContainerScreen<?> screen, GuiGraphics graphics, Slot hoveredSlot,
+    public static boolean handleTooltip(AbstractContainerScreen<?> screen, GuiGraphicsExtractor graphics, Slot hoveredSlot,
             int x, int y, Function<ItemStack, List<Component>> tooltipProvider) {
         if (hoveredSlot instanceof com.portablestorage.upgrade.UpgradeSlot) {
             return true; // Cancel original tooltip
@@ -91,14 +91,7 @@ public class TooltipHandler {
                         }
 
                         if (hasCustomInfo) {
-                            List<net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent> components = tooltip
-                                    .stream()
-                                    .map(component -> net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent
-                                            .create(component.getVisualOrderText()))
-                                    .collect(java.util.stream.Collectors.toList());
-                            graphics.renderTooltip(Minecraft.getInstance().font, components, x, y,
-                                    net.minecraft.client.gui.screens.inventory.tooltip.DefaultTooltipPositioner.INSTANCE,
-                                    null);
+                            graphics.setTooltipForNextFrame(Minecraft.getInstance().font, tooltip.stream().map(Component::getVisualOrderText).toList(), x, y);
                             return true;
                         }
                     }

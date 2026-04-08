@@ -119,7 +119,7 @@ public class ConduitUpgrade extends UpgradeType {
         warehouse.markDirty();
 
         if (player instanceof ServerPlayer serverPlayer) {
-            serverPlayer.displayClientMessage(
+            serverPlayer.sendSystemMessage(
                     Component.translatable("upgrade.portablestorage.conduit.mode",
                             Component.translatable("upgrade.portablestorage.conduit.mode." + next)),
                     true);

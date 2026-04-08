@@ -48,9 +48,8 @@ public class TrashCanUpgrade extends UpgradeType {
         // 右键点击时清空垃圾桶内的物品
         if (!warehouse.getUpgrade(ID).isEmpty()) {
             warehouse.setUpgrade(ID, ItemStack.EMPTY);
-            player.displayClientMessage(
-                    net.minecraft.network.chat.Component.translatable("upgrade.portablestorage.trash_can.cleared"),
-                    true);
+            player.sendSystemMessage(
+                    net.minecraft.network.chat.Component.translatable("upgrade.portablestorage.trash_can.cleared"));
         }
     }
 }

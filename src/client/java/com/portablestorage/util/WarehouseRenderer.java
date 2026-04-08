@@ -10,9 +10,7 @@ import com.portablestorage.component.PlayerWarehouse;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
-import net.minecraft.client.gui.screens.inventory.tooltip.DefaultTooltipPositioner;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -32,7 +30,7 @@ public class WarehouseRenderer {
         /**
          * 渲染仓库背景
          */
-        public static void renderBackground(GuiGraphics graphics, int x, int y, int mouseX, int mouseY,
+        public static void renderBackground(GuiGraphicsExtractor graphics, int x, int y, int mouseX, int mouseY,
                         PlayerWarehouse warehouse, Font font) {
                 int rows = warehouse.isFolded() ? 0 : warehouse.getVisibleRows();
                 int warehouseHeight = WarehouseConstants.WAREHOUSE_TITLE_HEIGHT + rows * WarehouseConstants.SLOT_SIZE;
@@ -73,7 +71,7 @@ public class WarehouseRenderer {
                                                 if (warehouse.getUpgrade(type.getId()).isEmpty()) {
                                                         ItemStack iconStack = type.getIconStack();
                                                         if (!iconStack.isEmpty()) {
-                                                                graphics.renderFakeItem(iconStack, upgradeSlotX + 1,
+                                                                graphics.fakeItem(iconStack, upgradeSlotX + 1,
                                                                                 slotY + 1);
                                                         } else {
                                                                 Identifier icon = type.getIcon();
@@ -135,7 +133,7 @@ public class WarehouseRenderer {
                 }
         }
 
-        public static void renderUpgradeScrollbar(GuiGraphics graphics, int x, int y, int mouseX, int mouseY,
+        public static void renderUpgradeScrollbar(GuiGraphicsExtractor graphics, int x, int y, int mouseX, int mouseY,
                         PlayerWarehouse warehouse) {
                 int rows = warehouse.getVisibleRows();
                 int scrollbarX = x + WarehouseConstants.UPGRADE_SCROLLBAR_X_OFFSET;
@@ -175,7 +173,7 @@ public class WarehouseRenderer {
                 }
         }
 
-        public static void renderSidebarButtons(GuiGraphics graphics, int foldX, int foldY, int sidebarX, int sidebarY,
+        public static void renderSidebarButtons(GuiGraphicsExtractor graphics, int foldX, int foldY, int sidebarX, int sidebarY,
                         int mouseX, int mouseY, PlayerWarehouse warehouse, boolean indentSidebar) {
                 boolean showShortcuts = com.portablestorage.config.ModConfig.showSmallIcons;
                 boolean horizontal = com.portablestorage.config.ModConfig.storagePosition.isHorizontal();
@@ -244,7 +242,7 @@ public class WarehouseRenderer {
                 }
         }
 
-        public static void renderSidebarTooltips(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX,
+        public static void renderSidebarTooltips(GuiGraphicsExtractor graphics, Font font, int leftPos, int topPos, int mouseX,
                         int mouseY, PlayerWarehouse warehouse, int imageHeight, boolean indentSidebar) {
                 boolean showShortcuts = com.portablestorage.config.ModConfig.showSmallIcons;
                 boolean horizontal = com.portablestorage.config.ModConfig.storagePosition.isHorizontal();
@@ -277,11 +275,7 @@ public class WarehouseRenderer {
                                 tooltip.add(Component.translatable("gui.portablestorage.current",
                                                 Component.translatable(modeKey).withStyle(ChatFormatting.WHITE))
                                                 .withStyle(ChatFormatting.YELLOW));
-                                List<ClientTooltipComponent> components = tooltip.stream()
-                                                .map(c -> ClientTooltipComponent.create(c.getVisualOrderText()))
-                                                .toList();
-                                graphics.renderTooltip(font, components, mouseX, mouseY,
-                                                DefaultTooltipPositioner.INSTANCE, null);
+                                graphics.setTooltipForNextFrame(font, tooltip.stream().map(Component::getVisualOrderText).toList(), mouseX, mouseY);
                                 return;
                         }
 
@@ -297,11 +291,7 @@ public class WarehouseRenderer {
                                 tooltip.add(Component.translatable("gui.portablestorage.current",
                                                 Component.translatable(orderKey).withStyle(ChatFormatting.WHITE))
                                                 .withStyle(ChatFormatting.YELLOW));
-                                List<ClientTooltipComponent> components = tooltip.stream()
-                                                .map(c -> ClientTooltipComponent.create(c.getVisualOrderText()))
-                                                .toList();
-                                graphics.renderTooltip(font, components, mouseX, mouseY,
-                                                DefaultTooltipPositioner.INSTANCE, null);
+                                graphics.setTooltipForNextFrame(font, tooltip.stream().map(Component::getVisualOrderText).toList(), mouseX, mouseY);
                                 return;
                         }
 
@@ -319,11 +309,7 @@ public class WarehouseRenderer {
                                                                 .withStyle(on ? ChatFormatting.GREEN
                                                                                 : ChatFormatting.RED))
                                                 .withStyle(ChatFormatting.YELLOW));
-                                List<ClientTooltipComponent> components = tooltip.stream()
-                                                .map(c -> ClientTooltipComponent.create(c.getVisualOrderText()))
-                                                .toList();
-                                graphics.renderTooltip(font, components, mouseX, mouseY,
-                                                DefaultTooltipPositioner.INSTANCE, null);
+                                graphics.setTooltipForNextFrame(font, tooltip.stream().map(Component::getVisualOrderText).toList(), mouseX, mouseY);
                                 return;
                         }
 
@@ -341,11 +327,7 @@ public class WarehouseRenderer {
                                                                 .withStyle(on ? ChatFormatting.GREEN
                                                                                 : ChatFormatting.RED))
                                                 .withStyle(ChatFormatting.YELLOW));
-                                List<ClientTooltipComponent> components = tooltip.stream()
-                                                .map(c -> ClientTooltipComponent.create(c.getVisualOrderText()))
-                                                .toList();
-                                graphics.renderTooltip(font, components, mouseX, mouseY,
-                                                DefaultTooltipPositioner.INSTANCE, null);
+                                graphics.setTooltipForNextFrame(font, tooltip.stream().map(Component::getVisualOrderText).toList(), mouseX, mouseY);
                                 return;
                         }
 
@@ -363,11 +345,7 @@ public class WarehouseRenderer {
                                                                 .withStyle(on ? ChatFormatting.GREEN
                                                                                 : ChatFormatting.RED))
                                                 .withStyle(ChatFormatting.YELLOW));
-                                List<ClientTooltipComponent> components = tooltip.stream()
-                                                .map(c -> ClientTooltipComponent.create(c.getVisualOrderText()))
-                                                .toList();
-                                graphics.renderTooltip(font, components, mouseX, mouseY,
-                                                DefaultTooltipPositioner.INSTANCE, null);
+                                graphics.setTooltipForNextFrame(font, tooltip.stream().map(Component::getVisualOrderText).toList(), mouseX, mouseY);
                                 return;
                         }
                 }
@@ -384,17 +362,13 @@ public class WarehouseRenderer {
                                 tooltip.add(Component.translatable(
                                                 isCrafting ? "gui.portablestorage.button.back"
                                                                 : "gui.portablestorage.button.open_crafting"));
-                                List<ClientTooltipComponent> components = tooltip.stream()
-                                                .map(c -> ClientTooltipComponent.create(c.getVisualOrderText()))
-                                                .toList();
-                                graphics.renderTooltip(font, components, mouseX, mouseY,
-                                                DefaultTooltipPositioner.INSTANCE, null);
+                                graphics.setTooltipForNextFrame(font, tooltip.stream().map(Component::getVisualOrderText).toList(), mouseX, mouseY);
                                 return;
                         }
                 }
         }
 
-        public static void renderFoldTooltip(GuiGraphics graphics, Font font, int mouseX, int mouseY,
+        public static void renderFoldTooltip(GuiGraphicsExtractor graphics, Font font, int mouseX, int mouseY,
                         PlayerWarehouse warehouse) {
                 List<Component> tooltip = new ArrayList<>();
                 tooltip.add(Component.translatable(
@@ -404,13 +378,10 @@ public class WarehouseRenderer {
                 tooltip.add(
                                 Component.translatable("gui.portablestorage.button.settings_hint")
                                                 .withStyle(ChatFormatting.DARK_GRAY));
-                List<ClientTooltipComponent> components = tooltip.stream()
-                                .map(c -> ClientTooltipComponent.create(c.getVisualOrderText()))
-                                .toList();
-                graphics.renderTooltip(font, components, mouseX, mouseY, DefaultTooltipPositioner.INSTANCE, null);
+                graphics.setTooltipForNextFrame(font, tooltip.stream().map(Component::getVisualOrderText).toList(), mouseX, mouseY);
         }
 
-        public static void renderAllTooltips(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX,
+        public static void renderAllTooltips(GuiGraphicsExtractor graphics, Font font, int leftPos, int topPos, int mouseX,
                         int mouseY, PlayerWarehouse warehouse, int imageHeight, int foldX, int foldY,
                         boolean indentSidebar) {
                 // 检查折叠按钮 tooltip
@@ -432,7 +403,7 @@ public class WarehouseRenderer {
                                 indentSidebar);
         }
 
-        public static void renderUpgradeTooltips(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX,
+        public static void renderUpgradeTooltips(GuiGraphicsExtractor graphics, Font font, int leftPos, int topPos, int mouseX,
                         int mouseY, PlayerWarehouse warehouse, int imageHeight) {
                 int x = leftPos + WarehouseConstants.getWarehouseXOffset();
                 int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight);
@@ -466,12 +437,7 @@ public class WarehouseRenderer {
                                         finalTooltip.addAll(type.getTooltip(warehouse, stack));
 
                                         if (!finalTooltip.isEmpty()) {
-                                                List<ClientTooltipComponent> components = finalTooltip.stream()
-                                                                .map(c -> ClientTooltipComponent
-                                                                                .create(c.getVisualOrderText()))
-                                                                .toList();
-                                                graphics.renderTooltip(font, components, mouseX, mouseY,
-                                                                DefaultTooltipPositioner.INSTANCE, null);
+                                                graphics.setTooltipForNextFrame(font, finalTooltip.stream().map(Component::getVisualOrderText).toList(), mouseX, mouseY);
                                         }
                                 }
                                 break;
@@ -479,7 +445,7 @@ public class WarehouseRenderer {
                 }
         }
 
-        public static void renderScrollbar(GuiGraphics graphics, int x, int y, int mouseX, int mouseY,
+        public static void renderScrollbar(GuiGraphicsExtractor graphics, int x, int y, int mouseX, int mouseY,
                         PlayerWarehouse warehouse) {
                 int rows = warehouse.getVisibleRows();
                 int scrollbarX = x + WarehouseConstants.getScrollbarXOffset();
@@ -519,7 +485,7 @@ public class WarehouseRenderer {
                 }
         }
 
-        public static void renderQuantityTexts(GuiGraphics graphics, Font font, int leftPos, int topPos,
+        public static void renderQuantityTexts(GuiGraphicsExtractor graphics, Font font, int leftPos, int topPos,
                         PlayerWarehouse warehouse, int imageHeight) {
                 if (warehouse.isFolded())
                         return;
@@ -547,13 +513,13 @@ public class WarehouseRenderer {
                                 graphics.pose().pushMatrix();
                                 graphics.pose().translate(textX, textY);
                                 graphics.pose().scale(scale, scale);
-                                graphics.drawString(font, countStr, 0, 0, color, true);
+                                graphics.text(font, countStr, 0, 0, color, true);
                                 graphics.pose().popMatrix();
                         }
                 }
         }
 
-        public static void drawNinePatch(GuiGraphics graphics, Identifier texture, int x, int y, int width,
+        public static void drawNinePatch(GuiGraphicsExtractor graphics, Identifier texture, int x, int y, int width,
                         int height, int cornerSize) {
                 int textureSize = WarehouseConstants.GUI_TEXTURE_SIZE;
                 int targetCenterWidth = width - cornerSize * 2;
@@ -594,7 +560,7 @@ public class WarehouseRenderer {
                                 textureSize);
         }
 
-        public static void renderIconButton(GuiGraphics graphics, int x, int y, int iconIndex, int mouseX, int mouseY) {
+        public static void renderIconButton(GuiGraphicsExtractor graphics, int x, int y, int iconIndex, int mouseX, int mouseY) {
                 int u = (iconIndex % 5) * WarehouseConstants.ICON_SIZE;
                 int v = (iconIndex / 5) * WarehouseConstants.ICON_SIZE;
                 blitRegion(graphics, WAREHOUSE_ICON_TEXTURE, x + 1, y + 1, u, v, WarehouseConstants.ICON_SIZE,
@@ -603,7 +569,7 @@ public class WarehouseRenderer {
                                 WarehouseConstants.ICON_TEXTURE_HEIGHT);
         }
 
-        public static void renderPlusMinusButtons(GuiGraphics graphics, Font font, int x, int y, int mouseX,
+        public static void renderPlusMinusButtons(GuiGraphicsExtractor graphics, Font font, int x, int y, int mouseX,
                         int mouseY) {
                 renderTinyButton(graphics, font, x, y, "-", mouseX, mouseY);
                 renderTinyButton(graphics, font,
@@ -612,7 +578,7 @@ public class WarehouseRenderer {
                                 mouseY);
         }
 
-        public static void renderTinyButton(GuiGraphics graphics, Font font, int x, int y, String text, int mouseX,
+        public static void renderTinyButton(GuiGraphicsExtractor graphics, Font font, int x, int y, String text, int mouseX,
                         int mouseY) {
                 boolean hovered = mouseX >= x && mouseX < x + WarehouseConstants.TINY_BUTTON_SIZE && mouseY >= y
                                 && mouseY < y + WarehouseConstants.TINY_BUTTON_SIZE;
@@ -630,10 +596,10 @@ public class WarehouseRenderer {
                                 y + WarehouseConstants.TINY_BUTTON_SIZE, WarehouseConstants.BUTTON_BORDER_DARK);
                 int textX = x + (WarehouseConstants.TINY_BUTTON_SIZE / 2) - font.width(text) / 2 + 1;
                 int textY = y + 2;
-                graphics.drawString(font, text, textX, textY, 0xFFFFFFFF, false);
+                graphics.text(font, text, textX, textY, 0xFFFFFFFF, false);
         }
 
-        public static void renderPinnedOverlays(GuiGraphics graphics, int leftPos, int topPos,
+        public static void renderPinnedOverlays(GuiGraphicsExtractor graphics, int leftPos, int topPos,
                         PlayerWarehouse warehouse,
                         int imageHeight) {
                 if (warehouse.isFolded())
@@ -660,7 +626,7 @@ public class WarehouseRenderer {
                 }
         }
 
-        private static void renderSharingStatus(GuiGraphics graphics, int x, int y, PlayerWarehouse warehouse) {
+        private static void renderSharingStatus(GuiGraphicsExtractor graphics, int x, int y, PlayerWarehouse warehouse) {
                 int baseStatusX = x + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X + 7; // 居中于 18px 宽度的升级列
                 int statusY = y + 12; // 位于第一个升级槽位 (21) 上方
 
@@ -718,7 +684,7 @@ public class WarehouseRenderer {
                 }
         }
 
-        private static void renderPlayerFace(GuiGraphics graphics, UUID uuid, int x, int y, int size) {
+        private static void renderPlayerFace(GuiGraphicsExtractor graphics, UUID uuid, int x, int y, int size) {
                 // 绘制 1px 灰色描边
                 graphics.fill(x - 1, y - 1, x + size + 1, y + size + 1, WarehouseConstants.AVATAR_BORDER);
 
@@ -731,7 +697,7 @@ public class WarehouseRenderer {
                 blitRegion(graphics, texture, x, y, 40, 8, size, size, 8, 8, 64, 64);
         }
 
-        private static void blitRegion(GuiGraphics graphics, Identifier texture, int x, int y, int u, int v,
+        private static void blitRegion(GuiGraphicsExtractor graphics, Identifier texture, int x, int y, int u, int v,
                         int width, int height, int regionWidth, int regionHeight, int textureWidth,
                         int textureHeight) {
                 graphics.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, u, v, width, height, regionWidth,
@@ -759,7 +725,7 @@ public class WarehouseRenderer {
                                 && mouseY < statusY + 3;
         }
 
-        public static void renderStatusTooltip(GuiGraphics graphics, Font font, int leftPos, int topPos, int mouseX,
+        public static void renderStatusTooltip(GuiGraphicsExtractor graphics, Font font, int leftPos, int topPos, int mouseX,
                         int mouseY, PlayerWarehouse warehouse, int imageHeight) {
                 if (isOverSharingStatus(mouseX, mouseY, leftPos, topPos, warehouse, imageHeight)) {
                         List<Component> tooltip = new ArrayList<>();
@@ -813,11 +779,7 @@ public class WarehouseRenderer {
                         } else {
                                 tooltip.add(Component.translatable("gui.portablestorage.status.not_shared"));
                         }
-                        List<ClientTooltipComponent> components = tooltip.stream()
-                                        .map(c -> ClientTooltipComponent.create(c.getVisualOrderText()))
-                                        .toList();
-                        graphics.renderTooltip(font, components, mouseX, mouseY, DefaultTooltipPositioner.INSTANCE,
-                                        null);
+                        graphics.setTooltipForNextFrame(font, tooltip.stream().map(Component::getVisualOrderText).toList(), mouseX, mouseY);
                 }
         }
 }

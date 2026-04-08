@@ -65,7 +65,7 @@ public class BedUpgrade extends UpgradeType {
             // 检查空间是否可用
             if (!serverPlayer.level().getBlockState(headPos).canBeReplaced()
                     || !serverPlayer.level().getBlockState(footPos).canBeReplaced()) {
-                serverPlayer.displayClientMessage(Component.translatable("upgrade.portablestorage.bed.no_space"), true);
+                serverPlayer.sendSystemMessage(Component.translatable("upgrade.portablestorage.bed.no_space"), true);
                 return;
             }
 
@@ -89,7 +89,7 @@ public class BedUpgrade extends UpgradeType {
             serverPlayer.startSleepInBed(headPos).ifLeft(problem -> {
                 if (problem != null) {
                     // 1.21.11 中 BedSleepingProblem 是 record，直接提供 message()
-                    serverPlayer.displayClientMessage(problem.message(), true);
+                    serverPlayer.sendSystemMessage(problem.message(), true);
                     cleanupTempBed(serverPlayer);
                 }
             });

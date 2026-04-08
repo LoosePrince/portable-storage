@@ -50,7 +50,7 @@ public class StorageKeyItem extends Item {
 
         UUID ownerUuid = UUID.fromString(ownerString);
         if (!ownerUuid.equals(player.getUUID())) {
-            player.displayClientMessage(
+            player.sendSystemMessage(
                     Component.translatable("message.portablestorage.key_not_owner").withStyle(ChatFormatting.RED),
                     false);
             return InteractionResult.FAIL;
@@ -58,7 +58,7 @@ public class StorageKeyItem extends Item {
 
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         if (warehouse.isEnabled()) {
-            player.displayClientMessage(
+            player.sendSystemMessage(
                     Component.translatable("message.portablestorage.already_enabled").withStyle(ChatFormatting.YELLOW),
                     false);
             stack.shrink(1);
@@ -69,7 +69,7 @@ public class StorageKeyItem extends Item {
         warehouse.setEnabled(true);
         stack.shrink(1);
 
-        player.displayClientMessage(
+        player.sendSystemMessage(
                 Component.translatable("message.portablestorage.reactivated").withStyle(ChatFormatting.GREEN), false);
         return InteractionResult.SUCCESS;
     }
@@ -97,13 +97,13 @@ public class StorageKeyItem extends Item {
             if (!warehouse.isEnabled()) {
                 warehouse.setEnabled(true);
                 stack.shrink(1);
-                player.displayClientMessage(
+                player.sendSystemMessage(
                         Component.translatable("message.portablestorage.reactivated").withStyle(ChatFormatting.GREEN),
                         false);
             } else {
                 // 如果仓库已经开启，进入背包也自动消耗（对应“激活状态下进入也消耗”的逻辑一致性）
                 stack.shrink(1);
-                player.displayClientMessage(Component.translatable("message.portablestorage.already_enabled")
+                player.sendSystemMessage(Component.translatable("message.portablestorage.already_enabled")
                         .withStyle(ChatFormatting.YELLOW), false);
             }
         }

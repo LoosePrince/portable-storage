@@ -77,10 +77,9 @@ public class HopperUpgrade extends UpgradeType {
             setHopperEnabled(stack, !current);
             warehouse.markDirty();
 
-            player.displayClientMessage(Component.translatable("upgrade.portablestorage.hopper.toggled",
+            player.sendSystemMessage(Component.translatable("upgrade.portablestorage.hopper.toggled",
                     Component.translatable(!current ? "gui.portablestorage.on" : "gui.portablestorage.off")
-                            .withStyle(!current ? ChatFormatting.GREEN : ChatFormatting.RED)),
-                    true);
+                            .withStyle(!current ? ChatFormatting.GREEN : ChatFormatting.RED)));
         }
     }
 

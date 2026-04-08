@@ -8,7 +8,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import com.portablestorage.client.gui.WarehouseScreen;
 import com.portablestorage.config.ModConfig;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.inventory.AbstractRecipeBookScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
@@ -61,7 +61,7 @@ public abstract class InventoryScreenMixin extends AbstractRecipeBookScreen<Inve
      * 这样原版的槽位高亮会覆盖在仓库背景之上
      */
     @Inject(method = "renderBg", at = @At("RETURN"))
-    private void onRenderBgReturn(GuiGraphics graphics, float partialTick, int mouseX, int mouseY, CallbackInfo ci) {
+    private void onRenderBgReturn(GuiGraphicsExtractor graphics, float partialTick, int mouseX, int mouseY, CallbackInfo ci) {
         WarehouseScreen screen = (WarehouseScreen) this;
         var warehouseWidget = screen.portablestorage$getWarehouseWidget();
         if (warehouseWidget != null && warehouseWidget.shouldShow()) {
@@ -73,7 +73,7 @@ public abstract class InventoryScreenMixin extends AbstractRecipeBookScreen<Inve
      * 在 render 方法返回前注入，绘制覆盖层和文本（在原版槽位高亮之后）
      */
     @Inject(method = "render", at = @At("RETURN"))
-    private void onRenderReturn(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+    private void onRenderReturn(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         WarehouseScreen screen = (WarehouseScreen) this;
         var warehouseWidget = screen.portablestorage$getWarehouseWidget();
         if (warehouseWidget != null && warehouseWidget.shouldShow()) {

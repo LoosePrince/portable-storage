@@ -64,10 +64,9 @@ public class BoundBarrelBlock extends BaseEntityBlock {
             if (blockEntity instanceof BoundBarrelBlockEntity boundBarrel) {
                 // 权限检查：只有所有者可以打开界面
                 if (boundBarrel.getOwnerUuid() != null && !boundBarrel.getOwnerUuid().equals(player.getUUID())) {
-                    player.displayClientMessage(
+                    player.sendSystemMessage(
                             Component.translatable("message.portablestorage.bound_barrel_no_permission")
-                                    .withStyle(net.minecraft.ChatFormatting.RED),
-                            true);
+                                    .withStyle(net.minecraft.ChatFormatting.RED));
                     return InteractionResult.FAIL;
                 }
                 player.openMenu(boundBarrel);

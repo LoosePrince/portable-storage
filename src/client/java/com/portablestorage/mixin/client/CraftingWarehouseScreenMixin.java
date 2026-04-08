@@ -2,7 +2,7 @@ package com.portablestorage.mixin.client;
 
 import com.portablestorage.client.gui.WarehouseScreen;
 import com.portablestorage.screen.CraftingWarehouseScreen;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -19,7 +19,7 @@ public abstract class CraftingWarehouseScreenMixin {
      * 在 renderBg 之后注入，绘制仓库背景（在原版槽位高亮之前）
      */
     @Inject(method = "renderBg", at = @At("RETURN"))
-    private void onRenderBgReturn(GuiGraphics graphics, float partialTick, int mouseX, int mouseY, CallbackInfo ci) {
+    private void onRenderBgReturn(GuiGraphicsExtractor graphics, float partialTick, int mouseX, int mouseY, CallbackInfo ci) {
         // 通过 AbstractContainerScreenMixin 获取 WarehouseWidget
         AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
         WarehouseScreen warehouseScreen = (WarehouseScreen) screen;
@@ -33,7 +33,7 @@ public abstract class CraftingWarehouseScreenMixin {
      * 在 render 方法返回前注入，绘制覆盖层和文本（在原版槽位高亮之后）
      */
     @Inject(method = "render", at = @At("RETURN"))
-    private void onRenderReturn(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+    private void onRenderReturn(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         // 通过 AbstractContainerScreenMixin 获取 WarehouseWidget
         AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
         WarehouseScreen warehouseScreen = (WarehouseScreen) screen;

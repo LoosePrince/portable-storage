@@ -185,7 +185,7 @@ public class SpaceRiftManager {
 
     private static void ensurePlotInitialized(ServerLevel world, ChunkPos origin, PlayerWarehouse warehouse) {
         // 确保区块加载
-        world.getChunk(origin.x, origin.z);
+        world.getChunk(origin.x(), origin.z());
 
         BlockState stone = Blocks.SMOOTH_STONE.defaultBlockState();
 
@@ -301,7 +301,7 @@ public class SpaceRiftManager {
         for (int x = -5; x <= 5; x++) {
             for (int z = -5; z <= 5; z++) {
                 try {
-                    riftLevel.setChunkForced(origin.x + x, origin.z + z, false);
+                    riftLevel.setChunkForced(origin.x() + x, origin.z() + z, false);
                 } catch (Exception ignored) {
                 }
             }
@@ -312,7 +312,7 @@ public class SpaceRiftManager {
             for (int x = -range; x <= range; x++) {
                 for (int z = -range; z <= range; z++) {
                     try {
-                        riftLevel.setChunkForced(origin.x + x, origin.z + z, true);
+                        riftLevel.setChunkForced(origin.x() + x, origin.z() + z, true);
                     } catch (Exception ignored) {
                     }
                 }

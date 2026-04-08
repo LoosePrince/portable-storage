@@ -13,7 +13,7 @@ import com.portablestorage.client.handler.TooltipHandler;
 import com.portablestorage.handler.WarehouseMenuHandler;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -63,7 +63,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     }
 
     @Inject(method = "renderSlot", at = @At("HEAD"), cancellable = true)
-    private void onRenderSlot(GuiGraphics graphics, net.minecraft.world.inventory.Slot slot, int x, int y,
+    private void onRenderSlot(GuiGraphicsExtractor graphics, net.minecraft.world.inventory.Slot slot, int x, int y,
             CallbackInfo ci) {
         if (slot.container instanceof com.portablestorage.component.PlayerWarehouse
                 || slot instanceof com.portablestorage.upgrade.UpgradeSlot) {
@@ -104,7 +104,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     }
 
     @Inject(method = "renderTooltip", at = @At("HEAD"), cancellable = true)
-    private void onRenderTooltip(GuiGraphics graphics, int x, int y, CallbackInfo ci) {
+    private void onRenderTooltip(GuiGraphicsExtractor graphics, int x, int y, CallbackInfo ci) {
         if (warehouseWidget != null) {
             warehouseWidget.renderPreTooltipOverlays(graphics);
         }
@@ -119,7 +119,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     }
 
     @Inject(method = "render", at = @At("RETURN"))
-    private void onRenderReturn(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+    private void onRenderReturn(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         if ((Object) this instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen) {
             return;
         }

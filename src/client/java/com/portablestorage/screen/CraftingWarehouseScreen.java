@@ -4,46 +4,16 @@ import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.util.WarehouseConstants;
 
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
 
 public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWarehouseScreenHandler> {
-    private static final Identifier CRAFTING_TABLE_TEXTURE = Identifier.fromNamespaceAndPath("minecraft",
-            "textures/gui/container/crafting_table.png");
-
     public CraftingWarehouseScreen(CraftingWarehouseScreenHandler handler, Inventory inventory, Component title) {
-        super(handler, inventory, title);
-        this.imageHeight = 166;
-    }
-
-    @Override
-    protected void renderTooltip(GuiGraphics graphics, int x, int y) {
-        if (this.hoveredSlot instanceof com.portablestorage.upgrade.UpgradeSlot) {
-            return; // 拦截
-        }
-        super.renderTooltip(graphics, x, y);
-    }
-
-    @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        super.render(graphics, mouseX, mouseY, delta);
-        // 仓库渲染由 Mixin 注入的 WarehouseWidget 处理
-        this.renderTooltip(graphics, mouseX, mouseY);
-    }
-
-    @Override
-    protected void renderBg(GuiGraphics graphics, float delta, int mouseX, int mouseY) {
-        // 渲染合成台背景纹理
-        graphics.blit(RenderPipelines.GUI_TEXTURED, CRAFTING_TABLE_TEXTURE, this.leftPos, this.topPos, 0, 0,
-                this.imageWidth, this.imageHeight, this.imageWidth, this.imageHeight, 256, 256);
-        // 仓库背景和侧边栏按钮由 Mixin 注入的 WarehouseWidget 处理
+        super(handler, inventory, title, 176, 166);
     }
 
     @Override

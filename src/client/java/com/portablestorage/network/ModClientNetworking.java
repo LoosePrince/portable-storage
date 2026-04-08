@@ -1,6 +1,7 @@
 package com.portablestorage.network;
 
 import com.portablestorage.config.ModConfig;
+
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
 /**
@@ -53,20 +54,23 @@ public class ModClientNetworking {
 
         ClientPlayNetworking.registerGlobalReceiver(S2COpenHopperFilterPayload.TYPE, (payload, context) -> {
             context.client().execute(() -> {
-                context.client().setScreen(com.portablestorage.config.YACLConfig.createHopperFilterScreen(context.client().screen, payload.filters(), payload.blacklist()));
+                context.client().setScreen(com.portablestorage.config.YACLConfig
+                        .createHopperFilterScreen(context.client().screen, payload.filters(), payload.blacklist()));
             });
         });
 
         ClientPlayNetworking.registerGlobalReceiver(S2COpenFoodFilterPayload.TYPE, (payload, context) -> {
             context.client().execute(() -> {
-                context.client().setScreen(com.portablestorage.config.YACLConfig.createFoodFilterScreen(context.client().screen, payload.filters(), payload.blacklist()));
+                context.client().setScreen(com.portablestorage.config.YACLConfig
+                        .createFoodFilterScreen(context.client().screen, payload.filters(), payload.blacklist()));
             });
         });
 
         ClientPlayNetworking.registerGlobalReceiver(S2CWarehousePinnedUpdatePayload.TYPE, (payload, context) -> {
             context.client().execute(() -> {
                 var client = context.client();
-                if (client.player == null) return;
+                if (client.player == null)
+                    return;
                 var warehouse = com.portablestorage.component.ModComponents.get(client.player)
                         .getWarehouse(client.player.getUUID());
                 var sorted = warehouse.getSortedEntries();
@@ -83,4 +87,3 @@ public class ModClientNetworking {
         });
     }
 }
-

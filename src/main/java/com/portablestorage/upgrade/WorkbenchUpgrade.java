@@ -58,11 +58,10 @@ public class WorkbenchUpgrade extends UpgradeType {
             set3x3Enabled(stack, !current);
             warehouse.markDirty();
 
-            player.displayClientMessage(Component.translatable("upgrade.portablestorage.workbench.toggled",
+            player.sendSystemMessage(Component.translatable("upgrade.portablestorage.workbench.toggled",
                     Component.translatable(!current ? "gui.portablestorage.on" : "gui.portablestorage.off")
                             .withStyle(
-                                    !current ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.RED)),
-                    true);
+                                    !current ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.RED)));
         }
     }
 

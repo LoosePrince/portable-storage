@@ -107,7 +107,7 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
             if (optional.isPresent()) {
                 RecipeHolder<CraftingRecipe> recipeHolder = optional.get();
                 if (resultSlots.setRecipeUsed(serverPlayer, recipeHolder)) {
-                    itemStack = recipeHolder.value().assemble(craftingInput, level.registryAccess());
+                    itemStack = recipeHolder.value().assemble(craftingInput);
                 }
             }
 
