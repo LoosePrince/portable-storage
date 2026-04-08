@@ -20,6 +20,7 @@ import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.constants.RecipeTypes;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
+import mezz.jei.api.recipe.types.IRecipeType;
 import mezz.jei.api.recipe.transfer.IRecipeTransferError;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import mezz.jei.api.registration.IGuiHandlerRegistration;
@@ -121,10 +122,8 @@ public class PortableStorageJeiPlugin implements IModPlugin {
         }
 
         @Override
-        public mezz.jei.api.recipe.RecipeType<RecipeHolder<CraftingRecipe>> getRecipeType() {
-            @SuppressWarnings("unchecked")
-            mezz.jei.api.recipe.RecipeType<RecipeHolder<CraftingRecipe>> type = (mezz.jei.api.recipe.RecipeType<RecipeHolder<CraftingRecipe>>) (Object) RecipeTypes.CRAFTING;
-            return type;
+        public IRecipeType<RecipeHolder<CraftingRecipe>> getRecipeType() {
+            return RecipeTypes.CRAFTING;
         }
 
         @Override

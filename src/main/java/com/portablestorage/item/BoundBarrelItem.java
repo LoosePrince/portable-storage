@@ -18,6 +18,7 @@ public class BoundBarrelItem extends BlockItem {
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display,
             Consumer<Component> adder, TooltipFlag flag) {
         super.appendHoverText(stack, context, display, adder, flag);

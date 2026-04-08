@@ -1,11 +1,12 @@
 package com.portablestorage.upgrade;
 
+import java.util.List;
+
 import com.portablestorage.component.PlayerWarehouse;
+
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-
-import java.util.List;
 
 /**
  * 升级槽位
@@ -13,14 +14,12 @@ import java.util.List;
  */
 public class UpgradeSlot extends Slot {
     private final PlayerWarehouse warehouse;
-    private final Player player;
     /** 在当前列中的视觉位置（0 到 MAX_ROWS-1） */
     private final int visualIndex;
 
-    public UpgradeSlot(PlayerWarehouse warehouse, Player player, int visualIndex, int x, int y) {
+    public UpgradeSlot(PlayerWarehouse warehouse, int visualIndex, int x, int y) {
         super(warehouse.upgradeContainer, visualIndex, x, y);
         this.warehouse = warehouse;
-        this.player = player;
         this.visualIndex = visualIndex;
     }
 

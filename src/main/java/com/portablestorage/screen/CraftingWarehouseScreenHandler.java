@@ -67,7 +67,7 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
         int upgradeYBase = WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows())
                 + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y;
         for (int i = 0; i < WarehouseConstants.MAX_ROWS; i++) {
-            this.addSlot(new com.portablestorage.upgrade.UpgradeSlot(warehouse, player, i, upgradeX,
+            this.addSlot(new com.portablestorage.upgrade.UpgradeSlot(warehouse, i, upgradeX,
                     upgradeYBase + i * WarehouseConstants.SLOT_SIZE));
         }
 

@@ -15,6 +15,7 @@ public class VirtualFluidItem extends Item {
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display,
             Consumer<Component> adder, TooltipFlag type) {
         adder.accept(Component.literal(" "));

@@ -81,7 +81,7 @@ public class WarehouseMenuHandler {
 
         // 添加升级槽位
         for (int i = 0; i < WarehouseConstants.MAX_ROWS; i++) {
-            accessor.invokeAddSlot(new UpgradeSlot(warehouse, player, i, startX, startY) {
+            accessor.invokeAddSlot(new UpgradeSlot(warehouse, i, startX, startY) {
                 @Override
                 public boolean isActive() {
                     if (player.getAbilities().instabuild) {
