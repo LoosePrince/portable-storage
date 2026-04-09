@@ -20,6 +20,7 @@ import net.minecraft.world.inventory.BrewingStandMenu;
 import net.minecraft.world.inventory.CartographyTableMenu;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.CraftingContainer;
+import net.minecraft.world.inventory.CrafterMenu;
 import net.minecraft.world.inventory.DispenserMenu;
 import net.minecraft.world.inventory.EnchantmentMenu;
 import net.minecraft.world.inventory.FurnaceMenu;
@@ -62,11 +63,7 @@ public class WarehouseMenuHandler {
             return;
         }
 
-        // 容器界面需要工作台升级才能注入
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
-        if (isContainerMenu(menu) && warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
-            return;
-        }
 
         // 防止重复注入
         for (Slot slot : menu.slots) {
@@ -90,11 +87,6 @@ public class WarehouseMenuHandler {
                                 || menuName.contains("ItemPicker")) {
                             return false;
                         }
-                    }
-                    // 在容器界面，必须持有工作台升级才激活
-                    if (isContainerMenu(menu)
-                            && warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
-                        return false;
                     }
                     return super.isActive();
                 }
@@ -120,11 +112,6 @@ public class WarehouseMenuHandler {
                                             || menuName.contains("ItemPicker")) {
                                         return false;
                                     }
-                                }
-                                // 在容器界面，必须持有工作台升级才激活
-                                if (isContainerMenu(menu) && warehouse
-                                        .getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
-                                    return false;
                                 }
                                 return !warehouse.isFolded() && warehouse.isEnabled()
                                         && currentRow < warehouse.getVisibleRows();
@@ -186,14 +173,6 @@ public class WarehouseMenuHandler {
         boolean isWarehouseSlot = slot.container instanceof PlayerWarehouse;
         boolean isUpgradeSlot = slot instanceof UpgradeSlot;
         boolean isPlayerInventory = slot.container instanceof Inventory;
-
-        // 3. 特殊限制检查
-        // 在容器界面，如果没有工作台升级，禁止快捷移动到/从仓库
-        if (isContainerMenu(menu) && warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
-            if (isWarehouseSlot || isUpgradeSlot)
-                return ItemStack.EMPTY;
-            return null;
-        }
 
         ItemStack stackInSlot = slot.getItem();
         ItemStack originalStack = stackInSlot.copy();
@@ -427,6 +406,7 @@ public class WarehouseMenuHandler {
                 || menu instanceof FurnaceMenu
                 || menu instanceof BlastFurnaceMenu
                 || menu instanceof SmokerMenu
+                || menu instanceof CrafterMenu
                 || menu instanceof AnvilMenu
                 || menu instanceof GrindstoneMenu
                 || menu instanceof SmithingMenu;

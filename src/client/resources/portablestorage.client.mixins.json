@@ -7,7 +7,9 @@
 		"InventoryScreenMixin",
 		"InventoryScreenCraftingMixin",
 		"CraftingScreenMixin",
+		"AbstractFurnaceScreenMixin",
 		"AbstractContainerScreenMixin",
+		"ResultSlotMixin",
 		"MouseMixin",
 		"AbstractContainerScreenAccessor",
 		"ScreenAccessor"

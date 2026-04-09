@@ -1,9 +1,6 @@
 package com.portablestorage.client.gui;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import com.mojang.blaze3d.platform.InputConstants;
@@ -21,7 +18,6 @@ import com.portablestorage.network.C2SUpdateWarehouseStatePayload;
 import com.portablestorage.network.C2SUpgradeInteractionPayload;
 import com.portablestorage.network.OpenCraftingPayload;
 import com.portablestorage.network.QuickTransferPayload;
-import com.portablestorage.network.RefillPayload;
 import com.portablestorage.util.StoragePosition;
 import com.portablestorage.util.WarehouseConstants;
 import com.portablestorage.util.WarehouseRenderer;
@@ -40,7 +36,6 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import net.minecraft.world.inventory.ResultSlot;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
@@ -71,11 +66,6 @@ public class WarehouseWidget {
     // 屏幕刷新状态追踪
     private boolean lastWorkbenchStatus = false;
     private boolean lastEnabledStatus = false;
-
-    // 合成补充状态
-    private ItemStack lastCraftingOutput = ItemStack.EMPTY;
-    private final Map<Integer, ItemStack> lastCraftingStacks = new HashMap<>();
-    private long lastCraftRefillCheck = 0;
 
     public WarehouseWidget(AbstractContainerScreen<?> screen) {
         this.screen = screen;
@@ -332,7 +322,6 @@ public class WarehouseWidget {
         // 逻辑和状态检查
         handleFrozenMode();
         checkRefreshNeeded();
-        checkCraftRefill();
         handleSearchDebounce();
 
         // 更新搜索框位置
@@ -903,77 +892,6 @@ public class WarehouseWidget {
                 warehouse.setScrollOffset(newOffset);
                 ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.of(delta), Optional.empty(),
                         Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
-            }
-        }
-    }
-
-    private void checkCraftRefill() {
-        if (!warehouse.isCraftRefill())
-            return;
-
-        long now = System.currentTimeMillis();
-        if (now - lastCraftRefillCheck < 100)
-            return;
-        lastCraftRefillCheck = now;
-
-        var menu = screen.getMenu();
-        Slot outputSlot = null;
-        for (Slot slot : menu.slots) {
-            if (slot instanceof ResultSlot) {
-                outputSlot = slot;
-                break;
-            }
-        }
-        if (outputSlot == null)
-            return;
-
-        ItemStack currentOutput = outputSlot.getItem();
-        boolean craftOccurred = false;
-        if (!lastCraftingOutput.isEmpty()) {
-            if (currentOutput.isEmpty() || !ItemStack.isSameItemSameComponents(currentOutput, lastCraftingOutput)
-                    || currentOutput.getCount() < lastCraftingOutput.getCount()) {
-                craftOccurred = true;
-            }
-        }
-        lastCraftingOutput = currentOutput.copy();
-
-        if (craftOccurred) {
-            Map<ItemStack, List<Integer>> refills = new HashMap<>();
-            for (Slot slot : menu.slots) {
-                if (slot.container instanceof net.minecraft.world.inventory.CraftingContainer
-                        && !(slot instanceof ResultSlot)) {
-                    int slotId = slot.index;
-                    ItemStack currentStack = slot.getItem();
-                    ItemStack lastStack = lastCraftingStacks.get(slotId);
-                    if (lastStack != null && !lastStack.isEmpty()) {
-                        if (currentStack.isEmpty() || (ItemStack.isSameItemSameComponents(currentStack, lastStack)
-                                && currentStack.getCount() < lastStack.getCount())) {
-                            boolean found = false;
-                            for (ItemStack key : refills.keySet()) {
-                                if (ItemStack.isSameItemSameComponents(key, lastStack)) {
-                                    refills.get(key).add(slotId);
-                                    found = true;
-                                    break;
-                                }
-                            }
-                            if (!found) {
-                                List<Integer> list = new ArrayList<>();
-                                list.add(slotId);
-                                refills.put(lastStack, list);
-                            }
-                        }
-                    }
-                }
-            }
-            for (var entry : refills.entrySet()) {
-                ClientPlayNetworking.send(new RefillPayload(entry.getValue(), entry.getKey().copy()));
-            }
-        }
-
-        for (Slot slot : menu.slots) {
-            if (slot.container instanceof net.minecraft.world.inventory.CraftingContainer
-                    && !(slot instanceof ResultSlot)) {
-                lastCraftingStacks.put(slot.index, slot.getItem().copy());
             }
         }
     }
