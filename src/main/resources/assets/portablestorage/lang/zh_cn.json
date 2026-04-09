@@ -204,7 +204,7 @@
   "gui.portablestorage.food_filter.list": "筛选食物 ID 列表",
   "gui.portablestorage.food_filter.list.desc": "根据筛选规则食用或忽略食物。支持 * (模糊) 和 !id! (精确) 匹配。",
   "key.portablestorage.open_crafting": "直接打开仓库合成界面",
-  "key.categories.portablestorage": "随身仓库",
+  "key.category.portablestorage.key_category": "随身仓库",
   "command.portablestorage.count.no_player": "无法获取玩家",
   "command.portablestorage.count.not_enabled": "玩家 %s 的仓库未启用",
   "command.portablestorage.count.result": "玩家 %s 的仓库统计：\n物品种类: %d 种，总数量: %d 个\n流体种类: %d 种，总数量: %d 桶\n升级数量: %d 个",
