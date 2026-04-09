@@ -32,6 +32,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
@@ -55,6 +56,7 @@ public class WarehouseWidget {
     private boolean isDraggingUpgradeScrollbar = false;
     private long lastSearchUpdateTime = 0;
     private String pendingSearchText = null;
+    private static final int SEARCH_PACKET_DEBOUNCE_MS = 150;
 
     // 双击检测
     private long lastClickTime = 0;
@@ -227,7 +229,8 @@ public class WarehouseWidget {
         int sbY = screenAccessor.portablestorage$getTopPos()
                 + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight, warehouse.isFolded())
                 + WarehouseConstants.SEARCH_BOX_Y_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET;
-        int sbW = WarehouseConstants.SEARCH_BOX_WIDTH - WarehouseConstants.SEARCH_BOX_INNER_OFFSET * 2;
+        int sbW = WarehouseConstants.SEARCH_BOX_WIDTH - WarehouseConstants.SEARCH_BOX_INNER_OFFSET * 2
+                - WarehouseConstants.SEARCH_CLEAR_ZONE_WIDTH;
         int sbH = WarehouseConstants.SEARCH_BOX_HEIGHT - WarehouseConstants.SEARCH_BOX_INNER_OFFSET * 2;
 
         this.searchBox = new EditBox(((ScreenAccessor) screen).portablestorage$getFont(), sbX, sbY, sbW, sbH,
@@ -235,6 +238,7 @@ public class WarehouseWidget {
         this.searchBox.setResponder(text -> {
             this.pendingSearchText = text;
             this.lastSearchUpdateTime = System.currentTimeMillis();
+            this.warehouse.setSearchText(text);
         });
         this.searchBox.setEditable(true);
         this.searchBox.setBordered(false);
@@ -244,6 +248,7 @@ public class WarehouseWidget {
                 .withStyle(style -> style.withColor(0x666666)));
         this.searchBox.visible = !warehouse.isFolded();
         this.searchBox.active = !warehouse.isFolded();
+        this.searchBox.setValue(warehouse.getSearchText());
 
         ((ScreenAccessor) screen).invokeAddRenderableWidget(this.searchBox);
     }
@@ -319,15 +324,10 @@ public class WarehouseWidget {
         if (minecraft.player == null)
             return;
 
-        // 逻辑和状态检查
         handleFrozenMode();
         checkRefreshNeeded();
-        handleSearchDebounce();
-
-        // 更新搜索框位置
+        flushDebouncedSearchPacket();
         updateSearchBoxState();
-
-        // 覆盖层与文本在 tooltip 阶段统一处理，避免被后续流程覆盖
     }
 
     public void renderPreTooltipOverlays(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
@@ -418,14 +418,23 @@ public class WarehouseWidget {
         }
     }
 
-    private void handleSearchDebounce() {
-        if (pendingSearchText != null && System.currentTimeMillis() - lastSearchUpdateTime > 150) {
-            warehouse.setSearchText(pendingSearchText);
-            ClientPlayNetworking
-                    .send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(pendingSearchText),
-                            Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+    public void flushDebouncedSearchPacket() {
+        if (pendingSearchText != null
+                && System.currentTimeMillis() - lastSearchUpdateTime > SEARCH_PACKET_DEBOUNCE_MS) {
+            sendSearchTextToServer(pendingSearchText);
             pendingSearchText = null;
         }
+    }
+
+    public boolean tryConsumeCharForSearch(CharacterEvent event) {
+        if (!shouldShow() || warehouse.isFolded()) {
+            return false;
+        }
+        if (this.searchBox == null || !this.searchBox.isVisible() || !this.searchBox.active
+                || !this.searchBox.isFocused()) {
+            return false;
+        }
+        return this.searchBox.charTyped(event);
     }
 
     private void updateSearchBoxState() {
@@ -446,6 +455,16 @@ public class WarehouseWidget {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!shouldShow())
             return false;
+
+        if (!warehouse.isFolded() && button == 0 && isMouseOverSearchClear(mouseX, mouseY)) {
+            clearSearch();
+            return true;
+        }
+
+        if (this.searchBox != null && this.searchBox.isVisible() && this.searchBox.active
+                && this.searchBox.isMouseOver(mouseX, mouseY)) {
+            return false;
+        }
 
         Minecraft minecraft = Minecraft.getInstance();
         AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
@@ -812,9 +831,7 @@ public class WarehouseWidget {
                 return true;
             }
             KeyEvent event = new KeyEvent(keyCode, scanCode, modifiers);
-            if (this.searchBox.keyPressed(event))
-                return true;
-            return true;
+            return this.searchBox.keyPressed(event);
         }
 
         if (shouldShow() && !warehouse.isFolded()) {
@@ -897,9 +914,44 @@ public class WarehouseWidget {
     }
 
     public void removed() {
-        if (shouldShow()) {
-            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(""),
-                    Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+        if (pendingSearchText != null) {
+            sendSearchTextToServer(pendingSearchText);
+            pendingSearchText = null;
         }
+    }
+
+    private boolean isMouseOverSearchClear(double mouseX, double mouseY) {
+        if (searchBox == null || !searchBox.isVisible() || !searchBox.active) {
+            return false;
+        }
+        AbstractContainerScreenAccessor a = (AbstractContainerScreenAccessor) screen;
+        int leftPos = a.portablestorage$getLeftPos();
+        int topPos = a.portablestorage$getTopPos();
+        int imageHeight = a.portablestorage$getImageHeight();
+        int wx = leftPos + WarehouseConstants.getWarehouseXOffset();
+        int wy = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight,
+                warehouse.isFolded());
+        int clearLeft = wx + WarehouseConstants.getSearchBoxXOffset() + WarehouseConstants.SEARCH_BOX_WIDTH
+                - WarehouseConstants.SEARCH_BOX_INNER_OFFSET - WarehouseConstants.SEARCH_CLEAR_ZONE_WIDTH;
+        int clearTop = wy + WarehouseConstants.SEARCH_BOX_Y_OFFSET + WarehouseConstants.SEARCH_BOX_INNER_OFFSET;
+        int clearH = WarehouseConstants.SEARCH_BOX_HEIGHT - WarehouseConstants.SEARCH_BOX_INNER_OFFSET * 2;
+        return mouseX >= clearLeft && mouseX < clearLeft + WarehouseConstants.SEARCH_CLEAR_ZONE_WIDTH
+                && mouseY >= clearTop && mouseY < clearTop + clearH;
+    }
+
+    private void clearSearch() {
+        if (searchBox != null) {
+            searchBox.setValue("");
+        } else {
+            warehouse.setSearchText("");
+        }
+        pendingSearchText = null;
+        lastSearchUpdateTime = System.currentTimeMillis();
+        sendSearchTextToServer("");
+    }
+
+    private static void sendSearchTextToServer(String text) {
+        ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(text),
+                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
     }
 }

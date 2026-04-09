@@ -174,6 +174,8 @@ public class WarehouseConstants {
     public static final int SEARCH_BOX_HEIGHT = 12;
     /** 搜索框内边距 */
     public static final int SEARCH_BOX_INNER_OFFSET = 2;
+    /** 搜索框内右侧清除按钮区域宽度（像素） */
+    public static final int SEARCH_CLEAR_ZONE_WIDTH = 10;
 
     // ========== 升级槽位坐标（相对于 warehouseX, warehouseY）==========
     /** 升级槽位相对 X 坐标 */

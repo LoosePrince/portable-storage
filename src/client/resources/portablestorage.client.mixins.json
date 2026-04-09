@@ -9,6 +9,7 @@
 		"CraftingScreenMixin",
 		"AbstractFurnaceScreenMixin",
 		"AbstractContainerScreenMixin",
+		"AbstractRecipeBookScreenMixin",
 		"ResultSlotMixin",
 		"MouseMixin",
 		"AbstractContainerScreenAccessor",

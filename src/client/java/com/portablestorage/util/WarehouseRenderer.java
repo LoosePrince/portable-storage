@@ -109,6 +109,8 @@ public class WarehouseRenderer {
                                         sbY + WarehouseConstants.SEARCH_BOX_HEIGHT,
                                         WarehouseConstants.SEARCH_BOX_BORDER_LIGHT);
 
+                        renderSearchClearGlyph(graphics, font, x, y, mouseX, mouseY, warehouse);
+
                         renderPlusMinusButtons(graphics, font, x + WarehouseConstants.getPlusMinusXOffset(),
                                         y + WarehouseConstants.PLUS_MINUS_Y_OFFSET, mouseX, mouseY);
 
@@ -567,6 +569,24 @@ public class WarehouseRenderer {
                                 WarehouseConstants.ICON_SIZE, WarehouseConstants.ICON_SIZE,
                                 WarehouseConstants.ICON_SIZE, WarehouseConstants.ICON_TEXTURE_WIDTH,
                                 WarehouseConstants.ICON_TEXTURE_HEIGHT);
+        }
+
+        private static void renderSearchClearGlyph(GuiGraphicsExtractor graphics, Font font, int warehouseX,
+                        int warehouseY, int mouseX, int mouseY, PlayerWarehouse warehouse) {
+                int cw = WarehouseConstants.SEARCH_CLEAR_ZONE_WIDTH;
+                int pad = WarehouseConstants.SEARCH_BOX_INNER_OFFSET;
+                int clearLeft = warehouseX + WarehouseConstants.getSearchBoxXOffset() + WarehouseConstants.SEARCH_BOX_WIDTH
+                        - pad - cw;
+                int clearTop = warehouseY + WarehouseConstants.SEARCH_BOX_Y_OFFSET + pad;
+                int clearH = WarehouseConstants.SEARCH_BOX_HEIGHT - pad * 2;
+                boolean hovered = mouseX >= clearLeft && mouseX < clearLeft + cw && mouseY >= clearTop
+                        && mouseY < clearTop + clearH;
+                boolean hasText = !warehouse.getSearchText().isEmpty();
+                int color = !hasText ? 0xFF666666 : (hovered ? 0xFFFFFFFF : 0xFFCCCCCC);
+                String glyph = "\u00D7";
+                int textX = clearLeft + (cw - font.width(glyph)) / 2;
+                int textY = clearTop + (clearH - 8) / 2;
+                graphics.text(font, glyph, textX, textY, color, false);
         }
 
         public static void renderPlusMinusButtons(GuiGraphicsExtractor graphics, Font font, int x, int y, int mouseX,

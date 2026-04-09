@@ -1,6 +1,8 @@
 package com.portablestorage;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.portablestorage.client.gui.WarehouseScreen;
+import com.portablestorage.client.gui.WarehouseWidget;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.network.ModClientNetworking;
@@ -46,6 +48,11 @@ public class PortableStorageClient implements ClientModInitializer {
                         // 无权限时静默失败，避免刷日志
                     }
                 }
+            }
+            if (client.screen instanceof WarehouseScreen s) {
+                WarehouseWidget w = s.portablestorage$getWarehouseWidget();
+                if (w != null)
+                    w.flushDebouncedSearchPacket();
             }
         });
 
