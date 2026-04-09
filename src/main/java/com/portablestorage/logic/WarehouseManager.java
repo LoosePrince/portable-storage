@@ -5,6 +5,8 @@ import java.util.List;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.component.WarehouseEntry;
 import com.portablestorage.mixin.accessor.AbstractContainerMenuAccessor;
+import com.portablestorage.storage.pipeline.InsertDecision;
+import com.portablestorage.storage.pipeline.WarehouseWritePipeline;
 import com.portablestorage.util.WarehouseConstants;
 
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidConstants;
@@ -36,6 +38,10 @@ public class WarehouseManager {
      * 处理物品存入逻辑（带Player参数用于获取registries）
      */
     public static void addItem(PlayerWarehouse warehouse, ItemStack stack, Player player) {
+        addItem(warehouse, stack, player, "warehouse_manager.add_item");
+    }
+
+    public static void addItem(PlayerWarehouse warehouse, ItemStack stack, Player player, String source) {
         if (stack.isEmpty())
             return;
 
@@ -59,21 +65,29 @@ public class WarehouseManager {
                 return;
         }
 
-        addItemInternal(warehouse, stack);
+        InsertDecision decision = WarehouseWritePipeline.beforeInsert(warehouse, stack, stack.getCount(), player, source);
+        if (!decision.allowed()) {
+            return;
+        }
+        addItemInternal(warehouse, stack, source);
     }
 
     /**
      * 处理流体桶存入逻辑（带转换）
      */
     public static ItemStack addFluid(PlayerWarehouse warehouse, ItemStack stack, Player player) {
+        return addFluid(warehouse, stack, player, "warehouse_manager.add_fluid");
+    }
+
+    public static ItemStack addFluid(PlayerWarehouse warehouse, ItemStack stack, Player player, String source) {
         if (!warehouse.isEnabled() || !warehouse.isQuickInteraction()) {
-            addItem(warehouse, stack, player);
+            addItem(warehouse, stack, player, source);
             return stack;
         }
 
         net.minecraft.world.item.Item virtualItem = getVirtualFluidForItem(stack.getItem());
         if (virtualItem == null) {
-            addItem(warehouse, stack, player);
+            addItem(warehouse, stack, player, source);
             return stack;
         }
 
@@ -91,7 +105,7 @@ public class WarehouseManager {
                     ItemStack emptyBuckets = new ItemStack(Items.BUCKET, bucketsStored);
                     stack.shrink(bucketsStored);
                     // 将转换出的空桶直接存入仓库，避免留在背包/槽位中
-                    addItem(warehouse, emptyBuckets, player);
+                    addItem(warehouse, emptyBuckets, player, source + ".empty_bucket");
 
                     // 仓库放不下的空桶作为兜底返还玩家，避免物品丢失
                     if (!emptyBuckets.isEmpty()) {
@@ -107,14 +121,14 @@ public class WarehouseManager {
             // 处理牛奶等非 Fluid 类型的虚拟流体
             int originalCount = stack.getCount();
             ItemStack virtualStack = new ItemStack(virtualItem, originalCount);
-            addItem(warehouse, virtualStack, player);
+            addItem(warehouse, virtualStack, player, source + ".virtual_fluid");
 
             int stored = originalCount - virtualStack.getCount();
             if (stored > 0) {
                 ItemStack emptyBuckets = new ItemStack(Items.BUCKET, stored);
                 stack.shrink(stored);
                 // 将转换出的空桶直接存入仓库，避免留在背包/槽位中
-                addItem(warehouse, emptyBuckets, player);
+                addItem(warehouse, emptyBuckets, player, source + ".empty_bucket");
                 // 仓库放不下的空桶作为兜底返还玩家，避免物品丢失
                 if (!emptyBuckets.isEmpty() && !player.getInventory().add(emptyBuckets))
                     player.drop(emptyBuckets, false);
@@ -128,20 +142,20 @@ public class WarehouseManager {
     /**
      * 内部物品存入实现（处理堆叠限制等）
      */
-    private static void addItemInternal(PlayerWarehouse warehouse, ItemStack stack) {
+    private static void addItemInternal(PlayerWarehouse warehouse, ItemStack stack, String source) {
         if (stack.isEmpty())
             return;
 
         List<PlayerWarehouse> group = warehouse.getSharedGroupWarehouses();
         // 优先存入当前仓库，然后是组内其他仓库
         for (PlayerWarehouse pw : group) {
-            addItemToSingleWarehouse(pw, stack);
+            addItemToSingleWarehouse(pw, stack, source);
             if (stack.isEmpty())
                 break;
         }
     }
 
-    private static void addItemToSingleWarehouse(PlayerWarehouse warehouse, ItemStack stack) {
+    private static void addItemToSingleWarehouse(PlayerWarehouse warehouse, ItemStack stack, String source) {
         if (stack.isEmpty())
             return;
         long limit = warehouse.getMaxItemStackSize();
@@ -162,14 +176,26 @@ public class WarehouseManager {
                 long canAdd = Math.max(0, limit - current);
                 if (canAdd > 0) {
                     int toAdd = (int) Math.min(stack.getCount(), canAdd);
-                    existingEntry.add(toAdd);
-                    stack.shrink(toAdd);
-                    changed = true;
+                    InsertDecision decision = WarehouseWritePipeline.beforeInsert(warehouse, stack, toAdd, null, source);
+                    if (!decision.allowed()) {
+                        return;
+                    }
+                    long inserted = warehouse.insertItemToUnified(stack, decision.amount(), false);
+                    if (inserted > 0) {
+                        stack.shrink((int) inserted);
+                        changed = true;
+                    }
                 }
             } else {
-                existingEntry.add(stack.getCount());
-                stack.setCount(0);
-                changed = true;
+                InsertDecision decision = WarehouseWritePipeline.beforeInsert(warehouse, stack, stack.getCount(), null, source);
+                if (!decision.allowed()) {
+                    return;
+                }
+                long inserted = warehouse.insertItemToUnified(stack, decision.amount(), false);
+                if (inserted > 0) {
+                    stack.shrink((int) inserted);
+                    changed = true;
+                }
             }
         } else {
             int typeLimit = warehouse.getMaxStorageTypes();
@@ -177,19 +203,32 @@ public class WarehouseManager {
                 if (limit > 0) {
                     int toAdd = (int) Math.min(stack.getCount(), limit);
                     if (toAdd > 0) {
-                        storage.add(new WarehouseEntry(stack.copyWithCount(toAdd), toAdd));
-                        stack.shrink(toAdd);
-                        changed = true;
+                        InsertDecision decision = WarehouseWritePipeline.beforeInsert(warehouse, stack, toAdd, null, source);
+                        if (!decision.allowed()) {
+                            return;
+                        }
+                        long inserted = warehouse.insertItemToUnified(stack, decision.amount(), false);
+                        if (inserted > 0) {
+                            stack.shrink((int) inserted);
+                            changed = true;
+                        }
                     }
                 } else {
-                    storage.add(new WarehouseEntry(stack.copy(), stack.getCount()));
-                    stack.setCount(0);
-                    changed = true;
+                    InsertDecision decision = WarehouseWritePipeline.beforeInsert(warehouse, stack, stack.getCount(), null, source);
+                    if (!decision.allowed()) {
+                        return;
+                    }
+                    long inserted = warehouse.insertItemToUnified(stack, decision.amount(), false);
+                    if (inserted > 0) {
+                        stack.shrink((int) inserted);
+                        changed = true;
+                    }
                 }
             }
         }
 
         if (changed) {
+            warehouse.rebuildLegacyStorageViewFromUnified();
             warehouse.markDirty();
         }
     }
@@ -305,6 +344,7 @@ public class WarehouseManager {
             // 流体提取逻辑
             FluidVariant fluid = getFluidForVirtualItem(itemType.getItem());
             if (fluid != null) {
+                StorageWriteAudit.record("warehouse_manager.remove_fluid", "attempt");
                 long totalExtracted = 0;
                 List<PlayerWarehouse> group = warehouse.getSharedGroupWarehouses();
                 // 优先从当前仓库提取
@@ -321,6 +361,7 @@ public class WarehouseManager {
 
                 int bucketsExtracted = (int) (totalExtracted / FluidConstants.BUCKET);
                 if (bucketsExtracted > 0) {
+                    StorageWriteAudit.record("warehouse_manager.remove_fluid", "success");
                     return itemType.copyWithCount(bucketsExtracted);
                 }
                 return ItemStack.EMPTY;
@@ -351,24 +392,14 @@ public class WarehouseManager {
     }
 
     private static int removeFromSingleWarehouse(PlayerWarehouse warehouse, ItemStack template, int amount) {
-        int removed = 0;
-        List<WarehouseEntry> storage = warehouse.getStorageList();
-        for (int i = storage.size() - 1; i >= 0; i--) {
-            WarehouseEntry entry = storage.get(i);
-            if (entry.matches(template)) {
-                long canTake = Math.min(amount - removed, entry.getCount());
-                if (canTake > 0) {
-                    entry.subtract(canTake);
-                    removed += (int) canTake;
-                    if (entry.getCount() <= 0)
-                        storage.remove(i);
-                    warehouse.markDirty();
-                }
-            }
-            if (removed >= amount)
-                break;
+        StorageWriteAudit.record("warehouse_manager.remove_item", "attempt");
+        long removed = warehouse.extractItemFromUnified(template, amount, false);
+        if (removed > 0) {
+            warehouse.rebuildLegacyStorageViewFromUnified();
+            warehouse.markDirty();
+            StorageWriteAudit.record("warehouse_manager.remove_item", "success");
         }
-        return removed;
+        return (int) removed;
     }
 
     /**
@@ -384,25 +415,24 @@ public class WarehouseManager {
         for (PlayerWarehouse pw : group) {
             if (totalTaken >= amount)
                 break;
-
             List<WarehouseEntry> storage = pw.getStorageList();
-            for (int i = storage.size() - 1; i >= 0; i--) {
+            for (int i = storage.size() - 1; i >= 0 && totalTaken < amount; i--) {
                 WarehouseEntry entry = storage.get(i);
-                boolean matches = matchComponents ? entry.matches(template)
-                        : entry.getItemStack().is(template.getItem());
-
-                if (matches) {
-                    long canTake = Math.min(amount - totalTaken, entry.getCount());
-                    if (canTake > 0) {
-                        entry.subtract(canTake);
-                        totalTaken += (int) canTake;
-                        if (entry.getCount() <= 0)
-                            storage.remove(i);
-                        pw.markDirty();
-                    }
+                boolean matches = matchComponents ? entry.matches(template) : entry.getItemStack().is(template.getItem());
+                if (!matches) {
+                    continue;
                 }
-                if (totalTaken >= amount)
-                    break;
+                long canTake = Math.min(amount - totalTaken, entry.getCount());
+                if (canTake <= 0) {
+                    continue;
+                }
+                long extracted = pw.extractItemFromUnified(entry.getItemStack(), canTake, false);
+                if (extracted <= 0) {
+                    continue;
+                }
+                totalTaken += (int) extracted;
+                pw.rebuildLegacyStorageViewFromUnified();
+                pw.markDirty();
             }
         }
 
@@ -440,18 +470,18 @@ public class WarehouseManager {
                 if (canTake <= 0) {
                     continue;
                 }
-
-                entry.subtract(canTake);
-                totalTaken += (int) canTake;
-                if (entry.getCount() <= 0) {
-                    storage.remove(i);
+                long extracted = pw.extractItemFromUnified(entryStack, canTake, false);
+                if (extracted <= 0) {
+                    continue;
                 }
+                totalTaken += (int) extracted;
+                pw.rebuildLegacyStorageViewFromUnified();
                 pw.markDirty();
 
                 if (result.isEmpty()) {
-                    result = entryStack.copyWithCount((int) canTake);
+                    result = entryStack.copyWithCount((int) extracted);
                 } else {
-                    result.grow((int) canTake);
+                    result.grow((int) extracted);
                 }
 
                 if (totalTaken >= amount) {

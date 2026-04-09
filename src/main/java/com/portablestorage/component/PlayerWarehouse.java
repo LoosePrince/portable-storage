@@ -14,6 +14,10 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 import com.portablestorage.logic.WarehouseManager;
+import com.portablestorage.storage.core.UnifiedWarehouseStorage;
+import com.portablestorage.storage.key.FluidWarehouseKey;
+import com.portablestorage.storage.key.ItemWarehouseKey;
+import com.portablestorage.storage.key.WarehouseStackKey;
 import com.portablestorage.upgrade.UpgradeRegistry;
 import com.portablestorage.upgrade.UpgradeType;
 import com.portablestorage.util.WarehouseConstants;
@@ -40,12 +44,15 @@ import net.minecraft.world.level.material.Fluids;
  * 复杂的业务逻辑（存取规则、流体转换等）应放在 WarehouseManager 中。
  */
 public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>> implements Container {
+    private static final int WAREHOUSE_SCHEMA_V2 = 2;
+
     public enum WarehouseType {
         NONE, BASE, FULL
     }
 
     private final List<WarehouseEntry> storage = new ArrayList<>();
     private final Map<FluidVariant, Long> fluidStorage = new LinkedHashMap<>();
+    private final UnifiedWarehouseStorage unifiedStorage = new UnifiedWarehouseStorage(__ -> markDirty());
 
     // 升级系统数据
     private final Map<Identifier, ItemStack> upgradeStorage = new LinkedHashMap<>();
@@ -163,6 +170,13 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     private List<WarehouseEntry> collapsedCache = null; // 智能折叠后
     private List<WarehouseEntry> sortedCache = null; // 最终排序后
     private List<WarehouseEntry> frozenCache = null; // 锁定渲染缓存
+    private long baseCacheRevision = -1;
+    private long filteredCacheRevision = -1;
+    private long collapsedCacheRevision = -1;
+    private long sortedCacheRevision = -1;
+    private long dirtyCount = 0;
+    private int loadedSchemaVersion = 1;
+    private boolean loadedFromUnifiedStorage = false;
 
     private final Consumer<PlayerWarehouse> onChanged;
     private final UUID ownerUuid;
@@ -552,7 +566,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
      * @return 仓库条目列表
      */
     public List<WarehouseEntry> getStorageList() {
-        return storage;
+        return Collections.unmodifiableList(storage);
     }
 
     /**
@@ -561,7 +575,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
      * @return 流体变体到数量的映射
      */
     public Map<FluidVariant, Long> getFluidStorageMap() {
-        return fluidStorage;
+        return Collections.unmodifiableMap(fluidStorage);
     }
 
     /**
@@ -574,10 +588,92 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         return fluidStorage.getOrDefault(variant, 0L);
     }
 
+    public long insertItemToUnified(ItemStack stack, long amount, boolean simulate) {
+        if (stack.isEmpty() || amount <= 0) {
+            return 0;
+        }
+        ItemWarehouseKey key = new ItemWarehouseKey(stack);
+        return unifiedStorage.insert(key, amount, simulate);
+    }
+
+    public long extractItemFromUnified(ItemStack stack, long amount, boolean simulate) {
+        if (stack.isEmpty() || amount <= 0) {
+            return 0;
+        }
+        ItemWarehouseKey key = new ItemWarehouseKey(stack);
+        return unifiedStorage.extract(key, amount, simulate);
+    }
+
+    public long insertFluidToUnified(FluidVariant variant, long amount, boolean simulate) {
+        if (amount <= 0) {
+            return 0;
+        }
+        FluidWarehouseKey key = new FluidWarehouseKey(variant);
+        return unifiedStorage.insert(key, amount, simulate);
+    }
+
+    public long extractFluidFromUnified(FluidVariant variant, long amount, boolean simulate) {
+        if (amount <= 0) {
+            return 0;
+        }
+        FluidWarehouseKey key = new FluidWarehouseKey(variant);
+        return unifiedStorage.extract(key, amount, simulate);
+    }
+
+    public void rebuildLegacyStorageViewFromUnified() {
+        storage.clear();
+        fluidStorage.clear();
+        for (Map.Entry<WarehouseStackKey, Long> entry : unifiedStorage.snapshot().entrySet()) {
+            WarehouseStackKey key = entry.getKey();
+            long amount = entry.getValue();
+            if (amount <= 0) {
+                continue;
+            }
+            if (key instanceof ItemWarehouseKey itemKey) {
+                storage.add(new WarehouseEntry(itemKey.toStack(), amount));
+            } else if (key instanceof FluidWarehouseKey fluidKey) {
+                fluidStorage.put(fluidKey.variant(), amount);
+            }
+        }
+    }
+
+    public long getStorageRevision() {
+        return unifiedStorage.getLastModified();
+    }
+
+    public long getDirtyCount() {
+        return dirtyCount;
+    }
+
+    public int getLoadedSchemaVersion() {
+        return loadedSchemaVersion;
+    }
+
+    public boolean isLoadedFromUnifiedStorage() {
+        return loadedFromUnifiedStorage;
+    }
+
+    public int getTargetSchemaVersion() {
+        return WAREHOUSE_SCHEMA_V2;
+    }
+
+    public Map<String, Integer> getTypeBucketStats() {
+        Map<String, Integer> result = new LinkedHashMap<>();
+        for (Map.Entry<String, Set<WarehouseStackKey>> entry : unifiedStorage.getTypeBucketsSnapshot().entrySet()) {
+            result.put(entry.getKey(), entry.getValue().size());
+        }
+        return result;
+    }
+
+    public int getLogicalSlotCount() {
+        return unifiedStorage.getSlotIndexSnapshot().size();
+    }
+
     /**
      * 标记数据已修改，触发缓存失效和同步
      */
     public void markDirty() {
+        dirtyCount++;
         markDirtyInternal(new HashSet<>());
         if (onChanged != null) {
             onChanged.accept(this);
@@ -597,6 +693,10 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         this.filteredCache = null;
         this.collapsedCache = null;
         this.sortedCache = null;
+        this.baseCacheRevision = -1;
+        this.filteredCacheRevision = -1;
+        this.collapsedCacheRevision = -1;
+        this.sortedCacheRevision = -1;
 
         // 通知共享组内其他成员失效缓存
         if (parentComponent != null) {
@@ -606,6 +706,10 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                     pw.filteredCache = null;
                     pw.collapsedCache = null;
                     pw.sortedCache = null;
+                    pw.baseCacheRevision = -1;
+                    pw.filteredCacheRevision = -1;
+                    pw.collapsedCacheRevision = -1;
+                    pw.sortedCacheRevision = -1;
                 }
             }
         }
@@ -619,6 +723,9 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         this.filteredCache = null;
         this.collapsedCache = null;
         this.sortedCache = null;
+        this.filteredCacheRevision = -1;
+        this.collapsedCacheRevision = -1;
+        this.sortedCacheRevision = -1;
     }
 
     /** 清除所有缓存（含 baseCache），不触发 onChanged。供客户端应用服务端 pinned 更新后刷新显示。 */
@@ -627,6 +734,10 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         this.filteredCache = null;
         this.collapsedCache = null;
         this.sortedCache = null;
+        this.baseCacheRevision = -1;
+        this.filteredCacheRevision = -1;
+        this.collapsedCacheRevision = -1;
+        this.sortedCacheRevision = -1;
     }
 
     // ========== Container 接口实现 ==========
@@ -686,8 +797,8 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     @Override
     public void clearContent() {
-        storage.clear();
-        fluidStorage.clear();
+        unifiedStorage.clear();
+        rebuildLegacyStorageViewFromUnified();
 
         // 卸载并清除所有升级物品
         for (Map.Entry<Identifier, ItemStack> entry : new HashMap<>(upgradeStorage).entrySet()) {
@@ -739,10 +850,9 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         }
 
         updateSnapshots(transaction);
-        long current = fluidStorage.getOrDefault(resource, 0L);
-        fluidStorage.put(resource, current + maxAmount);
-        this.markDirty();
-        return maxAmount;
+        long inserted = insertFluidToUnified(resource, maxAmount, false);
+        rebuildLegacyStorageViewFromUnified();
+        return inserted;
     }
 
     public long extract(FluidVariant resource, long maxAmount, TransactionContext transaction) {
@@ -775,13 +885,8 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         }
 
         updateSnapshots(transaction);
-        long extracted = Math.min(current, maxAmount);
-        if (current - extracted > 0) {
-            fluidStorage.put(resource, current - extracted);
-        } else {
-            fluidStorage.remove(resource);
-        }
-        this.markDirty();
+        long extracted = extractFluidFromUnified(resource, maxAmount, false);
+        rebuildLegacyStorageViewFromUnified();
         return extracted;
     }
 
@@ -845,13 +950,29 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     @Override
     protected Map<FluidVariant, Long> createSnapshot() {
-        return new LinkedHashMap<>(fluidStorage);
+        Map<FluidVariant, Long> snapshot = new LinkedHashMap<>();
+        for (Map.Entry<WarehouseStackKey, Long> entry : unifiedStorage.snapshot().entrySet()) {
+            if (entry.getKey() instanceof FluidWarehouseKey fluidKey) {
+                snapshot.put(fluidKey.variant(), entry.getValue());
+            }
+        }
+        return snapshot;
     }
 
     @Override
     protected void readSnapshot(Map<FluidVariant, Long> snapshot) {
-        fluidStorage.clear();
-        fluidStorage.putAll(snapshot);
+        Map<WarehouseStackKey, Long> current = unifiedStorage.snapshot();
+        Map<WarehouseStackKey, Long> merged = new LinkedHashMap<>();
+        for (Map.Entry<WarehouseStackKey, Long> entry : current.entrySet()) {
+            if (!(entry.getKey() instanceof FluidWarehouseKey)) {
+                merged.put(entry.getKey(), entry.getValue());
+            }
+        }
+        for (Map.Entry<FluidVariant, Long> entry : snapshot.entrySet()) {
+            merged.put(new FluidWarehouseKey(entry.getKey()), entry.getValue());
+        }
+        unifiedStorage.replaceAll(merged);
+        rebuildLegacyStorageViewFromUnified();
     }
 
     // ========== 状态控制 Getter/Setter ==========
@@ -1069,8 +1190,9 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         if (frozenCache != null) {
             return frozenCache;
         }
+        long revision = unifiedStorage.getLastModified();
         // 第一级：基础缓存（原始物品和流体）
-        if (baseCache == null) {
+        if (baseCache == null || baseCacheRevision != revision) {
             List<PlayerWarehouse> group = getSharedGroupWarehouses();
 
             // 聚合所有仓库的物品
@@ -1179,10 +1301,14 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             filteredCache = null;
             collapsedCache = null;
             sortedCache = null;
+            baseCacheRevision = revision;
+            filteredCacheRevision = -1;
+            collapsedCacheRevision = -1;
+            sortedCacheRevision = -1;
         }
 
         // 第二级：搜索过滤缓存
-        if (filteredCache == null) {
+        if (filteredCache == null || filteredCacheRevision != revision) {
             if (searchText.isEmpty()) {
                 filteredCache = baseCache;
             } else {
@@ -1203,22 +1329,28 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             }
             collapsedCache = null;
             sortedCache = null;
+            filteredCacheRevision = revision;
+            collapsedCacheRevision = -1;
+            sortedCacheRevision = -1;
         }
 
         // 第三级：智能折叠缓存
-        if (collapsedCache == null) {
+        if (collapsedCache == null || collapsedCacheRevision != revision) {
             if (smartCollapse && searchText.isEmpty()) {
                 collapsedCache = applySmartCollapse(filteredCache);
             } else {
                 collapsedCache = filteredCache;
             }
             sortedCache = null;
+            collapsedCacheRevision = revision;
+            sortedCacheRevision = -1;
         }
 
         // 第四级：最终排序缓存
-        if (sortedCache == null) {
+        if (sortedCache == null || sortedCacheRevision != revision) {
             sortedCache = new ArrayList<>(collapsedCache);
             applySorting(sortedCache);
+            sortedCacheRevision = revision;
         }
 
         return sortedCache;
@@ -1330,50 +1462,98 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     // ========== 持久化逻辑 ==========
 
-    public void readNbt(CompoundTag tag, HolderLookup.Provider registries) {
-        storage.clear();
-        java.util.Optional<ListTag> listOpt = tag.getList("storage");
-        ListTag list = listOpt.orElseGet(ListTag::new);
-        for (int i = 0; i < list.size(); i++) {
-            java.util.Optional<CompoundTag> entryTagOpt = list.getCompound(i);
-            entryTagOpt.ifPresent(entryTag -> storage.add(WarehouseEntry.fromNbt(entryTag, registries)));
-        }
-
-        fluidStorage.clear();
-        if (tag.contains("fluids")) {
-            java.util.Optional<ListTag> fluidListOpt = tag.getList("fluids");
-            if (fluidListOpt.isEmpty())
-                return;
-            ListTag fluidList = fluidListOpt.get();
-            for (int i = 0; i < fluidList.size(); i++) {
-                java.util.Optional<CompoundTag> fluidTagOpt = fluidList.getCompound(i);
-                if (fluidTagOpt.isEmpty())
-                    continue;
-                CompoundTag fluidTag = fluidTagOpt.get();
-                Identifier id = Identifier.tryParse(fluidTag.getString("fluid").orElse(""));
-                if (id == null)
-                    continue;
-                java.util.Optional<net.minecraft.core.Holder.Reference<Fluid>> fluidHolderOpt = BuiltInRegistries.FLUID
-                        .get(id);
-                if (fluidHolderOpt.isEmpty())
-                    continue;
-                Fluid fluid = fluidHolderOpt.get().value();
-
-                net.minecraft.core.component.DataComponentPatch patch = net.minecraft.core.component.DataComponentPatch.EMPTY;
-                if (fluidTag.contains("components")) {
-                    java.util.Optional<CompoundTag> componentsOpt = fluidTag.getCompound("components");
-                    if (componentsOpt.isPresent()) {
-                        patch = net.minecraft.core.component.DataComponentPatch.CODEC
-                                .parse(net.minecraft.nbt.NbtOps.INSTANCE, componentsOpt.get())
-                                .getOrThrow();
-                    }
-                }
-
-                long amount = fluidTag.getLong("amount").orElse(0L);
-                FluidVariant variant = FluidVariant.of(fluid, patch);
-                fluidStorage.put(variant, amount);
+    private void readV2Storage(CompoundTag tag, HolderLookup.Provider registries) {
+        Map<WarehouseStackKey, Long> migrated = new LinkedHashMap<>();
+        ListTag unifiedList = tag.getList("unified_storage").orElseGet(ListTag::new);
+        for (int i = 0; i < unifiedList.size(); i++) {
+            java.util.Optional<CompoundTag> entryOpt = unifiedList.getCompound(i);
+            if (entryOpt.isEmpty()) {
+                continue;
+            }
+            CompoundTag entryTag = entryOpt.get();
+            long amount = entryTag.getLong("amount").orElse(0L);
+            if (amount <= 0) {
+                continue;
+            }
+            try {
+                WarehouseStackKey key = WarehouseStackKey.fromNbt(entryTag, registries);
+                migrated.put(key, migrated.getOrDefault(key, 0L) + amount);
+            } catch (Exception e) {
+                com.portablestorage.PortableStorage.LOGGER.warn("Failed to read v2 warehouse key, skip one entry", e);
             }
         }
+        unifiedStorage.replaceAll(migrated);
+    }
+
+    private void readV1AndMigrateToV2(CompoundTag tag, HolderLookup.Provider registries) {
+        Map<WarehouseStackKey, Long> migrated = new LinkedHashMap<>();
+
+        ListTag itemList = tag.getList("storage").orElseGet(ListTag::new);
+        for (int i = 0; i < itemList.size(); i++) {
+            java.util.Optional<CompoundTag> entryTagOpt = itemList.getCompound(i);
+            if (entryTagOpt.isEmpty()) {
+                continue;
+            }
+            try {
+                WarehouseEntry entry = WarehouseEntry.fromNbt(entryTagOpt.get(), registries);
+                if (entry.getCount() > 0 && !entry.getItemStack().isEmpty()) {
+                    ItemWarehouseKey key = new ItemWarehouseKey(entry.getItemStack());
+                    migrated.put(key, migrated.getOrDefault(key, 0L) + entry.getCount());
+                }
+            } catch (Exception e) {
+                com.portablestorage.PortableStorage.LOGGER.warn("Failed to migrate v1 item entry, skip one entry", e);
+            }
+        }
+
+        ListTag fluidList = tag.getList("fluids").orElseGet(ListTag::new);
+        for (int i = 0; i < fluidList.size(); i++) {
+            java.util.Optional<CompoundTag> fluidTagOpt = fluidList.getCompound(i);
+            if (fluidTagOpt.isEmpty()) {
+                continue;
+            }
+            CompoundTag fluidTag = fluidTagOpt.get();
+            try {
+                Identifier id = Identifier.tryParse(fluidTag.getString("fluid").orElse(""));
+                if (id == null) {
+                    continue;
+                }
+                java.util.Optional<net.minecraft.core.Holder.Reference<Fluid>> fluidHolderOpt = BuiltInRegistries.FLUID.get(id);
+                if (fluidHolderOpt.isEmpty()) {
+                    continue;
+                }
+                net.minecraft.core.component.DataComponentPatch patch = net.minecraft.core.component.DataComponentPatch.EMPTY;
+                if (fluidTag.contains("components")) {
+                    patch = net.minecraft.core.component.DataComponentPatch.CODEC
+                            .parse(net.minecraft.nbt.NbtOps.INSTANCE, fluidTag.get("components"))
+                            .result()
+                            .orElse(net.minecraft.core.component.DataComponentPatch.EMPTY);
+                }
+                long amount = fluidTag.getLong("amount").orElse(0L);
+                if (amount <= 0) {
+                    continue;
+                }
+                FluidWarehouseKey key = new FluidWarehouseKey(FluidVariant.of(fluidHolderOpt.get().value(), patch));
+                migrated.put(key, migrated.getOrDefault(key, 0L) + amount);
+            } catch (Exception e) {
+                com.portablestorage.PortableStorage.LOGGER.warn("Failed to migrate v1 fluid entry, skip one entry", e);
+            }
+        }
+
+        unifiedStorage.replaceAll(migrated);
+    }
+
+    public void readNbt(CompoundTag tag, HolderLookup.Provider registries) {
+        unifiedStorage.clear();
+        int schemaVersion = tag.getInt("warehouse_schema_version").orElse(1);
+        this.loadedSchemaVersion = schemaVersion;
+        if (schemaVersion >= WAREHOUSE_SCHEMA_V2 && tag.contains("unified_storage")) {
+            this.loadedFromUnifiedStorage = true;
+            readV2Storage(tag, registries);
+        } else {
+            this.loadedFromUnifiedStorage = false;
+            readV1AndMigrateToV2(tag, registries);
+        }
+        rebuildLegacyStorageViewFromUnified();
 
         this.visibleRows = tag.contains("visibleRows") ? tag.getInt("visibleRows").orElse(6) : 6;
         this.isFolded = tag.contains("isFolded") ? tag.getBoolean("isFolded").orElse(true) : true;
@@ -1516,26 +1696,14 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     }
 
     public void writeNbt(CompoundTag tag, HolderLookup.Provider registries) {
-        ListTag list = new ListTag();
-        for (WarehouseEntry entry : storage)
-            list.add(entry.toNbt(registries));
-        tag.put("storage", list);
-
-        ListTag fluidList = new ListTag();
-        for (Map.Entry<FluidVariant, Long> entry : fluidStorage.entrySet()) {
-            CompoundTag fluidTag = new CompoundTag();
-            fluidTag.putString("fluid", BuiltInRegistries.FLUID.getKey(entry.getKey().getFluid()).toString());
-            net.minecraft.core.component.DataComponentMap patch = entry.getKey().getComponents();
-            if (!patch.isEmpty()) {
-                fluidTag.put("components",
-                        net.minecraft.core.component.DataComponentMap.CODEC
-                                .encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, patch)
-                                .getOrThrow());
-            }
-            fluidTag.putLong("amount", entry.getValue());
-            fluidList.add(fluidTag);
+        tag.putInt("warehouse_schema_version", WAREHOUSE_SCHEMA_V2);
+        ListTag unifiedList = new ListTag();
+        for (Map.Entry<WarehouseStackKey, Long> entry : unifiedStorage.snapshot().entrySet()) {
+            CompoundTag entryTag = entry.getKey().toNbt(registries);
+            entryTag.putLong("amount", entry.getValue());
+            unifiedList.add(entryTag);
         }
-        tag.put("fluids", fluidList);
+        tag.put("unified_storage", unifiedList);
 
         tag.putInt("visibleRows", visibleRows);
         tag.putBoolean("isFolded", isFolded);

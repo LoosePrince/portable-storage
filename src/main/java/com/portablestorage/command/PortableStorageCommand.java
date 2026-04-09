@@ -13,6 +13,7 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.component.WarehouseEntry;
+import com.portablestorage.logic.StorageWriteAudit;
 import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.upgrade.UpgradeRegistry;
 import com.portablestorage.upgrade.UpgradeType;
@@ -58,7 +59,9 @@ public class PortableStorageCommand {
                             "/portablestorage drop [玩家] - 开始持续丢出物品\n" +
                             "/portablestorage drop stop [玩家] - 停止丢出任务\n" +
                             "/portablestorage debug status [玩家] - 查看仓库调试状态\n" +
-                            "/portablestorage debug sync [玩家] - 强制同步仓库到客户端"), false);
+                            "/portablestorage debug sync [玩家] - 强制同步仓库到客户端\n" +
+                            "/portablestorage debug storage [玩家] - 查看存储索引与写审计\n" +
+                            "/portablestorage debug schema [玩家] - 查看仓库 schema 版本状态"), false);
                     return 1;
                 })
                 .then(Commands.literal("count")
@@ -111,6 +114,16 @@ public class PortableStorageCommand {
                                 .executes(context -> debugSync(context, context.getSource().getPlayerOrException()))
                                 .then(Commands.argument("player", EntityArgument.player())
                                         .executes(context -> debugSync(context,
+                                                EntityArgument.getPlayer(context, "player")))))
+                        .then(Commands.literal("storage")
+                                .executes(context -> debugStorage(context, context.getSource().getPlayerOrException()))
+                                .then(Commands.argument("player", EntityArgument.player())
+                                        .executes(context -> debugStorage(context,
+                                                EntityArgument.getPlayer(context, "player")))))
+                        .then(Commands.literal("schema")
+                                .executes(context -> debugSchema(context, context.getSource().getPlayerOrException()))
+                                .then(Commands.argument("player", EntityArgument.player())
+                                        .executes(context -> debugSchema(context,
                                                 EntityArgument.getPlayer(context, "player")))))));
     }
 
@@ -347,6 +360,51 @@ public class PortableStorageCommand {
         context.getSource().sendSuccess(
                 () -> Component.literal("已强制同步仓库组件到客户端: " + player.getScoreboardName()),
                 true);
+        return 1;
+    }
+
+    private static int debugStorage(CommandContext<CommandSourceStack> context, ServerPlayer player) {
+        if (player == null) {
+            context.getSource().sendFailure(Component.literal("无法获取目标玩家"));
+            return 0;
+        }
+        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+        Map<String, Integer> bucketStats = warehouse.getTypeBucketStats();
+        String buckets = bucketStats.entrySet().stream()
+                .map(e -> e.getKey() + "=" + e.getValue())
+                .sorted()
+                .reduce((a, b) -> a + ", " + b)
+                .orElse("(none)");
+
+        context.getSource().sendSuccess(() -> Component.literal(
+                "PortableStorage Debug Storage\n" +
+                        "player=" + player.getScoreboardName() + "\n" +
+                        "storageRevision=" + warehouse.getStorageRevision() + "\n" +
+                        "dirtyCount=" + warehouse.getDirtyCount() + "\n" +
+                        "logicalSlotCount=" + warehouse.getLogicalSlotCount() + "\n" +
+                        "typeBuckets=" + buckets + "\n" +
+                        "auditTotalWrites=" + StorageWriteAudit.getTotalWrites() + "\n" +
+                        "auditLastSource=" + StorageWriteAudit.getLastSource() + "\n" +
+                        "auditLastDecision=" + StorageWriteAudit.getLastDecision() + "\n" +
+                        "auditBySource=" + StorageWriteAudit.snapshotBySource()),
+                false);
+        return 1;
+    }
+
+    private static int debugSchema(CommandContext<CommandSourceStack> context, ServerPlayer player) {
+        if (player == null) {
+            context.getSource().sendFailure(Component.literal("无法获取目标玩家"));
+            return 0;
+        }
+        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+        context.getSource().sendSuccess(() -> Component.literal(
+                "PortableStorage Debug Schema\n" +
+                        "player=" + player.getScoreboardName() + "\n" +
+                        "loadedSchemaVersion=" + warehouse.getLoadedSchemaVersion() + "\n" +
+                        "loadedFromUnifiedStorage=" + warehouse.isLoadedFromUnifiedStorage() + "\n" +
+                        "targetSchemaVersion=" + warehouse.getTargetSchemaVersion() + "\n" +
+                        "note=migration_runs_on_load_and_persists_on_save"),
+                false);
         return 1;
     }
 

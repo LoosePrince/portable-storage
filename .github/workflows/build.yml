@@ -97,6 +97,9 @@ jobs:
       
       - name: build
         run: ./gradlew build
+
+      - name: run storage audit tests
+        run: ./gradlew test --tests "com.portablestorage.logic.StorageWriteAuditTest"
       
       - name: capture build artifacts
         uses: actions/upload-artifact@v4

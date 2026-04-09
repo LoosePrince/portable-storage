@@ -6,7 +6,7 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * 仓库条目
- * 表示仓库中存储的一种物品及其数量、更新时间等信息
+ * v1 迁移兼容结构：仅用于旧存档读取和 UI 兼容视图，不应作为新写入主存模型。
  */
 public class WarehouseEntry {
     /** 物品堆叠（用于存储物品类型和 NBT） */

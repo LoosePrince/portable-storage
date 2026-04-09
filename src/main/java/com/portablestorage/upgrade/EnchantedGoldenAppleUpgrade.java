@@ -5,6 +5,7 @@ import java.util.List;
 import com.portablestorage.PortableStorage;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.component.WarehouseEntry;
+import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.network.S2COpenFoodFilterPayload;
 
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -131,8 +132,11 @@ public class EnchantedGoldenAppleUpgrade extends UpgradeType {
         }
 
         if (bestFood != null) {
-            ItemStack toEat = bestFood.getItemStack().copy();
-            toEat.setCount(1);
+            ItemStack extracted = WarehouseManager.takeMatching(warehouse, bestFood.getItemStack(), 1, true);
+            if (extracted.isEmpty()) {
+                return;
+            }
+            ItemStack toEat = extracted.copyWithCount(1);
 
             // 先获取名称，因为 eat 可能会清空堆叠
             Component foodName = toEat.getHoverName();
@@ -142,11 +146,6 @@ public class EnchantedGoldenAppleUpgrade extends UpgradeType {
             if (foodProps != null) {
                 player.getFoodData().eat(foodProps);
             }
-            bestFood.subtract(1);
-            if (bestFood.getCount() <= 0) {
-                storage.remove(bestFood);
-            }
-            warehouse.markDirty();
 
             player.sendSystemMessage(
                     Component.translatable("upgrade.portablestorage.enchanted_golden_apple.auto_eat",
