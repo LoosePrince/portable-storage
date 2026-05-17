@@ -12,6 +12,7 @@
 		"ContainerScreensMixin",
 		"MouseMixin",
 		"AbstractContainerScreenAccessor",
+		"ClientContainerSyncMixin",
 		"ScreenAccessor"
 	],
 	"injectors": {
