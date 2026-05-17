@@ -373,6 +373,13 @@ public class WarehouseMenuHandler {
         }
     }
 
+    /**
+     * 判断槽位是否为仓库或升级相关槽位
+     */
+    public static boolean isWarehouseRelatedSlot(Slot slot) {
+        return slot.container instanceof PlayerWarehouse || slot instanceof UpgradeSlot;
+    }
+
     public static boolean isContainerMenu(AbstractContainerMenu menu) {
         String name = menu.getClass().getName();
         return !(menu instanceof InventoryMenu)
