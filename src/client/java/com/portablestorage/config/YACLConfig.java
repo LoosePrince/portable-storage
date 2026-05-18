@@ -77,8 +77,13 @@ public class YACLConfig {
                                 ModConfig.waterInfiniteThreshold,
                                 ModConfig.riftUpgradeItem,
                                 ModConfig.riftChunkSize,
+                                ModConfig.riftPlotSpacingChunks,
+                                ModConfig.riftFloorY,
                                 ModConfig.enableRiftForcedLoading,
                                 ModConfig.riftForcedLoadingRange,
+                                ModConfig.enableRiftAvatar,
+                                ModConfig.enableRiftBorder,
+                                ModConfig.riftBorderWarningBlocks,
                                 ModConfig.enableConduitUpgrade));
         }
 
@@ -596,6 +601,92 @@ public class YACLConfig {
                                                                                 .controller(opt -> IntegerFieldControllerBuilder
                                                                                                 .create(opt)
                                                                                                 .range(0, 5))
+                                                                                .available(canEditServerConfig())
+                                                                                .build())
+                                                                .option(Option.<Integer>createBuilder()
+                                                                                .name(Component.translatable(
+                                                                                                "gui.portablestorage.settings.rift_plot_spacing_chunks"))
+                                                                                .description(OptionDescription.of(
+                                                                                                Component.translatable(
+                                                                                                                "gui.portablestorage.settings.rift_plot_spacing_chunks.desc")))
+                                                                                .binding(
+                                                                                                64,
+                                                                                                () -> ModConfig.riftPlotSpacingChunks,
+                                                                                                val -> {
+                                                                                                        ModConfig.riftPlotSpacingChunks = val;
+                                                                                                        updateServerConfig();
+                                                                                                })
+                                                                                .controller(opt -> IntegerFieldControllerBuilder
+                                                                                                .create(opt)
+                                                                                                .range(16, 1024))
+                                                                                .available(canEditServerConfig())
+                                                                                .build())
+                                                                .option(Option.<Integer>createBuilder()
+                                                                                .name(Component.translatable(
+                                                                                                "gui.portablestorage.settings.rift_floor_y"))
+                                                                                .description(OptionDescription.of(
+                                                                                                Component.translatable(
+                                                                                                                "gui.portablestorage.settings.rift_floor_y.desc")))
+                                                                                .binding(
+                                                                                                64,
+                                                                                                () -> ModConfig.riftFloorY,
+                                                                                                val -> {
+                                                                                                        ModConfig.riftFloorY = val;
+                                                                                                        updateServerConfig();
+                                                                                                })
+                                                                                .controller(opt -> IntegerFieldControllerBuilder
+                                                                                                .create(opt)
+                                                                                                .range(-60, 300))
+                                                                                .available(canEditServerConfig())
+                                                                                .build())
+                                                                .option(Option.<Boolean>createBuilder()
+                                                                                .name(Component.translatable(
+                                                                                                "gui.portablestorage.settings.enable_rift_avatar"))
+                                                                                .description(OptionDescription.of(
+                                                                                                Component.translatable(
+                                                                                                                "gui.portablestorage.settings.enable_rift_avatar.desc")))
+                                                                                .binding(
+                                                                                                true,
+                                                                                                () -> ModConfig.enableRiftAvatar,
+                                                                                                val -> {
+                                                                                                        ModConfig.enableRiftAvatar = val;
+                                                                                                        updateServerConfig();
+                                                                                                })
+                                                                                .controller(BooleanControllerBuilder::create)
+                                                                                .available(canEditServerConfig())
+                                                                                .build())
+                                                                .option(Option.<Boolean>createBuilder()
+                                                                                .name(Component.translatable(
+                                                                                                "gui.portablestorage.settings.enable_rift_border"))
+                                                                                .description(OptionDescription.of(
+                                                                                                Component.translatable(
+                                                                                                                "gui.portablestorage.settings.enable_rift_border.desc")))
+                                                                                .binding(
+                                                                                                true,
+                                                                                                () -> ModConfig.enableRiftBorder,
+                                                                                                val -> {
+                                                                                                        ModConfig.enableRiftBorder = val;
+                                                                                                        updateServerConfig();
+                                                                                                })
+                                                                                .controller(BooleanControllerBuilder::create)
+                                                                                .available(canEditServerConfig())
+                                                                                .build())
+                                                                .option(Option.<Integer>createBuilder()
+                                                                                .name(Component.translatable(
+                                                                                                "gui.portablestorage.settings.rift_border_warning_blocks"))
+                                                                                .description(OptionDescription.of(
+                                                                                                Component.translatable(
+                                                                                                                "gui.portablestorage.settings.rift_border_warning_blocks.desc")))
+                                                                                .binding(
+                                                                                                0,
+                                                                                                () -> ModConfig.riftBorderWarningBlocks,
+                                                                                                val -> {
+                                                                                                        ModConfig.riftBorderWarningBlocks = val;
+                                                                                                        updateServerConfig();
+                                                                                                })
+                                                                                .controller(opt -> IntegerFieldControllerBuilder
+                                                                                                .create(opt)
+                                                                                                .range(0, 32))
                                                                                 .available(canEditServerConfig())
                                                                                 .build())
                                                                 .build())

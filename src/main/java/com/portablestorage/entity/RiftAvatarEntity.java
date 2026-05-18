@@ -2,7 +2,12 @@ package com.portablestorage.entity;
 
 import java.util.UUID;
 
+import com.portablestorage.component.ModComponents;
+import com.portablestorage.world.SpaceRiftManager;
+
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -47,6 +52,17 @@ public class RiftAvatarEntity extends LivingEntity {
         return this.level().getServer().getPlayerList().getPlayer(ownerId);
     }
 
+    private void clearOwnerAvatarUuid() {
+        ServerPlayer owner = getOwnerPlayer();
+        if (owner == null) {
+            return;
+        }
+        var warehouse = ModComponents.get(owner).getWarehouse(owner.getUUID());
+        if (this.getUUID().equals(warehouse.getAvatarUuid())) {
+            warehouse.setAvatarUuid(null);
+        }
+    }
+
     @Override
     public ItemStack getItemBySlot(net.minecraft.world.entity.EquipmentSlot slot) {
         return ItemStack.EMPTY;
@@ -59,6 +75,16 @@ public class RiftAvatarEntity extends LivingEntity {
     @Override
     public net.minecraft.world.entity.HumanoidArm getMainArm() {
         return net.minecraft.world.entity.HumanoidArm.RIGHT;
+    }
+
+    @Override
+    public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
+        ServerPlayer owner = getOwnerPlayer();
+        if (owner != null) {
+            owner.hurtServer((ServerLevel) owner.level(), source, amount);
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -102,9 +128,26 @@ public class RiftAvatarEntity extends LivingEntity {
 
     @Override
     public void tick() {
-        if (!this.level().isClientSide() && this.tickCount % 20 == 0) {
+        super.tick();
+        if (this.level().isClientSide()) {
+            return;
+        }
+
+        ServerPlayer owner = getOwnerPlayer();
+        if (owner != null && owner.level().dimension().equals(SpaceRiftManager.DIMENSION_KEY)) {
+            clearOwnerAvatarUuid();
+            this.discard();
+            return;
+        }
+
+        if (this.getY() < this.level().dimensionType().minY() - 1) {
+            clearOwnerAvatarUuid();
+            this.discard();
+            return;
+        }
+
+        if (this.tickCount % 20 == 0) {
             this.setHealth(this.getMaxHealth());
         }
-        super.tick();
     }
 }

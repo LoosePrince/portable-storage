@@ -55,14 +55,8 @@ public class PortableStorageClient implements ClientModInitializer {
             }
         });
 
-        // 注册复制体渲染器（占位实现：不可见、无模型，仅用于避免崩溃）
+        // 注册复制体渲染器
         EntityRenderers.register(com.portablestorage.entity.ModEntities.RIFT_AVATAR,
-                context -> new net.minecraft.client.renderer.entity.EntityRenderer<com.portablestorage.entity.RiftAvatarEntity, net.minecraft.client.renderer.entity.state.EntityRenderState>(
-                        context) {
-                    @Override
-                    public net.minecraft.client.renderer.entity.state.EntityRenderState createRenderState() {
-                        return new net.minecraft.client.renderer.entity.state.EntityRenderState();
-                    }
-                });
+                com.portablestorage.client.renderer.RiftAvatarRenderer::new);
     }
 }

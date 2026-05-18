@@ -71,10 +71,20 @@ public class ModConfig {
     public static String riftUpgradeItem = "minecraft:dragon_egg";
     /** 裂隙区块大小 */
     public static int riftChunkSize = 1;
+    /** 裂隙地块间距（区块） */
+    public static int riftPlotSpacingChunks = 64;
+    /** 裂隙地板高度 */
+    public static int riftFloorY = 64;
     /** 是否启用裂隙强制加载 */
     public static boolean enableRiftForcedLoading = true;
     /** 裂隙强制加载范围 */
     public static int riftForcedLoadingRange = 1;
+    /** 是否启用裂隙复制体 */
+    public static boolean enableRiftAvatar = true;
+    /** 是否启用裂隙个人边界 */
+    public static boolean enableRiftBorder = true;
+    /** 裂隙边界警告距离 */
+    public static int riftBorderWarningBlocks = 0;
 
     /** 是否启用潮涌核心升级 */
     public static boolean enableConduitUpgrade = true;
@@ -137,8 +147,13 @@ public class ModConfig {
         waterInfiniteThreshold = ((Number) config.getOrElse("server.waterInfiniteThreshold", 2L)).longValue();
         riftUpgradeItem = config.getOrElse("server.riftUpgradeItem", "minecraft:dragon_egg");
         riftChunkSize = ((Number) config.getOrElse("server.riftChunkSize", 1)).intValue();
+        riftPlotSpacingChunks = ((Number) config.getOrElse("server.riftPlotSpacingChunks", 64)).intValue();
+        riftFloorY = ((Number) config.getOrElse("server.riftFloorY", 64)).intValue();
         enableRiftForcedLoading = config.getOrElse("server.enableRiftForcedLoading", true);
         riftForcedLoadingRange = ((Number) config.getOrElse("server.riftForcedLoadingRange", 1)).intValue();
+        enableRiftAvatar = config.getOrElse("server.enableRiftAvatar", true);
+        enableRiftBorder = config.getOrElse("server.enableRiftBorder", true);
+        riftBorderWarningBlocks = ((Number) config.getOrElse("server.riftBorderWarningBlocks", 0)).intValue();
         enableConduitUpgrade = config.getOrElse("server.enableConduitUpgrade", true);
         
         // 初始时设置为本地配置值
@@ -184,8 +199,13 @@ public class ModConfig {
         config.set("server.waterInfiniteThreshold", waterInfiniteThreshold);
         config.set("server.riftUpgradeItem", riftUpgradeItem);
         config.set("server.riftChunkSize", riftChunkSize);
+        config.set("server.riftPlotSpacingChunks", riftPlotSpacingChunks);
+        config.set("server.riftFloorY", riftFloorY);
         config.set("server.enableRiftForcedLoading", enableRiftForcedLoading);
         config.set("server.riftForcedLoadingRange", riftForcedLoadingRange);
+        config.set("server.enableRiftAvatar", enableRiftAvatar);
+        config.set("server.enableRiftBorder", enableRiftBorder);
+        config.set("server.riftBorderWarningBlocks", riftBorderWarningBlocks);
         config.set("server.enableConduitUpgrade", enableConduitUpgrade);
         
         config.save();

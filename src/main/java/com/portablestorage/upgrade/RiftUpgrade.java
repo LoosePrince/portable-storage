@@ -65,6 +65,7 @@ public class RiftUpgrade extends UpgradeType {
         if (player.level().dimension().equals(SpaceRiftManager.DIMENSION_KEY)) {
             SpaceRiftManager.handleVoidFall(player, warehouse);
             SpaceRiftManager.checkAndTeleportBack(player, warehouse);
+            SpaceRiftManager.tickBorderResend(player, warehouse);
         }
     }
 }

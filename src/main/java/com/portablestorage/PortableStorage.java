@@ -91,6 +91,7 @@ public class PortableStorage implements ModInitializer {
                 com.portablestorage.world.SpaceRiftManager.removeAvatar(player);
 
                 // 在下一刻或几秒后发送，确保客户端已经进入维度
+                warehouse.setRiftBorderResendTicks(40);
                 server.execute(() -> {
                     com.portablestorage.world.SpaceRiftManager.applyPersonalBorder(player, warehouse);
                 });
@@ -114,8 +115,13 @@ public class PortableStorage implements ModInitializer {
                     ModConfig.waterInfiniteThreshold,
                     ModConfig.riftUpgradeItem,
                     ModConfig.riftChunkSize,
+                    ModConfig.riftPlotSpacingChunks,
+                    ModConfig.riftFloorY,
                     ModConfig.enableRiftForcedLoading,
                     ModConfig.riftForcedLoadingRange,
+                    ModConfig.enableRiftAvatar,
+                    ModConfig.enableRiftBorder,
+                    ModConfig.riftBorderWarningBlocks,
                     ModConfig.enableConduitUpgrade));
 
             // 同步配置时顺便下发当前玩家是否有编辑服务端配置的权限，

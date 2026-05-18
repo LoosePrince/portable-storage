@@ -24,9 +24,6 @@ public class SpaceRiftManager {
     public static final Identifier DIM_ID = PortableStorage.id("space_rift");
     public static final ResourceKey<Level> DIMENSION_KEY = ResourceKey.create(Registries.DIMENSION, DIM_ID);
 
-    private static final int PLOT_SPACING_CHUNKS = 64;
-    private static final int FLOOR_Y = 64;
-
     public static ServerLevel getWorld(MinecraftServer server) {
         return server.getLevel(DIMENSION_KEY);
     }
@@ -82,6 +79,7 @@ public class SpaceRiftManager {
 
         // 应用个人边界
         applyPersonalBorder(player, warehouse);
+        warehouse.setRiftBorderResendTicks(20);
 
         // 移除复制体
         removeAvatar(player);
@@ -165,22 +163,27 @@ public class SpaceRiftManager {
         }
     }
 
+    public static void tickBorderResend(ServerPlayer player, PlayerWarehouse warehouse) {
+        if (!player.level().dimension().equals(DIMENSION_KEY))
+            return;
+        if (warehouse.tickRiftBorderResend()) {
+            applyPersonalBorder(player, warehouse);
+        }
+    }
+
     private static void allocatePlot(UUID playerId, PlayerWarehouse warehouse) {
         int index = Math.floorMod(playerId.hashCode(), 1024);
         // 使用 32x32 的矩阵分布，充分利用 X 和 Z 轴
         int gridX = index % 32;
         int gridZ = index / 32;
 
-        warehouse.setRiftPlotX(gridX * PLOT_SPACING_CHUNKS);
-        warehouse.setRiftPlotZ(gridZ * PLOT_SPACING_CHUNKS);
+        int spacing = ModConfig.riftPlotSpacingChunks;
+        warehouse.setRiftPlotX(gridX * spacing);
+        warehouse.setRiftPlotZ(gridZ * spacing);
     }
 
     private static BlockPos getPlotCenterBlock(ChunkPos origin) {
-        int chunkSize = ModConfig.riftChunkSize;
-        int centerOffset = (chunkSize - 1) * 8;
-        int x = origin.getMiddleBlockX() + centerOffset;
-        int z = origin.getMiddleBlockZ() + centerOffset;
-        return new BlockPos(x, FLOOR_Y, z);
+        return new BlockPos(origin.getMiddleBlockX(), ModConfig.riftFloorY, origin.getMiddleBlockZ());
     }
 
     private static void ensurePlotInitialized(ServerLevel world, ChunkPos origin, PlayerWarehouse warehouse) {
@@ -197,7 +200,7 @@ public class SpaceRiftManager {
     }
 
     public static void applyPersonalBorder(ServerPlayer player, PlayerWarehouse warehouse) {
-        if (player.isCreative() || player.isSpectator()) {
+        if (player.isCreative() || player.isSpectator() || !ModConfig.enableRiftBorder) {
             resetToWorldBorder(player);
             return;
         }
@@ -207,15 +210,13 @@ public class SpaceRiftManager {
 
         ChunkPos origin = new ChunkPos(warehouse.getRiftPlotX(), warehouse.getRiftPlotZ());
         double borderSize = ModConfig.riftChunkSize * 16.0;
-        // 计算精确的中心点，使其对齐方块边界。
-        // 例如 size=16, minX=0, maxX=15，中心应为 8.0。
-        double centerX = origin.getMinBlockX() + borderSize / 2.0;
-        double centerZ = origin.getMinBlockZ() + borderSize / 2.0;
+        double centerX = origin.getMiddleBlockX();
+        double centerZ = origin.getMiddleBlockZ();
 
         WorldBorder border = new WorldBorder();
         border.setCenter(centerX, centerZ);
         border.setSize(borderSize);
-        border.setWarningBlocks(0);
+        border.setWarningBlocks(ModConfig.riftBorderWarningBlocks);
         border.setWarningTime(0);
 
         player.connection.send(new ClientboundInitializeBorderPacket(border));
@@ -227,20 +228,26 @@ public class SpaceRiftManager {
     }
 
     public static boolean isOutsideBorder(ServerPlayer player, PlayerWarehouse warehouse, BlockPos pos) {
-        if (!warehouse.hasRiftPlot())
+        if (!ModConfig.enableRiftBorder || !warehouse.hasRiftPlot())
             return false;
 
         ChunkPos origin = new ChunkPos(warehouse.getRiftPlotX(), warehouse.getRiftPlotZ());
         int chunkSize = ModConfig.riftChunkSize;
-        int minX = origin.getMinBlockX();
-        int minZ = origin.getMinBlockZ();
-        int maxX = minX + 16 * chunkSize - 1;
-        int maxZ = minZ + 16 * chunkSize - 1;
+        double borderSize = chunkSize * 16.0;
+        double centerX = origin.getMiddleBlockX();
+        double centerZ = origin.getMiddleBlockZ();
+        int minX = (int) Math.floor(centerX - borderSize / 2.0);
+        int minZ = (int) Math.floor(centerZ - borderSize / 2.0);
+        int maxX = (int) Math.floor(centerX + borderSize / 2.0 - 1.0);
+        int maxZ = (int) Math.floor(centerZ + borderSize / 2.0 - 1.0);
 
         return pos.getX() < minX || pos.getX() > maxX || pos.getZ() < minZ || pos.getZ() > maxZ;
     }
 
     public static void spawnAvatar(ServerPlayer player, PlayerWarehouse warehouse) {
+        if (!ModConfig.enableRiftAvatar)
+            return;
+
         MinecraftServer server = ((ServerLevel) player.level()).getServer();
         if (server == null)
             return;
@@ -267,6 +274,10 @@ public class SpaceRiftManager {
     public static void removeAvatar(ServerPlayer player) {
         var warehouse = com.portablestorage.component.ModComponents.get(player).getWarehouse(player.getUUID());
         UUID avatarUuid = warehouse.getAvatarUuid();
+        warehouse.setAvatarUuid(null);
+
+        if (avatarUuid == null)
+            return;
 
         MinecraftServer server = ((ServerLevel) player.level()).getServer();
         if (server == null)
@@ -275,12 +286,9 @@ public class SpaceRiftManager {
         if (riftLevel == null)
             return;
 
-        if (avatarUuid != null) {
-            net.minecraft.world.entity.Entity e = riftLevel.getEntity(avatarUuid);
-            if (e != null) {
-                e.discard();
-            }
-            warehouse.setAvatarUuid(null);
+        net.minecraft.world.entity.Entity e = riftLevel.getEntity(avatarUuid);
+        if (e != null) {
+            e.discard();
         }
     }
 
@@ -296,10 +304,11 @@ public class SpaceRiftManager {
             return;
 
         ChunkPos origin = new ChunkPos(warehouse.getRiftPlotX(), warehouse.getRiftPlotZ());
+        int plotChunkRadius = (int) Math.ceil((ModConfig.riftChunkSize - 1) / 2.0);
+        int cleanupRange = Math.max(5, plotChunkRadius + 2);
 
-        // 先清理可能存在的旧强制加载区块 (清理最大范围 5)
-        for (int x = -5; x <= 5; x++) {
-            for (int z = -5; z <= 5; z++) {
+        for (int x = -cleanupRange; x <= cleanupRange; x++) {
+            for (int z = -cleanupRange; z <= cleanupRange; z++) {
                 try {
                     riftLevel.setChunkForced(origin.x() + x, origin.z() + z, false);
                 } catch (Exception ignored) {
@@ -308,7 +317,7 @@ public class SpaceRiftManager {
         }
 
         if (forced && ModConfig.enableRiftForcedLoading) {
-            int range = ModConfig.riftForcedLoadingRange;
+            int range = Math.min(ModConfig.riftForcedLoadingRange, plotChunkRadius);
             for (int x = -range; x <= range; x++) {
                 for (int z = -range; z <= range; z++) {
                     try {

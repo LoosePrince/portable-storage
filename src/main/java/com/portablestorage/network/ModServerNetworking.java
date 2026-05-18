@@ -153,17 +153,25 @@ public class ModServerNetworking {
             ModConfig.waterInfiniteThreshold = payload.waterInfiniteThreshold();
             ModConfig.riftUpgradeItem = payload.riftUpgradeItem();
             ModConfig.riftChunkSize = payload.riftChunkSize();
+            ModConfig.riftPlotSpacingChunks = payload.riftPlotSpacingChunks();
+            ModConfig.riftFloorY = payload.riftFloorY();
             ModConfig.enableRiftForcedLoading = payload.enableRiftForcedLoading();
             ModConfig.riftForcedLoadingRange = payload.riftForcedLoadingRange();
+            ModConfig.enableRiftAvatar = payload.enableRiftAvatar();
+            ModConfig.enableRiftBorder = payload.enableRiftBorder();
+            ModConfig.riftBorderWarningBlocks = payload.riftBorderWarningBlocks();
             ModConfig.enableConduitUpgrade = payload.enableConduitUpgrade();
 
             // 保存到文件
             ModConfig.save();
 
-            // 更新在线玩家的强制加载状态
+            // 更新在线玩家的强制加载状态，并让裂隙内玩家重新接收个人边界
             for (ServerPlayer p : context.server().getPlayerList().getPlayers()) {
                 var warehouse = getWarehouse(p);
                 com.portablestorage.world.SpaceRiftManager.updatePlotForcedLoading(p, warehouse, true);
+                if (p.level().dimension().equals(com.portablestorage.world.SpaceRiftManager.DIMENSION_KEY)) {
+                    warehouse.setRiftBorderResendTicks(40);
+                }
             }
 
             // 同步给所有玩家
@@ -185,8 +193,13 @@ public class ModServerNetworking {
                     ModConfig.waterInfiniteThreshold,
                     ModConfig.riftUpgradeItem,
                     ModConfig.riftChunkSize,
+                    ModConfig.riftPlotSpacingChunks,
+                    ModConfig.riftFloorY,
                     ModConfig.enableRiftForcedLoading,
                     ModConfig.riftForcedLoadingRange,
+                    ModConfig.enableRiftAvatar,
+                    ModConfig.enableRiftBorder,
+                    ModConfig.riftBorderWarningBlocks,
                     ModConfig.enableConduitUpgrade);
 
             for (ServerPlayer p : context.server().getPlayerList().getPlayers()) {

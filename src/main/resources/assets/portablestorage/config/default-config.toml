@@ -47,3 +47,30 @@ maxItemNbtSize = 10240
 
 # 是否启用潮涌核心升级（禁用时该升级槽位不显示且效果无效）
 enableConduitUpgrade = true
+
+# 裂隙升级物品 ID
+riftUpgradeItem = "minecraft:dragon_egg"
+
+# 裂隙空间大小（区块边长）
+riftChunkSize = 1
+
+# 裂隙地块间距（区块）
+riftPlotSpacingChunks = 64
+
+# 裂隙默认地板高度
+riftFloorY = 64
+
+# 是否启用裂隙区块强加载
+enableRiftForcedLoading = true
+
+# 裂隙强加载范围（区块半径，实际不会超过地块半径）
+riftForcedLoadingRange = 1
+
+# 是否启用裂隙复制体
+enableRiftAvatar = true
+
+# 是否启用裂隙个人边界
+enableRiftBorder = true
+
+# 裂隙边界警告距离（方块）
+riftBorderWarningBlocks = 0

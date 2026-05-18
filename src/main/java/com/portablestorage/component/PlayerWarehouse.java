@@ -77,6 +77,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     private float riftLastYaw = 0;
     private float riftLastPitch = 0;
     private UUID avatarUuid = null;
+    private int riftBorderResendTicks = 0;
 
     /**
      * 专用升级容器，支持滚动窗口映射
@@ -552,6 +553,22 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     public void setAvatarUuid(UUID uuid) {
         this.avatarUuid = uuid;
         markDirty();
+    }
+
+    public int getRiftBorderResendTicks() {
+        return riftBorderResendTicks;
+    }
+
+    public void setRiftBorderResendTicks(int ticks) {
+        this.riftBorderResendTicks = Math.max(0, ticks);
+    }
+
+    public boolean tickRiftBorderResend() {
+        if (riftBorderResendTicks <= 0) {
+            return false;
+        }
+        riftBorderResendTicks--;
+        return true;
     }
 
     public boolean hasRiftPlot() {

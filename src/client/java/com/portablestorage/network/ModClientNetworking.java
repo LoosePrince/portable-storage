@@ -40,8 +40,13 @@ public class ModClientNetworking {
                 ModConfig.waterInfiniteThreshold = payload.waterInfiniteThreshold();
                 ModConfig.riftUpgradeItem = payload.riftUpgradeItem();
                 ModConfig.riftChunkSize = payload.riftChunkSize();
+                ModConfig.riftPlotSpacingChunks = payload.riftPlotSpacingChunks();
+                ModConfig.riftFloorY = payload.riftFloorY();
                 ModConfig.enableRiftForcedLoading = payload.enableRiftForcedLoading();
                 ModConfig.riftForcedLoadingRange = payload.riftForcedLoadingRange();
+                ModConfig.enableRiftAvatar = payload.enableRiftAvatar();
+                ModConfig.enableRiftBorder = payload.enableRiftBorder();
+                ModConfig.riftBorderWarningBlocks = payload.riftBorderWarningBlocks();
                 ModConfig.enableConduitUpgrade = payload.enableConduitUpgrade();
             });
         });

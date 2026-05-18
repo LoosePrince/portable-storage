@@ -23,8 +23,13 @@ public record SyncConfigPayload(
     long waterInfiniteThreshold,
     String riftUpgradeItem,
     int riftChunkSize,
+    int riftPlotSpacingChunks,
+    int riftFloorY,
     boolean enableRiftForcedLoading,
     int riftForcedLoadingRange,
+    boolean enableRiftAvatar,
+    boolean enableRiftBorder,
+    int riftBorderWarningBlocks,
     boolean enableConduitUpgrade
 ) implements CustomPacketPayload {
     public static final Type<SyncConfigPayload> TYPE = new Type<>(PortableStorage.id("sync_config"));
@@ -48,8 +53,13 @@ public record SyncConfigPayload(
             buf.writeLong(payload.waterInfiniteThreshold);
             buf.writeUtf(payload.riftUpgradeItem);
             buf.writeInt(payload.riftChunkSize);
+            buf.writeInt(payload.riftPlotSpacingChunks);
+            buf.writeInt(payload.riftFloorY);
             buf.writeBoolean(payload.enableRiftForcedLoading);
             buf.writeInt(payload.riftForcedLoadingRange);
+            buf.writeBoolean(payload.enableRiftAvatar);
+            buf.writeBoolean(payload.enableRiftBorder);
+            buf.writeInt(payload.riftBorderWarningBlocks);
             buf.writeBoolean(payload.enableConduitUpgrade);
         },
         buf -> new SyncConfigPayload(
@@ -70,6 +80,11 @@ public record SyncConfigPayload(
             buf.readLong(),
             buf.readUtf(),
             buf.readInt(),
+            buf.readInt(),
+            buf.readInt(),
+            buf.readBoolean(),
+            buf.readInt(),
+            buf.readBoolean(),
             buf.readBoolean(),
             buf.readInt(),
             buf.readBoolean()
