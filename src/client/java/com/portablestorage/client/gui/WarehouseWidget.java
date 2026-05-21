@@ -305,13 +305,13 @@ public class WarehouseWidget {
         if (minecraft.player == null)
             return;
 
-        handleFrozenMode();
+        updateFrozenMode();
         checkRefreshNeeded();
         flushDebouncedSearchPacket();
         updateSearchBoxState();
     }
 
-    public void renderPreTooltipOverlays(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+    public void renderItemOverlaysBeforeCarried(GuiGraphicsExtractor graphics) {
         if (!shouldShow()) {
             return;
         }
@@ -329,6 +329,23 @@ public class WarehouseWidget {
 
         WarehouseRenderer.renderPinnedOverlays(graphics, leftPos, topPos, warehouse, imageHeight);
         WarehouseRenderer.renderQuantityTexts(graphics, font, leftPos, topPos, warehouse, imageHeight);
+    }
+
+    public void renderTooltipOverlays(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        if (!shouldShow()) {
+            return;
+        }
+
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null) {
+            return;
+        }
+
+        AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
+        int leftPos = screenAccessor.portablestorage$getLeftPos();
+        int topPos = screenAccessor.portablestorage$getTopPos();
+        int imageHeight = screenAccessor.portablestorage$getImageHeight();
+        var font = ((ScreenAccessor) screen).portablestorage$getFont();
 
         FoldButtonLayout foldButton = getFoldButtonLayout(leftPos, topPos, imageHeight);
         WarehouseRenderer.renderAllTooltips(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse, imageHeight,
@@ -398,7 +415,10 @@ public class WarehouseWidget {
         }
     }
 
-    private void handleFrozenMode() {
+    public void updateFrozenMode() {
+        if (!shouldShow()) {
+            return;
+        }
         boolean isPressed = InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), InputConstants.KEY_LCONTROL)
                 || InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), InputConstants.KEY_RCONTROL);
         if (isPressed != warehouse.isFrozen()) {

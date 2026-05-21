@@ -115,10 +115,18 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
         }
     }
 
+    @Inject(method = "extractContents", at = @At("RETURN"))
+    private void onExtractContentsReturn(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick,
+            CallbackInfo ci) {
+        if (warehouseWidget != null && warehouseWidget.shouldShow()) {
+            warehouseWidget.renderItemOverlaysBeforeCarried(graphics);
+        }
+    }
+
     @Inject(method = "extractTooltip", at = @At("HEAD"), cancellable = true)
     private void onRenderTooltip(GuiGraphicsExtractor graphics, int x, int y, CallbackInfo ci) {
         if (warehouseWidget != null) {
-            warehouseWidget.renderPreTooltipOverlays(graphics, x, y);
+            warehouseWidget.renderTooltipOverlays(graphics, x, y);
         }
 
         AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;

@@ -80,8 +80,10 @@ public class PortableStorageClient implements ClientModInitializer {
             flushPendingAutoFold(client);
             if (client.screen instanceof WarehouseScreen s) {
                 WarehouseWidget w = s.portablestorage$getWarehouseWidget();
-                if (w != null)
+                if (w != null) {
+                    w.updateFrozenMode();
                     w.flushDebouncedSearchPacket();
+                }
             }
         });
 
