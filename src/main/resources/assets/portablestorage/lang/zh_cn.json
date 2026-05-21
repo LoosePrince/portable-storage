@@ -198,6 +198,7 @@
   "upgrade.portablestorage.tool.desc": "§7放入工具后可打开 3x3 工具容器。",
   "upgrade.portablestorage.tool.open_hint": "§8[右键] 打开工具容器",
   "container.portablestorage.tool_warehouse": "工具容器",
+  "gui.portablestorage.quick_tool.cancel": "松开按键以取消",
   "upgrade.portablestorage.enchanted_golden_apple.name": "自动喂食升级",
   "upgrade.portablestorage.enchanted_golden_apple.desc": "§7饥饿值低于阈值时，自动从仓库寻找并食用食物。",
   "upgrade.portablestorage.enchanted_golden_apple.threshold": "§e喂食阈值: §f%s",

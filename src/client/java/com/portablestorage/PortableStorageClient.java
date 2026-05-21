@@ -5,6 +5,7 @@ import com.portablestorage.client.gui.QuickToolClientState;
 import com.portablestorage.client.gui.WarehouseScreen;
 import com.portablestorage.client.gui.WarehouseStateSync;
 import com.portablestorage.client.gui.WarehouseWidget;
+import com.portablestorage.config.ModConfig;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.network.ModClientNetworking;
@@ -30,6 +31,8 @@ public class PortableStorageClient implements ClientModInitializer {
     public static KeyMapping openCraftingKey;
     public static KeyMapping toggleWarehouseFoldKey;
     public static KeyMapping quickToolKey;
+    private static PlayerWarehouse pendingAutoFoldWarehouse;
+    private static int pendingAutoFoldTicks;
 
     @Override
     public void onInitializeClient() {
@@ -74,6 +77,7 @@ public class PortableStorageClient implements ClientModInitializer {
                 }
             }
             QuickToolClientState.tick(client);
+            flushPendingAutoFold(client);
             if (client.screen instanceof WarehouseScreen s) {
                 WarehouseWidget w = s.portablestorage$getWarehouseWidget();
                 if (w != null)
@@ -104,5 +108,32 @@ public class PortableStorageClient implements ClientModInitializer {
         WarehouseStateSync.sendSetting(WarehouseSetting.FOLD, folded ? 1 : 0);
         w.refreshAfterFoldChange();
         return true;
+    }
+
+    public static void requestAutoFoldAfterScreenClose(PlayerWarehouse warehouse) {
+        pendingAutoFoldWarehouse = warehouse;
+        pendingAutoFoldTicks = 2;
+    }
+
+    private static void flushPendingAutoFold(Minecraft client) {
+        if (pendingAutoFoldWarehouse == null) {
+            return;
+        }
+        if (client == null || client.player == null || !ModConfig.autoFoldOnClose || pendingAutoFoldWarehouse.isFolded()) {
+            pendingAutoFoldWarehouse = null;
+            pendingAutoFoldTicks = 0;
+            return;
+        }
+        if (client.screen instanceof WarehouseScreen) {
+            if (--pendingAutoFoldTicks <= 0) {
+                pendingAutoFoldWarehouse = null;
+                pendingAutoFoldTicks = 0;
+            }
+            return;
+        }
+        pendingAutoFoldWarehouse.setFolded(true);
+        WarehouseStateSync.sendSetting(WarehouseSetting.FOLD, 1);
+        pendingAutoFoldWarehouse = null;
+        pendingAutoFoldTicks = 0;
     }
 }

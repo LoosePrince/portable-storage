@@ -111,7 +111,11 @@ public final class QuickToolClientState {
         int y = client.getWindow().getGuiScaledHeight() - 56;
 
         ItemStack selectedStack = selectedSlot == EMPTY_SELECTION ? ItemStack.EMPTY : warehouse.getToolSlotStack(selectedSlot);
-        if (!selectedStack.isEmpty()) {
+        if (selectedSlot == EMPTY_SELECTION) {
+            int nameY = y - client.font.lineHeight - 4;
+            graphics.centeredText(client.font, net.minecraft.network.chat.Component.translatable("gui.portablestorage.quick_tool.cancel"),
+                    client.getWindow().getGuiScaledWidth() / 2, nameY, 0xFFFFFFFF);
+        } else if (!selectedStack.isEmpty()) {
             int nameY = y - client.font.lineHeight - 4;
             graphics.centeredText(client.font, selectedStack.getHoverName(), client.getWindow().getGuiScaledWidth() / 2,
                     nameY, 0xFFFFFFFF);

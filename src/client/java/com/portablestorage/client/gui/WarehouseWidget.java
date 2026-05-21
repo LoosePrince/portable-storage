@@ -3,6 +3,7 @@ package com.portablestorage.client.gui;
 import java.util.List;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.portablestorage.PortableStorageClient;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
@@ -873,10 +874,8 @@ public class WarehouseWidget {
             sendSearchTextToServer(pendingSearchText);
             pendingSearchText = null;
         }
-        if (ModConfig.autoFoldOnClose && warehouse.isEnabled() && !warehouse.isFolded()
-                && Minecraft.getInstance().screen == null) {
-            warehouse.setFolded(true);
-            WarehouseStateSync.sendSetting(WarehouseSetting.FOLD, 1);
+        if (ModConfig.autoFoldOnClose && warehouse.isEnabled() && !warehouse.isFolded()) {
+            PortableStorageClient.requestAutoFoldAfterScreenClose(warehouse);
         }
         // 如果界面关闭时仍处于静态模式，主动恢复服务端和本地状态
         if (warehouse.isFrozen()) {
