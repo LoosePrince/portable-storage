@@ -394,8 +394,8 @@ public class WarehouseWidget {
     }
 
     private void handleFrozenMode() {
-        boolean isPressed = InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), InputConstants.KEY_LSHIFT)
-                && InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), InputConstants.KEY_LCONTROL);
+        boolean isPressed = InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), InputConstants.KEY_LCONTROL)
+                || InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), InputConstants.KEY_RCONTROL);
         if (isPressed != warehouse.isFrozen()) {
             warehouse.setFrozen(isPressed);
             ClientPlayNetworking.send(new C2SUpdateFrozenStatePayload(isPressed));
@@ -863,6 +863,11 @@ public class WarehouseWidget {
         if (pendingSearchText != null) {
             sendSearchTextToServer(pendingSearchText);
             pendingSearchText = null;
+        }
+        // 如果界面关闭时仍处于静态模式，主动恢复服务端和本地状态
+        if (warehouse.isFrozen()) {
+            warehouse.setFrozen(false);
+            ClientPlayNetworking.send(new C2SUpdateFrozenStatePayload(false));
         }
     }
 

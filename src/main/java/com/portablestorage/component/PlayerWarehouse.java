@@ -164,6 +164,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     private boolean smartCollapse = false;
     private boolean craftRefill = true;
     private boolean enabled = false;
+    private final Set<Identifier> pinnedItemIds = new HashSet<>();
 
     // 多级缓存
     private List<WarehouseEntry> baseCache = null; // 原始项 + 流体
@@ -674,11 +675,46 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                 continue;
             }
             if (key instanceof ItemWarehouseKey itemKey) {
-                storage.add(new WarehouseEntry(itemKey.toStack(), amount));
+                WarehouseEntry warehouseEntry = new WarehouseEntry(itemKey.toStack(), amount);
+                warehouseEntry.setPinned(isPinnedItem(warehouseEntry.getItemStack()));
+                storage.add(warehouseEntry);
             } else if (key instanceof FluidWarehouseKey fluidKey) {
                 fluidStorage.put(fluidKey.variant(), amount);
             }
         }
+    }
+
+    private Identifier getItemId(ItemStack stack) {
+        return BuiltInRegistries.ITEM.getKey(stack.getItem());
+    }
+
+    private boolean isPinnedItem(ItemStack stack) {
+        Identifier id = getItemId(stack);
+        return id != null && pinnedItemIds.contains(id);
+    }
+
+    public void setPinnedItem(Identifier itemId, boolean pinned) {
+        if (itemId == null) {
+            return;
+        }
+        boolean changed = pinned ? pinnedItemIds.add(itemId) : pinnedItemIds.remove(itemId);
+        if (!changed) {
+            return;
+        }
+        for (WarehouseEntry entry : storage) {
+            if (itemId.equals(getItemId(entry.getItemStack()))) {
+                entry.setPinned(pinned);
+            }
+        }
+        markDirty();
+    }
+
+    public boolean isPinnedItem(Identifier itemId) {
+        return itemId != null && pinnedItemIds.contains(itemId);
+    }
+
+    public Set<Identifier> getPinnedItemIds() {
+        return Collections.unmodifiableSet(pinnedItemIds);
     }
 
     public long getStorageRevision() {
@@ -1078,13 +1114,8 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         int actualIndex = slotIndex + (scrollOffset * 9);
         if (actualIndex >= 0 && actualIndex < sorted.size()) {
             WarehouseEntry entry = sorted.get(actualIndex);
-            boolean newState = !entry.isPinned();
-            net.minecraft.world.item.Item item = entry.getItemStack().getItem();
-            for (WarehouseEntry e : storage) {
-                if (e.getItemStack().getItem() == item)
-                    e.setPinned(newState);
-            }
-            markDirty();
+            Identifier itemId = getItemId(entry.getItemStack());
+            setPinnedItem(itemId, !isPinnedItem(itemId));
         }
     }
 
@@ -1264,7 +1295,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                 for (WarehouseEntry entry : pw.getStorageList()) {
                     WarehouseEntryKey key = new WarehouseEntryKey(entry.getItemStack());
                     mergedItems.put(key, mergedItems.getOrDefault(key, 0L) + entry.getCount());
-                    if (entry.isPinned())
+                    if (entry.isPinned() || pw.isPinnedItem(entry.getItemStack()))
                         pinnedItems.put(key, true);
                     // 保留最大的更新时间
                     lastUpdatedMap.put(key, Math.max(lastUpdatedMap.getOrDefault(key, 0L), entry.getLastUpdated()));
@@ -1308,7 +1339,11 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                             fluidStack.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
                                     net.minecraft.world.item.component.CustomData.of(infiniteTag));
                         }
-                        baseCache.add(new WarehouseEntry(fluidStack, bucketCount));
+                        WarehouseEntry fluidEntry = new WarehouseEntry(fluidStack, bucketCount);
+                        if (group.stream().anyMatch(pw -> pw.isPinnedItem(fluidStack))) {
+                            fluidEntry.setPinned(true);
+                        }
+                        baseCache.add(fluidEntry);
                     }
                 }
             }
@@ -1351,7 +1386,11 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
                 xpStack.set(net.minecraft.core.component.DataComponents.LORE,
                         new net.minecraft.world.item.component.ItemLore(lore));
-                baseCache.add(new WarehouseEntry(xpStack, mergedExperience));
+                WarehouseEntry xpEntry = new WarehouseEntry(xpStack, mergedExperience);
+                if (group.stream().anyMatch(pw -> pw.isPinnedItem(xpStack))) {
+                    xpEntry.setPinned(true);
+                }
+                baseCache.add(xpEntry);
             }
 
             // 基础层变动，下游全部失效
@@ -1535,6 +1574,12 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             try {
                 WarehouseStackKey key = WarehouseStackKey.fromNbt(entryTag, registries);
                 migrated.put(key, migrated.getOrDefault(key, 0L) + amount);
+                if (entryTag.getBoolean("pinned").orElse(false) && key instanceof ItemWarehouseKey itemKey) {
+                    Identifier itemId = getItemId(itemKey.toStack());
+                    if (itemId != null) {
+                        pinnedItemIds.add(itemId);
+                    }
+                }
             } catch (Exception e) {
                 com.portablestorage.PortableStorage.LOGGER.warn("Failed to read v2 warehouse key, skip one entry", e);
             }
@@ -1553,6 +1598,12 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             }
             try {
                 WarehouseEntry entry = WarehouseEntry.fromNbt(entryTagOpt.get(), registries);
+                if (entry.isPinned()) {
+                    Identifier itemId = getItemId(entry.getItemStack());
+                    if (itemId != null) {
+                        pinnedItemIds.add(itemId);
+                    }
+                }
                 if (entry.getCount() > 0 && !entry.getItemStack().isEmpty()) {
                     ItemWarehouseKey key = new ItemWarehouseKey(entry.getItemStack());
                     migrated.put(key, migrated.getOrDefault(key, 0L) + entry.getCount());
@@ -1601,6 +1652,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     public void readNbt(CompoundTag tag, HolderLookup.Provider registries) {
         unifiedStorage.clear();
+        pinnedItemIds.clear();
         int schemaVersion = tag.getInt("warehouse_schema_version").orElse(1);
         this.loadedSchemaVersion = schemaVersion;
         if (schemaVersion >= WAREHOUSE_SCHEMA_V2 && tag.contains("unified_storage")) {
@@ -1609,6 +1661,16 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         } else {
             this.loadedFromUnifiedStorage = false;
             readV1AndMigrateToV2(tag, registries);
+        }
+        if (tag.contains("pinnedItems")) {
+            tag.getList("pinnedItems").ifPresent(pinnedList -> {
+                for (int i = 0; i < pinnedList.size(); i++) {
+                    Identifier itemId = Identifier.tryParse(pinnedList.getString(i).orElse(""));
+                    if (itemId != null) {
+                        pinnedItemIds.add(itemId);
+                    }
+                }
+            });
         }
         rebuildLegacyStorageViewFromUnified();
 
@@ -1758,9 +1820,18 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         for (Map.Entry<WarehouseStackKey, Long> entry : unifiedStorage.snapshot().entrySet()) {
             CompoundTag entryTag = entry.getKey().toNbt(registries);
             entryTag.putLong("amount", entry.getValue());
+            if (entry.getKey() instanceof ItemWarehouseKey itemKey && isPinnedItem(itemKey.toStack())) {
+                entryTag.putBoolean("pinned", true);
+            }
             unifiedList.add(entryTag);
         }
         tag.put("unified_storage", unifiedList);
+
+        ListTag pinnedList = new ListTag();
+        for (Identifier itemId : pinnedItemIds) {
+            pinnedList.add(net.minecraft.nbt.StringTag.valueOf(itemId.toString()));
+        }
+        tag.put("pinnedItems", pinnedList);
 
         tag.putInt("visibleRows", visibleRows);
         tag.putBoolean("isFolded", isFolded);

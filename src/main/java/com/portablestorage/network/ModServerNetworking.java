@@ -443,6 +443,9 @@ public class ModServerNetworking {
             ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
             PlayerWarehouse warehouse = getWarehouse(context.player());
+            if (warehouse.isFrozen() == payload.frozen()) {
+                return;
+            }
             warehouse.setFrozen(payload.frozen());
             syncChanges(context.player());
         });
