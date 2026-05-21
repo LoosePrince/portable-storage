@@ -12,8 +12,12 @@ public class ModScreenHandlers {
     public static final MenuType<BoundBarrelScreenHandler> BOUND_BARREL = new MenuType<>(BoundBarrelScreenHandler::new,
             net.minecraft.world.flag.FeatureFlags.VANILLA_SET);
 
+    public static final MenuType<ToolWarehouseScreenHandler> TOOL_WAREHOUSE = new MenuType<>(ToolWarehouseScreenHandler::new,
+            net.minecraft.world.flag.FeatureFlags.VANILLA_SET);
+
     public static void register() {
         Registry.register(BuiltInRegistries.MENU, PortableStorage.id("crafting_warehouse"), CRAFTING_WAREHOUSE);
         Registry.register(BuiltInRegistries.MENU, PortableStorage.id("bound_barrel"), BOUND_BARREL);
+        Registry.register(BuiltInRegistries.MENU, PortableStorage.id("tool_warehouse"), TOOL_WAREHOUSE);
     }
 }

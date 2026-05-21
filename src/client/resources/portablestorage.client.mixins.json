@@ -12,6 +12,8 @@
 		"AbstractRecipeBookScreenMixin",
 		"ResultSlotMixin",
 		"MouseMixin",
+		"GuiMixin",
+		"KeyboardHandlerMixin",
 		"AbstractContainerScreenAccessor",
 		"ClientContainerSyncMixin",
 		"ScreenAccessor"

@@ -33,6 +33,8 @@ public class ModNetworking {
                                 C2SDoubleClickQuickStorePayload.CODEC);
                 PayloadTypeRegistry.serverboundPlay().register(C2SQueryConfigPermissionPayload.TYPE,
                                 C2SQueryConfigPermissionPayload.CODEC);
+                PayloadTypeRegistry.serverboundPlay().register(C2SQuickToolSwapPayload.TYPE,
+                                C2SQuickToolSwapPayload.CODEC);
         }
 
         public static void registerS2CPayloads() {
@@ -76,5 +78,7 @@ public class ModNetworking {
                                 ModServerNetworking::handleDoubleClickQuickStore);
                 ServerPlayNetworking.registerGlobalReceiver(C2SQueryConfigPermissionPayload.TYPE,
                                 ModServerNetworking::handleQueryConfigPermission);
+                ServerPlayNetworking.registerGlobalReceiver(C2SQuickToolSwapPayload.TYPE,
+                                ModServerNetworking::handleQuickToolSwap);
         }
 }

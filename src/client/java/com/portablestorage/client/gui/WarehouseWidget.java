@@ -176,6 +176,7 @@ public class WarehouseWidget {
 
         if (ModConfig.offsetInventory && !warehouse.isFolded() && (screen instanceof InventoryScreen
                 || screen instanceof com.portablestorage.screen.CraftingWarehouseScreen
+                || screen instanceof com.portablestorage.screen.ToolWarehouseScreen
                 || screen instanceof com.portablestorage.screen.BoundBarrelScreen)) {
             StoragePosition pos = ModConfig.storagePosition;
             boolean folded = warehouse.isFolded();
@@ -278,36 +279,17 @@ public class WarehouseWidget {
                 ((ScreenAccessor) screen).portablestorage$getFont());
 
         // 计算折叠按钮位置
-        int foldX, foldY;
-        boolean indentSidebar = false;
-        if (screen instanceof com.portablestorage.screen.CraftingWarehouseScreen) {
-            foldX = leftPos + 84;
-            foldY = topPos + 53;
-        } else if (isContainerInterface()) {
-            if (warehouse.isFolded()) {
-                foldX = leftPos + 172; // 背包图片右边缘附近
-                foldY = topPos + imageHeight - 24; // 快捷栏高度
-            } else {
-                foldX = x + WarehouseConstants.getSidebarXOffset();
-                foldY = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight,
-                        warehouse.isFolded());
-                indentSidebar = true;
-            }
-        } else if (screen instanceof com.portablestorage.screen.BoundBarrelScreen) {
-            foldX = leftPos + 151;
-            foldY = topPos + 32;
-        } else {
-            foldX = leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
-            foldY = topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
-        }
-        WarehouseRenderer.renderSidebarButtons(graphics, foldX, foldY, x + WarehouseConstants.getSidebarXOffset(),
+        FoldButtonLayout foldButton = getFoldButtonLayout(leftPos, topPos, imageHeight);
+        WarehouseRenderer.renderSidebarButtons(graphics, foldButton.x(), foldButton.y(),
+                x + WarehouseConstants.getSidebarXOffset(),
                 y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight, warehouse.isFolded()),
-                mouseX, mouseY, warehouse, indentSidebar);
+                mouseX, mouseY, warehouse, foldButton.indentSidebar());
     }
 
     private boolean isContainerInterface() {
         return !(screen instanceof InventoryScreen)
                 && !(screen instanceof com.portablestorage.screen.CraftingWarehouseScreen)
+                && !(screen instanceof com.portablestorage.screen.ToolWarehouseScreen)
                 && !(screen instanceof com.portablestorage.screen.BoundBarrelScreen);
     }
 
@@ -353,6 +335,10 @@ public class WarehouseWidget {
     }
 
     private FoldButtonLayout getFoldButtonLayout(int leftPos, int topPos, int imageHeight) {
+        if (screen instanceof com.portablestorage.screen.ToolWarehouseScreen
+                || screen instanceof com.portablestorage.screen.BoundBarrelScreen) {
+            return getInventoryTopRightFoldButtonLayout(leftPos, topPos);
+        }
         if (screen instanceof com.portablestorage.screen.CraftingWarehouseScreen) {
             return new FoldButtonLayout(leftPos + 84, topPos + 53, false);
         }
@@ -368,11 +354,29 @@ public class WarehouseWidget {
                             warehouse.isFolded()),
                     true);
         }
-        if (screen instanceof com.portablestorage.screen.BoundBarrelScreen) {
-            return new FoldButtonLayout(leftPos + 151, topPos + 32, false);
-        }
         return new FoldButtonLayout(leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET,
                 topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET, false);
+    }
+
+    private FoldButtonLayout getInventoryTopRightFoldButtonLayout(int leftPos, int topPos) {
+        Slot targetSlot = null;
+        int inventoryTopY = Integer.MAX_VALUE;
+        for (Slot slot : screen.getMenu().slots) {
+            if (slot.container == Minecraft.getInstance().player.getInventory() && slot.getContainerSlot() >= 9
+                    && slot.getContainerSlot() < 36) {
+                inventoryTopY = Math.min(inventoryTopY, slot.y);
+                if (slot.getContainerSlot() == 17) {
+                    targetSlot = slot;
+                }
+            }
+        }
+        if (targetSlot != null) {
+            return new FoldButtonLayout(leftPos + targetSlot.x - 1, topPos + inventoryTopY - 22, false);
+        }
+        if (inventoryTopY == Integer.MAX_VALUE) {
+            inventoryTopY = 84;
+        }
+        return new FoldButtonLayout(leftPos + 151, topPos + inventoryTopY - 22, false);
     }
 
     private record FoldButtonLayout(int x, int y, boolean indentSidebar) {
@@ -419,6 +423,13 @@ public class WarehouseWidget {
             screen.init(minecraft.getWindow().getGuiScaledWidth(),
                     minecraft.getWindow().getGuiScaledHeight());
         }
+    }
+
+    public void refreshAfterFoldChange() {
+        if (warehouse.isFolded() && this.searchBox != null) {
+            this.searchBox.setFocused(false);
+        }
+        refreshScreen();
     }
 
     public void flushDebouncedSearchPacket() {
@@ -605,9 +616,7 @@ public class WarehouseWidget {
                 boolean newFolded = !warehouse.isFolded();
                 warehouse.setFolded(newFolded);
                 WarehouseStateSync.sendSetting(WarehouseSetting.FOLD, newFolded ? 1 : 0);
-                if (newFolded && this.searchBox != null)
-                    this.searchBox.setFocused(false);
-                refreshScreen();
+                refreshAfterFoldChange();
                 return true;
             }
         }
@@ -863,6 +872,11 @@ public class WarehouseWidget {
         if (pendingSearchText != null) {
             sendSearchTextToServer(pendingSearchText);
             pendingSearchText = null;
+        }
+        if (ModConfig.autoFoldOnClose && warehouse.isEnabled() && !warehouse.isFolded()
+                && Minecraft.getInstance().screen == null) {
+            warehouse.setFolded(true);
+            WarehouseStateSync.sendSetting(WarehouseSetting.FOLD, 1);
         }
         // 如果界面关闭时仍处于静态模式，主动恢复服务端和本地状态
         if (warehouse.isFrozen()) {

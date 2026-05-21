@@ -25,6 +25,8 @@ public class ModConfig {
     public static boolean showSmallIcons = true;
     /** 是否移除实验性功能警告 */
     public static boolean removeExperimentalWarning = true;
+    /** 是否在关闭容器界面时自动折叠仓库 */
+    public static boolean autoFoldOnClose = false;
     /** 仓库显示位置 */
     public static StoragePosition storagePosition = StoragePosition.BOTTOM;
     
@@ -124,6 +126,7 @@ public class ModConfig {
         hideRecipeBook = config.getOrElse("client.hideRecipeBook", true);
         showSmallIcons = config.getOrElse("client.showSmallIcons", false);
         removeExperimentalWarning = config.getOrElse("client.removeExperimentalWarning", true);
+        autoFoldOnClose = config.getOrElse("client.autoFoldOnClose", false);
         try {
             storagePosition = StoragePosition.valueOf(config.getOrElse("client.storagePosition", "BOTTOM").toUpperCase());
         } catch (IllegalArgumentException e) {
@@ -180,6 +183,7 @@ public class ModConfig {
         config.set("client.hideRecipeBook", hideRecipeBook);
         config.set("client.showSmallIcons", showSmallIcons);
         config.set("client.removeExperimentalWarning", removeExperimentalWarning);
+        config.set("client.autoFoldOnClose", autoFoldOnClose);
         config.set("client.storagePosition", storagePosition.name());
         config.set("server.allowHotReload", allowHotReload);
         config.set("server.enable3x3Crafting", enable3x3Crafting);

@@ -600,6 +600,17 @@ public class WarehouseManager {
         return -1;
     }
 
+    public static boolean canStoreItem(PlayerWarehouse warehouse, ItemStack stack, Player player, String source) {
+        if (stack.isEmpty()) {
+            return false;
+        }
+        if (!checkItemNbtSize(stack, player)) {
+            return false;
+        }
+        InsertDecision decision = WarehouseWritePipeline.beforeInsert(warehouse, stack, stack.getCount(), player, source);
+        return decision.allowed();
+    }
+
     /**
      * 检查物品NBT数据大小是否超过限制
      * 

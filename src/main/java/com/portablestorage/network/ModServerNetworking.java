@@ -624,6 +624,54 @@ public class ModServerNetworking {
         });
     }
 
+    public static void handleQuickToolSwap(C2SQuickToolSwapPayload payload, ServerPlayNetworking.Context context) {
+        context.server().execute(() -> {
+            ServerPlayer player = context.player();
+            PlayerWarehouse warehouse = getWarehouse(player);
+            int slot = payload.slot();
+            if (!warehouse.isEnabled() || warehouse.getUpgrade(com.portablestorage.upgrade.ToolUpgrade.ID).isEmpty()) {
+                return;
+            }
+            if (slot < 0 || slot >= com.portablestorage.storage.key.ToolWarehouseKey.SLOT_COUNT) {
+                return;
+            }
+
+            ItemStack toolStack = warehouse.getToolSlotStack(slot);
+            ItemStack handStack = player.getMainHandItem();
+            if (toolStack.isEmpty()) {
+                if (handStack.isEmpty()) {
+                    return;
+                }
+                if (!WarehouseManager.canStoreItem(warehouse, handStack, player, "quick_tool_swap.hand")) {
+                    return;
+                }
+                int typeLimit = warehouse.getMaxStorageTypes();
+                if (typeLimit >= 0 && warehouse.getStoredItemTypeCount() >= typeLimit) {
+                    return;
+                }
+                warehouse.setToolSlotStack(slot, handStack.copy());
+                player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+                player.containerMenu.broadcastChanges();
+                syncChanges(player);
+                return;
+            }
+
+            if (!handStack.isEmpty()
+                    && !WarehouseManager.canStoreItem(warehouse, handStack, player, "quick_tool_swap.hand")) {
+                return;
+            }
+
+            if (handStack.isEmpty()) {
+                warehouse.setToolSlotStack(slot, ItemStack.EMPTY);
+            } else {
+                warehouse.setToolSlotStack(slot, handStack.copy());
+            }
+            player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, toolStack.copy());
+            player.containerMenu.broadcastChanges();
+            syncChanges(player);
+        });
+    }
+
     private static PlayerWarehouse getWarehouse(ServerPlayer player) {
         return ModComponents.get(player).getWarehouse(player.getUUID());
     }

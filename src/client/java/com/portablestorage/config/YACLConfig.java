@@ -219,6 +219,17 @@ public class YACLConfig {
                                                                                 val -> ModConfig.removeExperimentalWarning = val)
                                                                 .controller(BooleanControllerBuilder::create)
                                                                 .build())
+                                                .option(Option.<Boolean>createBuilder()
+                                                                .name(Component.translatable(
+                                                                                "gui.portablestorage.settings.auto_fold_on_close"))
+                                                                .description(OptionDescription.of(Component
+                                                                                .translatable("gui.portablestorage.settings.auto_fold_on_close.desc")))
+                                                                .binding(
+                                                                                false,
+                                                                                () -> ModConfig.autoFoldOnClose,
+                                                                                val -> ModConfig.autoFoldOnClose = val)
+                                                                .controller(BooleanControllerBuilder::create)
+                                                                .build())
                                                 .group(OptionGroup.createBuilder()
                                                                 .name(Component.translatable(
                                                                                 "gui.portablestorage.settings.group.warehouse"))

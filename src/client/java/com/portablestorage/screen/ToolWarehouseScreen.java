@@ -7,12 +7,11 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
 
-public class BoundBarrelScreen extends AbstractContainerScreen<BoundBarrelScreenHandler> {
-    private static final Identifier TEXTURE = Identifier.withDefaultNamespace("textures/gui/container/hopper.png");
+public class ToolWarehouseScreen extends AbstractContainerScreen<ToolWarehouseScreenHandler> {
+    private static final Identifier TEXTURE = Identifier.withDefaultNamespace("textures/gui/container/dispenser.png");
 
-    public BoundBarrelScreen(BoundBarrelScreenHandler handler, Inventory inventory, Component title) {
-        super(handler, inventory, title, 176, 133);
-        this.inventoryLabelY = this.imageHeight - 94;
+    public ToolWarehouseScreen(ToolWarehouseScreenHandler handler, Inventory inventory, Component title) {
+        super(handler, inventory, title, 176, 166);
     }
 
     @Override

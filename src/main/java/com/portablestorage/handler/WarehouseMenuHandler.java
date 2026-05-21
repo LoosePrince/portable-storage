@@ -384,6 +384,7 @@ public class WarehouseMenuHandler {
         String name = menu.getClass().getName();
         return !(menu instanceof InventoryMenu)
                 && !name.contains("CraftingWarehouseScreenHandler")
+                && !name.contains("ToolWarehouseScreenHandler")
                 && !name.contains("BoundBarrelScreenHandler");
     }
 
@@ -396,7 +397,8 @@ public class WarehouseMenuHandler {
             return true;
 
         String name = menu.getClass().getName();
-        if (name.contains("CraftingWarehouseScreenHandler") || name.contains("BoundBarrelScreenHandler")) {
+        if (name.contains("CraftingWarehouseScreenHandler") || name.contains("BoundBarrelScreenHandler")
+                || name.contains("ToolWarehouseScreenHandler")) {
             return true;
         }
 

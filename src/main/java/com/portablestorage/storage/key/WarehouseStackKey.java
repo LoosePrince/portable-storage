@@ -7,6 +7,7 @@ import net.minecraft.nbt.NbtOps;
 public interface WarehouseStackKey {
     String TYPE_ITEM = "item";
     String TYPE_FLUID = "fluid";
+    String TYPE_TOOL = "tool";
 
     String typeId();
 
@@ -17,6 +18,7 @@ public interface WarehouseStackKey {
         return switch (type) {
             case TYPE_ITEM -> ItemWarehouseKey.fromNbt(tag, registries);
             case TYPE_FLUID -> FluidWarehouseKey.fromNbt(tag);
+            case TYPE_TOOL -> ToolWarehouseKey.fromNbt(tag, registries);
             default -> throw new IllegalArgumentException("Unknown warehouse key type: " + type);
         };
     }

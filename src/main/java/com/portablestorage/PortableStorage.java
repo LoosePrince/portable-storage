@@ -60,6 +60,7 @@ public class PortableStorage implements ModInitializer {
         com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.BedUpgrade());
         com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.ExperienceUpgrade());
         com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.PistonUpgrade());
+        com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.ToolUpgrade());
         com.portablestorage.upgrade.UpgradeRegistry
                 .register(new com.portablestorage.upgrade.EnchantedGoldenAppleUpgrade());
         com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.ConduitUpgrade());

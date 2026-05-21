@@ -7,6 +7,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import com.portablestorage.PortableStorageClient;
+import com.portablestorage.client.gui.QuickToolClientState;
 import com.portablestorage.client.gui.WarehouseScreen;
 import com.portablestorage.client.gui.WarehouseWidget;
 import com.portablestorage.client.handler.TooltipHandler;
@@ -99,6 +101,15 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
 
     @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
     private void onKeyPressed(KeyEvent event, CallbackInfoReturnable<Boolean> cir) {
+        if (QuickToolClientState.handleNumberKey(event.key())) {
+            cir.setReturnValue(true);
+            return;
+        }
+        if (PortableStorageClient.matchesToggleWarehouseFoldKey(event)
+                && PortableStorageClient.tryToggleWarehouseFold(Minecraft.getInstance())) {
+            cir.setReturnValue(true);
+            return;
+        }
         if (warehouseWidget != null && warehouseWidget.keyPressed(event.key(), event.scancode(), event.modifiers())) {
             cir.setReturnValue(true);
         }

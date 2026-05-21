@@ -17,6 +17,7 @@ import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.storage.core.UnifiedWarehouseStorage;
 import com.portablestorage.storage.key.FluidWarehouseKey;
 import com.portablestorage.storage.key.ItemWarehouseKey;
+import com.portablestorage.storage.key.ToolWarehouseKey;
 import com.portablestorage.storage.key.WarehouseStackKey;
 import com.portablestorage.upgrade.UpgradeRegistry;
 import com.portablestorage.upgrade.UpgradeType;
@@ -641,6 +642,67 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         return unifiedStorage.insert(key, amount, simulate);
     }
 
+    public long insertToolItemToUnified(int slot, ItemStack stack, long amount, boolean simulate) {
+        if (stack.isEmpty() || amount <= 0) {
+            return 0;
+        }
+        ToolWarehouseKey key = new ToolWarehouseKey(slot, stack);
+        return unifiedStorage.insert(key, amount, simulate);
+    }
+
+    public long extractToolItemFromUnified(int slot, ItemStack stack, long amount, boolean simulate) {
+        if (stack.isEmpty() || amount <= 0) {
+            return 0;
+        }
+        ToolWarehouseKey key = new ToolWarehouseKey(slot, stack);
+        return unifiedStorage.extract(key, amount, simulate);
+    }
+
+    public ItemStack getToolSlotStack(int slot) {
+        if (slot < 0 || slot >= ToolWarehouseKey.SLOT_COUNT) {
+            return ItemStack.EMPTY;
+        }
+        for (Map.Entry<WarehouseStackKey, Long> entry : unifiedStorage.snapshot().entrySet()) {
+            if (entry.getKey() instanceof ToolWarehouseKey toolKey && toolKey.slot() == slot && entry.getValue() > 0) {
+                ItemStack stack = toolKey.toStack();
+                stack.setCount((int) Math.min(entry.getValue(), stack.getMaxStackSize()));
+                return stack;
+            }
+        }
+        return ItemStack.EMPTY;
+    }
+
+    public long getToolSlotAmount(int slot) {
+        if (slot < 0 || slot >= ToolWarehouseKey.SLOT_COUNT) {
+            return 0;
+        }
+        for (Map.Entry<WarehouseStackKey, Long> entry : unifiedStorage.snapshot().entrySet()) {
+            if (entry.getKey() instanceof ToolWarehouseKey toolKey && toolKey.slot() == slot) {
+                return entry.getValue();
+            }
+        }
+        return 0;
+    }
+
+    public void setToolSlotStack(int slot, ItemStack stack) {
+        if (slot < 0 || slot >= ToolWarehouseKey.SLOT_COUNT) {
+            return;
+        }
+        Map<WarehouseStackKey, Long> next = new LinkedHashMap<>();
+        for (Map.Entry<WarehouseStackKey, Long> entry : unifiedStorage.snapshot().entrySet()) {
+            if (entry.getKey() instanceof ToolWarehouseKey toolKey && toolKey.slot() == slot) {
+                continue;
+            }
+            next.put(entry.getKey(), entry.getValue());
+        }
+        if (!stack.isEmpty()) {
+            next.put(new ToolWarehouseKey(slot, stack), (long) stack.getCount());
+        }
+        unifiedStorage.replaceAll(next);
+        rebuildLegacyStorageViewFromUnified();
+        markDirty();
+    }
+
     public long extractItemFromUnified(ItemStack stack, long amount, boolean simulate) {
         if (stack.isEmpty() || amount <= 0) {
             return 0;
@@ -678,6 +740,8 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                 WarehouseEntry warehouseEntry = new WarehouseEntry(itemKey.toStack(), amount);
                 warehouseEntry.setPinned(isPinnedItem(warehouseEntry.getItemStack()));
                 storage.add(warehouseEntry);
+            } else if (key instanceof ToolWarehouseKey) {
+                // 工具容器条目保留在 unified_storage 中并计入容量，但不进入主仓库列表。
             } else if (key instanceof FluidWarehouseKey fluidKey) {
                 fluidStorage.put(fluidKey.variant(), amount);
             }
@@ -757,7 +821,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     }
 
     public int getStoredItemTypeCount() {
-        return unifiedStorage.getTypeCount(WarehouseStackKey.TYPE_ITEM);
+        return unifiedStorage.getTypeCount(WarehouseStackKey.TYPE_ITEM) + unifiedStorage.getTypeCount(WarehouseStackKey.TYPE_TOOL);
     }
 
     /**

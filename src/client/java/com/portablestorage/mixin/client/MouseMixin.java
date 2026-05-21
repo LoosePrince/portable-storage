@@ -2,6 +2,7 @@ package com.portablestorage.mixin.client;
 
 import com.portablestorage.client.gui.WarehouseScreen;
 import com.portablestorage.client.gui.WarehouseWidget;
+import com.portablestorage.client.gui.QuickToolClientState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.MouseHandler;
 import net.minecraft.client.gui.screens.Screen;
@@ -16,6 +17,13 @@ public abstract class MouseMixin {
 
     @Shadow private double xpos;
     @Shadow private double ypos;
+
+    @Inject(method = "onScroll", at = @At("HEAD"), cancellable = true)
+    private void onMouseScrollHead(long window, double xoffset, double yoffset, CallbackInfo ci) {
+        if (QuickToolClientState.handleScroll(yoffset)) {
+            ci.cancel();
+        }
+    }
 
     @Inject(method = "onScroll", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/Screen;mouseScrolled(DDDD)Z"), cancellable = true)
     private void onMouseScroll(long window, double xoffset, double yoffset, CallbackInfo ci) {

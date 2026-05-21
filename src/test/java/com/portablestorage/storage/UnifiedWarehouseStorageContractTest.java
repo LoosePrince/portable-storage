@@ -120,6 +120,23 @@ class UnifiedWarehouseStorageContractTest {
         assertEquals(1, storage.getTypeCount("fluid"));
     }
 
+    @Test
+    void toolEntriesUseSeparateBucketAndLogicalSlots() {
+        UnifiedWarehouseStorage storage = new UnifiedWarehouseStorage(__ -> {
+        });
+        WarehouseStackKey itemStone = new TestWarehouseKey(WarehouseStackKey.TYPE_ITEM, "stone");
+        WarehouseStackKey toolStone = new TestWarehouseKey(WarehouseStackKey.TYPE_TOOL, "slot0:stone");
+
+        storage.insert(itemStone, 64, false);
+        storage.insert(toolStone, 1, false);
+
+        assertEquals(1, storage.getTypeCount(WarehouseStackKey.TYPE_ITEM));
+        assertEquals(1, storage.getTypeCount(WarehouseStackKey.TYPE_TOOL));
+        assertEquals(2, storage.getSlotIndexSnapshot().size());
+        assertEquals(64, storage.getAmount(itemStone));
+        assertEquals(1, storage.getAmount(toolStone));
+    }
+
     private record TestWarehouseKey(String typeId, String id) implements WarehouseStackKey {
         @Override
         public CompoundTag toNbt(HolderLookup.Provider registries) {
