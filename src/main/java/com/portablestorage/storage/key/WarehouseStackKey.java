@@ -4,7 +4,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 
-public sealed interface WarehouseStackKey permits ItemWarehouseKey, FluidWarehouseKey {
+public interface WarehouseStackKey {
     String TYPE_ITEM = "item";
     String TYPE_FLUID = "fluid";
 

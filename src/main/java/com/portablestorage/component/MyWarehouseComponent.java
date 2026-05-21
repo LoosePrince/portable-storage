@@ -91,6 +91,7 @@ public class MyWarehouseComponent implements WarehouseComponent {
             }
         });
 
+        invalidateSharedGroupCaches();
         // 读取完成后不再输出调试日志，避免刷屏
     }
 

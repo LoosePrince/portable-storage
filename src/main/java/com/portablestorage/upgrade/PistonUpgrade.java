@@ -34,6 +34,11 @@ public class PistonUpgrade extends UpgradeType {
     }
 
     @Override
+    public boolean requiresServerTick() {
+        return true;
+    }
+
+    @Override
     public void serverTick(PlayerWarehouse warehouse, ServerPlayer player) {
         // 自动补充主副手
         replenishHand(warehouse, player, InteractionHand.MAIN_HAND);

@@ -8,4 +8,9 @@ public interface WarehouseComponent extends AutoSyncedComponent {
     PlayerWarehouse getWarehouse(UUID uuid);
     void syncForPlayer(UUID uuid);
     Collection<PlayerWarehouse> getAllWarehouses();
+    default void invalidateSharedGroupCaches() {
+        for (PlayerWarehouse warehouse : getAllWarehouses()) {
+            warehouse.invalidateSharedGroupCacheOnly();
+        }
+    }
 }

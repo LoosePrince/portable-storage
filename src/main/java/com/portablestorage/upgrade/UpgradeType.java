@@ -80,6 +80,13 @@ public abstract class UpgradeType {
     }
 
     /**
+     * 是否需要服务端 Tick 调度。默认关闭，只有存在周期行为的升级开启。
+     */
+    public boolean requiresServerTick() {
+        return false;
+    }
+
+    /**
      * 服务端每 Tick 调用 (仅在已安装此升级且仓库启用时)
      */
     public void serverTick(PlayerWarehouse warehouse, net.minecraft.server.level.ServerPlayer player) {

@@ -127,6 +127,11 @@ public class ConduitUpgrade extends UpgradeType {
     }
 
     @Override
+    public boolean requiresServerTick() {
+        return true;
+    }
+
+    @Override
     public void serverTick(PlayerWarehouse warehouse, ServerPlayer player) {
         if (!ModConfig.enableConduitUpgrade)
             return;

@@ -161,19 +161,10 @@ public class WarehouseManager {
         long limit = warehouse.getMaxItemStackSize();
         boolean changed = false;
 
-        List<WarehouseEntry> storage = warehouse.getStorageList();
-        WarehouseEntry existingEntry = null;
-        for (WarehouseEntry entry : storage) {
-            if (entry.matches(stack)) {
-                existingEntry = entry;
-                break;
-            }
-        }
-
-        if (existingEntry != null) {
+        long existingCount = warehouse.getStoredItemAmount(stack);
+        if (existingCount > 0) {
             if (limit > 0) {
-                long current = existingEntry.getCount();
-                long canAdd = Math.max(0, limit - current);
+                long canAdd = Math.max(0, limit - existingCount);
                 if (canAdd > 0) {
                     int toAdd = (int) Math.min(stack.getCount(), canAdd);
                     InsertDecision decision = WarehouseWritePipeline.beforeInsert(warehouse, stack, toAdd, null, source);
@@ -199,7 +190,7 @@ public class WarehouseManager {
             }
         } else {
             int typeLimit = warehouse.getMaxStorageTypes();
-            if (typeLimit < 0 || storage.size() < typeLimit) {
+            if (typeLimit < 0 || warehouse.getStoredItemTypeCount() < typeLimit) {
                 if (limit > 0) {
                     int toAdd = (int) Math.min(stack.getCount(), limit);
                     if (toAdd > 0) {

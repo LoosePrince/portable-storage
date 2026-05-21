@@ -42,28 +42,110 @@ public class ModServerNetworking {
         context.server().execute(() -> {
             ServerPlayer player = context.player();
             PlayerWarehouse warehouse = getWarehouse(player);
+            boolean changed = false;
 
-            payload.scrollDelta().ifPresent(delta -> warehouse.setScrollOffset(warehouse.getScrollOffset() - delta));
-            payload.searchText().ifPresent(warehouse::setSearchText);
-            payload.rowsDelta().ifPresent(delta -> warehouse.setVisibleRows(warehouse.getVisibleRows() + delta));
-            payload.upgradeScrollDelta()
-                    .ifPresent(delta -> warehouse.setUpgradeScrollOffset(warehouse.getUpgradeScrollOffset() - delta));
+            changed |= payload.scrollDelta()
+                    .map(delta -> applyScrollDelta(warehouse, delta))
+                    .orElse(false);
+            changed |= payload.searchText()
+                    .map(text -> applySearchText(warehouse, text))
+                    .orElse(false);
+            changed |= payload.rowsDelta()
+                    .map(delta -> applyRowsDelta(warehouse, delta))
+                    .orElse(false);
+            changed |= payload.upgradeScrollDelta()
+                    .map(delta -> applyUpgradeScrollDelta(warehouse, delta))
+                    .orElse(false);
 
             if (payload.settingId().isPresent() && payload.settingValue().isPresent()) {
-                int value = payload.settingValue().get();
-                WarehouseSetting setting = WarehouseSetting.values()[payload.settingId().get()];
-                switch (setting) {
-                    case FOLD -> warehouse.setFolded(value == 1);
-                    case SORT_MODE -> warehouse.setSortMode(value);
-                    case SORT_ORDER -> warehouse.setAscending(value == 1);
-                    case QUICK_INTERACTION -> warehouse.setQuickInteraction(value == 1);
-                    case SMART_COLLAPSE -> warehouse.setSmartCollapse(value == 1);
-                    case CRAFT_REFILL -> warehouse.setCraftRefill(value == 1);
-                }
+                changed |= applySetting(warehouse, payload.settingId().get(), payload.settingValue().get());
             }
 
-            syncChanges(player);
+            if (changed) {
+                syncChanges(player);
+            }
         });
+    }
+
+    private static boolean applyScrollDelta(PlayerWarehouse warehouse, int delta) {
+        int before = warehouse.getScrollOffset();
+        warehouse.setScrollOffset(before - delta);
+        return warehouse.getScrollOffset() != before;
+    }
+
+    private static boolean applySearchText(PlayerWarehouse warehouse, String text) {
+        String normalized = text.toLowerCase();
+        if (warehouse.getSearchText().equals(normalized)) {
+            return false;
+        }
+        warehouse.setSearchText(text);
+        return true;
+    }
+
+    private static boolean applyRowsDelta(PlayerWarehouse warehouse, int delta) {
+        int before = warehouse.getVisibleRows();
+        int target = Math.clamp(before + delta, 1, 12);
+        if (target == before) {
+            return false;
+        }
+        warehouse.setVisibleRows(before + delta);
+        return true;
+    }
+
+    private static boolean applyUpgradeScrollDelta(PlayerWarehouse warehouse, int delta) {
+        int before = warehouse.getUpgradeScrollOffset();
+        warehouse.setUpgradeScrollOffset(before - delta);
+        return warehouse.getUpgradeScrollOffset() != before;
+    }
+
+    private static boolean applySetting(PlayerWarehouse warehouse, int settingId, int value) {
+        WarehouseSetting setting = WarehouseSetting.values()[settingId];
+        switch (setting) {
+            case FOLD -> {
+                boolean before = warehouse.isFolded();
+                if (before == (value == 1)) {
+                    return false;
+                }
+                warehouse.setFolded(value == 1);
+                return warehouse.isFolded() != before;
+            }
+            case SORT_MODE -> {
+                if (warehouse.getSortMode() == value) {
+                    return false;
+                }
+                warehouse.setSortMode(value);
+                return true;
+            }
+            case SORT_ORDER -> {
+                if (warehouse.isAscending() == (value == 1)) {
+                    return false;
+                }
+                warehouse.setAscending(value == 1);
+                return true;
+            }
+            case QUICK_INTERACTION -> {
+                if (warehouse.isQuickInteraction() == (value == 1)) {
+                    return false;
+                }
+                warehouse.setQuickInteraction(value == 1);
+                return true;
+            }
+            case SMART_COLLAPSE -> {
+                if (warehouse.isSmartCollapse() == (value == 1)) {
+                    return false;
+                }
+                warehouse.setSmartCollapse(value == 1);
+                return true;
+            }
+            case CRAFT_REFILL -> {
+                if (warehouse.isCraftRefill() == (value == 1)) {
+                    return false;
+                }
+                warehouse.setCraftRefill(value == 1);
+                return true;
+            }
+        }
+        return false;
     }
 
     public static void handleUpgradeInteraction(C2SUpgradeInteractionPayload payload,

@@ -101,6 +101,11 @@ public class ExperienceUpgrade extends UpgradeType {
     }
 
     @Override
+    public boolean requiresServerTick() {
+        return true;
+    }
+
+    @Override
     public void serverTick(PlayerWarehouse warehouse, ServerPlayer player) {
         ItemStack stack = warehouse.getUpgrade(ID);
         CustomData data = stack.get(DataComponents.CUSTOM_DATA);

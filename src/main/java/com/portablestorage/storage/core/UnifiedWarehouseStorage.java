@@ -29,8 +29,11 @@ public final class UnifiedWarehouseStorage {
             return amount;
         }
 
+        boolean existed = amountMap.containsKey(key);
         amountMap.put(key, amountMap.getOrDefault(key, 0L) + amount);
-        rebuildIndexes();
+        if (!existed) {
+            addIndex(key);
+        }
         onChanged();
         return amount;
     }
@@ -47,8 +50,8 @@ public final class UnifiedWarehouseStorage {
                 amountMap.put(key, next);
             } else {
                 amountMap.remove(key);
+                removeIndex(key);
             }
-            rebuildIndexes();
             onChanged();
         }
         return extracted;
@@ -98,6 +101,11 @@ public final class UnifiedWarehouseStorage {
         return copy;
     }
 
+    public int getTypeCount(String typeId) {
+        Set<WarehouseStackKey> bucket = typeBuckets.get(typeId);
+        return bucket == null ? 0 : bucket.size();
+    }
+
     public Map<WarehouseStackKey, Integer> getSlotIndexSnapshot() {
         return new LinkedHashMap<>(slotIndex);
     }
@@ -111,14 +119,32 @@ public final class UnifiedWarehouseStorage {
         typeBuckets.clear();
         slotIndex.clear();
         for (WarehouseStackKey key : amountMap.keySet()) {
-            typeBuckets.computeIfAbsent(key.typeId(), __ -> new LinkedHashSet<>()).add(key);
-            Integer existed = previousSlotMap.get(key);
-            if (existed != null) {
-                slotIndex.put(key, existed);
-            } else {
-                slotIndex.put(key, (int) nextSlot++);
+            addIndex(key, previousSlotMap.get(key));
+        }
+    }
+
+    private void addIndex(WarehouseStackKey key) {
+        addIndex(key, slotIndex.get(key));
+    }
+
+    private void addIndex(WarehouseStackKey key, Integer preferredSlot) {
+        typeBuckets.computeIfAbsent(key.typeId(), __ -> new LinkedHashSet<>()).add(key);
+        if (preferredSlot != null) {
+            slotIndex.put(key, preferredSlot);
+        } else {
+            slotIndex.put(key, (int) nextSlot++);
+        }
+    }
+
+    private void removeIndex(WarehouseStackKey key) {
+        Set<WarehouseStackKey> bucket = typeBuckets.get(key.typeId());
+        if (bucket != null) {
+            bucket.remove(key);
+            if (bucket.isEmpty()) {
+                typeBuckets.remove(key.typeId());
             }
         }
+        slotIndex.remove(key);
     }
 
     private void onChanged() {

@@ -1,11 +1,10 @@
 package com.portablestorage.config;
 
 import java.util.Arrays;
-import java.util.Optional;
 
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
-import com.portablestorage.network.C2SUpdateWarehouseStatePayload;
+import com.portablestorage.client.gui.WarehouseStateSync;
 import com.portablestorage.network.UpdateServerConfigPayload;
 import com.portablestorage.util.StoragePosition;
 import com.portablestorage.util.WarehouseSetting;
@@ -37,21 +36,8 @@ public class YACLConfig {
         private static void updateSetting(WarehouseSetting setting, int value) {
                 PlayerWarehouse warehouse = getWarehouse();
                 if (warehouse != null) {
-                        switch (setting) {
-                                case SORT_MODE -> warehouse.setSortMode(value);
-                                case SORT_ORDER -> warehouse.setAscending(value == 1);
-                                case QUICK_INTERACTION -> warehouse.setQuickInteraction(value == 1);
-                                case SMART_COLLAPSE -> warehouse.setSmartCollapse(value == 1);
-                                case CRAFT_REFILL -> warehouse.setCraftRefill(value == 1);
-                                case FOLD -> warehouse.setFolded(value == 1);
-                        }
-                        ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(
-                                        Optional.empty(),
-                                        Optional.empty(),
-                                        Optional.of(setting.ordinal()),
-                                        Optional.of(value),
-                                        Optional.empty(),
-                                        Optional.empty()));
+                        WarehouseStateSync.applySetting(warehouse, setting, value);
+                        WarehouseStateSync.sendSetting(setting, value);
                 }
         }
 

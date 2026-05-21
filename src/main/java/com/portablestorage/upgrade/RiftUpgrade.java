@@ -60,6 +60,11 @@ public class RiftUpgrade extends UpgradeType {
     }
 
     @Override
+    public boolean requiresServerTick() {
+        return true;
+    }
+
+    @Override
     public void serverTick(PlayerWarehouse warehouse, ServerPlayer player) {
         // 检查虚空掉落和边界
         if (player.level().dimension().equals(SpaceRiftManager.DIMENSION_KEY)) {

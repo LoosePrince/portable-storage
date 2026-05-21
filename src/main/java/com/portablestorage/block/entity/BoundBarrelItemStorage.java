@@ -70,14 +70,10 @@ public class BoundBarrelItemStorage implements Storage<ItemVariant> {
         
         // 检查共享组中该物品的当前数量
         long currentCount = 0;
+        ItemStack template = resource.toStack(1);
         List<PlayerWarehouse> group = warehouse.getSharedGroupWarehouses();
         for (PlayerWarehouse pw : group) {
-            for (WarehouseEntry entry : pw.getStorageList()) {
-                if (resource.matches(entry.getItemStack())) {
-                    currentCount += entry.getCount();
-                    break; // 每个仓库中每种物品只有一个条目
-                }
-            }
+            currentCount += pw.getStoredItemAmount(template);
         }
         
         // 计算还能插入多少
@@ -91,7 +87,7 @@ public class BoundBarrelItemStorage implements Storage<ItemVariant> {
                     // 检查共享组中是否还有空间添加新类型
                     int totalTypes = 0;
                     for (PlayerWarehouse pw : group) {
-                        totalTypes = Math.max(totalTypes, pw.getStorageList().size());
+                        totalTypes = Math.max(totalTypes, pw.getStoredItemTypeCount());
                     }
                     if (totalTypes >= typeLimit) {
                         return 0; // 类型数量已达上限

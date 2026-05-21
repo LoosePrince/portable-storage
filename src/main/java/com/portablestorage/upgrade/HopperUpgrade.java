@@ -93,6 +93,11 @@ public class HopperUpgrade extends UpgradeType {
     }
 
     @Override
+    public boolean requiresServerTick() {
+        return true;
+    }
+
+    @Override
     public void serverTick(PlayerWarehouse warehouse, ServerPlayer player) {
         // 关键：从仓库获取最新的漏斗物品堆叠
         ItemStack hopperStack = warehouse.getUpgrade(ID);

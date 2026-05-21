@@ -80,6 +80,11 @@ public class BarrelUpgrade extends UpgradeType {
     }
 
     @Override
+    public boolean requiresServerTick() {
+        return true;
+    }
+
+    @Override
     public void serverTick(PlayerWarehouse warehouse, net.minecraft.server.level.ServerPlayer player) {
         ItemStack stack = warehouse.getUpgrade(ID);
         if (stack.is(ModItems.BOUND_BARREL)) {

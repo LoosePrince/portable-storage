@@ -1,8 +1,13 @@
 package com.portablestorage.world;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import com.portablestorage.PortableStorage;
+import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
 
@@ -23,6 +28,8 @@ import net.minecraft.world.level.border.WorldBorder;
 public class SpaceRiftManager {
     public static final Identifier DIM_ID = PortableStorage.id("space_rift");
     public static final ResourceKey<Level> DIMENSION_KEY = ResourceKey.create(Registries.DIMENSION, DIM_ID);
+    private static final int DEFAULT_PLOT_GRID_SIZE = 32;
+    private static final Map<UUID, Set<ChunkPos>> FORCED_CHUNKS_BY_PLAYER = new HashMap<>();
 
     public static ServerLevel getWorld(MinecraftServer server) {
         return server.getLevel(DIMENSION_KEY);
@@ -58,8 +65,8 @@ public class SpaceRiftManager {
         }
 
         // 分配或获取地块
-        if (!warehouse.hasRiftPlot()) {
-            allocatePlot(player.getUUID(), warehouse);
+        if (!hasValidRiftPlot(warehouse)) {
+            allocatePlot(server, player.getUUID(), warehouse);
         }
 
         ChunkPos origin = new ChunkPos(warehouse.getRiftPlotX(), warehouse.getRiftPlotZ());
@@ -68,6 +75,10 @@ public class SpaceRiftManager {
 
         // 传送
         BlockPos lastPos = warehouse.getRiftLastPos();
+        if (lastPos != null && isOutsideBorder(null, warehouse, lastPos)) {
+            lastPos = null;
+            warehouse.setRiftLastPos(null);
+        }
         if (lastPos != null) {
             player.teleportTo(riftLevel, lastPos.getX() + 0.5, lastPos.getY(), lastPos.getZ() + 0.5,
                     java.util.Set.of(), warehouse.getRiftLastYaw(), warehouse.getRiftLastPitch(), false);
@@ -171,15 +182,53 @@ public class SpaceRiftManager {
         }
     }
 
-    private static void allocatePlot(UUID playerId, PlayerWarehouse warehouse) {
-        int index = Math.floorMod(playerId.hashCode(), 1024);
-        // 使用 32x32 的矩阵分布，充分利用 X 和 Z 轴
-        int gridX = index % 32;
-        int gridZ = index / 32;
-
+    private static void allocatePlot(MinecraftServer server, UUID playerId, PlayerWarehouse warehouse) {
         int spacing = ModConfig.riftPlotSpacingChunks;
-        warehouse.setRiftPlotX(gridX * spacing);
-        warehouse.setRiftPlotZ(gridZ * spacing);
+        Set<ChunkPos> occupiedPlots = getOccupiedPlots(server, playerId);
+        int totalSlots = DEFAULT_PLOT_GRID_SIZE * DEFAULT_PLOT_GRID_SIZE;
+        int startIndex = Math.floorMod(playerId.hashCode(), totalSlots);
+
+        for (int offset = 0; offset < totalSlots; offset++) {
+            int index = (startIndex + offset) % totalSlots;
+            ChunkPos candidate = plotAtIndex(index, spacing);
+            if (!occupiedPlots.contains(candidate)) {
+                warehouse.setRiftPlotX(candidate.x());
+                warehouse.setRiftPlotZ(candidate.z());
+                return;
+            }
+        }
+
+        int overflowIndex = totalSlots;
+        while (true) {
+            ChunkPos candidate = plotAtIndex(overflowIndex++, spacing);
+            if (!occupiedPlots.contains(candidate)) {
+                warehouse.setRiftPlotX(candidate.x());
+                warehouse.setRiftPlotZ(candidate.z());
+                return;
+            }
+        }
+    }
+
+    private static Set<ChunkPos> getOccupiedPlots(MinecraftServer server, UUID excludedPlayerId) {
+        Set<ChunkPos> occupied = new HashSet<>();
+        var component = ModComponents.WAREHOUSE.get(server.getScoreboard());
+        for (PlayerWarehouse other : component.getAllWarehouses()) {
+            if (other.getOwnerUuid().equals(excludedPlayerId) || !hasValidRiftPlot(other)) {
+                continue;
+            }
+            occupied.add(new ChunkPos(other.getRiftPlotX(), other.getRiftPlotZ()));
+        }
+        return occupied;
+    }
+
+    private static ChunkPos plotAtIndex(int index, int spacing) {
+        int gridX = index % DEFAULT_PLOT_GRID_SIZE;
+        int gridZ = index / DEFAULT_PLOT_GRID_SIZE;
+        return new ChunkPos(gridX * spacing, gridZ * spacing);
+    }
+
+    private static boolean hasValidRiftPlot(PlayerWarehouse warehouse) {
+        return warehouse.hasRiftPlot() && warehouse.getRiftPlotZ() != Integer.MIN_VALUE;
     }
 
     private static BlockPos getPlotCenterBlock(ChunkPos origin) {
@@ -205,7 +254,7 @@ public class SpaceRiftManager {
             return;
         }
 
-        if (!warehouse.hasRiftPlot())
+        if (!hasValidRiftPlot(warehouse))
             return;
 
         ChunkPos origin = new ChunkPos(warehouse.getRiftPlotX(), warehouse.getRiftPlotZ());
@@ -228,7 +277,7 @@ public class SpaceRiftManager {
     }
 
     public static boolean isOutsideBorder(ServerPlayer player, PlayerWarehouse warehouse, BlockPos pos) {
-        if (!ModConfig.enableRiftBorder || !warehouse.hasRiftPlot())
+        if (!ModConfig.enableRiftBorder || !hasValidRiftPlot(warehouse))
             return false;
 
         ChunkPos origin = new ChunkPos(warehouse.getRiftPlotX(), warehouse.getRiftPlotZ());
@@ -300,32 +349,86 @@ public class SpaceRiftManager {
         if (riftLevel == null)
             return;
 
-        if (!warehouse.hasRiftPlot())
+        if (!hasValidRiftPlot(warehouse)) {
+            clearTrackedForcedChunks(player.getUUID(), riftLevel);
             return;
+        }
 
         ChunkPos origin = new ChunkPos(warehouse.getRiftPlotX(), warehouse.getRiftPlotZ());
-        int plotChunkRadius = (int) Math.ceil((ModConfig.riftChunkSize - 1) / 2.0);
-        int cleanupRange = Math.max(5, plotChunkRadius + 2);
+        Set<ChunkPos> previous = FORCED_CHUNKS_BY_PLAYER.getOrDefault(player.getUUID(), Set.of());
+        Set<ChunkPos> next = forced && ModConfig.enableRiftForcedLoading
+                ? getForcedChunks(origin)
+                : Set.of();
 
-        for (int x = -cleanupRange; x <= cleanupRange; x++) {
-            for (int z = -cleanupRange; z <= cleanupRange; z++) {
-                try {
-                    riftLevel.setChunkForced(origin.x() + x, origin.z() + z, false);
-                } catch (Exception ignored) {
-                }
+        if (previous.equals(next)) {
+            return;
+        }
+
+        for (ChunkPos chunk : previous) {
+            if (!next.contains(chunk)) {
+                setChunkForced(riftLevel, chunk, false);
+            }
+        }
+        for (ChunkPos chunk : next) {
+            if (!previous.contains(chunk)) {
+                setChunkForced(riftLevel, chunk, true);
             }
         }
 
-        if (forced && ModConfig.enableRiftForcedLoading) {
-            int range = Math.min(ModConfig.riftForcedLoadingRange, plotChunkRadius);
-            for (int x = -range; x <= range; x++) {
-                for (int z = -range; z <= range; z++) {
-                    try {
-                        riftLevel.setChunkForced(origin.x() + x, origin.z() + z, true);
-                    } catch (Exception ignored) {
-                    }
-                }
+        if (next.isEmpty()) {
+            FORCED_CHUNKS_BY_PLAYER.remove(player.getUUID());
+            cleanupLegacyForcedChunks(riftLevel, origin);
+            reapplyTrackedForcedChunks(riftLevel);
+        } else {
+            FORCED_CHUNKS_BY_PLAYER.put(player.getUUID(), next);
+        }
+    }
+
+    private static void clearTrackedForcedChunks(UUID playerId, ServerLevel riftLevel) {
+        Set<ChunkPos> previous = FORCED_CHUNKS_BY_PLAYER.remove(playerId);
+        if (previous == null) {
+            return;
+        }
+        for (ChunkPos chunk : previous) {
+            setChunkForced(riftLevel, chunk, false);
+        }
+        reapplyTrackedForcedChunks(riftLevel);
+    }
+
+    private static void reapplyTrackedForcedChunks(ServerLevel riftLevel) {
+        for (Set<ChunkPos> chunks : FORCED_CHUNKS_BY_PLAYER.values()) {
+            for (ChunkPos chunk : chunks) {
+                setChunkForced(riftLevel, chunk, true);
             }
+        }
+    }
+
+    private static Set<ChunkPos> getForcedChunks(ChunkPos origin) {
+        int plotChunkRadius = (int) Math.ceil((ModConfig.riftChunkSize - 1) / 2.0);
+        int range = Math.min(ModConfig.riftForcedLoadingRange, plotChunkRadius);
+        Set<ChunkPos> chunks = new HashSet<>();
+        for (int x = -range; x <= range; x++) {
+            for (int z = -range; z <= range; z++) {
+                chunks.add(new ChunkPos(origin.x() + x, origin.z() + z));
+            }
+        }
+        return chunks;
+    }
+
+    private static void cleanupLegacyForcedChunks(ServerLevel riftLevel, ChunkPos origin) {
+        int plotChunkRadius = (int) Math.ceil((ModConfig.riftChunkSize - 1) / 2.0);
+        int cleanupRange = Math.max(5, plotChunkRadius + 2);
+        for (int x = -cleanupRange; x <= cleanupRange; x++) {
+            for (int z = -cleanupRange; z <= cleanupRange; z++) {
+                setChunkForced(riftLevel, new ChunkPos(origin.x() + x, origin.z() + z), false);
+            }
+        }
+    }
+
+    private static void setChunkForced(ServerLevel riftLevel, ChunkPos chunk, boolean forced) {
+        try {
+            riftLevel.setChunkForced(chunk.x(), chunk.z(), forced);
+        } catch (Exception ignored) {
         }
     }
 }

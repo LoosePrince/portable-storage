@@ -183,6 +183,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     private final UUID ownerUuid;
     private String ownerName = "Unknown";
     private WarehouseComponent parentComponent;
+    private List<PlayerWarehouse> sharedGroupCache = null;
 
     public PlayerWarehouse(UUID id, Consumer<PlayerWarehouse> onChanged) {
         this.ownerUuid = id;
@@ -220,6 +221,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     public void setParentComponent(WarehouseComponent parent) {
         this.parentComponent = parent;
+        invalidateSharedGroupCaches();
     }
 
     public UUID getOwnerUuid() {
@@ -260,11 +262,16 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     }
 
     public List<PlayerWarehouse> getSharedGroupWarehouses() {
+        if (sharedGroupCache != null) {
+            return sharedGroupCache;
+        }
+
         List<PlayerWarehouse> group = new ArrayList<>();
         group.add(this);
 
         if (getEffectiveType() != WarehouseType.FULL || parentComponent == null) {
-            return group;
+            sharedGroupCache = Collections.unmodifiableList(group);
+            return sharedGroupCache;
         }
 
         UUID myUuid = this.ownerUuid;
@@ -283,7 +290,8 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
         // 如果发生连锁共享（既是提供者又是消费者），则所有外部连接失效
         if (myTarget != null && amIProviding) {
-            return group; // 仅保留自己
+            sharedGroupCache = Collections.unmodifiableList(group);
+            return sharedGroupCache; // 仅保留自己
         }
 
         // 构建共享组
@@ -326,7 +334,19 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             }
         }
 
-        return group;
+        sharedGroupCache = Collections.unmodifiableList(group);
+        return sharedGroupCache;
+    }
+
+    private void invalidateSharedGroupCaches() {
+        this.sharedGroupCache = null;
+        if (parentComponent != null) {
+            parentComponent.invalidateSharedGroupCaches();
+        }
+    }
+
+    void invalidateSharedGroupCacheOnly() {
+        this.sharedGroupCache = null;
     }
 
     /**
@@ -374,6 +394,9 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                 type.onInstall(this, stack);
             }
         }
+        if (com.portablestorage.upgrade.BarrelUpgrade.ID.equals(id)) {
+            invalidateSharedGroupCaches();
+        }
         this.markDirty();
     }
 
@@ -415,11 +438,15 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     public void setForbidden(UUID uuid, boolean forbidden) {
         if (forbidden) {
-            if (forbiddenPlayers.add(uuid))
+            if (forbiddenPlayers.add(uuid)) {
+                invalidateSharedGroupCaches();
                 markDirty();
+            }
         } else {
-            if (forbiddenPlayers.remove(uuid))
+            if (forbiddenPlayers.remove(uuid)) {
+                invalidateSharedGroupCaches();
                 markDirty();
+            }
         }
     }
 
@@ -684,6 +711,17 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     public int getLogicalSlotCount() {
         return unifiedStorage.getSlotIndexSnapshot().size();
+    }
+
+    public long getStoredItemAmount(ItemStack stack) {
+        if (stack.isEmpty()) {
+            return 0;
+        }
+        return unifiedStorage.getAmount(new ItemWarehouseKey(stack));
+    }
+
+    public int getStoredItemTypeCount() {
+        return unifiedStorage.getTypeCount(WarehouseStackKey.TYPE_ITEM);
     }
 
     /**
@@ -1098,6 +1136,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     public void setType(WarehouseType type) {
         this.type = type;
+        invalidateSharedGroupCaches();
         markDirty();
     }
 
@@ -1112,6 +1151,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+        invalidateSharedGroupCaches();
         markDirty();
     }
 

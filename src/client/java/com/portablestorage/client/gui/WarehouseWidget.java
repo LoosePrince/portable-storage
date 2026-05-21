@@ -1,7 +1,6 @@
 package com.portablestorage.client.gui;
 
 import java.util.List;
-import java.util.Optional;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.portablestorage.component.ModComponents;
@@ -14,7 +13,6 @@ import com.portablestorage.network.C2SDoubleClickQuickStorePayload;
 import com.portablestorage.network.C2SDropWarehouseItemPayload;
 import com.portablestorage.network.C2STogglePinnedPayload;
 import com.portablestorage.network.C2SUpdateFrozenStatePayload;
-import com.portablestorage.network.C2SUpdateWarehouseStatePayload;
 import com.portablestorage.network.C2SUpgradeInteractionPayload;
 import com.portablestorage.network.OpenCraftingPayload;
 import com.portablestorage.network.QuickTransferPayload;
@@ -349,33 +347,38 @@ public class WarehouseWidget {
         WarehouseRenderer.renderPinnedOverlays(graphics, leftPos, topPos, warehouse, imageHeight);
         WarehouseRenderer.renderQuantityTexts(graphics, font, leftPos, topPos, warehouse, imageHeight);
 
-        int foldX, foldY;
-        boolean indentSidebar = false;
-        int x = leftPos + WarehouseConstants.getWarehouseXOffset();
-        int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight,
-                warehouse.isFolded());
-        if (screen instanceof com.portablestorage.screen.CraftingWarehouseScreen) {
-            foldX = leftPos + 84;
-            foldY = topPos + 53;
-        } else if (isContainerInterface()) {
-            if (warehouse.isFolded()) {
-                foldX = leftPos + 172;
-                foldY = topPos + imageHeight - 24;
-            } else {
-                foldX = x + WarehouseConstants.getSidebarXOffset();
-                foldY = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight,
-                        warehouse.isFolded());
-                indentSidebar = true;
-            }
-        } else if (screen instanceof com.portablestorage.screen.BoundBarrelScreen) {
-            foldX = leftPos + 151;
-            foldY = topPos + 32;
-        } else {
-            foldX = leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
-            foldY = topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
-        }
+        FoldButtonLayout foldButton = getFoldButtonLayout(leftPos, topPos, imageHeight);
         WarehouseRenderer.renderAllTooltips(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse, imageHeight,
-                foldX, foldY, indentSidebar);
+                foldButton.x(), foldButton.y(), foldButton.indentSidebar());
+    }
+
+    private FoldButtonLayout getFoldButtonLayout(int leftPos, int topPos, int imageHeight) {
+        if (screen instanceof com.portablestorage.screen.CraftingWarehouseScreen) {
+            return new FoldButtonLayout(leftPos + 84, topPos + 53, false);
+        }
+        if (isContainerInterface()) {
+            if (warehouse.isFolded()) {
+                return new FoldButtonLayout(leftPos + 172, topPos + imageHeight - 24, false);
+            }
+            int warehouseX = leftPos + WarehouseConstants.getWarehouseXOffset();
+            int warehouseY = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight,
+                    warehouse.isFolded());
+            return new FoldButtonLayout(warehouseX + WarehouseConstants.getSidebarXOffset(),
+                    warehouseY + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight,
+                            warehouse.isFolded()),
+                    true);
+        }
+        if (screen instanceof com.portablestorage.screen.BoundBarrelScreen) {
+            return new FoldButtonLayout(leftPos + 151, topPos + 32, false);
+        }
+        return new FoldButtonLayout(leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET,
+                topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET, false);
+    }
+
+    private record FoldButtonLayout(int x, int y, boolean indentSidebar) {
+        private boolean contains(double mouseX, double mouseY) {
+            return mouseX >= x && mouseX < x + 18 && mouseY >= y && mouseY < y + 18;
+        }
     }
 
     private void renderCraftingBg(GuiGraphicsExtractor graphics) {
@@ -530,9 +533,7 @@ public class WarehouseWidget {
                     if (this.searchBox != null) {
                         this.searchBox.setValue(newSearch);
                         warehouse.setSearchText(newSearch);
-                        ClientPlayNetworking
-                                .send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(newSearch),
-                                        Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+                        WarehouseStateSync.sendSearchText(newSearch);
                     }
                     return true;
                 }
@@ -584,32 +585,9 @@ public class WarehouseWidget {
             lastClickY = -1;
         }
 
-        // 折叠按钮
-        int foldButtonX, foldButtonY;
-        if (screen instanceof com.portablestorage.screen.CraftingWarehouseScreen) {
-            foldButtonX = screenAccessor.portablestorage$getLeftPos() + 84;
-            foldButtonY = screenAccessor.portablestorage$getTopPos() + 53;
-        } else if (isContainerInterface()) {
-            if (warehouse.isFolded()) {
-                foldButtonX = screenAccessor.portablestorage$getLeftPos() + 172;
-                foldButtonY = screenAccessor.portablestorage$getTopPos()
-                        + screenAccessor.portablestorage$getImageHeight() - 24;
-            } else {
-                int whX = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.getWarehouseXOffset();
-                int whY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.getWarehouseYOffset(
-                        warehouse.getVisibleRows(), screenAccessor.portablestorage$getImageHeight());
-                foldButtonX = whX + WarehouseConstants.getSidebarXOffset();
-                foldButtonY = whY + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(),
-                        screenAccessor.portablestorage$getImageHeight());
-            }
-        } else if (screen instanceof com.portablestorage.screen.BoundBarrelScreen) {
-            foldButtonX = screenAccessor.portablestorage$getLeftPos() + 151;
-            foldButtonY = screenAccessor.portablestorage$getTopPos() + 32;
-        } else {
-            foldButtonX = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
-            foldButtonY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
-        }
-        if (mouseX >= foldButtonX && mouseX < foldButtonX + 18 && mouseY >= foldButtonY && mouseY < foldButtonY + 18) {
+        FoldButtonLayout foldButton = getFoldButtonLayout(screenAccessor.portablestorage$getLeftPos(),
+                screenAccessor.portablestorage$getTopPos(), screenAccessor.portablestorage$getImageHeight());
+        if (foldButton.contains(mouseX, mouseY)) {
             if (button == 2) { // 中键：打开设置
                 var loader = net.fabricmc.loader.api.FabricLoader.getInstance();
                 boolean hasYacl = loader.isModLoaded("yet_another_config_lib_v3");
@@ -626,9 +604,7 @@ public class WarehouseWidget {
             if (button == 0) { // 左键：折叠/展开
                 boolean newFolded = !warehouse.isFolded();
                 warehouse.setFolded(newFolded);
-                ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(),
-                        Optional.of(WarehouseSetting.FOLD.ordinal()), Optional.of(newFolded ? 1 : 0), Optional.empty(),
-                        Optional.empty()));
+                WarehouseStateSync.sendSetting(WarehouseSetting.FOLD, newFolded ? 1 : 0);
                 if (newFolded && this.searchBox != null)
                     this.searchBox.setFocused(false);
                 refreshScreen();
@@ -680,33 +656,9 @@ public class WarehouseWidget {
 
                 if (mouseX >= curX && mouseX < curX + 18 && mouseY >= curY && mouseY < curY + 18) {
                     WarehouseSetting setting = WarehouseSetting.values()[i + 1]; // 偏移 1 以跳过 FOLD
-                    int newVal = 0;
-                    switch (setting) {
-                        case SORT_MODE -> {
-                            newVal = (warehouse.getSortMode() + 1) % 4;
-                            warehouse.setSortMode(newVal);
-                        }
-                        case SORT_ORDER -> {
-                            newVal = warehouse.isAscending() ? 0 : 1;
-                            warehouse.setAscending(!warehouse.isAscending());
-                        }
-                        case QUICK_INTERACTION -> {
-                            newVal = warehouse.isQuickInteraction() ? 0 : 1;
-                            warehouse.setQuickInteraction(!warehouse.isQuickInteraction());
-                        }
-                        case SMART_COLLAPSE -> {
-                            newVal = warehouse.isSmartCollapse() ? 0 : 1;
-                            warehouse.setSmartCollapse(!warehouse.isSmartCollapse());
-                        }
-                        case CRAFT_REFILL -> {
-                            newVal = warehouse.isCraftRefill() ? 0 : 1;
-                            warehouse.setCraftRefill(!warehouse.isCraftRefill());
-                        }
-                        default -> {
-                        }
-                    }
-                    ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(),
-                            Optional.of(setting.ordinal()), Optional.of(newVal), Optional.empty(), Optional.empty()));
+                    int newVal = WarehouseStateSync.nextSidebarSettingValue(warehouse, setting);
+                    WarehouseStateSync.applySetting(warehouse, setting, newVal);
+                    WarehouseStateSync.sendSetting(setting, newVal);
                     return true;
                 }
             }
@@ -734,8 +686,7 @@ public class WarehouseWidget {
         if (mouseX >= pmX && mouseX < pmX + WarehouseConstants.TINY_BUTTON_SIZE && mouseY >= pmY
                 && mouseY < pmY + WarehouseConstants.TINY_BUTTON_SIZE) {
             warehouse.setVisibleRows(warehouse.getVisibleRows() - 1);
-            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(),
-                    Optional.empty(), Optional.empty(), Optional.of(-1), Optional.empty()));
+            WarehouseStateSync.sendRowsDelta(-1);
             refreshScreen();
             return true;
         }
@@ -743,8 +694,7 @@ public class WarehouseWidget {
                 && mouseX < pmX + WarehouseConstants.TINY_BUTTON_SIZE * 2 + WarehouseConstants.TINY_BUTTON_SPACING
                 && mouseY >= pmY && mouseY < pmY + WarehouseConstants.TINY_BUTTON_SIZE) {
             warehouse.setVisibleRows(warehouse.getVisibleRows() + 1);
-            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(),
-                    Optional.empty(), Optional.empty(), Optional.of(1), Optional.empty()));
+            WarehouseStateSync.sendRowsDelta(1);
             refreshScreen();
             return true;
         }
@@ -788,8 +738,7 @@ public class WarehouseWidget {
         if (mouseX >= warehouseX && mouseX < warehouseX + upgradeColumnWidth && mouseY >= warehouseY
                 && mouseY < warehouseY + warehouseHeight) {
             warehouse.setUpgradeScrollOffset(warehouse.getUpgradeScrollOffset() - delta);
-            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(),
-                    Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(delta)));
+            WarehouseStateSync.sendUpgradeScrollDelta(delta);
             return true;
         }
 
@@ -797,8 +746,7 @@ public class WarehouseWidget {
         if (mouseX >= warehouseX + upgradeColumnWidth && mouseX < warehouseX + WarehouseConstants.getWarehouseWidth()
                 && mouseY >= warehouseY && mouseY < warehouseY + warehouseHeight) {
             warehouse.setScrollOffset(warehouse.getScrollOffset() - delta);
-            ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.of(delta), Optional.empty(),
-                    Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+            WarehouseStateSync.sendScrollDelta(delta);
             return true;
         }
         return false;
@@ -881,8 +829,7 @@ public class WarehouseWidget {
             if (newOffset != warehouse.getUpgradeScrollOffset()) {
                 int delta = warehouse.getUpgradeScrollOffset() - newOffset;
                 warehouse.setUpgradeScrollOffset(newOffset);
-                ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.empty(),
-                        Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(delta)));
+                WarehouseStateSync.sendUpgradeScrollDelta(delta);
             }
         }
     }
@@ -907,8 +854,7 @@ public class WarehouseWidget {
             if (newOffset != warehouse.getScrollOffset()) {
                 int delta = warehouse.getScrollOffset() - newOffset;
                 warehouse.setScrollOffset(newOffset);
-                ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.of(delta), Optional.empty(),
-                        Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+                WarehouseStateSync.sendScrollDelta(delta);
             }
         }
     }
@@ -951,7 +897,6 @@ public class WarehouseWidget {
     }
 
     private static void sendSearchTextToServer(String text) {
-        ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(text),
-                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+        WarehouseStateSync.sendSearchText(text);
     }
 }

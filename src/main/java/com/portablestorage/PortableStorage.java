@@ -142,7 +142,7 @@ public class PortableStorage implements ModInitializer {
                     for (java.util.Map.Entry<Identifier, ItemStack> entry : warehouse.getUpgradeStorage().entrySet()) {
                         com.portablestorage.upgrade.UpgradeType type = com.portablestorage.upgrade.UpgradeRegistry
                                 .get(entry.getKey());
-                        if (type != null) {
+                        if (type != null && type.requiresServerTick()) {
                             type.serverTick(warehouse, player);
                         }
                     }
