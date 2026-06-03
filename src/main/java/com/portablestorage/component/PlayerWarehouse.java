@@ -46,6 +46,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     private final List<WarehouseEntry> storage = new ArrayList<>();
     private final Map<FluidVariant, Long> fluidStorage = new LinkedHashMap<>();
+    private final Set<FluidVariant> pinnedFluids = new HashSet<>();
 
     // 升级系统数据
     private final Map<Identifier, ItemStack> upgradeStorage = new LinkedHashMap<>();
@@ -574,6 +575,35 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         return fluidStorage.getOrDefault(variant, 0L);
     }
 
+    public boolean isFluidPinned(FluidVariant variant) {
+        return pinnedFluids.contains(variant);
+    }
+
+    public void setFluidPinned(FluidVariant variant, boolean pinned) {
+        updateFluidPinned(variant, pinned, true);
+    }
+
+    public void setFluidPinnedLocal(FluidVariant variant, boolean pinned) {
+        updateFluidPinned(variant, pinned, false);
+    }
+
+    private void updateFluidPinned(FluidVariant variant, boolean pinned, boolean notify) {
+        if (variant == null || variant.isBlank()) {
+            return;
+        }
+
+        boolean changed = pinned ? pinnedFluids.add(variant) : pinnedFluids.remove(variant);
+        if (!changed) {
+            return;
+        }
+
+        if (notify) {
+            markDirty();
+        } else {
+            invalidateAllCaches();
+        }
+    }
+
     /**
      * 标记数据已修改，触发缓存失效和同步
      */
@@ -688,6 +718,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     public void clearContent() {
         storage.clear();
         fluidStorage.clear();
+        pinnedFluids.clear();
 
         // 卸载并清除所有升级物品
         for (Map.Entry<Identifier, ItemStack> entry : new HashMap<>(upgradeStorage).entrySet()) {
@@ -897,19 +928,47 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         this.sortedCache = null; // 仅使最后一级缓存失效
     }
 
-    public void togglePinned(int slotIndex) {
+    public boolean togglePinned(int slotIndex) {
         List<WarehouseEntry> sorted = getSortedEntries();
         int actualIndex = slotIndex + (scrollOffset * 9);
         if (actualIndex >= 0 && actualIndex < sorted.size()) {
             WarehouseEntry entry = sorted.get(actualIndex);
             boolean newState = !entry.isPinned();
             net.minecraft.world.item.Item item = entry.getItemStack().getItem();
-            for (WarehouseEntry e : storage) {
-                if (e.getItemStack().getItem() == item)
-                    e.setPinned(newState);
+            FluidVariant fluid = WarehouseManager.getFluidForVirtualItem(item);
+            if (fluid != null) {
+                boolean changed = false;
+                for (PlayerWarehouse pw : getSharedGroupWarehouses()) {
+                    if (pw.getFluidAmount(fluid) > 0) {
+                        pw.setFluidPinned(fluid, newState);
+                        changed = true;
+                    }
+                }
+                if (!changed) {
+                    setFluidPinned(fluid, newState);
+                }
+                return newState;
             }
-            markDirty();
+            boolean changed = false;
+            for (PlayerWarehouse pw : getSharedGroupWarehouses()) {
+                boolean warehouseChanged = false;
+                for (WarehouseEntry e : pw.getStorageList()) {
+                    if (e.getItemStack().getItem() == item) {
+                        e.setPinned(newState);
+                        warehouseChanged = true;
+                    }
+                }
+                if (warehouseChanged) {
+                    pw.markDirty();
+                    changed = true;
+                }
+            }
+            if (!changed) {
+                markDirty();
+            }
+            return newState;
         }
+        return false;
     }
 
     public boolean isAscending() {
@@ -1078,6 +1137,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
             Map<WarehouseEntryKey, Boolean> pinnedItems = new HashMap<>();
             Map<WarehouseEntryKey, Long> lastUpdatedMap = new HashMap<>();
             Map<FluidVariant, Long> mergedFluids = new LinkedHashMap<>();
+            Set<FluidVariant> pinnedFluidVariants = new HashSet<>();
             long mergedExperience = 0;
 
             for (PlayerWarehouse pw : group) {
@@ -1093,6 +1153,9 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                 // 聚合流体
                 for (Map.Entry<FluidVariant, Long> entry : pw.getFluidStorageMap().entrySet()) {
                     mergedFluids.put(entry.getKey(), mergedFluids.getOrDefault(entry.getKey(), 0L) + entry.getValue());
+                    if (pw.isFluidPinned(entry.getKey())) {
+                        pinnedFluidVariants.add(entry.getKey());
+                    }
                 }
                 // 聚合经验
                 mergedExperience += pw.getExperience();
@@ -1129,7 +1192,9 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                             fluidStack.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
                                     net.minecraft.world.item.component.CustomData.of(infiniteTag));
                         }
-                        baseCache.add(new WarehouseEntry(fluidStack, bucketCount));
+                        WarehouseEntry fluidEntry = new WarehouseEntry(fluidStack, bucketCount);
+                        fluidEntry.setPinned(pinnedFluidVariants.contains(variant));
+                        baseCache.add(fluidEntry);
                     }
                 }
             }
@@ -1340,38 +1405,42 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         }
 
         fluidStorage.clear();
+        pinnedFluids.clear();
         if (tag.contains("fluids")) {
             java.util.Optional<ListTag> fluidListOpt = tag.getList("fluids");
-            if (fluidListOpt.isEmpty())
-                return;
-            ListTag fluidList = fluidListOpt.get();
-            for (int i = 0; i < fluidList.size(); i++) {
-                java.util.Optional<CompoundTag> fluidTagOpt = fluidList.getCompound(i);
-                if (fluidTagOpt.isEmpty())
-                    continue;
-                CompoundTag fluidTag = fluidTagOpt.get();
-                Identifier id = Identifier.tryParse(fluidTag.getString("fluid").orElse(""));
-                if (id == null)
-                    continue;
-                java.util.Optional<net.minecraft.core.Holder.Reference<Fluid>> fluidHolderOpt = BuiltInRegistries.FLUID
-                        .get(id);
-                if (fluidHolderOpt.isEmpty())
-                    continue;
-                Fluid fluid = fluidHolderOpt.get().value();
+            if (fluidListOpt.isPresent()) {
+                ListTag fluidList = fluidListOpt.get();
+                for (int i = 0; i < fluidList.size(); i++) {
+                    java.util.Optional<CompoundTag> fluidTagOpt = fluidList.getCompound(i);
+                    if (fluidTagOpt.isEmpty())
+                        continue;
+                    CompoundTag fluidTag = fluidTagOpt.get();
+                    Identifier id = Identifier.tryParse(fluidTag.getString("fluid").orElse(""));
+                    if (id == null)
+                        continue;
+                    java.util.Optional<net.minecraft.core.Holder.Reference<Fluid>> fluidHolderOpt = BuiltInRegistries.FLUID
+                            .get(id);
+                    if (fluidHolderOpt.isEmpty())
+                        continue;
+                    Fluid fluid = fluidHolderOpt.get().value();
 
-                net.minecraft.core.component.DataComponentPatch patch = net.minecraft.core.component.DataComponentPatch.EMPTY;
-                if (fluidTag.contains("components")) {
-                    java.util.Optional<CompoundTag> componentsOpt = fluidTag.getCompound("components");
-                    if (componentsOpt.isPresent()) {
-                        patch = net.minecraft.core.component.DataComponentPatch.CODEC
-                                .parse(net.minecraft.nbt.NbtOps.INSTANCE, componentsOpt.get())
-                                .getOrThrow();
+                    net.minecraft.core.component.DataComponentPatch patch = net.minecraft.core.component.DataComponentPatch.EMPTY;
+                    if (fluidTag.contains("components")) {
+                        java.util.Optional<CompoundTag> componentsOpt = fluidTag.getCompound("components");
+                        if (componentsOpt.isPresent()) {
+                            patch = net.minecraft.core.component.DataComponentPatch.CODEC
+                                    .parse(net.minecraft.nbt.NbtOps.INSTANCE, componentsOpt.get())
+                                    .getOrThrow();
+                        }
+                    }
+
+                    long amount = fluidTag.getLong("amount").orElse(0L);
+                    FluidVariant variant = FluidVariant.of(fluid, patch);
+                    fluidStorage.put(variant, amount);
+                    if (fluidTag.getBoolean("pinned").orElse(false)) {
+                        pinnedFluids.add(variant);
                     }
                 }
-
-                long amount = fluidTag.getLong("amount").orElse(0L);
-                FluidVariant variant = FluidVariant.of(fluid, patch);
-                fluidStorage.put(variant, amount);
             }
         }
 
@@ -1533,6 +1602,9 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                                 .getOrThrow());
             }
             fluidTag.putLong("amount", entry.getValue());
+            if (pinnedFluids.contains(entry.getKey())) {
+                fluidTag.putBoolean("pinned", true);
+            }
             fluidList.add(fluidTag);
         }
         tag.put("fluids", fluidList);

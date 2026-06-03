@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.portablestorage.PortableStorageClient;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
@@ -333,7 +334,7 @@ public class WarehouseWidget {
             return;
 
         // 逻辑和状态检查
-        handleFrozenMode();
+        updateFrozenMode();
         checkRefreshNeeded();
         checkCraftRefill();
         handleSearchDebounce();
@@ -377,9 +378,9 @@ public class WarehouseWidget {
         }
     }
 
-    private void handleFrozenMode() {
-        boolean isPressed = InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), InputConstants.KEY_LSHIFT)
-                && InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), InputConstants.KEY_LCONTROL);
+    public void updateFrozenMode() {
+        boolean isPressed = InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), InputConstants.KEY_LCONTROL)
+                || InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), InputConstants.KEY_RCONTROL);
         if (isPressed != warehouse.isFrozen()) {
             warehouse.setFrozen(isPressed);
             ClientPlayNetworking.send(new C2SUpdateFrozenStatePayload(isPressed));
@@ -637,7 +638,7 @@ public class WarehouseWidget {
                         Optional.empty()));
                 if (newFolded && this.searchBox != null)
                     this.searchBox.setFocused(false);
-                refreshScreen();
+                refreshAfterFoldChange();
                 return true;
             }
         }
@@ -831,12 +832,17 @@ public class WarehouseWidget {
     }
 
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        KeyEvent event = new KeyEvent(keyCode, scanCode, modifiers);
+
+        if (PortableStorageClient.matchesToggleWarehouseFoldKey(event)) {
+            return PortableStorageClient.tryToggleWarehouseFold(Minecraft.getInstance());
+        }
+
         if (this.searchBox != null && this.searchBox.isVisible() && this.searchBox.isFocused()) {
             if (keyCode == 256) { // ESC
                 this.searchBox.setFocused(false);
                 return true;
             }
-            KeyEvent event = new KeyEvent(keyCode, scanCode, modifiers);
             if (this.searchBox.keyPressed(event))
                 return true;
             return true;
@@ -844,7 +850,6 @@ public class WarehouseWidget {
 
         if (shouldShow() && !warehouse.isFolded()) {
             Minecraft minecraft = Minecraft.getInstance();
-            KeyEvent event = new KeyEvent(keyCode, scanCode, modifiers);
             if (minecraft.options.keyDrop.matches(event)) {
                 Slot hSlot = ((AbstractContainerScreenAccessor) screen).portablestorage$getHoveredSlot();
                 if (hSlot != null && hSlot.container instanceof PlayerWarehouse && hSlot.hasItem()) {
@@ -919,6 +924,11 @@ public class WarehouseWidget {
                         Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
             }
         }
+    }
+
+    public void refreshAfterFoldChange() {
+        updateSearchBoxState();
+        refreshScreen();
     }
 
     private void checkCraftRefill() {
@@ -996,6 +1006,13 @@ public class WarehouseWidget {
         if (shouldShow()) {
             ClientPlayNetworking.send(new C2SUpdateWarehouseStatePayload(Optional.empty(), Optional.of(""),
                     Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+        }
+        if (ModConfig.autoFoldOnClose && warehouse.isEnabled() && !warehouse.isFolded()) {
+            PortableStorageClient.requestAutoFoldAfterScreenClose(warehouse);
+        }
+        if (warehouse.isFrozen()) {
+            warehouse.setFrozen(false);
+            ClientPlayNetworking.send(new C2SUpdateFrozenStatePayload(false));
         }
     }
 }

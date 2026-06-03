@@ -219,6 +219,17 @@ public class YACLConfig {
                                                                 .build())
                                                 .option(Option.<Boolean>createBuilder()
                                                                 .name(Component.translatable(
+                                                                                "gui.portablestorage.settings.auto_fold_on_close"))
+                                                                .description(OptionDescription.of(Component
+                                                                                .translatable("gui.portablestorage.settings.auto_fold_on_close.desc")))
+                                                                .binding(
+                                                                                true,
+                                                                                () -> ModConfig.autoFoldOnClose,
+                                                                                val -> ModConfig.autoFoldOnClose = val)
+                                                                .controller(BooleanControllerBuilder::create)
+                                                                .build())
+                                                .option(Option.<Boolean>createBuilder()
+                                                                .name(Component.translatable(
                                                                                 "gui.portablestorage.settings.remove_experimental_warning"))
                                                                 .description(OptionDescription.of(Component
                                                                                 .translatable("gui.portablestorage.settings.remove_experimental_warning.desc")))

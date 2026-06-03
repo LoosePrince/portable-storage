@@ -403,14 +403,19 @@ public class ModServerNetworking {
         context.server().execute(() -> {
             ServerPlayer player = context.player();
             PlayerWarehouse warehouse = getWarehouse(player);
-            warehouse.togglePinned(payload.slotId());
-            syncChanges(player);
+            if (!warehouse.isEnabled() || warehouse.isFolded()) {
+                return;
+            }
+
             int sortedIndex = payload.slotId() + warehouse.getScrollOffset() * 9;
             var sorted = warehouse.getSortedEntries();
-            if (sortedIndex >= 0 && sortedIndex < sorted.size()) {
-                boolean pinned = sorted.get(sortedIndex).isPinned();
-                ServerPlayNetworking.send(player, new S2CWarehousePinnedUpdatePayload(sortedIndex, pinned));
+            if (sortedIndex < 0 || sortedIndex >= sorted.size()) {
+                return;
             }
+
+            boolean pinned = warehouse.togglePinned(payload.slotId());
+            ServerPlayNetworking.send(player, new S2CWarehousePinnedUpdatePayload(sortedIndex, pinned));
+            syncChanges(player);
         });
     }
 

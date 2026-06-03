@@ -8,6 +8,9 @@ hideRecipeBook = true
 # 是否显示仓库侧边栏快捷设置按钮
 showSmallIcons = true
 
+# 关闭背包/容器后是否自动折叠仓库
+autoFoldOnClose = true
+
 # 仓库显示位置 (TOP, BOTTOM, LEFT, RIGHT)
 storagePosition = "BOTTOM"
 

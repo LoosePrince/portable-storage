@@ -71,10 +71,29 @@ public class ModClientNetworking {
                         .getWarehouse(client.player.getUUID());
                 var sorted = warehouse.getSortedEntries();
                 if (payload.sortedIndex() >= 0 && payload.sortedIndex() < sorted.size()) {
-                    var item = sorted.get(payload.sortedIndex()).getItemStack().getItem();
-                    for (var e : warehouse.getStorageList()) {
-                        if (e.getItemStack().getItem() == item) {
-                            e.setPinned(payload.pinned());
+                    var stack = sorted.get(payload.sortedIndex()).getItemStack();
+                    var fluid = com.portablestorage.logic.WarehouseManager.getFluidForVirtualItem(stack.getItem());
+                    if (fluid != null) {
+                        boolean applied = false;
+                        for (var pw : warehouse.getSharedGroupWarehouses()) {
+                            if (pw.getFluidAmount(fluid) > 0) {
+                                pw.setFluidPinnedLocal(fluid, payload.pinned());
+                                applied = true;
+                            }
+                        }
+                        if (!applied) {
+                            warehouse.setFluidPinnedLocal(fluid, payload.pinned());
+                        }
+                        warehouse.invalidateAllCaches();
+                        return;
+                    }
+
+                    var item = stack.getItem();
+                    for (var pw : warehouse.getSharedGroupWarehouses()) {
+                        for (var e : pw.getStorageList()) {
+                            if (e.getItemStack().getItem() == item) {
+                                e.setPinned(payload.pinned());
+                            }
                         }
                     }
                     warehouse.invalidateAllCaches();

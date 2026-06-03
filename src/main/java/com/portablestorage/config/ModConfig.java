@@ -23,6 +23,8 @@ public class ModConfig {
     public static boolean hideRecipeBook = true;
     /** 是否显示小图标 */
     public static boolean showSmallIcons = true;
+    /** 关闭背包/容器后是否自动折叠仓库 */
+    public static boolean autoFoldOnClose = true;
     /** 是否移除实验性功能警告 */
     public static boolean removeExperimentalWarning = true;
     /** 仓库显示位置 */
@@ -113,6 +115,7 @@ public class ModConfig {
         offsetInventory = config.getOrElse("client.offsetInventory", true);
         hideRecipeBook = config.getOrElse("client.hideRecipeBook", true);
         showSmallIcons = config.getOrElse("client.showSmallIcons", false);
+        autoFoldOnClose = config.getOrElse("client.autoFoldOnClose", true);
         removeExperimentalWarning = config.getOrElse("client.removeExperimentalWarning", true);
         try {
             storagePosition = StoragePosition.valueOf(config.getOrElse("client.storagePosition", "BOTTOM").toUpperCase());
@@ -164,6 +167,7 @@ public class ModConfig {
         config.set("client.offsetInventory", offsetInventory);
         config.set("client.hideRecipeBook", hideRecipeBook);
         config.set("client.showSmallIcons", showSmallIcons);
+        config.set("client.autoFoldOnClose", autoFoldOnClose);
         config.set("client.removeExperimentalWarning", removeExperimentalWarning);
         config.set("client.storagePosition", storagePosition.name());
         config.set("server.allowHotReload", allowHotReload);
