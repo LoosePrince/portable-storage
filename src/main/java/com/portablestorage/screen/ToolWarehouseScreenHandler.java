@@ -23,21 +23,18 @@ public class ToolWarehouseScreenHandler extends AbstractContainerMenu {
         this.warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         this.toolContainer = new ToolContainer(warehouse);
 
-        for (int row = 0; row < 3; ++row) {
-            for (int col = 0; col < 3; ++col) {
-                this.addSlot(new ToolSlot(toolContainer, col + row * 3, 62 + col * 18, 17 + row * 18, warehouse,
-                        player));
-            }
+        for (int col = 0; col < 9; ++col) {
+            this.addSlot(new ToolSlot(toolContainer, col, 8 + col * 18, 20, warehouse, player));
         }
 
         for (int row = 0; row < 3; ++row) {
             for (int col = 0; col < 9; ++col) {
-                this.addSlot(new Slot(playerInventory, col + row * 9 + 9, 8 + col * 18, 84 + row * 18));
+                this.addSlot(new Slot(playerInventory, col + row * 9 + 9, 8 + col * 18, 51 + row * 18));
             }
         }
 
         for (int col = 0; col < 9; ++col) {
-            this.addSlot(new Slot(playerInventory, col, 8 + col * 18, 142));
+            this.addSlot(new Slot(playerInventory, col, 8 + col * 18, 109));
         }
     }
 

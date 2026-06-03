@@ -425,6 +425,9 @@ public class ModServerNetworking {
             if (slot.container instanceof PlayerWarehouse) {
                 ItemStack stackInSlot = slot.getItem();
                 if (!stackInSlot.isEmpty()) {
+                    if (WarehouseManager.isVirtualFluid(stackInSlot.getItem())) {
+                        return;
+                    }
                     int toTake = payload.dropFullStack()
                             ? (int) Math.min(stackInSlot.getMaxStackSize(),
                                     warehouse.getRealCount(slot.getContainerSlot()))

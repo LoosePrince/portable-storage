@@ -8,6 +8,7 @@ import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
 import com.portablestorage.config.YACLConfig;
+import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.mixin.client.AbstractContainerScreenAccessor;
 import com.portablestorage.mixin.client.ScreenAccessor;
 import com.portablestorage.network.C2SDoubleClickQuickStorePayload;
@@ -818,6 +819,10 @@ public class WarehouseWidget {
             if (minecraft.options.keyDrop.matches(event)) {
                 Slot hSlot = ((AbstractContainerScreenAccessor) screen).portablestorage$getHoveredSlot();
                 if (hSlot != null && hSlot.container instanceof PlayerWarehouse && hSlot.hasItem()) {
+                    ItemStack stack = hSlot.getItem();
+                    if (WarehouseManager.isVirtualFluid(stack.getItem())) {
+                        return true;
+                    }
                     boolean dropFullStack = InputConstants.isKeyDown(Minecraft.getInstance().getWindow(),
                             InputConstants.KEY_LCONTROL);
                     ClientPlayNetworking.send(new C2SDropWarehouseItemPayload(hSlot.index, dropFullStack));

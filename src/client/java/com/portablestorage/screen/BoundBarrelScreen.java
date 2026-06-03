@@ -1,5 +1,7 @@
 package com.portablestorage.screen;
 
+import com.portablestorage.PortableStorage;
+
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -8,7 +10,8 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
 
 public class BoundBarrelScreen extends AbstractContainerScreen<BoundBarrelScreenHandler> {
-    private static final Identifier TEXTURE = Identifier.withDefaultNamespace("textures/gui/container/hopper.png");
+    private static final Identifier TEXTURE = PortableStorage.id("textures/gui/gui2.png");
+    private static final Identifier SLOT_TEXTURE = PortableStorage.id("textures/gui/slot.png");
 
     public BoundBarrelScreen(BoundBarrelScreenHandler handler, Inventory inventory, Component title) {
         super(handler, inventory, title, 176, 133);
@@ -19,6 +22,10 @@ public class BoundBarrelScreen extends AbstractContainerScreen<BoundBarrelScreen
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         this.extractTransparentBackground(graphics);
         graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, this.leftPos, this.topPos, 0, 0, this.imageWidth,
-                this.imageHeight, 256, 256);
+                this.imageHeight, this.imageWidth, this.imageHeight);
+        for (int col = 0; col < 5; col++) {
+            graphics.blit(RenderPipelines.GUI_TEXTURED, SLOT_TEXTURE, this.leftPos + 43 + col * 18, this.topPos + 19,
+                    0, 0, 18, 18, 18, 18, 18, 18);
+        }
     }
 }
