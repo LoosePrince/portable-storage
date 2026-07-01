@@ -24,7 +24,10 @@ public class ModBlocks {
 
     public static final Block TEMP_BED = register("temp_bed",
             properties -> new TempBedBlock(net.minecraft.world.item.DyeColor.RED, properties),
-            BlockBehaviour.Properties.ofFullCopy(net.minecraft.world.level.block.Blocks.RED_BED));
+            BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.WOOD)
+                    .strength(0.2F)
+                    .sound(SoundType.WOOD));
 
     private static <T extends Block> T register(String name, Function<BlockBehaviour.Properties, T> factory,
             BlockBehaviour.Properties properties) {

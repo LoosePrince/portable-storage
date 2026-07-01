@@ -1,6 +1,6 @@
 package com.portablestorage.event;
 
-import com.portablestorage.component.ModComponents;
+import com.portablestorage.storage.service.WarehouseService;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.world.SpaceRiftManager;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
@@ -15,7 +15,7 @@ public class SpaceRiftEventHandler {
             if (world.dimension().equals(SpaceRiftManager.DIMENSION_KEY)) {
                 if (player.isCreative() || player.isSpectator()) return InteractionResult.PASS;
                 
-                PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+                PlayerWarehouse warehouse = WarehouseService.get(player);
                 if (SpaceRiftManager.isOutsideBorder(null, warehouse, hitResult.getBlockPos().relative(hitResult.getDirection()))) {
                     return InteractionResult.FAIL;
                 }
@@ -29,7 +29,7 @@ public class SpaceRiftEventHandler {
             if (world.dimension().equals(SpaceRiftManager.DIMENSION_KEY)) {
                 if (player.isCreative() || player.isSpectator()) return InteractionResult.PASS;
 
-                PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+                PlayerWarehouse warehouse = WarehouseService.get(player);
                 if (SpaceRiftManager.isOutsideBorder(null, warehouse, pos)) {
                     return InteractionResult.FAIL;
                 }

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.portablestorage.PortableStorage;
+import com.portablestorage.client.gui.ClientScreens;
 import com.portablestorage.component.PlayerWarehouse;
 
 import net.minecraft.ChatFormatting;
@@ -358,8 +359,8 @@ public class WarehouseRenderer {
                         int craftingY = horizontal ? by : (by + (showShortcuts ? iconSpacing * 5 : 0));
                         if (mouseX >= craftingX && mouseX < craftingX + 18 && mouseY >= craftingY
                                         && mouseY < craftingY + 18) {
-                                boolean isCrafting = net.minecraft.client.Minecraft
-                                                .getInstance().screen instanceof com.portablestorage.screen.CraftingWarehouseScreen;
+                                boolean isCrafting = ClientScreens.current(net.minecraft.client.Minecraft
+                                                .getInstance()) instanceof com.portablestorage.screen.CraftingWarehouseScreen;
                                 List<Component> tooltip = new ArrayList<>();
                                 tooltip.add(Component.translatable(
                                                 isCrafting ? "gui.portablestorage.button.back"

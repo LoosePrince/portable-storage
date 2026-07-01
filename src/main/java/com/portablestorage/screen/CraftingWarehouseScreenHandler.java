@@ -5,6 +5,7 @@ import java.util.Optional;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.logic.WarehouseManager;
+import com.portablestorage.storage.service.WarehouseService;
 import com.portablestorage.util.WarehouseConstants;
 
 import net.minecraft.server.level.ServerPlayer;
@@ -62,7 +63,7 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
         }
 
         // 升级槽位
-        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+        PlayerWarehouse warehouse = ModComponents.getWarehouse(player);
         int upgradeX = WarehouseConstants.getWarehouseXOffset() + WarehouseConstants.UPGRADE_SLOT_RELATIVE_X;
         int upgradeYBase = WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows())
                 + WarehouseConstants.UPGRADE_SLOT_RELATIVE_Y;
@@ -135,7 +136,7 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+        PlayerWarehouse warehouse = ModComponents.getWarehouse(player);
         return warehouse.hasWorkbenchUpgrade();
     }
 
@@ -169,7 +170,7 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
             int totalInvEnd = Math.max(invEnd, hotbarEnd);
 
             // 获取仓库实例用于后续判定
-            PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+            PlayerWarehouse warehouse = ModComponents.getWarehouse(player);
 
             if (slot instanceof ResultSlot) { // 合成结果：使用原版逻辑处理
                 // 原版逻辑：循环处理直到无法移动或槽位为空
@@ -204,9 +205,15 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
                 this.slotsChanged(this.craftSlots); // 手动触发合成结果更新
             } else if (slot.container instanceof Inventory) { // 玩家背包或快捷栏
                 // 尝试移动到仓库
-                if (warehouse.isEnabled() && !warehouse.isFolded() && warehouse.isQuickInteraction()) {
-                    ItemStack remaining = WarehouseManager.addFluid(warehouse, itemStack2, player);
-                    slot.set(remaining);
+                if (warehouse.isEnabled() && !warehouse.isFolded() && warehouse.isQuickInteraction()
+                        && player instanceof ServerPlayer serverPlayer) {
+                    WarehouseService.commitIfWarehouseChanged(serverPlayer, warehouse,
+                            "crafting_warehouse.quick_move.to_warehouse", () -> {
+                                ItemStack remaining = WarehouseManager.addFluid(warehouse, itemStack2, player,
+                                        "crafting_warehouse.quick_move.to_warehouse");
+                                slot.set(remaining);
+                                return null;
+                            });
                 } else {
                     // 如果仓库不可用，尝试在背包和快捷栏之间移动
                     if (index >= invStart && index < invEnd) {
@@ -241,8 +248,12 @@ public class CraftingWarehouseScreenHandler extends AbstractContainerMenu {
                 }
 
                 int movedCount = itemStack.getCount() - itemStack2.getCount();
-                if (movedCount > 0) {
-                    ((PlayerWarehouse) slot.container).removeItem(slot.getContainerSlot(), movedCount);
+                if (movedCount > 0 && player instanceof ServerPlayer serverPlayer) {
+                    WarehouseService.commitIfWarehouseChanged(serverPlayer, (PlayerWarehouse) slot.container,
+                            "crafting_warehouse.quick_move.from_warehouse", () -> {
+                                ((PlayerWarehouse) slot.container).removeItem(slot.getContainerSlot(), movedCount);
+                                return null;
+                            });
                 }
             }
 

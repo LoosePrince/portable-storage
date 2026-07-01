@@ -2,7 +2,7 @@ package com.portablestorage.entity;
 
 import java.util.UUID;
 
-import com.portablestorage.component.ModComponents;
+import com.portablestorage.storage.service.WarehouseService;
 import com.portablestorage.world.SpaceRiftManager;
 
 import net.minecraft.server.level.ServerLevel;
@@ -57,7 +57,7 @@ public class RiftAvatarEntity extends LivingEntity {
         if (owner == null) {
             return;
         }
-        var warehouse = ModComponents.get(owner).getWarehouse(owner.getUUID());
+        var warehouse = WarehouseService.get(owner);
         if (this.getUUID().equals(warehouse.getAvatarUuid())) {
             warehouse.setAvatarUuid(null);
         }

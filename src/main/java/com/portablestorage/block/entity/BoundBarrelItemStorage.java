@@ -3,24 +3,36 @@ package com.portablestorage.block.entity;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.component.WarehouseEntry;
 import com.portablestorage.logic.WarehouseManager;
+import com.portablestorage.storage.service.WarehouseService;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
 import net.fabricmc.fabric.api.transfer.v1.storage.StorageView;
 import net.fabricmc.fabric.api.transfer.v1.transaction.TransactionContext;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.Iterator;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Consumer;
+
+import com.portablestorage.storage.key.WarehouseStackKey;
 
 public class BoundBarrelItemStorage implements Storage<ItemVariant> {
     private final PlayerWarehouse warehouse;
     private final SimpleContainer filters;
+    private final MinecraftServer server;
+    private final UUID ownerUuid;
 
-    public BoundBarrelItemStorage(PlayerWarehouse warehouse, SimpleContainer filters) {
+    public BoundBarrelItemStorage(PlayerWarehouse warehouse, SimpleContainer filters, MinecraftServer server, UUID ownerUuid) {
         this.warehouse = warehouse;
         this.filters = filters;
+        this.server = server;
+        this.ownerUuid = ownerUuid;
     }
 
     private boolean isAllowed(ItemVariant resource) {
@@ -37,22 +49,32 @@ public class BoundBarrelItemStorage implements Storage<ItemVariant> {
 
     @Override
     public long insert(ItemVariant resource, long maxAmount, TransactionContext transaction) {
-        if (!isAllowed(resource)) return 0;
+        if (!isAllowed(resource) || maxAmount <= 0) return 0;
         
-        // 计算理论上能插入的最大数量
         long insertable = calculateInsertableAmount(resource, maxAmount);
         if (insertable <= 0) return 0;
+
+        Map<PlayerWarehouse, Map<WarehouseStackKey, Long>> snapshot = snapshotSharedGroup();
+        ItemStack stack = resource.toStack((int) insertable);
+        warehouse.withSuppressedDirtyNotifications(() -> {
+            WarehouseManager.addItem(warehouse, stack, null, "bound_barrel.insert");
+            return null;
+        });
+        long inserted = insertable - stack.getCount();
+        if (inserted <= 0) {
+            restoreSharedGroup(snapshot);
+            return 0;
+        }
         
-        // 模拟事务：仅在提交时修改
         transaction.addCloseCallback((context, result) -> {
             if (result.wasCommitted()) {
-                ItemStack stack = resource.toStack((int) insertable);
-                // 自动化设备交互，使用无 player 版本（会跳过 NBT 大小检查）
-                WarehouseManager.addItem(warehouse, stack);
+                commitOwnerWarehouse("bound_barrel.insert");
+            } else {
+                restoreSharedGroup(snapshot);
             }
         });
         
-        return insertable;
+        return inserted;
     }
     
     /**
@@ -105,30 +127,30 @@ public class BoundBarrelItemStorage implements Storage<ItemVariant> {
 
     @Override
     public long extract(ItemVariant resource, long maxAmount, TransactionContext transaction) {
-        if (!isAllowed(resource)) return 0;
+        if (!isAllowed(resource) || maxAmount <= 0) return 0;
 
-        // 检查共享组中是否有足够的物品
-        long totalCount = 0;
-        List<PlayerWarehouse> group = warehouse.getSharedGroupWarehouses();
-        for (PlayerWarehouse pw : group) {
-            for (WarehouseEntry entry : pw.getStorageList()) {
-                if (resource.matches(entry.getItemStack())) {
-                    totalCount += entry.getCount();
-                }
-            }
+        long available = countAllowedResource(resource);
+        long requested = Math.min(available, maxAmount);
+        if (requested <= 0) return 0;
+
+        Map<PlayerWarehouse, Map<WarehouseStackKey, Long>> snapshot = snapshotSharedGroup();
+        ItemStack extracted = warehouse.withSuppressedDirtyNotifications(() ->
+                WarehouseManager.takeMatching(warehouse, resource.toStack(1), (int) requested, true));
+        long extractedCount = extracted.getCount();
+        if (extractedCount <= 0) {
+            restoreSharedGroup(snapshot);
+            return 0;
         }
-
-        long toExtract = Math.min(totalCount, maxAmount);
-        if (toExtract <= 0) return 0;
 
         transaction.addCloseCallback((context, result) -> {
             if (result.wasCommitted()) {
-                // takeMatching 支持共享组
-                WarehouseManager.takeMatching(warehouse, resource.toStack(1), (int) toExtract, true);
+                commitOwnerWarehouse("bound_barrel.extract");
+            } else {
+                restoreSharedGroup(snapshot);
             }
         });
 
-        return toExtract;
+        return extractedCount;
     }
 
     @Override
@@ -148,33 +170,81 @@ public class BoundBarrelItemStorage implements Storage<ItemVariant> {
         }
 
         for (java.util.Map.Entry<ItemVariant, Long> e : merged.entrySet()) {
-            views.add(new WarehouseItemStorageView(warehouse, e.getKey(), e.getValue()));
+            views.add(new WarehouseItemStorageView(warehouse, e.getKey(), e.getValue(), reason -> commitOwnerWarehouse(reason)));
         }
         return views.iterator();
+    }
+
+    private void commitOwnerWarehouse(String reason) {
+        if (server != null && ownerUuid != null) {
+            WarehouseService.commit(server, ownerUuid, reason);
+        }
+    }
+
+    private long countAllowedResource(ItemVariant resource) {
+        long totalCount = 0;
+        for (PlayerWarehouse pw : warehouse.getSharedGroupWarehouses()) {
+            for (WarehouseEntry entry : pw.getStorageList()) {
+                if (resource.matches(entry.getItemStack())) {
+                    totalCount += entry.getCount();
+                }
+            }
+        }
+        return totalCount;
+    }
+
+    private Map<PlayerWarehouse, Map<WarehouseStackKey, Long>> snapshotSharedGroup() {
+        Map<PlayerWarehouse, Map<WarehouseStackKey, Long>> snapshot = new LinkedHashMap<>();
+        for (PlayerWarehouse pw : warehouse.getSharedGroupWarehouses()) {
+            snapshot.put(pw, pw.unifiedStorageSnapshot());
+        }
+        return snapshot;
+    }
+
+    private static void restoreSharedGroup(Map<PlayerWarehouse, Map<WarehouseStackKey, Long>> snapshot) {
+        for (Map.Entry<PlayerWarehouse, Map<WarehouseStackKey, Long>> entry : snapshot.entrySet()) {
+            entry.getKey().restoreUnifiedStorageSnapshot(entry.getValue());
+        }
     }
 
     private static class WarehouseItemStorageView implements StorageView<ItemVariant> {
         private final PlayerWarehouse warehouse;
         private final ItemVariant variant;
         private final long amount;
+        private final Consumer<String> onCommitted;
 
-        public WarehouseItemStorageView(PlayerWarehouse warehouse, ItemVariant variant, long amount) {
+        public WarehouseItemStorageView(PlayerWarehouse warehouse, ItemVariant variant, long amount, Consumer<String> onCommitted) {
             this.warehouse = warehouse;
             this.variant = variant;
             this.amount = amount;
+            this.onCommitted = onCommitted;
         }
 
         @Override
         public long extract(ItemVariant resource, long maxAmount, TransactionContext transaction) {
-            if (!resource.equals(variant)) return 0;
-            long toExtract = Math.min(amount, maxAmount);
+            if (!resource.equals(variant) || maxAmount <= 0) return 0;
+            long requested = Math.min(amount, maxAmount);
+            Map<PlayerWarehouse, Map<WarehouseStackKey, Long>> snapshot = new LinkedHashMap<>();
+            for (PlayerWarehouse pw : warehouse.getSharedGroupWarehouses()) {
+                snapshot.put(pw, pw.unifiedStorageSnapshot());
+            }
+
+            ItemStack extracted = warehouse.withSuppressedDirtyNotifications(() ->
+                    WarehouseManager.takeMatching(warehouse, resource.toStack(1), (int) requested, true));
+            long extractedCount = extracted.getCount();
+            if (extractedCount <= 0) {
+                restoreSharedGroup(snapshot);
+                return 0;
+            }
             
             transaction.addCloseCallback((context, result) -> {
                 if (result.wasCommitted()) {
-                    WarehouseManager.takeMatching(warehouse, resource.toStack(1), (int) toExtract, true);
+                    onCommitted.accept("bound_barrel.view_extract");
+                } else {
+                    restoreSharedGroup(snapshot);
                 }
             });
-            return toExtract;
+            return extractedCount;
         }
 
         @Override

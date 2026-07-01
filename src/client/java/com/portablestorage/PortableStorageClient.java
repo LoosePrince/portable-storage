@@ -1,6 +1,7 @@
 package com.portablestorage;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.portablestorage.client.gui.ClientScreens;
 import com.portablestorage.client.gui.QuickToolClientState;
 import com.portablestorage.client.gui.WarehouseScreen;
 import com.portablestorage.client.gui.WarehouseStateSync;
@@ -11,6 +12,7 @@ import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.network.ModClientNetworking;
 import com.portablestorage.network.OpenCraftingPayload;
 import com.portablestorage.screen.BoundBarrelScreen;
+import com.portablestorage.storage.sync.ClientWarehouseState;
 import com.portablestorage.screen.CraftingWarehouseScreen;
 import com.portablestorage.screen.ModScreenHandlers;
 import com.portablestorage.upgrade.WorkbenchUpgrade;
@@ -19,6 +21,7 @@ import com.portablestorage.util.WarehouseSetting;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -36,7 +39,10 @@ public class PortableStorageClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        ModComponents.setClientWarehouseProvider(ClientWarehouseState::current);
         ModClientNetworking.registerClientReceivers();
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> ClientWarehouseState.onPlayReady(client));
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ClientWarehouseState.clear());
         MenuScreens.register(ModScreenHandlers.CRAFTING_WAREHOUSE, CraftingWarehouseScreen::new);
         MenuScreens.register(ModScreenHandlers.BOUND_BARREL, BoundBarrelScreen::new);
         MenuScreens.register(ModScreenHandlers.TOOL_WAREHOUSE, com.portablestorage.screen.ToolWarehouseScreen::new);
@@ -63,8 +69,8 @@ public class PortableStorageClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (openCraftingKey.consumeClick()) {
                 if (client.player != null) {
-                    PlayerWarehouse warehouse = ModComponents.get(client.player).getWarehouse(client.player.getUUID());
-                    if (warehouse.isEnabled() && !warehouse.getUpgrade(WorkbenchUpgrade.ID).isEmpty()) {
+                    PlayerWarehouse warehouse = ClientWarehouseState.current();
+                    if (warehouse != null && warehouse.isEnabled() && !warehouse.getUpgrade(WorkbenchUpgrade.ID).isEmpty()) {
                         ClientPlayNetworking.send(new OpenCraftingPayload());
                     } else {
                         // 无权限时静默失败，避免刷日志
@@ -72,13 +78,14 @@ public class PortableStorageClient implements ClientModInitializer {
                 }
             }
             while (toggleWarehouseFoldKey.consumeClick()) {
-                if (!(client.screen instanceof WarehouseScreen)) {
+                if (!(ClientScreens.current(client) instanceof WarehouseScreen)) {
                     tryToggleWarehouseFold(client);
                 }
             }
             QuickToolClientState.tick(client);
+            ClientWarehouseState.tick(client);
             flushPendingAutoFold(client);
-            if (client.screen instanceof WarehouseScreen s) {
+            if (ClientScreens.current(client) instanceof WarehouseScreen s) {
                 WarehouseWidget w = s.portablestorage$getWarehouseWidget();
                 if (w != null) {
                     w.updateFrozenMode();
@@ -97,14 +104,17 @@ public class PortableStorageClient implements ClientModInitializer {
     }
 
     public static boolean tryToggleWarehouseFold(Minecraft client) {
-        if (client == null || client.player == null || !(client.screen instanceof WarehouseScreen s)) {
+        if (client == null || client.player == null || !(ClientScreens.current(client) instanceof WarehouseScreen s)) {
             return false;
         }
         WarehouseWidget w = s.portablestorage$getWarehouseWidget();
         if (w == null || !w.shouldShow()) {
             return false;
         }
-        PlayerWarehouse warehouse = ModComponents.get(client.player).getWarehouse(client.player.getUUID());
+        PlayerWarehouse warehouse = ClientWarehouseState.current();
+        if (warehouse == null) {
+            return false;
+        }
         boolean folded = !warehouse.isFolded();
         warehouse.setFolded(folded);
         WarehouseStateSync.sendSetting(WarehouseSetting.FOLD, folded ? 1 : 0);
@@ -126,7 +136,7 @@ public class PortableStorageClient implements ClientModInitializer {
             pendingAutoFoldTicks = 0;
             return;
         }
-        if (client.screen instanceof WarehouseScreen) {
+        if (ClientScreens.current(client) instanceof WarehouseScreen) {
             if (--pendingAutoFoldTicks <= 0) {
                 pendingAutoFoldWarehouse = null;
                 pendingAutoFoldTicks = 0;

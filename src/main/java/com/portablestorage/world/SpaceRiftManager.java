@@ -7,9 +7,9 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.portablestorage.PortableStorage;
-import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
+import com.portablestorage.storage.service.WarehouseService;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
@@ -40,14 +40,17 @@ public class SpaceRiftManager {
         if (server == null)
             return;
 
-        ServerLevel currentLevel = (ServerLevel) player.level();
-        if (currentLevel.dimension().equals(DIMENSION_KEY)) {
-            // 退出裂隙 (正常退出，保存位置)
-            exitRift(player, warehouse, false);
-        } else {
-            // 进入裂隙
-            enterRift(player, warehouse);
-        }
+        WarehouseService.commitIfWarehouseChanged(player, warehouse, "space_rift.teleport", () -> {
+            ServerLevel currentLevel = (ServerLevel) player.level();
+            if (currentLevel.dimension().equals(DIMENSION_KEY)) {
+                // 退出裂隙 (正常退出，保存位置)
+                exitRift(player, warehouse, false);
+            } else {
+                // 进入裂隙
+                enterRift(player, warehouse);
+            }
+            return null;
+        });
     }
 
     private static void enterRift(ServerPlayer player, PlayerWarehouse warehouse) {
@@ -147,7 +150,10 @@ public class SpaceRiftManager {
 
     public static void handleVoidFall(ServerPlayer player, PlayerWarehouse warehouse) {
         if (player.getY() < player.level().dimensionType().minY() - 1) {
-            exitRift(player, warehouse, true);
+            WarehouseService.commitIfWarehouseChanged(player, warehouse, "space_rift.void_fall", () -> {
+                exitRift(player, warehouse, true);
+                return null;
+            });
         }
     }
 
@@ -211,8 +217,7 @@ public class SpaceRiftManager {
 
     private static Set<ChunkPos> getOccupiedPlots(MinecraftServer server, UUID excludedPlayerId) {
         Set<ChunkPos> occupied = new HashSet<>();
-        var component = ModComponents.WAREHOUSE.get(server.getScoreboard());
-        for (PlayerWarehouse other : component.getAllWarehouses()) {
+        for (PlayerWarehouse other : WarehouseService.getAll(server)) {
             if (other.getOwnerUuid().equals(excludedPlayerId) || !hasValidRiftPlot(other)) {
                 continue;
             }
@@ -321,7 +326,7 @@ public class SpaceRiftManager {
     }
 
     public static void removeAvatar(ServerPlayer player) {
-        var warehouse = com.portablestorage.component.ModComponents.get(player).getWarehouse(player.getUUID());
+        var warehouse = WarehouseService.get(player);
         UUID avatarUuid = warehouse.getAvatarUuid();
         warehouse.setAvatarUuid(null);
 

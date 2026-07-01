@@ -155,6 +155,6 @@ public class BoundBarrelBlockEntity extends BlockEntity implements SidedStorageB
             return null;
 
         // 返回一个自定义的 Storage 封装，连接到 PlayerWarehouse 并受本地 inventory 过滤
-        return new BoundBarrelItemStorage(warehouse, inventory);
+        return new BoundBarrelItemStorage(warehouse, inventory, level.getServer(), ownerUuid);
     }
 }

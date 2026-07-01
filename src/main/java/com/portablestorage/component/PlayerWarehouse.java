@@ -12,7 +12,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
+import com.mojang.serialization.DynamicOps;
 import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.storage.core.UnifiedWarehouseStorage;
 import com.portablestorage.storage.key.FluidWarehouseKey;
@@ -32,6 +34,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Player;
@@ -40,9 +43,8 @@ import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 
 /**
- * 玩家仓库数据组件 (CCA Component)
- * 仅负责数据的持有、持久化 (NBT) 和基本的数据存取接口。
- * 复杂的业务逻辑（存取规则、流体转换等）应放在 WarehouseManager 中。
+ * 玩家仓库数据模型。
+ * 只负责数据持有、NBT schema 和基础存取接口；真实提交、脏标记与同步由服务层入口负责。
  */
 public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>> implements Container {
     private static final int WAREHOUSE_SCHEMA_V2 = 2;
@@ -178,13 +180,15 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     private long collapsedCacheRevision = -1;
     private long sortedCacheRevision = -1;
     private long dirtyCount = 0;
+    private long stateRevision = 0;
     private int loadedSchemaVersion = 1;
     private boolean loadedFromUnifiedStorage = false;
 
     private final Consumer<PlayerWarehouse> onChanged;
     private final UUID ownerUuid;
     private String ownerName = "Unknown";
-    private WarehouseComponent parentComponent;
+    private WarehouseDirectory warehouseDirectory;
+    private boolean suppressDirtyNotifications = false;
     private List<PlayerWarehouse> sharedGroupCache = null;
 
     public PlayerWarehouse(UUID id, Consumer<PlayerWarehouse> onChanged) {
@@ -222,7 +226,11 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     }
 
     public void setParentComponent(WarehouseComponent parent) {
-        this.parentComponent = parent;
+        setWarehouseDirectory(parent);
+    }
+
+    public void setWarehouseDirectory(WarehouseDirectory directory) {
+        this.warehouseDirectory = directory;
         invalidateSharedGroupCaches();
     }
 
@@ -271,7 +279,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         List<PlayerWarehouse> group = new ArrayList<>();
         group.add(this);
 
-        if (getEffectiveType() != WarehouseType.FULL || parentComponent == null) {
+        if (getEffectiveType() != WarehouseType.FULL || warehouseDirectory == null) {
             sharedGroupCache = Collections.unmodifiableList(group);
             return sharedGroupCache;
         }
@@ -281,7 +289,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
         // 检查自己是否正在提供共享给别人
         boolean amIProviding = false;
-        for (PlayerWarehouse pw : parentComponent.getAllWarehouses()) {
+        for (PlayerWarehouse pw : warehouseDirectory.getAllWarehouses()) {
             if (pw == this || pw.getEffectiveType() != WarehouseType.FULL)
                 continue;
             if (myUuid.equals(pw.getBarrelOwnerUuid())) {
@@ -299,7 +307,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         // 构建共享组
         // 模式 A：我是消费者（我持有别人的木桶），且对方不是消费者（对方没有木桶）
         if (myTarget != null) {
-            PlayerWarehouse provider = parentComponent.getWarehouse(myTarget);
+            PlayerWarehouse provider = warehouseDirectory.getWarehouse(myTarget);
             if (provider != null && provider.getEffectiveType() == WarehouseType.FULL) {
                 // 对方必须纯粹是提供者（不能持有别人的木桶）
                 if (provider.getBarrelOwnerUuid() == null) {
@@ -308,7 +316,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                         group.add(provider);
 
                         // 同时加入该提供者的所有其他信任的消费者
-                        for (PlayerWarehouse other : parentComponent.getAllWarehouses()) {
+                        for (PlayerWarehouse other : warehouseDirectory.getAllWarehouses()) {
                             if (other == this || other == provider || other.getEffectiveType() != WarehouseType.FULL)
                                 continue;
                             if (myTarget.equals(other.getBarrelOwnerUuid())) {
@@ -323,7 +331,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         }
         // 模式 B：我是纯粹提供者（我没有持有别人的木桶），寻找所有持有我木桶的玩家
         else if (amIProviding) {
-            for (PlayerWarehouse consumer : parentComponent.getAllWarehouses()) {
+            for (PlayerWarehouse consumer : warehouseDirectory.getAllWarehouses()) {
                 if (consumer == this || consumer.getEffectiveType() != WarehouseType.FULL)
                     continue;
                 if (myUuid.equals(consumer.getBarrelOwnerUuid())) {
@@ -342,8 +350,8 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     private void invalidateSharedGroupCaches() {
         this.sharedGroupCache = null;
-        if (parentComponent != null) {
-            parentComponent.invalidateSharedGroupCaches();
+        if (warehouseDirectory != null) {
+            warehouseDirectory.invalidateSharedGroupCaches();
         }
     }
 
@@ -355,14 +363,14 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
      * 检查是否存在连锁共享冲突
      */
     public boolean isSharingConflict() {
-        if (parentComponent == null)
+        if (warehouseDirectory == null)
             return false;
         UUID myUuid = this.ownerUuid;
         UUID myTarget = this.getBarrelOwnerUuid();
         if (myTarget == null)
             return false;
 
-        for (PlayerWarehouse pw : parentComponent.getAllWarehouses()) {
+        for (PlayerWarehouse pw : warehouseDirectory.getAllWarehouses()) {
             if (pw == this || pw.getEffectiveType() != WarehouseType.FULL)
                 continue;
             if (myUuid.equals(pw.getBarrelOwnerUuid())) {
@@ -781,8 +789,34 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         return Collections.unmodifiableSet(pinnedItemIds);
     }
 
+    public Map<WarehouseStackKey, Long> unifiedStorageSnapshot() {
+        return unifiedStorage.snapshot();
+    }
+
+    public void restoreUnifiedStorageSnapshot(Map<WarehouseStackKey, Long> snapshot) {
+        withSuppressedDirtyNotifications(() -> {
+            unifiedStorage.replaceAll(snapshot == null ? Map.of() : snapshot);
+            rebuildLegacyStorageViewFromUnified();
+            return null;
+        });
+    }
+
+    public <T> T withSuppressedDirtyNotifications(Supplier<T> action) {
+        boolean previous = suppressDirtyNotifications;
+        suppressDirtyNotifications = true;
+        try {
+            return action.get();
+        } finally {
+            suppressDirtyNotifications = previous;
+        }
+    }
+
     public long getStorageRevision() {
         return unifiedStorage.getLastModified();
+    }
+
+    public long getStateRevision() {
+        return stateRevision;
     }
 
     public long getDirtyCount() {
@@ -828,8 +862,11 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
      * 标记数据已修改，触发缓存失效和同步
      */
     public void markDirty() {
-        dirtyCount++;
         markDirtyInternal(new HashSet<>());
+        if (suppressDirtyNotifications) {
+            return;
+        }
+        dirtyCount++;
         if (onChanged != null) {
             onChanged.accept(this);
         }
@@ -844,6 +881,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         if (!visited.add(this.ownerUuid))
             return;
 
+        stateRevision++;
         this.baseCache = null;
         this.filteredCache = null;
         this.collapsedCache = null;
@@ -854,7 +892,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         this.sortedCacheRevision = -1;
 
         // 通知共享组内其他成员失效缓存
-        if (parentComponent != null) {
+        if (warehouseDirectory != null) {
             for (PlayerWarehouse pw : getSharedGroupWarehouses()) {
                 if (pw != this) {
                     pw.baseCache = null;
@@ -1622,7 +1660,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
 
     // ========== 持久化逻辑 ==========
 
-    private void readV2Storage(CompoundTag tag, HolderLookup.Provider registries) {
+    private void readV2Storage(CompoundTag tag, DynamicOps<Tag> ops) {
         Map<WarehouseStackKey, Long> migrated = new LinkedHashMap<>();
         ListTag unifiedList = tag.getList("unified_storage").orElseGet(ListTag::new);
         for (int i = 0; i < unifiedList.size(); i++) {
@@ -1636,7 +1674,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                 continue;
             }
             try {
-                WarehouseStackKey key = WarehouseStackKey.fromNbt(entryTag, registries);
+                WarehouseStackKey key = WarehouseStackKey.fromNbt(entryTag, ops);
                 migrated.put(key, migrated.getOrDefault(key, 0L) + amount);
                 if (entryTag.getBoolean("pinned").orElse(false) && key instanceof ItemWarehouseKey itemKey) {
                     Identifier itemId = getItemId(itemKey.toStack());
@@ -1715,16 +1753,44 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
     }
 
     public void readNbt(CompoundTag tag, HolderLookup.Provider registries) {
+        loadFromNbt(tag, registries);
+        this.markDirty();
+    }
+
+    public void loadFromNbt(CompoundTag tag, HolderLookup.Provider registries) {
+        loadFromNbt(tag, registries.createSerializationContext(net.minecraft.nbt.NbtOps.INSTANCE), registries);
+    }
+
+    public void loadFromNbt(CompoundTag tag, DynamicOps<Tag> ops) {
+        loadFromNbt(tag, ops, null);
+    }
+
+    private void loadFromNbt(CompoundTag tag, DynamicOps<Tag> ops, HolderLookup.Provider registries) {
+        boolean previousSuppression = suppressDirtyNotifications;
+        suppressDirtyNotifications = true;
+        try {
+            loadFromNbtInternal(tag, ops, registries);
+        } finally {
+            suppressDirtyNotifications = previousSuppression;
+        }
+        invalidateAllCaches();
+        unifiedStorage.clearDirty();
+    }
+
+    private void loadFromNbtInternal(CompoundTag tag, DynamicOps<Tag> ops, HolderLookup.Provider registries) {
         unifiedStorage.clear();
         pinnedItemIds.clear();
         int schemaVersion = tag.getInt("warehouse_schema_version").orElse(1);
         this.loadedSchemaVersion = schemaVersion;
         if (schemaVersion >= WAREHOUSE_SCHEMA_V2 && tag.contains("unified_storage")) {
             this.loadedFromUnifiedStorage = true;
-            readV2Storage(tag, registries);
-        } else {
+            readV2Storage(tag, ops);
+        } else if (registries != null) {
             this.loadedFromUnifiedStorage = false;
             readV1AndMigrateToV2(tag, registries);
+        } else {
+            this.loadedFromUnifiedStorage = false;
+            unifiedStorage.replaceAll(Map.of());
         }
         if (tag.contains("pinnedItems")) {
             tag.getList("pinnedItems").ifPresent(pinnedList -> {
@@ -1775,7 +1841,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                     java.util.Optional<CompoundTag> itemTagOpt = uTag.getCompound("item");
                     if (itemTagOpt.isEmpty())
                         continue;
-                    ItemStack stack = WarehouseEntry.itemFromNbt(itemTagOpt.get(), registries);
+                    ItemStack stack = WarehouseEntry.itemFromNbt(itemTagOpt.get(), ops);
                     if (!stack.isEmpty()) {
                         upgradeStorage.put(id, stack);
                     }
@@ -1874,15 +1940,17 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
                 this.avatarUuid = null;
             }
         });
-
-        this.markDirty();
     }
 
     public void writeNbt(CompoundTag tag, HolderLookup.Provider registries) {
+        writeNbt(tag, registries.createSerializationContext(net.minecraft.nbt.NbtOps.INSTANCE));
+    }
+
+    public void writeNbt(CompoundTag tag, DynamicOps<Tag> ops) {
         tag.putInt("warehouse_schema_version", WAREHOUSE_SCHEMA_V2);
         ListTag unifiedList = new ListTag();
         for (Map.Entry<WarehouseStackKey, Long> entry : unifiedStorage.snapshot().entrySet()) {
-            CompoundTag entryTag = entry.getKey().toNbt(registries);
+            CompoundTag entryTag = entry.getKey().toNbt(ops);
             entryTag.putLong("amount", entry.getValue());
             if (entry.getKey() instanceof ItemWarehouseKey itemKey && isPinnedItem(itemKey.toStack())) {
                 entryTag.putBoolean("pinned", true);
@@ -1914,7 +1982,7 @@ public class PlayerWarehouse extends SnapshotParticipant<Map<FluidVariant, Long>
         for (Map.Entry<Identifier, ItemStack> entry : upgradeStorage.entrySet()) {
             CompoundTag uTag = new CompoundTag();
             uTag.putString("id", entry.getKey().toString());
-            CompoundTag itemTag = WarehouseEntry.itemToNbt(entry.getValue(), registries);
+            CompoundTag itemTag = WarehouseEntry.itemToNbt(entry.getValue(), ops);
             uTag.put("item", itemTag);
             upgradeList.add(uTag);
         }

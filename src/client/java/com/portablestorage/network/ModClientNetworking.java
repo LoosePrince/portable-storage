@@ -1,6 +1,8 @@
 package com.portablestorage.network;
 
+import com.portablestorage.client.gui.ClientScreens;
 import com.portablestorage.config.ModConfig;
+import com.portablestorage.storage.sync.ClientWarehouseState;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
@@ -59,16 +61,22 @@ public class ModClientNetworking {
 
         ClientPlayNetworking.registerGlobalReceiver(S2COpenHopperFilterPayload.TYPE, (payload, context) -> {
             context.client().execute(() -> {
-                context.client().setScreen(com.portablestorage.config.YACLConfig
-                        .createHopperFilterScreen(context.client().screen, payload.filters(), payload.blacklist()));
+                var client = context.client();
+                ClientScreens.show(client, com.portablestorage.config.YACLConfig
+                        .createHopperFilterScreen(ClientScreens.current(client), payload.filters(), payload.blacklist()));
             });
         });
 
         ClientPlayNetworking.registerGlobalReceiver(S2COpenFoodFilterPayload.TYPE, (payload, context) -> {
             context.client().execute(() -> {
-                context.client().setScreen(com.portablestorage.config.YACLConfig
-                        .createFoodFilterScreen(context.client().screen, payload.filters(), payload.blacklist()));
+                var client = context.client();
+                ClientScreens.show(client, com.portablestorage.config.YACLConfig
+                        .createFoodFilterScreen(ClientScreens.current(client), payload.filters(), payload.blacklist()));
             });
+        });
+
+        ClientPlayNetworking.registerGlobalReceiver(S2CWarehouseSnapshotPayload.TYPE, (payload, context) -> {
+            context.client().execute(() -> ClientWarehouseState.apply(payload.snapshot()));
         });
 
         ClientPlayNetworking.registerGlobalReceiver(S2CWarehousePinnedUpdatePayload.TYPE, (payload, context) -> {
@@ -76,8 +84,10 @@ public class ModClientNetworking {
                 var client = context.client();
                 if (client.player == null)
                     return;
-                var warehouse = com.portablestorage.component.ModComponents.get(client.player)
-                        .getWarehouse(client.player.getUUID());
+                var warehouse = ClientWarehouseState.current();
+                if (warehouse == null) {
+                    return;
+                }
                 var sorted = warehouse.getSortedEntries();
                 if (payload.sortedIndex() >= 0 && payload.sortedIndex() < sorted.size()) {
                     var item = sorted.get(payload.sortedIndex()).getItemStack().getItem();

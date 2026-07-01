@@ -2,10 +2,10 @@ package com.portablestorage.config;
 
 import java.util.Arrays;
 
-import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.client.gui.WarehouseStateSync;
 import com.portablestorage.network.UpdateServerConfigPayload;
+import com.portablestorage.storage.sync.ClientWarehouseState;
 import com.portablestorage.util.StoragePosition;
 import com.portablestorage.util.WarehouseSetting;
 
@@ -29,8 +29,7 @@ public class YACLConfig {
         private static PlayerWarehouse getWarehouse() {
                 if (Minecraft.getInstance().player == null)
                         return null;
-                return ModComponents.get(Minecraft.getInstance().player)
-                                .getWarehouse(Minecraft.getInstance().player.getUUID());
+                return ClientWarehouseState.current();
         }
 
         private static void updateSetting(WarehouseSetting setting, int value) {
@@ -825,33 +824,21 @@ public class YACLConfig {
                 ConfigCategory.Builder categoryBuilder = ConfigCategory.createBuilder()
                                 .name(Component.translatable("gui.portablestorage.sharing_management.title"));
 
-                // 获取所有已知仓库（即所有曾经开启过仓库的玩家）
-                var component = ModComponents.WAREHOUSE.get(Minecraft.getInstance().level.getScoreboard());
-                java.util.List<PlayerWarehouse> allWarehouses = new java.util.ArrayList<>(component.getAllWarehouses());
+                java.util.List<net.minecraft.client.multiplayer.PlayerInfo> allPlayers = Minecraft.getInstance().getConnection() == null
+                                ? new java.util.ArrayList<>()
+                                : new java.util.ArrayList<>(Minecraft.getInstance().getConnection().getOnlinePlayers());
 
-                // 排序：在线优先，然后按名字排序
-                allWarehouses.sort((a, b) -> {
-                        boolean aOnline = Minecraft.getInstance().getConnection()
-                                        .getPlayerInfo(a.getOwnerUuid()) != null;
-                        boolean bOnline = Minecraft.getInstance().getConnection()
-                                        .getPlayerInfo(b.getOwnerUuid()) != null;
-                        if (aOnline != bOnline)
-                                return aOnline ? -1 : 1;
-                        return a.getOwnerName().compareToIgnoreCase(b.getOwnerName());
-                });
+                allPlayers.sort((a, b) -> a.getProfile().name().compareToIgnoreCase(b.getProfile().name()));
 
-                for (PlayerWarehouse pw : allWarehouses) {
-                        if (pw.getOwnerUuid().equals(warehouse.getOwnerUuid()))
+                for (net.minecraft.client.multiplayer.PlayerInfo playerInfo : allPlayers) {
+                        final java.util.UUID targetUuid = playerInfo.getProfile().id();
+                        if (targetUuid.equals(warehouse.getOwnerUuid()))
                                 continue;
 
-                        final java.util.UUID targetUuid = pw.getOwnerUuid();
-                        boolean isOnline = Minecraft.getInstance().getConnection().getPlayerInfo(targetUuid) != null;
-                        String name = pw.getOwnerName();
+                        String name = playerInfo.getProfile().name();
 
                         categoryBuilder.option(Option.<Boolean>createBuilder()
-                                        .name(Component.literal(name)
-                                                        .withStyle(isOnline ? net.minecraft.ChatFormatting.WHITE
-                                                                        : net.minecraft.ChatFormatting.GRAY))
+                                        .name(Component.literal(name))
                                         .description(OptionDescription.of(Component.translatable(
                                                         "gui.portablestorage.sharing_management.toggle_hint")))
                                         .binding(

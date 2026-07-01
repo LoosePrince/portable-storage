@@ -3,7 +3,7 @@ package com.portablestorage.item;
 import java.util.UUID;
 import java.util.function.Consumer;
 
-import com.portablestorage.component.ModComponents;
+import com.portablestorage.storage.service.WarehouseService;
 import com.portablestorage.component.PlayerWarehouse;
 
 import net.minecraft.ChatFormatting;
@@ -56,7 +56,7 @@ public class StorageKeyItem extends Item {
             return InteractionResult.FAIL;
         }
 
-        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+        PlayerWarehouse warehouse = WarehouseService.get(player);
         if (warehouse.isEnabled()) {
             player.sendSystemMessage(
                     Component.translatable("message.portablestorage.already_enabled").withStyle(ChatFormatting.YELLOW),
@@ -92,7 +92,7 @@ public class StorageKeyItem extends Item {
 
         UUID ownerUuid = UUID.fromString(ownerString);
         if (ownerUuid.equals(player.getUUID())) {
-            PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+            PlayerWarehouse warehouse = WarehouseService.get(player);
             // 核心功能：仓库钥匙进入绑定者玩家背包时自动使用并消耗
             if (!warehouse.isEnabled()) {
                 warehouse.setEnabled(true);

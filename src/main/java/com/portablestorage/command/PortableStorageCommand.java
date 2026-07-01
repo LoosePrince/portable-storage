@@ -10,7 +10,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
-import com.portablestorage.component.ModComponents;
+import com.portablestorage.storage.service.WarehouseService;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.component.WarehouseEntry;
 import com.portablestorage.logic.StorageWriteAudit;
@@ -136,7 +136,7 @@ public class PortableStorageCommand {
             return 0;
         }
 
-        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+        PlayerWarehouse warehouse = WarehouseService.get(player);
         if (!warehouse.isEnabled()) {
             context.getSource().sendFailure(
                     Component.translatable("command.portablestorage.count.not_enabled", player.getScoreboardName()));
@@ -201,7 +201,7 @@ public class PortableStorageCommand {
             return 0;
         }
 
-        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+        PlayerWarehouse warehouse = WarehouseService.get(player);
         if (!warehouse.isEnabled()) {
             context.getSource().sendFailure(
                     Component.translatable("command.portablestorage.upgrade.not_enabled", player.getScoreboardName()));
@@ -246,7 +246,11 @@ public class PortableStorageCommand {
                 }
                 upgradeStack = foundStack;
             }
-            warehouse.setUpgrade(upgradeId, upgradeStack.copyWithCount(1));
+            ItemStack finalUpgradeStack = upgradeStack;
+            WarehouseService.commitIfWarehouseChanged(player, warehouse, "command_upgrade.enable", () -> {
+                warehouse.setUpgrade(upgradeId, finalUpgradeStack.copyWithCount(1));
+                return null;
+            });
             context.getSource().sendSuccess(() -> Component.translatable("command.portablestorage.upgrade.enabled",
                     upgradeIdStr, player.getScoreboardName()), true);
         } else {
@@ -257,7 +261,10 @@ public class PortableStorageCommand {
                         Component.translatable("command.portablestorage.upgrade.already_disabled", upgradeIdStr));
                 return 0;
             }
-            warehouse.setUpgrade(upgradeId, ItemStack.EMPTY);
+            WarehouseService.commitIfWarehouseChanged(player, warehouse, "command_upgrade.disable", () -> {
+                warehouse.setUpgrade(upgradeId, ItemStack.EMPTY);
+                return null;
+            });
             context.getSource().sendSuccess(() -> Component.translatable("command.portablestorage.upgrade.disabled",
                     upgradeIdStr, player.getScoreboardName()), true);
         }
@@ -281,7 +288,7 @@ public class PortableStorageCommand {
             return 0;
         }
 
-        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(playerUuid);
+        PlayerWarehouse warehouse = WarehouseService.get(player);
         if (!warehouse.isEnabled()) {
             context.getSource().sendFailure(
                     Component.translatable("command.portablestorage.drop.not_enabled", player.getScoreboardName()));
@@ -326,7 +333,7 @@ public class PortableStorageCommand {
             return 0;
         }
 
-        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+        PlayerWarehouse warehouse = WarehouseService.get(player);
         String upgrades = warehouse.getUpgradeStorage().keySet().stream()
                 .map(Identifier::toString)
                 .sorted()
@@ -356,9 +363,9 @@ public class PortableStorageCommand {
             return 0;
         }
 
-        ModComponents.WAREHOUSE.sync(player.level().getScoreboard());
+        WarehouseService.sync(player);
         context.getSource().sendSuccess(
-                () -> Component.literal("已强制同步仓库组件到客户端: " + player.getScoreboardName()),
+                () -> Component.literal("已请求同步仓库到客户端: " + player.getScoreboardName()),
                 true);
         return 1;
     }
@@ -368,7 +375,7 @@ public class PortableStorageCommand {
             context.getSource().sendFailure(Component.literal("无法获取目标玩家"));
             return 0;
         }
-        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+        PlayerWarehouse warehouse = WarehouseService.get(player);
         Map<String, Integer> bucketStats = warehouse.getTypeBucketStats();
         String buckets = bucketStats.entrySet().stream()
                 .map(e -> e.getKey() + "=" + e.getValue())
@@ -396,7 +403,7 @@ public class PortableStorageCommand {
             context.getSource().sendFailure(Component.literal("无法获取目标玩家"));
             return 0;
         }
-        PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+        PlayerWarehouse warehouse = WarehouseService.get(player);
         context.getSource().sendSuccess(() -> Component.literal(
                 "PortableStorage Debug Schema\n" +
                         "player=" + player.getScoreboardName() + "\n" +
@@ -428,7 +435,7 @@ public class PortableStorageCommand {
                     continue;
                 }
 
-                PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(playerUuid);
+                PlayerWarehouse warehouse = WarehouseService.get(player);
                 if (!warehouse.isEnabled()) {
                     DROP_TASKS.remove(playerUuid);
                     continue;
@@ -492,8 +499,10 @@ public class PortableStorageCommand {
                 int toDrop = (int) Math.min(maxStackSize, Math.min(availableCount, Integer.MAX_VALUE));
 
                 if (toDrop > 0) {
-                    // 从仓库移除物品
-                    ItemStack dropped = WarehouseManager.removeItem(warehouse, targetIndex, toDrop, true);
+                    final int dropSlotIndex = targetIndex;
+                    final int dropAmount = toDrop;
+                    ItemStack dropped = WarehouseService.commitIfWarehouseChanged(player, warehouse,
+                            "command_drop_task", () -> WarehouseManager.removeItem(warehouse, dropSlotIndex, dropAmount, true));
                     if (!dropped.isEmpty()) {
                         // 丢出物品
                         player.drop(dropped, true);

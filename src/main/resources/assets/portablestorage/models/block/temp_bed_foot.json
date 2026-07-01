@@ -1,4 +1,7 @@
 {
   "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "minecraft:block/red_wool"
+  },
   "elements": []
 }

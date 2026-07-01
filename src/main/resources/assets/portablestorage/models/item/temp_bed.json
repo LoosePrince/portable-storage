@@ -1,11 +1,6 @@
 {
-  "parent": "minecraft:item/template_bed",
+  "parent": "minecraft:item/generated",
   "textures": {
-    "particle": "minecraft:block/red_wool",
-    "top": "minecraft:block/red_wool",
-    "bottom": "minecraft:block/red_wool",
-    "side": "minecraft:block/red_wool",
-    "end": "minecraft:block/red_wool",
-    "leg": "minecraft:block/oak_log"
+    "layer0": "minecraft:item/red_bed"
   }
 }

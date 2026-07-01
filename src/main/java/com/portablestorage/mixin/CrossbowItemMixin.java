@@ -5,12 +5,11 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.logic.WarehouseManager;
+import com.portablestorage.storage.service.WarehouseService;
 
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.CrossbowItem;
@@ -23,52 +22,41 @@ import net.minecraft.world.level.Level;
 @Mixin(CrossbowItem.class)
 public abstract class CrossbowItemMixin {
 
-    @Inject(method = "releaseUsing", at = @At("TAIL"))
+    @Inject(method = "releaseUsing", at = @At("RETURN"))
     private void onStoppedUsing(ItemStack stack, Level level, LivingEntity user, int remainingUseTicks,
-            CallbackInfoReturnable<?> ci) {
+            CallbackInfoReturnable<Boolean> ci) {
         if (level.isClientSide())
             return;
         if (!(user instanceof ServerPlayer player))
             return;
+        if (!Boolean.TRUE.equals(ci.getReturnValue())) {
+            WarehouseAmmoBridge.clear(player, stack);
+            return;
+        }
         if (player.getAbilities().instabuild)
             return;
 
-        // 检查弩是否已装填
         ChargedProjectiles chargedProjectiles = stack.get(DataComponents.CHARGED_PROJECTILES);
         if (chargedProjectiles == null || chargedProjectiles.isEmpty())
             return;
 
-        // 优先消耗背包中的弹药（原版逻辑会处理）
-        if (hasAnyAmmo(player))
+        ItemStack ammoTemplate = WarehouseAmmoBridge.consume(player, stack);
+        if (!isAmmo(ammoTemplate))
             return;
 
-        PlayerWarehouse warehouse = ModComponents.getWarehouse(((ServerLevel) player.level()).getServer(),
-                player.getUUID());
+        PlayerWarehouse warehouse = WarehouseService.get(player);
         if (warehouse == null || !warehouse.isEnabled())
             return;
 
-        // 查找合适的弹药
-        ItemStack matchedAmmo = null;
-        for (var entry : warehouse.getStorageList()) {
-            ItemStack s = entry.getItemStack();
-            if (isAmmo(s)) {
-                if (s.is(Items.ARROW)) {
-                    matchedAmmo = s;
-                    break;
-                }
-                if (matchedAmmo == null)
-                    matchedAmmo = s;
-            }
+        boolean hasInfinity = hasInfinityEnchantment(stack);
+        if (hasInfinity && ammoTemplate.is(Items.ARROW)) {
+            return;
         }
 
-        if (matchedAmmo != null) {
-            // 无限附魔仅对普通箭有效，药水箭、光灵箭和烟花火箭即使有无限附魔也会扣除
-            boolean hasInfinity = hasInfinityEnchantment(stack);
-            if (hasInfinity && matchedAmmo.is(Items.ARROW)) {
-                return; // 有无限附魔且是普通箭，不扣除
-            }
-            WarehouseManager.takeMatching(warehouse, matchedAmmo, 1, true);
-        }
+        WarehouseService.commitIfWarehouseChanged(player, warehouse, "crossbow_ammo.consume", () -> {
+            ItemStack taken = WarehouseManager.takeMatching(warehouse, ammoTemplate, 1, true);
+            return !taken.isEmpty();
+        });
     }
 
     private boolean hasInfinityEnchantment(ItemStack stack) {
@@ -86,14 +74,6 @@ public abstract class CrossbowItemMixin {
                     }
                 }
             }
-        }
-        return false;
-    }
-
-    private boolean hasAnyAmmo(ServerPlayer player) {
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            if (isAmmo(player.getInventory().getItem(i)))
-                return true;
         }
         return false;
     }

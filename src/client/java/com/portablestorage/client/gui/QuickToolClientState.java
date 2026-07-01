@@ -2,9 +2,9 @@ package com.portablestorage.client.gui;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.portablestorage.PortableStorageClient;
-import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.network.C2SQuickToolSwapPayload;
+import com.portablestorage.storage.sync.ClientWarehouseState;
 import com.portablestorage.upgrade.ToolUpgrade;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -96,11 +96,11 @@ public final class QuickToolClientState {
     }
 
     public static void render(GuiGraphicsExtractor graphics, Minecraft client) {
-        if (!selecting || client.player == null || client.screen != null) {
+        if (!selecting || client.player == null || ClientScreens.current(client) != null) {
             return;
         }
-        PlayerWarehouse warehouse = ModComponents.get(client.player).getWarehouse(client.player.getUUID());
-        if (!warehouse.isEnabled() || warehouse.getUpgrade(ToolUpgrade.ID).isEmpty()) {
+        PlayerWarehouse warehouse = ClientWarehouseState.current();
+        if (warehouse == null || !warehouse.isEnabled() || warehouse.getUpgrade(ToolUpgrade.ID).isEmpty()) {
             return;
         }
 
@@ -150,8 +150,8 @@ public final class QuickToolClientState {
         if (client.player == null) {
             return;
         }
-        PlayerWarehouse warehouse = ModComponents.get(client.player).getWarehouse(client.player.getUUID());
-        if (!warehouse.isEnabled() || warehouse.getUpgrade(ToolUpgrade.ID).isEmpty()) {
+        PlayerWarehouse warehouse = ClientWarehouseState.current();
+        if (warehouse == null || !warehouse.isEnabled() || warehouse.getUpgrade(ToolUpgrade.ID).isEmpty()) {
             return;
         }
         if (selectedSlot == EMPTY_SELECTION) {

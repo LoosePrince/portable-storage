@@ -4,10 +4,12 @@ import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.mixin.accessor.AbstractContainerMenuAccessor;
+import com.portablestorage.storage.service.WarehouseService;
 import com.portablestorage.upgrade.ExperienceUpgrade;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
@@ -41,7 +43,7 @@ public class WarehouseInteractionHandler {
         }
 
         // 在容器界面，如果没有工作台升级，禁止交互仓库相关槽位
-        PlayerWarehouse warehouseCheck = ModComponents.get(player).getWarehouse(player.getUUID());
+        PlayerWarehouse warehouseCheck = ModComponents.getWarehouse(player);
         if (WarehouseMenuHandler.isContainerMenu(menu)
                 && warehouseCheck.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
             if (isWarehouseSlot)
@@ -67,66 +69,89 @@ public class WarehouseInteractionHandler {
                 return true; // 已拦截
             }
 
+            final int warehouseSlotIndex = slotId - warehouseStart;
             // 处理经验升级交互
             if (slot.hasItem() && slot.getItem().is(com.portablestorage.item.ModItems.BOTTLED_EXPERIENCE)) {
-                handleExperienceClick(warehouse, slotId - warehouseStart, button, clickType, player);
+                if (player instanceof ServerPlayer serverPlayer) {
+                    WarehouseService.commitIfWarehouseChanged(serverPlayer, warehouse, "warehouse_click.experience", () -> {
+                        handleExperienceClick(warehouse, warehouseSlotIndex, button, clickType, player);
+                        return null;
+                    });
+                }
                 return true; // 已拦截
             }
 
-            ItemStack cursorStack = menu.getCarried();
-            if (!cursorStack.isEmpty()) {
-                ItemStack remaining = WarehouseManager.addFluid(warehouse, cursorStack, player);
-                menu.setCarried(remaining);
-            } else {
-                int amount = (button == 1) ? 1 : 64;
-                ItemStack taken = WarehouseManager.removeItem(warehouse, slotId - warehouseStart, amount, false);
-                menu.setCarried(taken);
+            if (!(player instanceof ServerPlayer serverPlayer)) {
+                return true;
             }
+            ItemStack cursorStack = menu.getCarried();
+            WarehouseService.commitIfWarehouseChanged(serverPlayer, warehouse, "warehouse_click.main_slot", () -> {
+                if (!cursorStack.isEmpty()) {
+                    ItemStack remaining = WarehouseManager.addFluid(warehouse, cursorStack, player, "warehouse_click.main_slot");
+                    menu.setCarried(remaining);
+                } else {
+                    int amount = (button == 1) ? 1 : 64;
+                    ItemStack taken = WarehouseManager.removeItem(warehouse, warehouseSlotIndex, amount, false);
+                    menu.setCarried(taken);
+                }
+                return null;
+            });
             return true; // 已拦截
         }
         // 处理升级槽位
         else if (slot instanceof com.portablestorage.upgrade.UpgradeSlot) {
-            PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+            PlayerWarehouse warehouse = ModComponents.getWarehouse(player);
             if (!warehouse.isEnabled())
                 return false;
 
             if (isQuickMove(clickType)) {
-                ItemStack stackInSlot = slot.getItem();
-                if (!stackInSlot.isEmpty()) {
-                    if (((AbstractContainerMenuAccessor) menu).invokeMoveItemStackTo(stackInSlot, 9, 45, true)) {
-                        slot.set(stackInSlot);
-                    }
+                if (player instanceof ServerPlayer serverPlayer) {
+                    WarehouseService.commitIfWarehouseChanged(serverPlayer, warehouse, "warehouse_click.upgrade_quick_move", () -> {
+                        ItemStack stackInSlot = slot.getItem();
+                        if (!stackInSlot.isEmpty()) {
+                            if (((AbstractContainerMenuAccessor) menu).invokeMoveItemStackTo(stackInSlot, 9, 45, true)) {
+                                slot.set(stackInSlot);
+                            }
+                        }
+                        return null;
+                    });
                 }
                 return true; // 已拦截
             }
 
-            ItemStack cursorStack = menu.getCarried();
-            if (!cursorStack.isEmpty()) {
-                if (slot.mayPlace(cursorStack)) {
-                    ItemStack stackInSlot = slot.getItem();
-                    int maxPlace = slot.getMaxStackSize();
-
-                    if (stackInSlot.isEmpty()) {
-                        int toPlace = Math.min(cursorStack.getCount(), maxPlace);
-                        slot.set(cursorStack.split(toPlace));
-                    } else if (ItemStack.isSameItemSameComponents(stackInSlot, cursorStack)) {
-                        int canAdd = Math.min(cursorStack.getCount(), maxPlace - stackInSlot.getCount());
-                        if (canAdd > 0) {
-                            stackInSlot.grow(canAdd);
-                            cursorStack.shrink(canAdd);
-                            slot.setChanged();
-                        }
-                    } else if (cursorStack.getCount() == 1) {
-                        ItemStack old = slot.getItem();
-                        slot.set(cursorStack.split(1));
-                        menu.setCarried(old);
-                    }
-                }
-            } else {
-                int amount = (button == 1) ? 1 : slot.getMaxStackSize();
-                ItemStack taken = slot.remove(amount);
-                menu.setCarried(taken);
+            if (!(player instanceof ServerPlayer serverPlayer)) {
+                return true;
             }
+            WarehouseService.commitIfWarehouseChanged(serverPlayer, warehouse, "warehouse_click.upgrade_slot", () -> {
+                ItemStack cursorStack = menu.getCarried();
+                if (!cursorStack.isEmpty()) {
+                    if (slot.mayPlace(cursorStack)) {
+                        ItemStack stackInSlot = slot.getItem();
+                        int maxPlace = slot.getMaxStackSize();
+
+                        if (stackInSlot.isEmpty()) {
+                            int toPlace = Math.min(cursorStack.getCount(), maxPlace);
+                            slot.set(cursorStack.split(toPlace));
+                        } else if (ItemStack.isSameItemSameComponents(stackInSlot, cursorStack)) {
+                            int canAdd = Math.min(cursorStack.getCount(), maxPlace - stackInSlot.getCount());
+                            if (canAdd > 0) {
+                                stackInSlot.grow(canAdd);
+                                cursorStack.shrink(canAdd);
+                                slot.setChanged();
+                            }
+                        } else if (cursorStack.getCount() == 1) {
+                            ItemStack old = slot.getItem();
+                            slot.set(cursorStack.split(1));
+                            menu.setCarried(old);
+                        }
+                    }
+                } else {
+                    int amount = (button == 1) ? 1 : slot.getMaxStackSize();
+                    ItemStack taken = slot.remove(amount);
+                    menu.setCarried(taken);
+                }
+                return null;
+            });
             return true; // 已拦截
         }
         return false;

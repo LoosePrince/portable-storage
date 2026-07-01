@@ -1,7 +1,10 @@
 package com.portablestorage.component;
 
+import com.mojang.serialization.DynamicOps;
+
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -131,20 +134,23 @@ public class WarehouseEntry {
     }
 
     public static ItemStack itemFromNbt(CompoundTag tag, HolderLookup.Provider registries) {
-        // 使用 ItemStack.CODEC 进行反序列化，避免依赖已移除的 parseOptional
-        var ops = net.minecraft.nbt.NbtOps.INSTANCE;
-        var ctx = registries.createSerializationContext(ops);
-        return net.minecraft.world.item.ItemStack.CODEC.parse(ctx, tag)
+        return itemFromNbt(tag, registries.createSerializationContext(net.minecraft.nbt.NbtOps.INSTANCE));
+    }
+
+    public static ItemStack itemFromNbt(CompoundTag tag, DynamicOps<Tag> ops) {
+        return net.minecraft.world.item.ItemStack.CODEC.parse(ops, tag)
                 .resultOrPartial(__ -> {
                 })
                 .orElse(ItemStack.EMPTY);
     }
 
     public static CompoundTag itemToNbt(ItemStack stack, HolderLookup.Provider registries) {
+        return itemToNbt(stack, registries.createSerializationContext(net.minecraft.nbt.NbtOps.INSTANCE));
+    }
+
+    public static CompoundTag itemToNbt(ItemStack stack, DynamicOps<Tag> ops) {
         CompoundTag tag = new CompoundTag();
-        var ops = net.minecraft.nbt.NbtOps.INSTANCE;
-        var ctx = registries.createSerializationContext(ops);
-        net.minecraft.world.item.ItemStack.CODEC.encodeStart(ctx, stack)
+        net.minecraft.world.item.ItemStack.CODEC.encodeStart(ops, stack)
                 .resultOrPartial(__ -> {
                 })
                 .ifPresent(nbt -> {

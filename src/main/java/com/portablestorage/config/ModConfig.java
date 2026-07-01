@@ -14,7 +14,9 @@ import java.nio.file.Path;
  */
 public class ModConfig {
     /** 配置文件路径 */
-    private static final Path CONFIG_FILE = FabricLoader.getInstance().getConfigDir().resolve("portablestorage.toml");
+    private static Path configFile() {
+        return FabricLoader.getInstance().getConfigDir().resolve("portablestorage.toml");
+    }
     
     // ========== 客户端配置 ==========
     /** 是否偏移背包界面 */
@@ -115,7 +117,7 @@ public class ModConfig {
      * 加载配置文件
      */
     public static void load() {
-        CommentedFileConfig config = CommentedFileConfig.builder(CONFIG_FILE, TomlFormat.instance())
+        CommentedFileConfig config = CommentedFileConfig.builder(configFile(), TomlFormat.instance())
                 .defaultResource("/assets/portablestorage/config/default-config.toml")
                 .writingMode(WritingMode.REPLACE)
                 .build();
@@ -175,7 +177,7 @@ public class ModConfig {
      * 保存配置到文件
      */
     public static void save() {
-        CommentedFileConfig config = CommentedFileConfig.builder(CONFIG_FILE, TomlFormat.instance())
+        CommentedFileConfig config = CommentedFileConfig.builder(configFile(), TomlFormat.instance())
                 .writingMode(WritingMode.REPLACE)
                 .build();
         config.load();

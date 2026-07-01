@@ -12,6 +12,7 @@ import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.component.WarehouseEntry;
 
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BowItem;
 import net.minecraft.world.item.CrossbowItem;
@@ -60,6 +61,9 @@ public abstract class PlayerProjectileMixin {
 
                 if (matched != null) {
                     cir.setReturnValue(matched);
+                    if (player instanceof ServerPlayer serverPlayer) {
+                        WarehouseAmmoBridge.remember(serverPlayer, weapon, matched);
+                    }
                 }
             }
         }

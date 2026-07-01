@@ -14,12 +14,12 @@ repositories {
 	// Add repositories to retrieve artifacts from in here.
 	mavenCentral()
 	maven {
-		name = "Ladysnake Libs"
-		url = "https://maven.ladysnake.org/releases"
-	}
-	maven {
 		name = "Xander Maven"
 		url = "https://maven.isxander.dev/releases"
+	}
+	maven {
+		name = "Modrinth Maven"
+		url = "https://api.modrinth.com/maven"
 	}
 	maven {
 		name = "Jared's maven"
@@ -66,21 +66,13 @@ dependencies {
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-	// Cardinal Components API
-	implementation "org.ladysnake.cardinal-components-api:cardinal-components-base:${project.cca_version}"
-	implementation "org.ladysnake.cardinal-components-api:cardinal-components-entity:${project.cca_version}"
-	implementation "org.ladysnake.cardinal-components-api:cardinal-components-scoreboard:${project.cca_version}"
-	include "org.ladysnake.cardinal-components-api:cardinal-components-base:${project.cca_version}"
-	include "org.ladysnake.cardinal-components-api:cardinal-components-entity:${project.cca_version}"
-	include "org.ladysnake.cardinal-components-api:cardinal-components-scoreboard:${project.cca_version}"
-
 	// Night Config (TOML)
 	implementation "com.electronwill.night-config:toml:${project.night_config_version}"
 	include "com.electronwill.night-config:toml:${project.night_config_version}"
 	include "com.electronwill.night-config:core:${project.night_config_version}"
 
 	// Yet Another Config Lib
-	implementation "dev.isxander:yet-another-config-lib:${project.yacl_version}"
+	implementation "maven.modrinth:yacl:${project.yacl_version}"
 	
 	// JPinyin for Pinyin search (supports polyphones)
 	implementation "com.github.stuxuhai:jpinyin:${project.jpinyin_version}"

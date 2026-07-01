@@ -81,8 +81,16 @@ public class PortableStorage implements ModInitializer {
         // 玩家加入时重置裂隙边界并同步配置
         net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             var player = handler.getPlayer();
-            var warehouse = com.portablestorage.component.ModComponents.get(player).getWarehouse(player.getUUID());
-            warehouse.setOwnerName(player.getScoreboardName());
+            var warehouse = com.portablestorage.storage.service.WarehouseService.get(player);
+            com.portablestorage.storage.service.WarehouseService.commitIfWarehouseChanged(player, warehouse,
+                    "player_join.runtime_state", () -> {
+                        warehouse.setOwnerName(player.getScoreboardName());
+
+                        if (player.level().dimension().equals(com.portablestorage.world.SpaceRiftManager.DIMENSION_KEY)) {
+                            warehouse.setRiftBorderResendTicks(40);
+                        }
+                        return null;
+                    });
 
             // 强制加载区块
             com.portablestorage.world.SpaceRiftManager.updatePlotForcedLoading(player, warehouse, true);
@@ -92,7 +100,6 @@ public class PortableStorage implements ModInitializer {
                 com.portablestorage.world.SpaceRiftManager.removeAvatar(player);
 
                 // 在下一刻或几秒后发送，确保客户端已经进入维度
-                warehouse.setRiftBorderResendTicks(40);
                 server.execute(() -> {
                     com.portablestorage.world.SpaceRiftManager.applyPersonalBorder(player, warehouse);
                 });
@@ -131,20 +138,24 @@ public class PortableStorage implements ModInitializer {
                     && server.getPlayerList().isOp(new NameAndId(player.getGameProfile()));
             sender.sendPacket(new com.portablestorage.network.S2CConfigPermissionResultPayload(canEdit));
 
-            // Scoreboard 组件在 join 初期有同步时序问题；延迟一拍强制同步仓库状态到客户端。
-            server.execute(() -> com.portablestorage.component.ModComponents.WAREHOUSE.sync(player.level().getScoreboard()));
+            // 进入 play 阶段后主动下发一次完整仓库快照，避免客户端依赖 UI 首次读取才请求。
+            server.execute(() -> com.portablestorage.storage.service.WarehouseService.sync(player));
         });
 
         // 升级系统服务端 Tick 处理（漏斗、裂隙等）
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             for (net.minecraft.server.level.ServerPlayer player : server.getPlayerList().getPlayers()) {
-                var warehouse = com.portablestorage.component.ModComponents.get(player).getWarehouse(player.getUUID());
+                var warehouse = com.portablestorage.storage.service.WarehouseService.get(player);
                 if (warehouse.isEnabled()) {
                     for (java.util.Map.Entry<Identifier, ItemStack> entry : warehouse.getUpgradeStorage().entrySet()) {
                         com.portablestorage.upgrade.UpgradeType type = com.portablestorage.upgrade.UpgradeRegistry
                                 .get(entry.getKey());
                         if (type != null && type.requiresServerTick()) {
-                            type.serverTick(warehouse, player);
+                            com.portablestorage.storage.service.WarehouseService.commitIfWarehouseChanged(player, warehouse,
+                                    "upgrade_tick." + entry.getKey(), () -> {
+                                        type.serverTick(warehouse, player);
+                                        return null;
+                                    });
                         }
                     }
                 }
@@ -158,7 +169,7 @@ public class PortableStorage implements ModInitializer {
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             var player = handler.getPlayer();
             if (player != null) {
-                var warehouse = com.portablestorage.component.ModComponents.get(player).getWarehouse(player.getUUID());
+                var warehouse = com.portablestorage.storage.service.WarehouseService.get(player);
 
                 // 停止强制加载
                 com.portablestorage.world.SpaceRiftManager.updatePlotForcedLoading(player, warehouse, false);
@@ -169,7 +180,11 @@ public class PortableStorage implements ModInitializer {
                 }
 
                 if (!warehouse.getUpgrade(TrashCanUpgrade.ID).isEmpty()) {
-                    warehouse.setUpgrade(TrashCanUpgrade.ID, ItemStack.EMPTY);
+                    com.portablestorage.storage.service.WarehouseService.commitIfWarehouseChanged(player, warehouse,
+                            "player_disconnect.clear_trash", () -> {
+                                warehouse.setUpgrade(TrashCanUpgrade.ID, ItemStack.EMPTY);
+                                return null;
+                            });
                 }
             }
         });

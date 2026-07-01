@@ -35,6 +35,8 @@ public class ModNetworking {
                                 C2SQueryConfigPermissionPayload.CODEC);
                 PayloadTypeRegistry.serverboundPlay().register(C2SQuickToolSwapPayload.TYPE,
                                 C2SQuickToolSwapPayload.CODEC);
+                PayloadTypeRegistry.serverboundPlay().register(C2SRequestWarehouseSnapshotPayload.TYPE,
+                                C2SRequestWarehouseSnapshotPayload.CODEC);
         }
 
         public static void registerS2CPayloads() {
@@ -46,6 +48,8 @@ public class ModNetworking {
                 PayloadTypeRegistry.clientboundPlay().register(S2COpenFoodFilterPayload.TYPE, S2COpenFoodFilterPayload.CODEC);
                 PayloadTypeRegistry.clientboundPlay().register(S2CWarehousePinnedUpdatePayload.TYPE,
                                 S2CWarehousePinnedUpdatePayload.CODEC);
+                PayloadTypeRegistry.clientboundPlay().register(S2CWarehouseSnapshotPayload.TYPE,
+                                S2CWarehouseSnapshotPayload.CODEC);
         }
 
         public static void registerServerReceivers() {
@@ -80,5 +84,7 @@ public class ModNetworking {
                                 ModServerNetworking::handleQueryConfigPermission);
                 ServerPlayNetworking.registerGlobalReceiver(C2SQuickToolSwapPayload.TYPE,
                                 ModServerNetworking::handleQuickToolSwap);
+                ServerPlayNetworking.registerGlobalReceiver(C2SRequestWarehouseSnapshotPayload.TYPE,
+                                ModServerNetworking::handleRequestWarehouseSnapshot);
         }
 }

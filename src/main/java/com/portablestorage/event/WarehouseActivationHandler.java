@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import com.portablestorage.component.ModComponents;
+import com.portablestorage.storage.service.WarehouseService;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.component.PlayerWarehouse.WarehouseType;
 import com.portablestorage.config.ModConfig;
@@ -49,15 +49,20 @@ public class WarehouseActivationHandler {
                 targetType = WarehouseType.BASE;
 
             if (targetType != null) {
-                PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+                PlayerWarehouse warehouse = WarehouseService.get(player);
                 WarehouseType currentType = warehouse.getType();
                 Item activationItem = targetType == WarehouseType.FULL ? fullItem : baseItem;
                 Component itemName = Component.translatable(activationItem.getDescriptionId());
 
                 // 逻辑 1: 升级激活 (当前已开启，且目标等级更高)
                 if (warehouse.isEnabled() && targetType.ordinal() > currentType.ordinal()) {
-                    warehouse.setType(targetType);
-                    stack.shrink(1);
+                    WarehouseType finalTargetType = targetType;
+                    WarehouseService.commitIfWarehouseChanged((net.minecraft.server.level.ServerPlayer) player, warehouse,
+                            "warehouse_activation.upgrade", () -> {
+                                warehouse.setType(finalTargetType);
+                                stack.shrink(1);
+                                return null;
+                            });
                     String typeKey = targetType == WarehouseType.FULL ? "full" : "base";
                     player.sendSystemMessage(
                             Component.translatable("message.portablestorage.activated." + typeKey, itemName));
@@ -68,9 +73,14 @@ public class WarehouseActivationHandler {
                 if (!warehouse.isEnabled()) {
                     // 如果仓库完全为空，则直接激活，不触发警告
                     if (warehouse.isFullyEmpty()) {
-                        warehouse.setType(targetType);
-                        warehouse.setEnabled(true);
-                        stack.shrink(1);
+                        WarehouseType finalTargetType = targetType;
+                        WarehouseService.commitIfWarehouseChanged((net.minecraft.server.level.ServerPlayer) player, warehouse,
+                                "warehouse_activation.enable_empty", () -> {
+                                    warehouse.setType(finalTargetType);
+                                    warehouse.setEnabled(true);
+                                    stack.shrink(1);
+                                    return null;
+                                });
                         String typeKey = targetType == WarehouseType.FULL ? "full" : "base";
                         player.sendSystemMessage(
                                 Component.translatable("message.portablestorage.activated." + typeKey, itemName));
@@ -82,10 +92,15 @@ public class WarehouseActivationHandler {
 
                     if (now - lastAttempt < CONFIRMATION_TIMEOUT) {
                         // 执行二次确认后的逻辑：清除数据并重新开启
-                        warehouse.clearContent();
-                        warehouse.setType(targetType);
-                        warehouse.setEnabled(true);
-                        stack.shrink(1);
+                        WarehouseType finalTargetType = targetType;
+                        WarehouseService.commitIfWarehouseChanged((net.minecraft.server.level.ServerPlayer) player, warehouse,
+                                "warehouse_activation.enable_with_wipe", () -> {
+                                    warehouse.clearContent();
+                                    warehouse.setType(finalTargetType);
+                                    warehouse.setEnabled(true);
+                                    stack.shrink(1);
+                                    return null;
+                                });
                         CONFIRMATION_MAP.remove(player.getUUID());
 
                         String typeKey = targetType == WarehouseType.FULL ? "full" : "base";

@@ -2,11 +2,13 @@ package com.portablestorage.storage.key;
 
 import java.util.Objects;
 
+import com.mojang.serialization.DynamicOps;
 import com.portablestorage.component.WarehouseEntry;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
 
 public final class ItemWarehouseKey implements WarehouseStackKey {
@@ -37,15 +39,24 @@ public final class ItemWarehouseKey implements WarehouseStackKey {
 
     @Override
     public CompoundTag toNbt(HolderLookup.Provider registries) {
+        return toNbt(registries.createSerializationContext(net.minecraft.nbt.NbtOps.INSTANCE));
+    }
+
+    @Override
+    public CompoundTag toNbt(DynamicOps<Tag> ops) {
         CompoundTag tag = new CompoundTag();
         tag.putString("type", TYPE_ITEM);
-        tag.put("stack", WarehouseEntry.itemToNbt(template, registries));
+        tag.put("stack", WarehouseEntry.itemToNbt(template, ops));
         return tag;
     }
 
     public static ItemWarehouseKey fromNbt(CompoundTag tag, HolderLookup.Provider registries) {
+        return fromNbt(tag, registries.createSerializationContext(net.minecraft.nbt.NbtOps.INSTANCE));
+    }
+
+    public static ItemWarehouseKey fromNbt(CompoundTag tag, DynamicOps<Tag> ops) {
         CompoundTag stackTag = tag.getCompound("stack").orElse(new CompoundTag());
-        ItemStack stack = WarehouseEntry.itemFromNbt(stackTag, registries);
+        ItemStack stack = WarehouseEntry.itemFromNbt(stackTag, ops);
         if (stack.isEmpty()) {
             throw new IllegalArgumentException("Invalid item key payload");
         }

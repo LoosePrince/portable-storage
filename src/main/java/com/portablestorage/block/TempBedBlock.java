@@ -7,7 +7,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
-import net.minecraft.world.level.block.entity.BlockEntity;
 
 /**
  * 临时床方块，用于床升级的原地睡觉。
@@ -22,10 +21,5 @@ public class TempBedBlock extends BedBlock {
     public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
         level.removeBlock(pos, false);
         return state;
-    }
-
-    @Override
-    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return null; // 不需要方块实体
     }
 }

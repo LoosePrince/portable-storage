@@ -4,7 +4,6 @@ import java.util.List;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.portablestorage.PortableStorageClient;
-import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
 import com.portablestorage.config.YACLConfig;
@@ -18,6 +17,7 @@ import com.portablestorage.network.C2SUpdateFrozenStatePayload;
 import com.portablestorage.network.C2SUpgradeInteractionPayload;
 import com.portablestorage.network.OpenCraftingPayload;
 import com.portablestorage.network.QuickTransferPayload;
+import com.portablestorage.storage.sync.ClientWarehouseState;
 import com.portablestorage.util.StoragePosition;
 import com.portablestorage.util.WarehouseConstants;
 import com.portablestorage.util.WarehouseRenderer;
@@ -71,8 +71,9 @@ public class WarehouseWidget {
 
     public WarehouseWidget(AbstractContainerScreen<?> screen) {
         this.screen = screen;
-        this.warehouse = ModComponents.get(Minecraft.getInstance().player)
-                .getWarehouse(Minecraft.getInstance().player.getUUID());
+        PlayerWarehouse snapshot = ClientWarehouseState.current();
+        this.warehouse = snapshot == null ? new PlayerWarehouse(java.util.UUID.randomUUID(), __ -> {
+        }) : snapshot;
     }
 
     public boolean shouldShow() {
@@ -439,7 +440,7 @@ public class WarehouseWidget {
     private void refreshScreen() {
         Minecraft minecraft = Minecraft.getInstance();
         if (screen instanceof InventoryScreen) {
-            minecraft.setScreen(new InventoryScreen(minecraft.player));
+            ClientScreens.show(minecraft, new InventoryScreen(minecraft.player));
         } else {
             // 对于容器方块界面，尝试通过 init 重新排布
             screen.init(minecraft.getWindow().getGuiScaledWidth(),
@@ -625,7 +626,7 @@ public class WarehouseWidget {
                 var loader = net.fabricmc.loader.api.FabricLoader.getInstance();
                 boolean hasYacl = loader.isModLoaded("yet_another_config_lib_v3");
                 if (hasYacl) {
-                    minecraft.setScreen(YACLConfig.create(screen));
+                    ClientScreens.show(minecraft, YACLConfig.create(screen));
                 } else {
                     if (minecraft.player != null) {
                         minecraft.player.sendSystemMessage(
@@ -648,7 +649,7 @@ public class WarehouseWidget {
                 screenAccessor.portablestorage$getTopPos(), warehouse,
                 screenAccessor.portablestorage$getImageHeight())) {
             if (button == 0) {
-                minecraft.setScreen(YACLConfig.createSharingManagementScreen(screen, warehouse));
+                ClientScreens.show(minecraft, YACLConfig.createSharingManagementScreen(screen, warehouse));
                 return true;
             }
         }

@@ -5,12 +5,11 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.logic.WarehouseManager;
+import com.portablestorage.storage.service.WarehouseService;
 
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.BowItem;
@@ -22,47 +21,37 @@ import net.minecraft.world.level.Level;
 @Mixin(BowItem.class)
 public abstract class BowItemMixin {
 
-    @Inject(method = "releaseUsing", at = @At("HEAD"))
+    @Inject(method = "releaseUsing", at = @At("RETURN"))
     private void onStoppedUsing(ItemStack stack, Level level, LivingEntity user, int remainingUseTicks,
-            CallbackInfoReturnable<?> ci) {
+            CallbackInfoReturnable<Boolean> ci) {
         if (level.isClientSide())
             return;
         if (!(user instanceof ServerPlayer player))
             return;
+        if (!Boolean.TRUE.equals(ci.getReturnValue())) {
+            WarehouseAmmoBridge.clear(player, stack);
+            return;
+        }
         if (player.getAbilities().instabuild)
             return;
 
-        // 优先消耗背包中的箭（原版逻辑会处理）
-        if (hasAnyArrow(player))
+        ItemStack ammoTemplate = WarehouseAmmoBridge.consume(player, stack);
+        if (!isArrow(ammoTemplate))
             return;
 
-        PlayerWarehouse warehouse = ModComponents.getWarehouse(((ServerLevel) player.level()).getServer(),
-                player.getUUID());
+        PlayerWarehouse warehouse = WarehouseService.get(player);
         if (warehouse == null || !warehouse.isEnabled())
             return;
 
-        // 查找合适的箭
-        ItemStack matchedArrow = null;
-        for (var entry : warehouse.getStorageList()) {
-            ItemStack s = entry.getItemStack();
-            if (isArrow(s)) {
-                if (s.is(Items.ARROW)) {
-                    matchedArrow = s;
-                    break;
-                }
-                if (matchedArrow == null)
-                    matchedArrow = s;
-            }
+        boolean hasInfinity = hasInfinityEnchantment(stack);
+        if (hasInfinity && ammoTemplate.is(Items.ARROW)) {
+            return;
         }
 
-        if (matchedArrow != null) {
-            // 无限附魔仅对普通箭有效，药水箭和光灵箭即使有无限附魔也会扣除
-            boolean hasInfinity = hasInfinityEnchantment(stack);
-            if (hasInfinity && matchedArrow.is(Items.ARROW)) {
-                return; // 有无限附魔且是普通箭，不扣除
-            }
-            WarehouseManager.takeMatching(warehouse, matchedArrow, 1, true);
-        }
+        WarehouseService.commitIfWarehouseChanged(player, warehouse, "bow_ammo.consume", () -> {
+            ItemStack taken = WarehouseManager.takeMatching(warehouse, ammoTemplate, 1, true);
+            return !taken.isEmpty();
+        });
     }
 
     private boolean hasInfinityEnchantment(ItemStack stack) {
@@ -80,15 +69,6 @@ public abstract class BowItemMixin {
                     }
                 }
             }
-        }
-        return false;
-    }
-
-    private boolean hasAnyArrow(ServerPlayer player) {
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            ItemStack s = player.getInventory().getItem(i);
-            if (!s.isEmpty() && (s.is(Items.ARROW) || s.is(Items.TIPPED_ARROW) || s.is(Items.SPECTRAL_ARROW)))
-                return true;
         }
         return false;
     }

@@ -1,6 +1,6 @@
 package com.portablestorage.event;
 
-import com.portablestorage.component.ModComponents;
+import com.portablestorage.storage.service.WarehouseService;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
 import com.portablestorage.item.StorageKeyItem;
@@ -27,8 +27,8 @@ public class PlayerDeathEventHandler {
                 return;
 
             // 获取仓库组件
-            PlayerWarehouse oldWarehouse = ModComponents.get(oldPlayer).getWarehouse(oldPlayer.getUUID());
-            PlayerWarehouse newWarehouse = ModComponents.get(newPlayer).getWarehouse(newPlayer.getUUID());
+            PlayerWarehouse oldWarehouse = WarehouseService.get(oldPlayer);
+            PlayerWarehouse newWarehouse = WarehouseService.get(newPlayer);
 
             // 检查 keepInventory 规则
             boolean keepInventory = newPlayer.level().getGameRules().get(GameRules.KEEP_INVENTORY);
@@ -37,20 +37,26 @@ public class PlayerDeathEventHandler {
 
             if (!keepInventory && ModConfig.dropStorageOnDeath && oldWarehouse.isEnabled() && !isUnconditional) {
                 // 如果不保留物品、配置了死亡禁用、原本启用、且不是“无条件开启”：禁用并掉落钥匙
-                newWarehouse.setEnabled(false);
-                newWarehouse.setFolded(true);
+                WarehouseService.commitIfWarehouseChanged(newPlayer, newWarehouse, "player_death.disable_warehouse", () -> {
+                    newWarehouse.setEnabled(false);
+                    newWarehouse.setFolded(true);
+                    return null;
+                });
 
                 // 掉落钥匙 (如果是裂隙内死亡，则掉落在返回点)
                 dropKey((ServerPlayer) oldPlayer, oldWarehouse);
             } else {
                 // 否则保持（或恢复）启用状态
-                newWarehouse.setEnabled(oldWarehouse.isEnabled());
+                WarehouseService.commitIfWarehouseChanged(newPlayer, newWarehouse, "player_death.restore_enabled", () -> {
+                    newWarehouse.setEnabled(oldWarehouse.isEnabled());
+                    return null;
+                });
             }
         });
 
         // 重生后强制补发一次全量同步，确保客户端状态绝对准确
         ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
-            ModComponents.WAREHOUSE.sync(newPlayer.level().getScoreboard());
+            WarehouseService.sync(newPlayer);
         });
     }
 

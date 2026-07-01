@@ -8,6 +8,7 @@ import com.portablestorage.config.ModConfig;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
@@ -28,6 +29,11 @@ public class ConduitUpgrade extends UpgradeType {
     private static final int BLOCKS_FOR_CONDUIT_POWER = 16;
     /** 攻击模式所需海晶系方块数 */
     private static final int BLOCKS_FOR_ATTACK = 42;
+
+    private static final java.util.Set<Identifier> CONDUIT_ATTACK_EXCLUDED_ENTITY_IDS = java.util.Set.of(
+            Identifier.parse("minecraft:piglin"),
+            Identifier.parse("minecraft:piglin_brute"),
+            Identifier.parse("minecraft:hoglin"));
 
     private static final net.minecraft.world.item.Item[] CONDUIT_BLOCKS = {
             Items.PRISMARINE,
@@ -180,9 +186,7 @@ public class ConduitUpgrade extends UpgradeType {
                         && e.distanceTo(player) <= 8
                         && !(e instanceof net.minecraft.world.entity.player.Player)
                         && e instanceof net.minecraft.world.entity.monster.Monster
-                        && e.getType() != net.minecraft.world.entity.EntityType.PIGLIN
-                        && e.getType() != net.minecraft.world.entity.EntityType.PIGLIN_BRUTE
-                        && e.getType() != net.minecraft.world.entity.EntityType.HOGLIN);
+                        && !CONDUIT_ATTACK_EXCLUDED_ENTITY_IDS.contains(BuiltInRegistries.ENTITY_TYPE.getKey(e.getType())));
 
         net.minecraft.world.entity.LivingEntity target = null;
         double nearest = Double.MAX_VALUE;
@@ -195,7 +199,7 @@ public class ConduitUpgrade extends UpgradeType {
         }
         if (target != null) {
             target.hurt(damageSource, 4f);
-            target.knockback(0.4, player.getX() - target.getX(), player.getZ() - target.getZ());
+            target.knockback(0.4, player.getX() - target.getX(), player.getZ() - target.getZ(), damageSource, 0.0F);
         }
     }
 }

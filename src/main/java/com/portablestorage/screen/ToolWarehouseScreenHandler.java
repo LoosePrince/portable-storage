@@ -3,8 +3,11 @@ package com.portablestorage.screen;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.logic.WarehouseManager;
+import com.portablestorage.storage.service.WarehouseService;
 import com.portablestorage.upgrade.ToolUpgrade;
 
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -20,8 +23,8 @@ public class ToolWarehouseScreenHandler extends AbstractContainerMenu {
     public ToolWarehouseScreenHandler(int syncId, Inventory playerInventory) {
         super(ModScreenHandlers.TOOL_WAREHOUSE, syncId);
         this.player = playerInventory.player;
-        this.warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
-        this.toolContainer = new ToolContainer(warehouse);
+        this.warehouse = ModComponents.getWarehouse(player);
+        this.toolContainer = new ToolContainer(warehouse, player);
 
         for (int col = 0; col < 9; ++col) {
             this.addSlot(new ToolSlot(toolContainer, col, 8 + col * 18, 20, warehouse, player));
@@ -40,7 +43,7 @@ public class ToolWarehouseScreenHandler extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        PlayerWarehouse current = ModComponents.get(player).getWarehouse(player.getUUID());
+        PlayerWarehouse current = ModComponents.getWarehouse(player);
         return current.isEnabled() && !current.getUpgrade(ToolUpgrade.ID).isEmpty();
     }
 
@@ -79,9 +82,11 @@ public class ToolWarehouseScreenHandler extends AbstractContainerMenu {
 
     private static final class ToolContainer implements Container {
         private final PlayerWarehouse warehouse;
+        private final Player player;
 
-        private ToolContainer(PlayerWarehouse warehouse) {
+        private ToolContainer(PlayerWarehouse warehouse, Player player) {
             this.warehouse = warehouse;
+            this.player = player;
         }
 
         @Override
@@ -126,12 +131,31 @@ public class ToolWarehouseScreenHandler extends AbstractContainerMenu {
 
         @Override
         public void setItem(int slot, ItemStack stack) {
-            warehouse.setToolSlotStack(slot, stack);
+            if (!stack.isEmpty() && !isToolWarehouseItem(stack)) {
+                return;
+            }
+            ItemStack normalized = stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1);
+            ItemStack before = warehouse.getToolSlotStack(slot);
+            if (ItemStack.isSameItemSameComponents(before, normalized) && before.getCount() == normalized.getCount()) {
+                return;
+            }
+            if (player instanceof ServerPlayer serverPlayer) {
+                WarehouseService.commitIfWarehouseChanged(serverPlayer, warehouse, "tool_warehouse.set_slot", () -> {
+                    warehouse.setToolSlotStack(slot, normalized);
+                    return null;
+                });
+            } else {
+                warehouse.setToolSlotStack(slot, normalized);
+            }
         }
 
         @Override
         public void setChanged() {
-            warehouse.markDirty();
+            if (player instanceof ServerPlayer serverPlayer) {
+                WarehouseService.commit(serverPlayer, "tool_warehouse.container_changed");
+            } else {
+                warehouse.markDirty();
+            }
         }
 
         @Override
@@ -159,7 +183,7 @@ public class ToolWarehouseScreenHandler extends AbstractContainerMenu {
 
         @Override
         public boolean mayPlace(ItemStack stack) {
-            if (stack.isEmpty()) {
+            if (stack.isEmpty() || stack.getCount() != 1 || !isToolWarehouseItem(stack)) {
                 return false;
             }
             if (!WarehouseManager.canStoreItem(warehouse, stack, player, "tool_warehouse.slot")) {
@@ -171,5 +195,9 @@ public class ToolWarehouseScreenHandler extends AbstractContainerMenu {
             int typeLimit = warehouse.getMaxStorageTypes();
             return typeLimit < 0 || warehouse.getStoredItemTypeCount() < typeLimit;
         }
+    }
+
+    private static boolean isToolWarehouseItem(ItemStack stack) {
+        return !stack.isEmpty() && (stack.has(DataComponents.TOOL) || stack.has(DataComponents.MAX_DAMAGE));
     }
 }

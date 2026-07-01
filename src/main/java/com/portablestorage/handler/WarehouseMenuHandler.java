@@ -6,6 +6,7 @@ import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.mixin.accessor.AbstractContainerMenuAccessor;
+import com.portablestorage.storage.service.WarehouseService;
 import com.portablestorage.upgrade.UpgradeSlot;
 import com.portablestorage.util.WarehouseConstants;
 import com.portablestorage.util.WarehouseUtils;
@@ -200,11 +201,15 @@ public class WarehouseMenuHandler {
 
         // 分支 A: 仓库槽位（取出到背包）
         if (isWarehouseSlot) {
-            if (!warehouse.isFolded()) {
+            if (!warehouse.isFolded() && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
                 int containerSlot = slot.getContainerSlot();
-                com.portablestorage.logic.WarehouseManager.tryTransferToInventory((PlayerWarehouse) slot.container,
-                        containerSlot, player);
-                menu.broadcastChanges();
+                WarehouseService.commitIfWarehouseChanged(serverPlayer, (PlayerWarehouse) slot.container,
+                        "menu_quick_move.from_warehouse", () -> {
+                            com.portablestorage.logic.WarehouseManager.tryTransferToInventory((PlayerWarehouse) slot.container,
+                                    containerSlot, player);
+                            menu.broadcastChanges();
+                            return null;
+                        });
             }
             return ItemStack.EMPTY;
         }
@@ -221,19 +226,9 @@ public class WarehouseMenuHandler {
 
         // 分支 C: 玩家背包槽位
         if (isPlayerInventory) {
-            if (warehouse.isQuickInteraction() && !warehouse.isFolded()) {
-                // 尝试存入仓库
-                ItemStack remaining = WarehouseManager.addFluid(warehouse, stackInSlot, player);
-                if (remaining.getCount() == originalStack.getCount()) {
-                    WarehouseManager.addItem(warehouse, stackInSlot, player);
-                    remaining = stackInSlot;
-                }
-
-                if (remaining.getCount() < originalStack.getCount()) {
-                    slot.set(remaining);
-                    slot.setChanged();
-                    return originalStack;
-                }
+            if (storeSlotIntoWarehouse(player, warehouse, slot, stackInSlot, originalStack,
+                    "menu_quick_move.player_to_warehouse")) {
+                return originalStack;
             }
             // 存入失败或未开启快速存取：不再拦截，从背包到容器的逻辑交给原版处理
             // 这样我们只接管「从容器取出」路径，避免引入额外行为差异
@@ -242,19 +237,9 @@ public class WarehouseMenuHandler {
 
         // 分支 D: 普通容器槽位（如铁砧结果、熔炉、箱子等）
         if (!isSpecialSlot(slot, menu)) {
-            if (warehouse.isQuickInteraction() && !warehouse.isFolded()) {
-                // 快速存取开启：优先尝试存入仓库
-                ItemStack remaining = WarehouseManager.addFluid(warehouse, stackInSlot, player);
-                if (remaining.getCount() == originalStack.getCount()) {
-                    WarehouseManager.addItem(warehouse, stackInSlot, player);
-                    remaining = stackInSlot;
-                }
-
-                if (remaining.getCount() < originalStack.getCount()) {
-                    slot.set(remaining);
-                    slot.setChanged();
-                    return originalStack;
-                }
+            if (storeSlotIntoWarehouse(player, warehouse, slot, stackInSlot, originalStack,
+                    "menu_quick_move.container_to_warehouse")) {
+                return originalStack;
             }
 
             // 快速存取关闭或存入失败：仅在玩家物品栏范围内移动，避免写入仓库槽位
@@ -269,6 +254,31 @@ public class WarehouseMenuHandler {
 
         // 特殊槽位：交给原版处理
         return null;
+    }
+
+    private static boolean storeSlotIntoWarehouse(Player player, PlayerWarehouse warehouse, Slot slot,
+            ItemStack stackInSlot, ItemStack originalStack, String reason) {
+        if (!(player instanceof net.minecraft.server.level.ServerPlayer serverPlayer)
+                || !warehouse.isQuickInteraction()
+                || warehouse.isFolded()) {
+            return false;
+        }
+
+        return WarehouseService.commitIfWarehouseChanged(serverPlayer, warehouse, reason, () -> {
+            ItemStack remaining = WarehouseManager.addFluid(warehouse, stackInSlot, player, reason);
+            if (remaining.getCount() == originalStack.getCount()) {
+                WarehouseManager.addItem(warehouse, stackInSlot, player, reason + ".item");
+                remaining = stackInSlot;
+            }
+
+            if (remaining.getCount() >= originalStack.getCount()) {
+                return false;
+            }
+
+            slot.set(remaining);
+            slot.setChanged();
+            return true;
+        });
     }
 
     /**

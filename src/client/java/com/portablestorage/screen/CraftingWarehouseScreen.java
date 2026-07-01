@@ -1,5 +1,6 @@
 package com.portablestorage.screen;
 
+import com.portablestorage.client.gui.ClientScreens;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.util.WarehouseConstants;
@@ -53,7 +54,7 @@ public class CraftingWarehouseScreen extends AbstractContainerScreen<CraftingWar
         }
 
         this.minecraft.player.clientSideCloseContainer();
-        this.minecraft.setScreen(new InventoryScreen(this.minecraft.player));
+        ClientScreens.show(this.minecraft, new InventoryScreen(this.minecraft.player));
     }
 
     // removed, mouseReleased, mouseDragged, mouseScrolled 等事件处理由

@@ -23,9 +23,6 @@
 		"client": [
 			"com.portablestorage.PortableStorageClient"
 		],
-		"cardinal-components-scoreboard": [
-			"com.portablestorage.component.ModComponentRegistration"
-		],
 		"jei_mod_plugin": [
 			"com.portablestorage.jei.PortableStorageJeiPlugin"
 		],
@@ -34,9 +31,6 @@
 		]
 	},
 	"custom": {
-		"cardinal-components": [
-			"portablestorage:warehouse"
-		],
 		"modmenu": {
 			"links": {
 				"portablestorage.modmenu.qq_group": "https://jq.qq.com/?_wv=1027&k=2oUF0gg9"
@@ -51,12 +45,12 @@
 		}
 	],
 	"depends": {
-		"fabricloader": ">=0.16",
-		"minecraft": "~26.1",
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.2",
 		"java": ">=25",
 		"fabric-api": "*"
 	},
 	"suggests": {
-		"yet_another_config_lib_v3": ">=3.9.2+26.1-fabric"
+		"yet_another_config_lib_v3": ">=3.9.5+26.2-fabric"
 	}
 }

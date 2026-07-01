@@ -11,6 +11,7 @@ import com.portablestorage.component.PlayerWarehouse;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
@@ -39,7 +40,10 @@ public class BedUpgrade extends UpgradeType {
 
     @Override
     public ItemStack getIconStack() {
-        return new ItemStack(Items.RED_BED);
+        return new ItemStack(BuiltInRegistries.ITEM
+                .get(Identifier.parse("minecraft:red_bed"))
+                .map(holder -> holder.value())
+                .orElse(Items.AIR));
     }
 
     @Override

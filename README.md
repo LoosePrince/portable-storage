@@ -147,7 +147,8 @@
   - 1.21：1.x版本 √ 2.x版本 √ 2.0.9版本后不再进行功能更新
   - 1.21.1：1.x版本 √ 、2.x版本 √ 2.0.9版本后不再进行功能更新
   - 1.21.11：2.x版本 √ 2.1.5版本后不再进行功能更新
-  - 26.1: 持续开发中...
+  - 26.1：2.x版本 √ 2.2.1版本后不再进行功能更新
+  - 26.2：持续开发中...
 - **Fabric API**：兼容版本（推荐最新稳定版）
 
 ## 适配
@@ -171,7 +172,7 @@
 - 1.x版本拼音搜索使用 [TinyPinyin](https://github.com/promeG/TinyPinyin)
 - 2.x版本拼音搜索使用 [JPinyin](https://github.com/stuxuhai)
 - 配置使用 Night Config
-- 数据储存使用 [Cardinal Components API](https://github.com/Ladysnake/Cardinal-Components-API)
+- 数据储存参考了 [Cardinal Components API](https://github.com/Ladysnake/Cardinal-Components-API)
 - v2底层存储设计参考了 [BeyondDimensions](https://github.com/Frostbite-time/BeyondDimensions) 与 [Endless-Inventory](https://github.com/kwwsyk/Endless-Inventory) 的部分思路，并结合本项目需求做了架构取舍与实现调整。
 - 感谢 Fabric 社区及所有开源贡献者。
 
