@@ -1,3 +1,4 @@
+
 package com.portablestorage.client.handler;
 
 import java.time.Instant;
@@ -39,62 +40,47 @@ public class TooltipHandler {
             return false;
 
         if (hoveredSlot != null && hoveredSlot.container instanceof PlayerWarehouse hoveredWarehouse) {
-            int whStart = -1;
-            for (int i = 0; i < screen.getMenu().slots.size(); i++) {
-                if (screen.getMenu().slots.get(i).container instanceof PlayerWarehouse) {
-                    whStart = i;
-                    break;
-                }
-            }
+            int slotIndex = hoveredSlot.getContainerSlot();
+            if (slotIndex >= 0 && slotIndex < hoveredWarehouse.getVisibleRows() * WarehouseConstants.SLOTS_PER_ROW) {
+                long realCount = hoveredWarehouse.getRealCount(slotIndex);
 
-            if (whStart != -1) {
-                int whSlotEnd = whStart + (wh.getVisibleRows() * WarehouseConstants.SLOTS_PER_ROW);
+                List<WarehouseEntry> entries = hoveredWarehouse.getSortedEntries();
+                int actualIndex = slotIndex + (hoveredWarehouse.getScrollOffset() * 9);
 
-                if (hoveredSlot.index >= whStart && hoveredSlot.index < whSlotEnd) {
-                    int slotIndex = hoveredSlot.index - whStart;
-                    long realCount = hoveredWarehouse.getRealCount(slotIndex);
+                if (actualIndex >= 0 && actualIndex < entries.size()) {
+                    WarehouseEntry entry = entries.get(actualIndex);
+                    List<Component> tooltip = new ArrayList<>(tooltipProvider.apply(hoveredSlot.getItem()));
 
-                    // 获取对应的仓库条目以获取更新时间
-                    List<WarehouseEntry> entries = hoveredWarehouse.getSortedEntries();
-                    int actualIndex = slotIndex + (hoveredWarehouse.getScrollOffset() * 9);
+                    boolean hasCustomInfo = false;
+                    int insertIndex = 1;
 
-                    if (actualIndex >= 0 && actualIndex < entries.size()) {
-                        WarehouseEntry entry = entries.get(actualIndex);
-                        List<Component> tooltip = new ArrayList<>(tooltipProvider.apply(hoveredSlot.getItem()));
+                    if (realCount > 1 && !hoveredSlot.getItem().is(ModItems.BOTTLED_EXPERIENCE)) {
+                        tooltip.add(insertIndex, Component.translatable("gui.portablestorage.count",
+                                Component.literal(String.format("%,d", realCount)).withStyle(ChatFormatting.WHITE))
+                                .withStyle(ChatFormatting.YELLOW));
+                        hasCustomInfo = true;
+                        insertIndex++;
+                    }
 
-                        boolean hasCustomInfo = false;
-                        int insertIndex = 1;
+                    long lastUpdated = entry.getLastUpdated();
+                    if (lastUpdated > 0) {
+                        String timeText = formatDateTime(lastUpdated);
+                        tooltip.add(insertIndex, Component.translatable("gui.portablestorage.update_time",
+                                Component.literal(timeText).withStyle(ChatFormatting.WHITE))
+                                .withStyle(ChatFormatting.GRAY));
+                        hasCustomInfo = true;
+                        insertIndex++;
+                    }
 
-                        // 添加数量信息（数量大于1时显示），但“瓶装经验”有独立数量显示，不再叠加这行
-                        if (realCount > 1 && !hoveredSlot.getItem().is(ModItems.BOTTLED_EXPERIENCE)) {
-                            tooltip.add(insertIndex, Component.translatable("gui.portablestorage.count",
-                                    Component.literal(String.format("%,d", realCount)).withStyle(ChatFormatting.WHITE))
-                                    .withStyle(ChatFormatting.YELLOW));
-                            hasCustomInfo = true;
-                            insertIndex++;
-                        }
+                    if (entry.isPinned()) {
+                        tooltip.add(insertIndex, Component.translatable("gui.portablestorage.button.unpin_hint"));
+                        hasCustomInfo = true;
+                    }
 
-                        // 添加更新时间信息（总是显示）
-                        long lastUpdated = entry.getLastUpdated();
-                        if (lastUpdated > 0) {
-                            String timeText = formatDateTime(lastUpdated);
-                            tooltip.add(insertIndex, Component.translatable("gui.portablestorage.update_time",
-                                    Component.literal(timeText).withStyle(ChatFormatting.WHITE))
-                                    .withStyle(ChatFormatting.GRAY));
-                            hasCustomInfo = true;
-                            insertIndex++;
-                        }
-
-                        if (entry.isPinned()) {
-                            tooltip.add(insertIndex, Component.translatable("gui.portablestorage.button.unpin_hint"));
-                            hasCustomInfo = true;
-                        }
-
-                        if (hasCustomInfo) {
-                            graphics.setTooltipForNextFrame(Minecraft.getInstance().font,
-                                    tooltip.stream().map(Component::getVisualOrderText).toList(), x, y);
-                            return true;
-                        }
+                    if (hasCustomInfo) {
+                        graphics.setTooltipForNextFrame(Minecraft.getInstance().font,
+                                tooltip.stream().map(Component::getVisualOrderText).toList(), x, y);
+                        return true;
                     }
                 }
             }
@@ -102,12 +88,6 @@ public class TooltipHandler {
         return false;
     }
 
-    /**
-     * 格式化日期时间
-     *
-     * @param timestamp 时间戳（毫秒）
-     * @return 格式化后的日期时间字符串（格式：xxxx/xx/xx xx:xx）
-     */
     private static String formatDateTime(long timestamp) {
         LocalDateTime dateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.systemDefault());
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");
