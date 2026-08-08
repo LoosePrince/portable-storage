@@ -15,10 +15,8 @@ public abstract class AbstractContainerMenuMixin {
 
     @Inject(method = "clicked", at = @At("HEAD"), cancellable = true)
     private void handleWarehouseClicks(int slotId, int button, ContainerInput clickType, Player player, CallbackInfo ci) {
-        // Automatically inject warehouse slots if not present
         WarehouseMenuHandler.injectWarehouseSlots((AbstractContainerMenu) (Object) this, player);
 
-        // Handle Shift+Click (Quick Move) globally
         if (isQuickMove(clickType)) {
             if (WarehouseMenuHandler.handleQuickMove((AbstractContainerMenu) (Object) this, player, slotId) != null) {
                 ci.cancel();

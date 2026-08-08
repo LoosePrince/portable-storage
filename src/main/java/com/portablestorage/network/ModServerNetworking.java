@@ -8,25 +8,212 @@ import java.util.Map;
 import com.portablestorage.storage.service.WarehouseService;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
+import com.portablestorage.handler.WarehouseMenuHandler;
 import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.screen.CraftingWarehouseScreenHandler;
+import com.portablestorage.upgrade.ExperienceUpgrade;
+import com.portablestorage.upgrade.UpgradeSlot;
 import com.portablestorage.util.WarehouseSetting;
 
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.NameAndId;
 import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
-/**
- * 服务端网络处理器
- * 处理客户端发送到服务端的网络数据包
- */
 public class ModServerNetworking {
+
+    public static void handleClickWarehouseSlot(C2SClickWarehouseSlotPayload payload, ServerPlayNetworking.Context context) {
+        context.server().execute(() -> {
+            ServerPlayer player = context.player();
+            PlayerWarehouse warehouse = getWarehouse(player);
+            if (!canAccessWarehouseFromMenu(player, warehouse) || (payload.button() != 0 && payload.button() != 1)) {
+                return;
+            }
+
+            Slot targetSlot = findWarehouseMenuSlot(player.containerMenu, payload.containerSlot(), payload.isUpgradeSlot());
+            if (targetSlot == null) {
+                return;
+            }
+
+            int button = payload.button();
+            if (payload.isUpgradeSlot()) {
+                WarehouseService.commitIfWarehouseChanged(player, warehouse, "warehouse_click.upgrade_slot", () -> {
+                    WarehouseMenuHandler.handleUpgradeSlotClick(player.containerMenu, targetSlot, button);
+                    return null;
+                });
+                return;
+            }
+
+            int containerSlot = targetSlot.getContainerSlot();
+            ItemStack slotItem = warehouse.getItem(containerSlot);
+            if (slotItem.is(com.portablestorage.item.ModItems.BOTTLED_EXPERIENCE)) {
+                WarehouseService.commitIfWarehouseChanged(player, warehouse, "warehouse_click.experience", () -> {
+                    handleExperienceClick(warehouse, button, player);
+                    return null;
+                });
+                return;
+            }
+
+            ItemStack cursorStack = player.containerMenu.getCarried();
+            WarehouseService.commitIfWarehouseChanged(player, warehouse, "warehouse_click.main_slot", () -> {
+                if (!cursorStack.isEmpty()) {
+                    ItemStack remaining = WarehouseManager.addFluid(warehouse, cursorStack, player,
+                            "warehouse_click.main_slot");
+                    player.containerMenu.setCarried(remaining);
+                } else {
+                    int amount = button == 1 ? 1 : 64;
+                    ItemStack taken = WarehouseManager.removeItem(warehouse, containerSlot, amount, false);
+                    player.containerMenu.setCarried(taken);
+                }
+                return null;
+            });
+        });
+    }
+
+    private static void handleExperienceClick(PlayerWarehouse warehouse, int button, ServerPlayer player) {
+        if (player.level().isClientSide()) return;
+
+        ItemStack upgradeStack = warehouse.getUpgrade(ExperienceUpgrade.ID);
+        if (upgradeStack.isEmpty()) return;
+
+        if (ExperienceUpgrade.isMaintaining(upgradeStack)) {
+            player.sendSystemMessage(
+                    Component.translatable("tooltip.portablestorage.experience.maintain_blocked")
+                            .withStyle(ChatFormatting.RED));
+            return;
+        }
+
+        int levels = ExperienceUpgrade.getStep(upgradeStack);
+        ItemStack cursorStack = player.containerMenu.getCarried();
+
+        if (cursorStack.isEmpty()) {
+            if (button == 1) { // Right Click: Deposit
+                int levelsToMove = levels;
+                long totalToStore = 0;
+                for (int i = 0; i < levelsToMove; i++) {
+                    int lvl = Math.max(0, player.experienceLevel - i);
+                    totalToStore += (ExperienceUpgrade.getExperienceForLevel(lvl)
+                            - ExperienceUpgrade.getExperienceForLevel(Math.max(0, lvl - 1)));
+                }
+
+                long currentProgressXp = Math.round(player.experienceProgress * player.getXpNeededForNextLevel());
+                totalToStore += currentProgressXp;
+
+                if (totalToStore > 0) {
+                    warehouse.addExperience(totalToStore);
+                    ExperienceUpgrade.addExperience(player, (int) -totalToStore);
+                }
+            } else if (button == 0) { // Left Click: Withdraw
+                long totalToTake = 0;
+                for (int i = 0; i < levels; i++) {
+                    int lvl = player.experienceLevel + i;
+                    totalToTake += (ExperienceUpgrade.getExperienceForLevel(lvl + 1)
+                            - ExperienceUpgrade.getExperienceForLevel(lvl));
+                }
+
+                long canTake = Math.min(totalToTake, warehouse.getExperience());
+                if (canTake > 0) {
+                    warehouse.addExperience(-canTake);
+                    ExperienceUpgrade.addExperience(player, (int) canTake);
+                }
+            }
+        } else if (cursorStack.is(Items.GLASS_BOTTLE) && button == 1) {
+            int canConvert = (int) (warehouse.getExperience() / 11);
+            int toConvert = Math.min(cursorStack.getCount(), canConvert);
+
+            if (toConvert > 0) {
+                warehouse.addExperience(-(long) toConvert * 11);
+                ItemStack bottles = new ItemStack(Items.EXPERIENCE_BOTTLE, toConvert);
+                cursorStack.shrink(toConvert);
+                if (!player.getInventory().add(bottles)) {
+                    player.drop(bottles, false);
+                }
+            }
+
+            if (!cursorStack.isEmpty() && canConvert < cursorStack.getCount()) {
+                WarehouseManager.addItem(warehouse, cursorStack);
+            }
+        }
+    }
+
+    public static void handleQuickTransfer(QuickTransferPayload payload, ServerPlayNetworking.Context context) {
+        context.server().execute(() -> {
+            ServerPlayer player = context.player();
+            PlayerWarehouse warehouse = getWarehouse(player);
+            if (!canAccessWarehouseFromMenu(player, warehouse)
+                    || !warehouse.isQuickInteraction()
+                    || warehouse.isFolded()) {
+                return;
+            }
+
+            if (payload.isUpgradeSlot()) {
+                Slot targetSlot = findWarehouseMenuSlot(player.containerMenu, payload.slotId(), true);
+                if (targetSlot == null || !targetSlot.hasItem()) {
+                    return;
+                }
+                WarehouseService.commitIfWarehouseChanged(player, warehouse, "warehouse_click.upgrade_quick_move", () -> {
+                    WarehouseMenuHandler.moveUpgradeToPlayerInventory(player.containerMenu, targetSlot);
+                    return null;
+                });
+                return;
+            }
+
+            if (payload.isWarehouseSlot()) {
+                Slot targetSlot = findWarehouseMenuSlot(player.containerMenu, payload.slotId(), false);
+                if (targetSlot == null || !targetSlot.hasItem()) {
+                    return;
+                }
+                int containerSlot = targetSlot.getContainerSlot();
+                WarehouseService.commitIfWarehouseChanged(player, warehouse, "quick_transfer.from_warehouse", () -> {
+                    WarehouseManager.tryTransferToInventory(warehouse, containerSlot, player);
+                    return null;
+                });
+                return;
+            }
+
+            Slot inventorySlot = findPlayerInventoryMenuSlot(player.containerMenu, payload.slotId());
+            if (inventorySlot == null || !inventorySlot.hasItem()) {
+                return;
+            }
+            WarehouseService.commitIfWarehouseChanged(player, warehouse, "quick_transfer.to_warehouse", () -> {
+                ItemStack remaining = WarehouseManager.addFluid(warehouse, inventorySlot.getItem(), player);
+                inventorySlot.set(remaining);
+                return null;
+            });
+        });
+    }
+
+    public static void handleDropWarehouseItem(C2SDropWarehouseItemPayload payload, ServerPlayNetworking.Context context) {
+        context.server().execute(() -> {
+            ServerPlayer player = context.player();
+            PlayerWarehouse warehouse = getWarehouse(player);
+            if (!warehouse.isEnabled()) return;
+
+            int containerSlot = payload.slotId();
+            ItemStack stackInSlot = warehouse.getItem(containerSlot);
+            if (!stackInSlot.isEmpty()) {
+                if (WarehouseManager.isVirtualFluid(stackInSlot.getItem())) return;
+
+                int toTake = payload.dropFullStack()
+                        ? (int) Math.min(stackInSlot.getMaxStackSize(), warehouse.getRealCount(containerSlot))
+                        : 1;
+                ItemStack dropped = WarehouseService.commitIfWarehouseChanged(player, warehouse,
+                        "drop_warehouse_item", () -> WarehouseManager.removeItem(warehouse, containerSlot, toTake, true));
+                if (!dropped.isEmpty()) {
+                    player.drop(dropped, true);
+                }
+            }
+        });
+    }
 
     public static void handleOpenCrafting(OpenCraftingPayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
@@ -42,33 +229,22 @@ public class ModServerNetworking {
         });
     }
 
-    public static void handleUpdateWarehouseState(C2SUpdateWarehouseStatePayload payload,
-            ServerPlayNetworking.Context context) {
+    public static void handleUpdateWarehouseState(C2SUpdateWarehouseStatePayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
             ServerPlayer player = context.player();
             PlayerWarehouse warehouse = getWarehouse(player);
             boolean changed = false;
 
-            changed |= payload.scrollDelta()
-                    .map(delta -> applyScrollDelta(warehouse, delta))
-                    .orElse(false);
-            changed |= payload.searchText()
-                    .map(text -> applySearchText(warehouse, text))
-                    .orElse(false);
-            changed |= payload.rowsDelta()
-                    .map(delta -> applyRowsDelta(warehouse, delta))
-                    .orElse(false);
-            changed |= payload.upgradeScrollDelta()
-                    .map(delta -> applyUpgradeScrollDelta(warehouse, delta))
-                    .orElse(false);
+            changed |= payload.scrollDelta().map(delta -> applyScrollDelta(warehouse, delta)).orElse(false);
+            changed |= payload.searchText().map(text -> applySearchText(warehouse, text)).orElse(false);
+            changed |= payload.rowsDelta().map(delta -> applyRowsDelta(warehouse, delta)).orElse(false);
+            changed |= payload.upgradeScrollDelta().map(delta -> applyUpgradeScrollDelta(warehouse, delta)).orElse(false);
 
             if (payload.settingId().isPresent() && payload.settingValue().isPresent()) {
                 changed |= applySetting(warehouse, payload.settingId().get(), payload.settingValue().get());
             }
 
-            if (changed) {
-                syncChanges(player);
-            }
+            if (changed) syncChanges(player);
         });
     }
 
@@ -80,9 +256,7 @@ public class ModServerNetworking {
 
     private static boolean applySearchText(PlayerWarehouse warehouse, String text) {
         String normalized = text.toLowerCase();
-        if (warehouse.getSearchText().equals(normalized)) {
-            return false;
-        }
+        if (warehouse.getSearchText().equals(normalized)) return false;
         warehouse.setSearchText(text);
         return true;
     }
@@ -90,9 +264,7 @@ public class ModServerNetworking {
     private static boolean applyRowsDelta(PlayerWarehouse warehouse, int delta) {
         int before = warehouse.getVisibleRows();
         int target = Math.clamp(before + delta, 1, 12);
-        if (target == before) {
-            return false;
-        }
+        if (target == before) return false;
         warehouse.setVisibleRows(before + delta);
         return true;
     }
@@ -108,44 +280,32 @@ public class ModServerNetworking {
         switch (setting) {
             case FOLD -> {
                 boolean before = warehouse.isFolded();
-                if (before == (value == 1)) {
-                    return false;
-                }
+                if (before == (value == 1)) return false;
                 warehouse.setFolded(value == 1);
                 return warehouse.isFolded() != before;
             }
             case SORT_MODE -> {
-                if (warehouse.getSortMode() == value) {
-                    return false;
-                }
+                if (warehouse.getSortMode() == value) return false;
                 warehouse.setSortMode(value);
                 return true;
             }
             case SORT_ORDER -> {
-                if (warehouse.isAscending() == (value == 1)) {
-                    return false;
-                }
+                if (warehouse.isAscending() == (value == 1)) return false;
                 warehouse.setAscending(value == 1);
                 return true;
             }
             case QUICK_INTERACTION -> {
-                if (warehouse.isQuickInteraction() == (value == 1)) {
-                    return false;
-                }
+                if (warehouse.isQuickInteraction() == (value == 1)) return false;
                 warehouse.setQuickInteraction(value == 1);
                 return true;
             }
             case SMART_COLLAPSE -> {
-                if (warehouse.isSmartCollapse() == (value == 1)) {
-                    return false;
-                }
+                if (warehouse.isSmartCollapse() == (value == 1)) return false;
                 warehouse.setSmartCollapse(value == 1);
                 return true;
             }
             case CRAFT_REFILL -> {
-                if (warehouse.isCraftRefill() == (value == 1)) {
-                    return false;
-                }
+                if (warehouse.isCraftRefill() == (value == 1)) return false;
                 warehouse.setCraftRefill(value == 1);
                 return true;
             }
@@ -153,82 +313,29 @@ public class ModServerNetworking {
         return false;
     }
 
-    public static void handleUpgradeInteraction(C2SUpgradeInteractionPayload payload,
-            ServerPlayNetworking.Context context) {
+    public static void handleUpgradeInteraction(C2SUpgradeInteractionPayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
             ServerPlayer player = context.player();
             PlayerWarehouse warehouse = getWarehouse(player);
-            com.portablestorage.upgrade.UpgradeType type = com.portablestorage.upgrade.UpgradeRegistry
-                    .get(payload.upgradeId());
+            com.portablestorage.upgrade.UpgradeType type = com.portablestorage.upgrade.UpgradeRegistry.get(payload.upgradeId());
 
-            // 校验：仓库启用、升级类型存在、且该升级确实已在仓库中安装物品
             if (type != null && warehouse.isEnabled() && !warehouse.getUpgrade(payload.upgradeId()).isEmpty()) {
                 WarehouseService.commitIfWarehouseChanged(player, warehouse, "upgrade_interaction", () -> {
-                    if (payload.button() == 1) { // 右键
-                        type.onRightClick(warehouse, player);
-                    } else if (payload.button() == 2) { // 中键
-                        type.onMiddleClick(warehouse, player);
-                    }
+                    if (payload.button() == 1) type.onRightClick(warehouse, player);
+                    else if (payload.button() == 2) type.onMiddleClick(warehouse, player);
                     return null;
                 });
             }
         });
     }
 
-    public static void handleQuickTransfer(QuickTransferPayload payload, ServerPlayNetworking.Context context) {
+    public static void handleUpdateServerConfig(UpdateServerConfigPayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
-            ServerPlayer player = context.player();
-
-            int slotId = payload.slotId();
-            if (slotId < 0 || slotId >= player.containerMenu.slots.size())
-                return;
-
-            Slot slot = player.containerMenu.slots.get(slotId);
-            if (slot.container instanceof PlayerWarehouse warehouse) {
-                // 提前验证：仓库必须启用且快速交互开启
-                if (!warehouse.isEnabled() || !warehouse.isQuickInteraction() || warehouse.isFolded()) {
-                    return;
-                }
-                // 验证槽位中确实有物品
-                ItemStack stackInSlot = warehouse.getItem(slot.getContainerSlot());
-                if (stackInSlot.isEmpty()) {
-                    return;
-                }
-                WarehouseService.commitIfWarehouseChanged(player, warehouse, "quick_transfer.from_warehouse", () -> {
-                    WarehouseManager.tryTransferToInventory(warehouse, slot.getContainerSlot(), player);
-                    return null;
-                });
-            } else if (slot.container instanceof net.minecraft.world.entity.player.Inventory) {
-                PlayerWarehouse warehouse = getWarehouse(player);
-                // 提前验证：仓库必须启用且快速交互开启
-                if (!warehouse.isEnabled() || !warehouse.isQuickInteraction() || warehouse.isFolded()) {
-                    return;
-                }
-                ItemStack stack = slot.getItem();
-                if (!stack.isEmpty()) {
-                    WarehouseService.commitIfWarehouseChanged(player, warehouse, "quick_transfer.to_warehouse", () -> {
-                        ItemStack remaining = WarehouseManager.addFluid(warehouse, stack, player);
-                        slot.set(remaining);
-                        return null;
-                    });
-                }
-            }
-        });
-    }
-
-    public static void handleUpdateServerConfig(UpdateServerConfigPayload payload,
-            ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            if (!ModConfig.allowHotReload)
-                return;
+            if (!ModConfig.allowHotReload) return;
 
             ServerPlayer player = context.player();
-            // 权限验证：仅允许 4 级 OP 修改服务端配置
-            if (!context.server().getPlayerList().isOp(new NameAndId(player.getGameProfile()))) {
-                return;
-            }
+            if (!context.server().getPlayerList().isOp(new NameAndId(player.getGameProfile()))) return;
 
-            // 更新服务端配置
             ModConfig.enable3x3Crafting = payload.enable3x3Crafting();
             ModConfig.dropStorageOnDeath = payload.dropStorageOnDeath();
             ModConfig.maxStorageTypes = payload.maxStorageTypes();
@@ -254,10 +361,8 @@ public class ModServerNetworking {
             ModConfig.riftBorderWarningBlocks = payload.riftBorderWarningBlocks();
             ModConfig.enableConduitUpgrade = payload.enableConduitUpgrade();
 
-            // 保存到文件
             ModConfig.save();
 
-            // 更新在线玩家的强制加载状态，并让裂隙内玩家重新接收个人边界
             for (ServerPlayer p : context.server().getPlayerList().getPlayers()) {
                 var warehouse = getWarehouse(p);
                 com.portablestorage.world.SpaceRiftManager.updatePlotForcedLoading(p, warehouse, true);
@@ -266,32 +371,15 @@ public class ModServerNetworking {
                 }
             }
 
-            // 同步给所有玩家
             SyncConfigPayload sync = new SyncConfigPayload(
-                    ModConfig.enable3x3Crafting,
-                    ModConfig.dropStorageOnDeath,
-                    ModConfig.allowHotReload,
-                    ModConfig.maxStorageTypes,
-                    ModConfig.maxItemStackSize,
-                    ModConfig.baseMaxStorageTypes,
-                    ModConfig.baseMaxItemStackSize,
-                    ModConfig.maxItemNbtSize,
-                    ModConfig.unconditionalWarehouse,
-                    ModConfig.baseWarehouseActivationItem,
-                    ModConfig.fullWarehouseActivationItem,
-                    ModConfig.hopperRange,
-                    ModConfig.hopperFrequency,
-                    ModConfig.lavaInfiniteThreshold,
-                    ModConfig.waterInfiniteThreshold,
-                    ModConfig.riftUpgradeItem,
-                    ModConfig.riftChunkSize,
-                    ModConfig.riftPlotSpacingChunks,
-                    ModConfig.riftFloorY,
-                    ModConfig.enableRiftForcedLoading,
-                    ModConfig.riftForcedLoadingRange,
-                    ModConfig.enableRiftAvatar,
-                    ModConfig.enableRiftBorder,
-                    ModConfig.riftBorderWarningBlocks,
+                    ModConfig.enable3x3Crafting, ModConfig.dropStorageOnDeath, ModConfig.allowHotReload,
+                    ModConfig.maxStorageTypes, ModConfig.maxItemStackSize, ModConfig.baseMaxStorageTypes,
+                    ModConfig.baseMaxItemStackSize, ModConfig.maxItemNbtSize, ModConfig.unconditionalWarehouse,
+                    ModConfig.baseWarehouseActivationItem, ModConfig.fullWarehouseActivationItem, ModConfig.hopperRange,
+                    ModConfig.hopperFrequency, ModConfig.lavaInfiniteThreshold, ModConfig.waterInfiniteThreshold,
+                    ModConfig.riftUpgradeItem, ModConfig.riftChunkSize, ModConfig.riftPlotSpacingChunks,
+                    ModConfig.riftFloorY, ModConfig.enableRiftForcedLoading, ModConfig.riftForcedLoadingRange,
+                    ModConfig.enableRiftAvatar, ModConfig.enableRiftBorder, ModConfig.riftBorderWarningBlocks,
                     ModConfig.enableConduitUpgrade);
 
             for (ServerPlayer p : context.server().getPlayerList().getPlayers()) {
@@ -300,12 +388,10 @@ public class ModServerNetworking {
         });
     }
 
-    public static void handleQueryConfigPermission(C2SQueryConfigPermissionPayload payload,
-            ServerPlayNetworking.Context context) {
+    public static void handleQueryConfigPermission(C2SQueryConfigPermissionPayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
             ServerPlayer player = context.player();
-            boolean canEdit = ModConfig.allowHotReload
-                    && context.server().getPlayerList().isOp(new NameAndId(player.getGameProfile()));
+            boolean canEdit = ModConfig.allowHotReload && context.server().getPlayerList().isOp(new NameAndId(player.getGameProfile()));
             ServerPlayNetworking.send(player, new S2CConfigPermissionResultPayload(canEdit));
         });
     }
@@ -314,36 +400,43 @@ public class ModServerNetworking {
         context.server().execute(() -> {
             ServerPlayer player = context.player();
             PlayerWarehouse warehouse = getWarehouse(player);
-            if (!warehouse.isEnabled() || !warehouse.isCraftRefill())
-                return;
+            if (!warehouse.isEnabled() || !warehouse.isCraftRefill()) return;
 
             net.minecraft.world.inventory.AbstractContainerMenu handler = player.containerMenu;
-            if (!isRefillMenu(handler)) {
-                return;
-            }
+            if (!(handler instanceof net.minecraft.world.inventory.AbstractCraftingMenu) && !(handler instanceof CraftingWarehouseScreenHandler)) return;
 
             ItemStack template = payload.targetStack();
-            if (template.isEmpty() || payload.slotIds().isEmpty())
-                return;
+            if (template.isEmpty() || payload.slotIds().isEmpty()) return;
 
             java.util.List<Slot> targetSlots = new java.util.ArrayList<>();
             for (int requestedSlot : payload.slotIds()) {
-                Slot slot = resolveRefillSlot(handler, requestedSlot);
-                if (slot == null || targetSlots.contains(slot)) {
-                    continue;
+                Slot slot = null;
+                if (requestedSlot >= 0 && requestedSlot < handler.slots.size()) {
+                    Slot potential = handler.getSlot(requestedSlot);
+                    if (potential != null && potential.container instanceof net.minecraft.world.inventory.CraftingContainer && !(potential instanceof net.minecraft.world.inventory.ResultSlot)) {
+                        slot = potential;
+                    }
                 }
+                if (slot == null) {
+                    for (Slot s : handler.slots) {
+                        if (s != null && s.container instanceof net.minecraft.world.inventory.CraftingContainer && !(s instanceof net.minecraft.world.inventory.ResultSlot) && s.getContainerSlot() == requestedSlot) {
+                            slot = s;
+                            break;
+                        }
+                    }
+                }
+
+                if (slot == null || targetSlots.contains(slot)) continue;
+
                 ItemStack stack = slot.getItem();
                 if (stack.isEmpty()) {
-                    if (slot.mayPlace(template)) {
-                        targetSlots.add(slot);
-                    }
+                    if (slot.mayPlace(template)) targetSlots.add(slot);
                 } else if (ItemStack.isSameItemSameComponents(stack, template)) {
                     targetSlots.add(slot);
                 }
             }
 
-            if (targetSlots.isEmpty())
-                return;
+            if (targetSlots.isEmpty()) return;
 
             int totalNeed = 0;
             int[] needs = new int[targetSlots.size()];
@@ -357,17 +450,17 @@ public class ModServerNetworking {
                 totalNeed += needs[i];
             }
 
-            if (totalNeed <= 0)
-                return;
+            if (totalNeed <= 0) return;
 
             final int requestedTotalNeed = totalNeed;
-            java.util.Map<Slot, ItemStack> slotSnapshot = snapshotSlots(targetSlots);
+            java.util.Map<Slot, ItemStack> slotSnapshot = new LinkedHashMap<>();
+            for (Slot s : targetSlots) slotSnapshot.put(s, s.getItem().copy());
+
             boolean changed;
             try {
                 changed = WarehouseService.transaction(player, warehouse, "craft_refill", tx -> {
                     ItemStack taken = WarehouseManager.takeMatching(warehouse, template, requestedTotalNeed, true);
-                    if (taken.isEmpty())
-                        return false;
+                    if (taken.isEmpty()) return false;
 
                     int remaining = taken.getCount();
                     int[] distribution = new int[targetSlots.size()];
@@ -381,14 +474,12 @@ public class ModServerNetworking {
                                 anyAdded = true;
                             }
                         }
-                        if (!anyAdded)
-                            break;
+                        if (!anyAdded) break;
                     }
 
                     boolean appliedAny = false;
                     for (int i = 0; i < targetSlots.size(); i++) {
-                        if (distribution[i] <= 0)
-                            continue;
+                        if (distribution[i] <= 0) continue;
                         Slot slot = targetSlots.get(i);
                         ItemStack stack = slot.getItem();
                         if (stack.isEmpty()) {
@@ -400,271 +491,89 @@ public class ModServerNetworking {
                         appliedAny = true;
                     }
 
-                    if (!appliedAny) {
-                        return false;
-                    }
+                    if (!appliedAny) return false;
                     tx.commit();
                     handler.broadcastChanges();
                     return true;
                 });
             } catch (RuntimeException | Error throwable) {
-                restoreSlots(slotSnapshot);
+                for (Map.Entry<Slot, ItemStack> entry : slotSnapshot.entrySet()) entry.getKey().set(entry.getValue().copy());
                 throw throwable;
             }
             if (!changed) {
-                restoreSlots(slotSnapshot);
+                for (Map.Entry<Slot, ItemStack> entry : slotSnapshot.entrySet()) entry.getKey().set(entry.getValue().copy());
             }
         });
     }
 
-    private static boolean isRefillMenu(net.minecraft.world.inventory.AbstractContainerMenu handler) {
-        return handler instanceof net.minecraft.world.inventory.AbstractCraftingMenu
-                || handler instanceof CraftingWarehouseScreenHandler;
-    }
-
-    private static Slot resolveRefillSlot(net.minecraft.world.inventory.AbstractContainerMenu handler, int requestedSlot) {
-        if (requestedSlot >= 0 && requestedSlot < handler.slots.size()) {
-            Slot slot = handler.getSlot(requestedSlot);
-            if (isRefillCraftingSlot(slot)) {
-                return slot;
-            }
-        }
-        for (Slot slot : handler.slots) {
-            if (isRefillCraftingSlot(slot) && slot.getContainerSlot() == requestedSlot) {
-                return slot;
-            }
-        }
-        return null;
-    }
-
-    private static boolean isRefillCraftingSlot(Slot slot) {
-        return slot != null
-                && slot.container instanceof net.minecraft.world.inventory.CraftingContainer
-                && !(slot instanceof net.minecraft.world.inventory.ResultSlot);
-    }
-
-    private static List<Slot> craftingSlots(net.minecraft.world.inventory.AbstractContainerMenu menu) {
-        List<Slot> result = new ArrayList<>();
-        for (Slot slot : menu.slots) {
-            if (isCraftingInputSlot(slot)) {
-                result.add(slot);
-            }
-        }
-        return result;
-    }
-
-    private static Slot findCraftingSlot(net.minecraft.world.inventory.AbstractContainerMenu menu, int containerSlot) {
-        for (Slot slot : menu.slots) {
-            if (isCraftingInputSlot(slot) && slot.getContainerSlot() == containerSlot) {
-                return slot;
-            }
-        }
-        return null;
-    }
-
-    private static boolean isCraftingInputSlot(Slot slot) {
-        return slot != null
-                && slot.container instanceof net.minecraft.world.inventory.CraftingContainer
-                && !(slot instanceof net.minecraft.world.inventory.ResultSlot);
-    }
-
-    private static ItemStack takeRecipeIngredient(PlayerWarehouse warehouse, ServerPlayer player,
-            net.minecraft.world.item.crafting.Ingredient ingredient) {
-        ItemStack taken = WarehouseManager.takeMatchingIngredient(warehouse, ingredient, 1);
-        if (!taken.isEmpty()) {
-            return taken;
-        }
-
-        int inventorySize = Math.min(36, player.getInventory().getContainerSize());
-        for (int invIdx = 0; invIdx < inventorySize; invIdx++) {
-            ItemStack invStack = player.getInventory().getItem(invIdx);
-            if (ingredient.test(invStack)) {
-                return player.getInventory().removeItem(invIdx, 1);
-            }
-        }
-        return ItemStack.EMPTY;
-    }
-
-    private static boolean canPlaceToolInSlot(PlayerWarehouse warehouse, ItemStack stack, int slot, ServerPlayer player) {
-        if (stack.isEmpty() || stack.getCount() != 1 || !isToolWarehouseItem(stack)) {
-            return false;
-        }
-        if (!WarehouseManager.canStoreItem(warehouse, stack, player, "quick_tool_swap.hand")) {
-            return false;
-        }
-        if (!warehouse.getToolSlotStack(slot).isEmpty()) {
-            return true;
-        }
-        int typeLimit = warehouse.getMaxStorageTypes();
-        return typeLimit < 0 || warehouse.getStoredItemTypeCount() < typeLimit;
-    }
-
-    private static boolean isToolWarehouseItem(ItemStack stack) {
-        return !stack.isEmpty()
-                && (stack.has(net.minecraft.core.component.DataComponents.TOOL)
-                        || stack.has(net.minecraft.core.component.DataComponents.MAX_DAMAGE));
-    }
-
-    private static java.util.Map<Slot, ItemStack> snapshotSlots(List<Slot> slots) {
-        java.util.Map<Slot, ItemStack> snapshot = new LinkedHashMap<>();
-        for (Slot slot : slots) {
-            snapshot.put(slot, slot.getItem().copy());
-        }
-        return snapshot;
-    }
-
-    private static void restoreSlots(java.util.Map<Slot, ItemStack> snapshot) {
-        for (Map.Entry<Slot, ItemStack> entry : snapshot.entrySet()) {
-            entry.getKey().set(entry.getValue().copy());
-        }
-    }
-
-    private static ExternalStateSnapshot snapshotExternalState(ServerPlayer player,
-            net.minecraft.world.inventory.AbstractContainerMenu menu, List<Slot> slots) {
-        List<ItemStack> inventory = new ArrayList<>();
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            inventory.add(player.getInventory().getItem(i).copy());
-        }
-        return new ExternalStateSnapshot(player, menu, snapshotSlots(slots), inventory, menu.getCarried().copy());
-    }
-
-    private static void restoreExternalState(ExternalStateSnapshot snapshot) {
-        restoreSlots(snapshot.slots());
-        int inventorySize = Math.min(snapshot.inventory().size(), snapshot.player().getInventory().getContainerSize());
-        for (int i = 0; i < inventorySize; i++) {
-            snapshot.player().getInventory().setItem(i, snapshot.inventory().get(i).copy());
-        }
-        snapshot.player().getInventory().setChanged();
-        snapshot.menu().setCarried(snapshot.carried().copy());
-        snapshot.menu().broadcastChanges();
-    }
-
-    private record ExternalStateSnapshot(ServerPlayer player, net.minecraft.world.inventory.AbstractContainerMenu menu,
-            java.util.Map<Slot, ItemStack> slots, List<ItemStack> inventory, ItemStack carried) {
-    }
-
-    public static void handleUpdateHopperFilters(C2SUpdateHopperFiltersPayload payload,
-            ServerPlayNetworking.Context context) {
+    public static void handleUpdateHopperFilters(C2SUpdateHopperFiltersPayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
             ServerPlayer player = context.player();
-            PlayerWarehouse warehouse = getWarehouse(player);
-            WarehouseService.commitIfWarehouseChanged(player, warehouse, "update_hopper_filters", () -> {
-                warehouse.setHopperFilters(payload.filters(), payload.blacklist());
+            WarehouseService.commitIfWarehouseChanged(player, getWarehouse(player), "update_hopper_filters", () -> {
+                getWarehouse(player).setHopperFilters(payload.filters(), payload.blacklist());
                 return null;
             });
         });
     }
 
-    public static void handleUpdateFoodFilters(C2SUpdateFoodFiltersPayload payload,
-            ServerPlayNetworking.Context context) {
+    public static void handleUpdateFoodFilters(C2SUpdateFoodFiltersPayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
             ServerPlayer player = context.player();
-            PlayerWarehouse warehouse = getWarehouse(player);
-            WarehouseService.commitIfWarehouseChanged(player, warehouse, "update_food_filters", () -> {
-                warehouse.setFoodFilters(payload.filters(), payload.blacklist());
+            WarehouseService.commitIfWarehouseChanged(player, getWarehouse(player), "update_food_filters", () -> {
+                getWarehouse(player).setFoodFilters(payload.filters(), payload.blacklist());
                 return null;
             });
         });
     }
 
-    public static void handleUpdateForbiddenPlayers(C2SUpdateForbiddenPlayersPayload payload,
-            ServerPlayNetworking.Context context) {
+    public static void handleUpdateForbiddenPlayers(C2SUpdateForbiddenPlayersPayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
             ServerPlayer player = context.player();
-            PlayerWarehouse warehouse = getWarehouse(player);
-            WarehouseService.commitIfWarehouseChanged(player, warehouse, "update_forbidden_players", () -> {
-                warehouse.setForbidden(payload.playerUuid(), payload.forbidden());
+            WarehouseService.commitIfWarehouseChanged(player, getWarehouse(player), "update_forbidden_players", () -> {
+                getWarehouse(player).setForbidden(payload.playerUuid(), payload.forbidden());
                 return null;
             });
         });
     }
 
-    public static void handleDropWarehouseItem(C2SDropWarehouseItemPayload payload,
-            ServerPlayNetworking.Context context) {
-        context.server().execute(() -> {
-            ServerPlayer player = context.player();
-            PlayerWarehouse warehouse = getWarehouse(player);
-            if (!warehouse.isEnabled())
-                return;
-
-            int slotId = payload.slotId();
-            if (slotId < 0 || slotId >= player.containerMenu.slots.size())
-                return;
-
-            Slot slot = player.containerMenu.slots.get(slotId);
-            if (slot.container instanceof PlayerWarehouse) {
-                ItemStack stackInSlot = slot.getItem();
-                if (!stackInSlot.isEmpty()) {
-                    if (WarehouseManager.isVirtualFluid(stackInSlot.getItem())) {
-                        return;
-                    }
-                    int toTake = payload.dropFullStack()
-                            ? (int) Math.min(stackInSlot.getMaxStackSize(),
-                                    warehouse.getRealCount(slot.getContainerSlot()))
-                            : 1;
-                    ItemStack dropped = WarehouseService.commitIfWarehouseChanged(player, warehouse,
-                            "drop_warehouse_item", () -> WarehouseManager.removeItem(warehouse, slot.getContainerSlot(), toTake, true));
-                    if (!dropped.isEmpty()) {
-                        player.drop(dropped, true);
-                    }
-                }
-            }
-        });
-    }
-
-    public static void handleUpdateFrozenState(C2SUpdateFrozenStatePayload payload,
-            ServerPlayNetworking.Context context) {
+    public static void handleUpdateFrozenState(C2SUpdateFrozenStatePayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
             PlayerWarehouse warehouse = getWarehouse(context.player());
-            if (warehouse.isFrozen() == payload.frozen()) {
-                return;
-            }
+            if (warehouse.isFrozen() == payload.frozen()) return;
             warehouse.setFrozen(payload.frozen());
             syncChanges(context.player());
         });
     }
 
-    public static void handleDoubleClickQuickStore(C2SDoubleClickQuickStorePayload payload,
-            ServerPlayNetworking.Context context) {
+    public static void handleDoubleClickQuickStore(C2SDoubleClickQuickStorePayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
             ServerPlayer player = context.player();
             PlayerWarehouse warehouse = getWarehouse(player);
 
-            // 验证：仓库必须启用、快速交互开启且未折叠
-            if (!warehouse.isEnabled() || !warehouse.isQuickInteraction() || warehouse.isFolded()) {
-                return;
-            }
+            if (!warehouse.isEnabled() || !warehouse.isQuickInteraction() || warehouse.isFolded()) return;
 
-            // 获取光标中的物品
             ItemStack cursorStack = player.containerMenu.getCarried();
-            if (cursorStack.isEmpty()) {
-                return;
-            }
+            if (cursorStack.isEmpty()) return;
 
-            boolean storedAny = WarehouseService.commitIfWarehouseChanged(player, warehouse,
-                    "double_click_quick_store", () -> {
-                        boolean changed = false;
-                        for (int i = 0; i < player.containerMenu.slots.size(); i++) {
-                            net.minecraft.world.inventory.Slot slot = player.containerMenu.slots.get(i);
-                            if (slot.container instanceof net.minecraft.world.entity.player.Inventory) {
-                                int containerSlot = slot.getContainerSlot();
-                                if (containerSlot >= 0 && containerSlot < 36) {
-                                    ItemStack stack = slot.getItem();
-                                    if (!stack.isEmpty()
-                                            && net.minecraft.world.item.ItemStack.isSameItemSameComponents(cursorStack,
-                                                    stack)) {
-                                        int beforeCount = stack.getCount();
-                                        ItemStack remaining = WarehouseManager.addFluid(warehouse, stack, player);
-                                        slot.set(remaining);
-                                        if (remaining.getCount() < beforeCount) {
-                                            changed = true;
-                                        }
-                                    }
-                                }
+            boolean storedAny = WarehouseService.commitIfWarehouseChanged(player, warehouse, "double_click_quick_store", () -> {
+                boolean changed = false;
+                for (int i = 0; i < player.containerMenu.slots.size(); i++) {
+                    net.minecraft.world.inventory.Slot slot = player.containerMenu.slots.get(i);
+                    if (slot.container instanceof net.minecraft.world.entity.player.Inventory) {
+                        int containerSlot = slot.getContainerSlot();
+                        if (containerSlot >= 0 && containerSlot < 36) {
+                            ItemStack stack = slot.getItem();
+                            if (!stack.isEmpty() && net.minecraft.world.item.ItemStack.isSameItemSameComponents(cursorStack, stack)) {
+                                int beforeCount = stack.getCount();
+                                ItemStack remaining = WarehouseManager.addFluid(warehouse, stack, player);
+                                slot.set(remaining);
+                                if (remaining.getCount() < beforeCount) changed = true;
                             }
                         }
-                        return changed;
-                    });
+                    }
+                }
+                return changed;
+            });
 
             if (storedAny && player.containerMenu != null) {
                 player.containerMenu.broadcastChanges();
@@ -697,58 +606,50 @@ public class ModServerNetworking {
             boolean isWarehouseCrafting = menu instanceof CraftingWarehouseScreenHandler;
             boolean isVanillaInventory = menu instanceof net.minecraft.world.inventory.InventoryMenu;
 
-            if (!isWarehouseCrafting && !isVanillaInventory)
-                return;
+            if (!isWarehouseCrafting && !isVanillaInventory) return;
 
-            // JEI 可能发送 ResourceKey 风格 "ResourceKey[registry / namespace:path]" 或 "registry
-            // / namespace:path"，需只取 namespace:path 并去掉末尾 ]
             String recipeIdRaw = payload.recipeId();
-            String recipeIdStr = recipeIdRaw.contains(" / ") ? recipeIdRaw.substring(recipeIdRaw.indexOf(" / ") + 3)
-                    : recipeIdRaw;
-            if (recipeIdStr.endsWith("]")) {
-                recipeIdStr = recipeIdStr.substring(0, recipeIdStr.length() - 1);
-            }
+            String recipeIdStr = recipeIdRaw.contains(" / ") ? recipeIdRaw.substring(recipeIdRaw.indexOf(" / ") + 3) : recipeIdRaw;
+            if (recipeIdStr.endsWith("]")) recipeIdStr = recipeIdStr.substring(0, recipeIdStr.length() - 1);
+
             net.minecraft.resources.Identifier id = net.minecraft.resources.Identifier.parse(recipeIdStr);
-            net.minecraft.resources.ResourceKey<net.minecraft.world.item.crafting.Recipe<?>> key = net.minecraft.resources.ResourceKey
-                    .create(net.minecraft.core.registries.Registries.RECIPE, id);
-            net.minecraft.world.item.crafting.RecipeHolder<?> recipeHolder = ((ServerLevel) player.level())
-                    .getServer()
-                    .getRecipeManager()
-                    .byKey(key)
-                    .orElse(null);
-            if (recipeHolder == null
-                    || !(recipeHolder.value() instanceof net.minecraft.world.item.crafting.CraftingRecipe recipe))
-                return;
+            net.minecraft.resources.ResourceKey<net.minecraft.world.item.crafting.Recipe<?>> key = net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.RECIPE, id);
+            net.minecraft.world.item.crafting.RecipeHolder<?> recipeHolder = ((ServerLevel) player.level()).getServer().getRecipeManager().byKey(key).orElse(null);
+            if (recipeHolder == null || !(recipeHolder.value() instanceof net.minecraft.world.item.crafting.CraftingRecipe recipe)) return;
 
             PlayerWarehouse warehouse = getWarehouse(player);
-            if (!warehouse.isEnabled())
-                return;
+            if (!warehouse.isEnabled()) return;
 
-            // 动态判断当前格网大小
-            boolean is3x3 = isWarehouseCrafting
-                    || (isVanillaInventory && com.portablestorage.util.WarehouseUtils.is3x3Enabled(player));
+            boolean is3x3 = isWarehouseCrafting || (isVanillaInventory && com.portablestorage.util.WarehouseUtils.is3x3Enabled(player));
             int gridWidth = is3x3 ? 3 : 2;
             int gridHeight = is3x3 ? 3 : 2;
 
+            java.util.List<Slot> craftingSlots = new ArrayList<>();
+            for (Slot slot : menu.slots) {
+                if (slot != null && slot.container instanceof net.minecraft.world.inventory.CraftingContainer && !(slot instanceof net.minecraft.world.inventory.ResultSlot)) {
+                    craftingSlots.add(slot);
+                }
+            }
+
+            java.util.Map<Slot, ItemStack> slotSnapshot = new LinkedHashMap<>();
+            for (Slot s : craftingSlots) slotSnapshot.put(s, s.getItem().copy());
+
+            List<ItemStack> inventory = new ArrayList<>();
+            for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+                inventory.add(player.getInventory().getItem(i).copy());
+            }
+
             boolean completed;
-            ExternalStateSnapshot externalSnapshot = snapshotExternalState(player, menu, craftingSlots(menu));
             try {
                 completed = WarehouseService.transaction(player, warehouse, "recipe_transfer", tx -> {
-                    List<Slot> craftingSlots = craftingSlots(menu);
-                    if (craftingSlots.isEmpty()) {
-                        return false;
-                    }
+                    if (craftingSlots.isEmpty()) return false;
 
                     for (Slot slot : craftingSlots) {
                         ItemStack stack = slot.getItem();
-                        if (stack.isEmpty()) {
-                            continue;
-                        }
+                        if (stack.isEmpty()) continue;
                         ItemStack remaining = stack.copy();
                         WarehouseManager.addItem(warehouse, remaining, player);
-                        if (!remaining.isEmpty()) {
-                            return false;
-                        }
+                        if (!remaining.isEmpty()) return false;
                         slot.set(ItemStack.EMPTY);
                     }
 
@@ -765,38 +666,43 @@ public class ModServerNetworking {
                         recipeWidth = (ingredients.size() <= 4 && !is3x3) ? 2 : 3;
                         recipeHeight = (int) Math.ceil((double) ingredients.size() / recipeWidth);
                     }
-                    if (recipeWidth > gridWidth || recipeHeight > gridHeight) {
-                        return false;
-                    }
+                    if (recipeWidth > gridWidth || recipeHeight > gridHeight) return false;
 
                     it.unimi.dsi.fastutil.ints.IntList slotToIngredientIndex = placement.slotsToIngredientIndex();
-
                     Map<Integer, ItemStack> plannedStacks = new LinkedHashMap<>();
-                    for (int targetContainerSlot = 0; targetContainerSlot < slotToIngredientIndex.size()
-                            && targetContainerSlot < gridSize; targetContainerSlot++) {
+
+                    for (int targetContainerSlot = 0; targetContainerSlot < slotToIngredientIndex.size() && targetContainerSlot < gridSize; targetContainerSlot++) {
                         int ingredientIdx = slotToIngredientIndex.getInt(targetContainerSlot);
-                        if (ingredientIdx == net.minecraft.world.item.crafting.PlacementInfo.EMPTY_SLOT
-                                || ingredientIdx < 0 || ingredientIdx >= ingredients.size()) {
-                            continue;
-                        }
+                        if (ingredientIdx == net.minecraft.world.item.crafting.PlacementInfo.EMPTY_SLOT || ingredientIdx < 0 || ingredientIdx >= ingredients.size()) continue;
 
                         net.minecraft.world.item.crafting.Ingredient ingredient = ingredients.get(ingredientIdx);
-                        if (ingredient == null || ingredient.isEmpty()) {
-                            continue;
+                        if (ingredient == null || ingredient.isEmpty()) continue;
+
+                        ItemStack found = WarehouseManager.takeMatchingIngredient(warehouse, ingredient, 1);
+                        if (found.isEmpty()) {
+                            int inventorySize = Math.min(36, player.getInventory().getContainerSize());
+                            for (int invIdx = 0; invIdx < inventorySize; invIdx++) {
+                                ItemStack invStack = player.getInventory().getItem(invIdx);
+                                if (ingredient.test(invStack)) {
+                                    found = player.getInventory().removeItem(invIdx, 1);
+                                    break;
+                                }
+                            }
                         }
 
-                        ItemStack found = takeRecipeIngredient(warehouse, player, ingredient);
-                        if (found.isEmpty()) {
-                            return false;
-                        }
+                        if (found.isEmpty()) return false;
                         plannedStacks.put(targetContainerSlot, found);
                     }
 
                     for (Map.Entry<Integer, ItemStack> entry : plannedStacks.entrySet()) {
-                        Slot targetSlot = findCraftingSlot(menu, entry.getKey());
-                        if (targetSlot == null || !targetSlot.mayPlace(entry.getValue())) {
-                            return false;
+                        Slot targetSlot = null;
+                        for (Slot slot : menu.slots) {
+                            if (slot != null && slot.container instanceof net.minecraft.world.inventory.CraftingContainer && !(slot instanceof net.minecraft.world.inventory.ResultSlot) && slot.getContainerSlot() == entry.getKey()) {
+                                targetSlot = slot;
+                                break;
+                            }
                         }
+                        if (targetSlot == null || !targetSlot.mayPlace(entry.getValue())) return false;
                         targetSlot.set(entry.getValue());
                     }
 
@@ -805,17 +711,22 @@ public class ModServerNetworking {
                     return true;
                 });
             } catch (RuntimeException | Error throwable) {
-                restoreExternalState(externalSnapshot);
+                for (Map.Entry<Slot, ItemStack> entry : slotSnapshot.entrySet()) entry.getKey().set(entry.getValue().copy());
+                int inventorySize = Math.min(inventory.size(), player.getInventory().getContainerSize());
+                for (int i = 0; i < inventorySize; i++) player.getInventory().setItem(i, inventory.get(i).copy());
+                player.getInventory().setChanged();
                 throw throwable;
             }
             if (!completed) {
-                restoreExternalState(externalSnapshot);
+                for (Map.Entry<Slot, ItemStack> entry : slotSnapshot.entrySet()) entry.getKey().set(entry.getValue().copy());
+                int inventorySize = Math.min(inventory.size(), player.getInventory().getContainerSize());
+                for (int i = 0; i < inventorySize; i++) player.getInventory().setItem(i, inventory.get(i).copy());
+                player.getInventory().setChanged();
             }
         });
     }
 
-    public static void handleRequestWarehouseSnapshot(C2SRequestWarehouseSnapshotPayload payload,
-            ServerPlayNetworking.Context context) {
+    public static void handleRequestWarehouseSnapshot(C2SRequestWarehouseSnapshotPayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> WarehouseService.sync(context.player()));
     }
 
@@ -824,22 +735,20 @@ public class ModServerNetworking {
             ServerPlayer player = context.player();
             PlayerWarehouse warehouse = getWarehouse(player);
             int slot = payload.slot();
-            if (!warehouse.isEnabled() || warehouse.getUpgrade(com.portablestorage.upgrade.ToolUpgrade.ID).isEmpty()) {
-                return;
-            }
-            if (slot < 0 || slot >= com.portablestorage.storage.key.ToolWarehouseKey.SLOT_COUNT) {
-                return;
-            }
+            if (!warehouse.isEnabled() || warehouse.getUpgrade(com.portablestorage.upgrade.ToolUpgrade.ID).isEmpty()) return;
+            if (slot < 0 || slot >= com.portablestorage.storage.key.ToolWarehouseKey.SLOT_COUNT) return;
 
             ItemStack toolStack = warehouse.getToolSlotStack(slot);
             ItemStack handStack = player.getMainHandItem();
+
+            boolean handIsTool = !handStack.isEmpty() && (handStack.has(net.minecraft.core.component.DataComponents.TOOL) || handStack.has(net.minecraft.core.component.DataComponents.MAX_DAMAGE));
+
             if (toolStack.isEmpty()) {
-                if (handStack.isEmpty() || !isToolWarehouseItem(handStack)) {
-                    return;
-                }
-                if (!canPlaceToolInSlot(warehouse, handStack, slot, player)) {
-                    return;
-                }
+                if (handStack.isEmpty() || !handIsTool) return;
+
+                int typeLimit = warehouse.getMaxStorageTypes();
+                if (typeLimit >= 0 && warehouse.getStoredItemTypeCount() >= typeLimit) return;
+                if (!WarehouseManager.canStoreItem(warehouse, handStack, player, "quick_tool_swap.hand")) return;
 
                 ItemStack handSnapshot = handStack.copy();
                 boolean completed;
@@ -848,26 +757,21 @@ public class ModServerNetworking {
                         warehouse.setToolSlotStack(slot, handSnapshot.copyWithCount(1));
                         player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
                         tx.commit();
-                        if (player.containerMenu != null) {
-                            player.containerMenu.broadcastChanges();
-                        }
+                        if (player.containerMenu != null) player.containerMenu.broadcastChanges();
                         return true;
                     });
                 } catch (RuntimeException | Error throwable) {
                     player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, handSnapshot);
                     throw throwable;
                 }
-                if (!completed) {
-                    player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, handSnapshot);
-                }
+                if (!completed) player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, handSnapshot);
                 return;
             }
 
-            if (!handStack.isEmpty() && !isToolWarehouseItem(handStack)) {
-                return;
-            }
-            if (!handStack.isEmpty() && !canPlaceToolInSlot(warehouse, handStack, slot, player)) {
-                return;
+            if (!handStack.isEmpty() && !handIsTool) return;
+
+            if (!handStack.isEmpty()) {
+                if (!WarehouseManager.canStoreItem(warehouse, handStack, player, "quick_tool_swap.hand")) return;
             }
 
             ItemStack handSnapshot = handStack.copy();
@@ -882,19 +786,51 @@ public class ModServerNetworking {
                     }
                     player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, toolSnapshot.copy());
                     tx.commit();
-                    if (player.containerMenu != null) {
-                        player.containerMenu.broadcastChanges();
-                    }
+                    if (player.containerMenu != null) player.containerMenu.broadcastChanges();
                     return true;
                 });
             } catch (RuntimeException | Error throwable) {
                 player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, handSnapshot);
                 throw throwable;
             }
-            if (!completed) {
-                player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, handSnapshot);
-            }
+            if (!completed) player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, handSnapshot);
         });
+    }
+
+    private static boolean canAccessWarehouseFromMenu(ServerPlayer player, PlayerWarehouse warehouse) {
+        if (player == null || warehouse == null || !warehouse.isEnabled() || player.containerMenu == null) {
+            return false;
+        }
+        AbstractContainerMenu menu = player.containerMenu;
+        if (!WarehouseMenuHandler.isAdaptedMenu(menu)) {
+            return false;
+        }
+        return !WarehouseMenuHandler.isContainerMenu(menu) || warehouse.hasWorkbenchUpgrade();
+    }
+
+    private static Slot findWarehouseMenuSlot(AbstractContainerMenu menu, int containerSlot, boolean upgradeSlot) {
+        for (Slot slot : menu.slots) {
+            boolean isUpgradeSlot = slot instanceof UpgradeSlot;
+            if (isUpgradeSlot != upgradeSlot || slot.getContainerSlot() != containerSlot || !slot.isActive()) {
+                continue;
+            }
+            if (isUpgradeSlot || slot.container instanceof PlayerWarehouse) {
+                return slot;
+            }
+        }
+        return null;
+    }
+
+    private static Slot findPlayerInventoryMenuSlot(AbstractContainerMenu menu, int containerSlot) {
+        if (containerSlot < 0 || containerSlot >= 36) {
+            return null;
+        }
+        for (Slot slot : menu.slots) {
+            if (slot.container instanceof Inventory && slot.getContainerSlot() == containerSlot && slot.isActive()) {
+                return slot;
+            }
+        }
+        return null;
     }
 
     private static PlayerWarehouse getWarehouse(ServerPlayer player) {
@@ -902,13 +838,7 @@ public class ModServerNetworking {
     }
 
     private static void syncChanges(ServerPlayer player) {
-        syncChanges(player, "server_network.change");
-    }
-
-    private static void syncChanges(ServerPlayer player, String reason) {
-        if (player.containerMenu != null) {
-            player.containerMenu.broadcastChanges();
-        }
-        WarehouseService.commit(player, reason);
+        if (player.containerMenu != null) player.containerMenu.broadcastChanges();
+        WarehouseService.commit(player, "server_network.change");
     }
 }

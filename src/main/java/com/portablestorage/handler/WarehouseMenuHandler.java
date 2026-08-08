@@ -155,6 +155,84 @@ public class WarehouseMenuHandler {
         }
     }
 
+    public static boolean moveUpgradeToPlayerInventory(AbstractContainerMenu menu, Slot upgradeSlot) {
+        if (!(upgradeSlot instanceof UpgradeSlot) || !upgradeSlot.hasItem()) {
+            return false;
+        }
+
+        int[] inventoryRange = findPlayerInventoryRange(menu.slots);
+        if (inventoryRange == null) {
+            return false;
+        }
+
+        ItemStack stackInSlot = upgradeSlot.getItem();
+        AbstractContainerMenuAccessor accessor = (AbstractContainerMenuAccessor) menu;
+        if (!accessor.invokeMoveItemStackTo(stackInSlot, inventoryRange[0], inventoryRange[1], true)) {
+            return false;
+        }
+
+        upgradeSlot.set(stackInSlot);
+        upgradeSlot.setChanged();
+        return true;
+    }
+
+    public static boolean handleUpgradeSlotClick(AbstractContainerMenu menu, Slot upgradeSlot, int button) {
+        if (!(upgradeSlot instanceof UpgradeSlot) || (button != 0 && button != 1)) {
+            return false;
+        }
+
+        ItemStack cursorStack = menu.getCarried();
+        if (cursorStack.isEmpty()) {
+            menu.setCarried(upgradeSlot.remove(upgradeRemovalAmount(button, upgradeSlot.getMaxStackSize())));
+            return true;
+        }
+
+        if (!upgradeSlot.mayPlace(cursorStack)) {
+            return true;
+        }
+
+        ItemStack stackInSlot = upgradeSlot.getItem();
+        int maxPlace = upgradeSlot.getMaxStackSize();
+        if (stackInSlot.isEmpty()) {
+            int toPlace = Math.min(cursorStack.getCount(), maxPlace);
+            upgradeSlot.set(cursorStack.split(toPlace));
+        } else if (ItemStack.isSameItemSameComponents(stackInSlot, cursorStack)) {
+            int canAdd = Math.min(cursorStack.getCount(), maxPlace - stackInSlot.getCount());
+            if (canAdd > 0) {
+                stackInSlot.grow(canAdd);
+                cursorStack.shrink(canAdd);
+                upgradeSlot.setChanged();
+            }
+        } else if (cursorStack.getCount() == 1) {
+            ItemStack previous = stackInSlot.copy();
+            upgradeSlot.set(cursorStack.split(1));
+            menu.setCarried(previous);
+        }
+        return true;
+    }
+
+    static int upgradeRemovalAmount(int button, int maxStackSize) {
+        return button == 1 ? 1 : maxStackSize;
+    }
+
+    private static int[] findPlayerInventoryRange(List<Slot> slots) {
+        int start = -1;
+        int end = -1;
+        for (int i = 0; i < slots.size(); i++) {
+            Slot slot = slots.get(i);
+            if (slot.container instanceof Inventory && !(slot instanceof UpgradeSlot)) {
+                int containerSlot = slot.getContainerSlot();
+                if (containerSlot >= 0 && containerSlot < 36) {
+                    if (start == -1) {
+                        start = i;
+                    }
+                    end = i + 1;
+                }
+            }
+        }
+        return start == -1 ? null : new int[] { start, end };
+    }
+
     public static ItemStack handleQuickMove(AbstractContainerMenu menu, Player player, int index) {
         // 1. 基础检查
         if (!isAdaptedMenu(menu))
@@ -178,24 +256,7 @@ public class WarehouseMenuHandler {
         ItemStack stackInSlot = slot.getItem();
         ItemStack originalStack = stackInSlot.copy();
 
-        AbstractContainerMenuAccessor accessor = (AbstractContainerMenuAccessor) menu;
-
-        // 计算玩家物品栏范围（包含背包+快捷栏），同时显式排除仓库/升级槽位
-        int invStart = -1;
-        int invEnd = -1;
-        List<Slot> slots = menu.slots;
-        for (int i = 0; i < slots.size(); i++) {
-            Slot s = slots.get(i);
-            if (s.container instanceof Inventory && !(s instanceof UpgradeSlot)) {
-                int containerSlot = s.getContainerSlot();
-                // 0-35: 背包+快捷栏
-                if (containerSlot >= 0 && containerSlot < 36) {
-                    if (invStart == -1)
-                        invStart = i;
-                    invEnd = i + 1;
-                }
-            }
-        }
+        int[] inventoryRange = findPlayerInventoryRange(menu.slots);
 
         // 4. 分支处理
 
@@ -216,12 +277,7 @@ public class WarehouseMenuHandler {
 
         // 分支 B: 升级槽位（取出到背包）
         if (isUpgradeSlot) {
-            // 仅在玩家物品栏范围内移动，避免写入仓库槽位
-            if (invStart == -1 || !accessor.invokeMoveItemStackTo(stackInSlot, invStart, invEnd, true)) {
-                return ItemStack.EMPTY;
-            }
-            slot.setChanged();
-            return originalStack;
+            return moveUpgradeToPlayerInventory(menu, slot) ? originalStack : ItemStack.EMPTY;
         }
 
         // 分支 C: 玩家背包槽位
@@ -243,11 +299,13 @@ public class WarehouseMenuHandler {
             }
 
             // 快速存取关闭或存入失败：仅在玩家物品栏范围内移动，避免写入仓库槽位
-            if (invStart != -1 && accessor.invokeMoveItemStackTo(stackInSlot, invStart, invEnd, true)) {
-                slot.setChanged();
-                // 如果从合成格中取出或影响到合成配方，刷新结果
-                notifyCraftingChanged(menu);
-                return originalStack;
+            if (inventoryRange != null) {
+                AbstractContainerMenuAccessor accessor = (AbstractContainerMenuAccessor) menu;
+                if (accessor.invokeMoveItemStackTo(stackInSlot, inventoryRange[0], inventoryRange[1], true)) {
+                    slot.setChanged();
+                    notifyCraftingChanged(menu);
+                    return originalStack;
+                }
             }
             return ItemStack.EMPTY;
         }

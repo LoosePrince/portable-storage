@@ -43,7 +43,6 @@ public class YACLConfig {
         private static void updateServerConfig() {
                 if (!ModConfig.allowHotReload)
                         return;
-                // 确保已经向服务端发起过一次权限请求（结果会缓存到 ModClientNetworking）
                 com.portablestorage.network.ModClientNetworking.requestConfigPermission();
                 ClientPlayNetworking.send(new UpdateServerConfigPayload(
                                 ModConfig.enable3x3Crafting,
@@ -74,14 +73,12 @@ public class YACLConfig {
 
         private static boolean canEditServerConfig() {
                 Minecraft mc = Minecraft.getInstance();
-                // 不在存档或服务器中（如主菜单通过 Mod Menu 打开配置）时视为有权限，仅修改本地配置文件
                 if (mc.level == null) {
                         return true;
                 }
                 if (!ModConfig.allowHotReload || mc.player == null) {
                         return false;
                 }
-                // 最终权限由服务端判定，这里只依赖服务端返回的缓存结果
                 return com.portablestorage.network.ModClientNetworking.canEditServerConfig();
         }
 
@@ -148,11 +145,7 @@ public class YACLConfig {
                                                                 .binding(
                                                                                 StoragePosition.BOTTOM,
                                                                                 () -> ModConfig.storagePosition,
-                                                                                val -> {
-                                                                                        ModConfig.storagePosition = val;
-                                                                                        if (val.isHorizontal())
-                                                                                                ModConfig.hideRecipeBook = true;
-                                                                                })
+                                                                                val -> ModConfig.storagePosition = val)
                                                                 .controller(opt -> CyclingListControllerBuilder
                                                                                 .<StoragePosition>create(opt)
                                                                                 .values(Arrays.asList(StoragePosition
@@ -169,11 +162,7 @@ public class YACLConfig {
                                                                 .binding(
                                                                                 true,
                                                                                 () -> ModConfig.offsetInventory,
-                                                                                val -> {
-                                                                                        ModConfig.offsetInventory = val;
-                                                                                        if (val)
-                                                                                                ModConfig.hideRecipeBook = true;
-                                                                                })
+                                                                                val -> ModConfig.offsetInventory = val)
                                                                 .controller(BooleanControllerBuilder::create)
                                                                 .build())
                                                 .option(Option.<Boolean>createBuilder()
@@ -184,16 +173,7 @@ public class YACLConfig {
                                                                 .binding(
                                                                                 true,
                                                                                 () -> ModConfig.hideRecipeBook,
-                                                                                val -> {
-                                                                                        // 当偏移背包界面或采用横向布局时，始终强制隐藏配方书按钮
-                                                                                        if (ModConfig.storagePosition
-                                                                                                        .isHorizontal()
-                                                                                                        || ModConfig.offsetInventory) {
-                                                                                                ModConfig.hideRecipeBook = true;
-                                                                                        } else {
-                                                                                                ModConfig.hideRecipeBook = val;
-                                                                                        }
-                                                                                })
+                                                                                val -> ModConfig.hideRecipeBook = val)
                                                                 .controller(BooleanControllerBuilder::create)
                                                                 .build())
                                                 .option(Option.<Boolean>createBuilder()
@@ -342,11 +322,8 @@ public class YACLConfig {
                                                                 .binding(
                                                                                 false,
                                                                                 () -> ModConfig.allowHotReload,
-                                                                                val -> {
-                                                                                } // 只读
-                                                                )
+                                                                                val -> ModConfig.allowHotReload = val)
                                                                 .controller(BooleanControllerBuilder::create)
-                                                                .available(false)
                                                                 .build())
                                                 .option(Option.<Boolean>createBuilder()
                                                                 .name(Component.translatable(

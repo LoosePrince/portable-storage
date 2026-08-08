@@ -75,7 +75,7 @@ public class ModConfig {
     public static String riftUpgradeItem = "minecraft:dragon_egg";
     /** 裂隙区块大小 */
     public static int riftChunkSize = 1;
-    /** 裂隙地块间距（区块） */
+    /** 裂隙地块间隔（区块） */
     public static int riftPlotSpacingChunks = 64;
     /** 裂隙地板高度 */
     public static int riftFloorY = 64;
@@ -126,7 +126,7 @@ public class ModConfig {
 
         offsetInventory = config.getOrElse("client.offsetInventory", true);
         hideRecipeBook = config.getOrElse("client.hideRecipeBook", true);
-        showSmallIcons = config.getOrElse("client.showSmallIcons", false);
+        showSmallIcons = config.getOrElse("client.showSmallIcons", true);
         removeExperimentalWarning = config.getOrElse("client.removeExperimentalWarning", true);
         autoFoldOnClose = config.getOrElse("client.autoFoldOnClose", false);
         try {
@@ -161,14 +161,7 @@ public class ModConfig {
         riftBorderWarningBlocks = ((Number) config.getOrElse("server.riftBorderWarningBlocks", 0)).intValue();
         enableConduitUpgrade = config.getOrElse("server.enableConduitUpgrade", true);
         
-        // 初始时设置为本地配置值
         active3x3Crafting = enable3x3Crafting;
-
-        if (storagePosition.isHorizontal()) {
-            hideRecipeBook = true;
-        } else if (offsetInventory) {
-            hideRecipeBook = true;
-        }
         
         config.close();
     }
@@ -218,4 +211,3 @@ public class ModConfig {
         config.close();
     }
 }
-

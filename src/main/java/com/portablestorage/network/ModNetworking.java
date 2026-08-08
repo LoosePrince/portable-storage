@@ -3,12 +3,10 @@ package com.portablestorage.network;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
-/**
- * 网络注册类
- * 负责注册客户端到服务端和服务端到客户端的网络数据包类型和接收器
- */
 public class ModNetworking {
         public static void registerC2SPayloads() {
+                PayloadTypeRegistry.serverboundPlay().register(C2SClickWarehouseSlotPayload.TYPE,
+                                C2SClickWarehouseSlotPayload.CODEC);
                 PayloadTypeRegistry.serverboundPlay().register(C2SUpdateWarehouseStatePayload.TYPE,
                                 C2SUpdateWarehouseStatePayload.CODEC);
                 PayloadTypeRegistry.serverboundPlay().register(QuickTransferPayload.TYPE, QuickTransferPayload.CODEC);
@@ -53,6 +51,8 @@ public class ModNetworking {
         }
 
         public static void registerServerReceivers() {
+                ServerPlayNetworking.registerGlobalReceiver(C2SClickWarehouseSlotPayload.TYPE,
+                                ModServerNetworking::handleClickWarehouseSlot);
                 ServerPlayNetworking.registerGlobalReceiver(C2SUpdateWarehouseStatePayload.TYPE,
                                 ModServerNetworking::handleUpdateWarehouseState);
                 ServerPlayNetworking.registerGlobalReceiver(QuickTransferPayload.TYPE,
