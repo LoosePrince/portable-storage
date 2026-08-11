@@ -425,13 +425,23 @@ public class WarehouseWidget {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!shouldShow()) return false;
 
+        // Left click clear cross icon logic
         if (!warehouse.isFolded() && button == 0 && isMouseOverSearchClear(mouseX, mouseY)) {
             clearSearch();
             return true;
         }
 
-        if (this.searchBox != null && this.searchBox.isVisible() && this.searchBox.active && this.searchBox.isMouseOver(mouseX, mouseY)) {
-            return false;
+        if (this.searchBox != null && this.searchBox.isVisible() && this.searchBox.active) {
+            if (this.searchBox.isMouseOver(mouseX, mouseY)) {
+                if (button == 1) { // Right Click: Clear & Focus
+                    clearSearch();
+                    this.searchBox.setFocused(true);
+                    if (screen != null) screen.setFocused(this.searchBox);
+                    return true;
+                }
+                // Left Click: Return false to let Vanilla Screen.mouseClicked handle focus & text cursor positioning
+                return false; 
+            }
         }
 
         Minecraft minecraft = Minecraft.getInstance();
@@ -761,12 +771,15 @@ public class WarehouseWidget {
 
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (this.searchBox != null && this.searchBox.isVisible() && this.searchBox.isFocused()) {
-            if (keyCode == 256) { 
+            if (keyCode == 256) { // ESC key (unfocus search box)
                 this.searchBox.setFocused(false);
+                if (screen != null) screen.setFocused(null);
                 return true;
             }
             KeyEvent event = new KeyEvent(keyCode, scanCode, modifiers);
-            return this.searchBox.keyPressed(event);
+            this.searchBox.keyPressed(event);
+            
+            return true; 
         }
 
         if (shouldShow() && !warehouse.isFolded()) {

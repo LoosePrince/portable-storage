@@ -101,6 +101,10 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
 
     @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
     private void onKeyPressed(KeyEvent event, CallbackInfoReturnable<Boolean> cir) {
+        if (warehouseWidget != null && warehouseWidget.keyPressed(event.key(), event.scancode(), event.modifiers())) {
+            cir.setReturnValue(true);
+            return;
+        }
         if (QuickToolClientState.handleNumberKey(event.key())) {
             cir.setReturnValue(true);
             return;
@@ -109,9 +113,6 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
                 && PortableStorageClient.tryToggleWarehouseFold(Minecraft.getInstance())) {
             cir.setReturnValue(true);
             return;
-        }
-        if (warehouseWidget != null && warehouseWidget.keyPressed(event.key(), event.scancode(), event.modifiers())) {
-            cir.setReturnValue(true);
         }
     }
 
