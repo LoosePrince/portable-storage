@@ -12,6 +12,7 @@ import com.portablestorage.network.SyncConfigPayload;
 import com.portablestorage.screen.ModScreenHandlers;
 import com.portablestorage.upgrade.HopperUpgrade;
 import com.portablestorage.upgrade.TrashCanUpgrade;
+import com.portablestorage.util.FakePlayerUtils;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -21,20 +22,10 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.players.NameAndId;
 import net.minecraft.world.item.ItemStack;
 
-/**
- * 便携式存储模组主类
- * 负责模组初始化、注册物品、方块、实体和事件处理器
- */
 public class PortableStorage implements ModInitializer {
     public static final String MOD_ID = "portablestorage";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-    /**
-     * 创建模组资源定位符
-     * 
-     * @param path 资源路径
-     * @return Identifier 实例
-     */
     public static Identifier id(String path) {
         return Identifier.fromNamespaceAndPath(MOD_ID, path);
     }
@@ -50,7 +41,7 @@ public class PortableStorage implements ModInitializer {
                 com.portablestorage.entity.RiftAvatarEntity.createAttributes());
         ModItems.registerModItems();
 
-        // 注册升级
+        // Register Upgrades
         com.portablestorage.upgrade.UpgradeRegistry.register(new TrashCanUpgrade());
         com.portablestorage.upgrade.UpgradeRegistry.register(new com.portablestorage.upgrade.WorkbenchUpgrade());
         com.portablestorage.upgrade.UpgradeRegistry.register(new HopperUpgrade());
@@ -73,15 +64,20 @@ public class PortableStorage implements ModInitializer {
         com.portablestorage.event.WarehouseActivationHandler.register();
         com.portablestorage.event.SpaceRiftEventHandler.register();
 
-        // 注册命令
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             PortableStorageCommand.register(dispatcher);
         });
 
-        // 玩家加入时重置裂隙边界并同步配置
-        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+        // Player Join Event - Ignore Fake Players
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             var player = handler.getPlayer();
+            if (FakePlayerUtils.isFakePlayer(player)) {
+                return;
+            }
+
             var warehouse = com.portablestorage.storage.service.WarehouseService.get(player);
+            if (warehouse == null) return;
+
             com.portablestorage.storage.service.WarehouseService.commitIfWarehouseChanged(player, warehouse,
                     "player_join.runtime_state", () -> {
                         warehouse.setOwnerName(player.getScoreboardName());
@@ -92,14 +88,10 @@ public class PortableStorage implements ModInitializer {
                         return null;
                     });
 
-            // 强制加载区块
             com.portablestorage.world.SpaceRiftManager.updatePlotForcedLoading(player, warehouse, true);
 
             if (player.level().dimension().equals(com.portablestorage.world.SpaceRiftManager.DIMENSION_KEY)) {
-                // 移除在线时的复制体
                 com.portablestorage.world.SpaceRiftManager.removeAvatar(player);
-
-                // 在下一刻或几秒后发送，确保客户端已经进入维度
                 server.execute(() -> {
                     com.portablestorage.world.SpaceRiftManager.applyPersonalBorder(player, warehouse);
                 });
@@ -132,21 +124,21 @@ public class PortableStorage implements ModInitializer {
                     ModConfig.riftBorderWarningBlocks,
                     ModConfig.enableConduitUpgrade));
 
-            // 同步配置时顺便下发当前玩家是否有编辑服务端配置的权限，
-            // 避免客户端首次打开设置界面时因为权限尚未返回而整页灰掉。
             boolean canEdit = ModConfig.allowHotReload
                     && server.getPlayerList().isOp(new NameAndId(player.getGameProfile()));
             sender.sendPacket(new com.portablestorage.network.S2CConfigPermissionResultPayload(canEdit));
 
-            // 进入 play 阶段后主动下发一次完整仓库快照，避免客户端依赖 UI 首次读取才请求。
             server.execute(() -> com.portablestorage.storage.service.WarehouseService.sync(player));
         });
 
-        // 升级系统服务端 Tick 处理（漏斗、裂隙等）
+        // Server Tick Event - Ignore Fake Players
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             for (net.minecraft.server.level.ServerPlayer player : server.getPlayerList().getPlayers()) {
+                if (FakePlayerUtils.isFakePlayer(player)) {
+                    continue;
+                }
                 var warehouse = com.portablestorage.storage.service.WarehouseService.get(player);
-                if (warehouse.isEnabled()) {
+                if (warehouse != null && warehouse.isEnabled()) {
                     for (java.util.Map.Entry<Identifier, ItemStack> entry : warehouse.getUpgradeStorage().entrySet()) {
                         com.portablestorage.upgrade.UpgradeType type = com.portablestorage.upgrade.UpgradeRegistry
                                 .get(entry.getKey());
@@ -161,20 +153,21 @@ public class PortableStorage implements ModInitializer {
                 }
             }
 
-            // 处理丢出任务
             PortableStorageCommand.tickDropTasks(server);
         });
 
-        // 玩家登出时清空垃圾桶升级中的物品并停止强制加载
+        // Disconnect Event - Ignore Fake Players
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             var player = handler.getPlayer();
             if (player != null) {
+                if (FakePlayerUtils.isFakePlayer(player)) {
+                    return;
+                }
                 var warehouse = com.portablestorage.storage.service.WarehouseService.get(player);
+                if (warehouse == null) return;
 
-                // 停止强制加载
                 com.portablestorage.world.SpaceRiftManager.updatePlotForcedLoading(player, warehouse, false);
 
-                // 如果在裂隙维度，创建复制体
                 if (player.level().dimension().equals(com.portablestorage.world.SpaceRiftManager.DIMENSION_KEY)) {
                     com.portablestorage.world.SpaceRiftManager.spawnAvatar(player, warehouse);
                 }

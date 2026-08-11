@@ -44,3 +44,4 @@ replay_*.log
 # tmp
 *.tmp
 temp
+/logs

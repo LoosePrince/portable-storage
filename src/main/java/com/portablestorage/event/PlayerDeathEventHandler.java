@@ -4,6 +4,7 @@ import com.portablestorage.storage.service.WarehouseService;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
 import com.portablestorage.item.StorageKeyItem;
+import com.portablestorage.util.FakePlayerUtils;
 import com.portablestorage.world.SpaceRiftManager;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
@@ -21,32 +22,29 @@ import net.minecraft.world.level.gamerules.GameRules;
 
 public class PlayerDeathEventHandler {
     public static void register() {
-        // 当玩家死亡复活或从末地返回时触发 (COPY_FROM 会在 respawn 之前调用)
         ServerPlayerEvents.COPY_FROM.register((oldPlayer, newPlayer, alive) -> {
             if (oldPlayer == null || newPlayer == null)
                 return;
+            if (FakePlayerUtils.isFakePlayer(oldPlayer) || FakePlayerUtils.isFakePlayer(newPlayer))
+                return;
 
-            // 获取仓库组件
             PlayerWarehouse oldWarehouse = WarehouseService.get(oldPlayer);
             PlayerWarehouse newWarehouse = WarehouseService.get(newPlayer);
+            if (oldWarehouse == null || newWarehouse == null)
+                return;
 
-            // 检查 keepInventory 规则
             boolean keepInventory = newPlayer.level().getGameRules().get(GameRules.KEEP_INVENTORY);
-            // 检查无条件开启配置 (只有 NONE 时才允许死亡禁用)
             boolean isUnconditional = !"NONE".equals(com.portablestorage.config.ModConfig.unconditionalWarehouse);
 
             if (!keepInventory && ModConfig.dropStorageOnDeath && oldWarehouse.isEnabled() && !isUnconditional) {
-                // 如果不保留物品、配置了死亡禁用、原本启用、且不是“无条件开启”：禁用并掉落钥匙
                 WarehouseService.commitIfWarehouseChanged(newPlayer, newWarehouse, "player_death.disable_warehouse", () -> {
                     newWarehouse.setEnabled(false);
                     newWarehouse.setFolded(true);
                     return null;
                 });
 
-                // 掉落钥匙 (如果是裂隙内死亡，则掉落在返回点)
                 dropKey((ServerPlayer) oldPlayer, oldWarehouse);
             } else {
-                // 否则保持（或恢复）启用状态
                 WarehouseService.commitIfWarehouseChanged(newPlayer, newWarehouse, "player_death.restore_enabled", () -> {
                     newWarehouse.setEnabled(oldWarehouse.isEnabled());
                     return null;
@@ -54,8 +52,9 @@ public class PlayerDeathEventHandler {
             }
         });
 
-        // 重生后强制补发一次全量同步，确保客户端状态绝对准确
         ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
+            if (FakePlayerUtils.isFakePlayer(newPlayer))
+                return;
             WarehouseService.sync(newPlayer);
         });
     }
@@ -68,8 +67,6 @@ public class PlayerDeathEventHandler {
         double y = player.getY();
         double z = player.getZ();
 
-        // 如果在裂隙维度死亡，且开启了死亡掉落钥匙，
-        // 则将钥匙掉落在进入裂隙前的返回点（通常是主世界坐标），防止玩家因失去仓库访问权而导致钥匙永久丢失在裂隙中。
         if (dropLevel.dimension().equals(SpaceRiftManager.DIMENSION_KEY)) {
             Identifier returnDimId = warehouse.getRiftReturnDim();
             BlockPos returnPos = warehouse.getRiftReturnPos();
@@ -87,8 +84,6 @@ public class PlayerDeathEventHandler {
         }
 
         ItemEntity itemEntity = new ItemEntity(dropLevel, x, y, z, keyStack);
-        // 为掉落的钥匙实体打上标记和拥有者 UUID，供 ItemEntityMixin 做保护逻辑。
-        // 这里复用自定义数据组件，在原有 NBT 上附加标记字段。
         net.minecraft.world.item.ItemStack entityStack = itemEntity.getItem();
         CustomData customData = entityStack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
         net.minecraft.nbt.CompoundTag tag = customData != null ? customData.copyTag()
@@ -97,7 +92,6 @@ public class PlayerDeathEventHandler {
         tag.putString("portablestorage_owner_uuid", player.getUUID().toString());
         entityStack.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, CustomData.of(tag));
         itemEntity.setDeltaMovement(0, 0.2, 0);
-        // 掉落的仓库钥匙实体本身无敌，避免被环境摧毁
         itemEntity.setInvulnerable(true);
         itemEntity.setPickUpDelay(40);
         dropLevel.addFreshEntity(itemEntity);

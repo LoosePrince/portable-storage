@@ -6,8 +6,10 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import com.portablestorage.component.PlayerWarehouse;
+import com.portablestorage.logic.WarehouseAmmoBridge;
 import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.storage.service.WarehouseService;
+import com.portablestorage.util.FakePlayerUtils;
 
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerPlayer;
@@ -27,6 +29,8 @@ public abstract class BowItemMixin {
         if (level.isClientSide())
             return;
         if (!(user instanceof ServerPlayer player))
+            return;
+        if (FakePlayerUtils.isFakePlayer(player))
             return;
         if (!Boolean.TRUE.equals(ci.getReturnValue())) {
             WarehouseAmmoBridge.clear(player, stack);
@@ -55,12 +59,10 @@ public abstract class BowItemMixin {
     }
 
     private boolean hasInfinityEnchantment(ItemStack stack) {
-        // 检查弓是否有无限附魔
         var enchantments = stack.get(DataComponents.ENCHANTMENTS);
         if (enchantments != null) {
             for (var entry : enchantments.entrySet()) {
                 net.minecraft.core.Holder<net.minecraft.world.item.enchantment.Enchantment> holder = entry.getKey();
-                // 使用 unwrapKey() 获取 ResourceKey 进行比较
                 var enchantmentKeyOpt = holder.unwrapKey();
                 if (enchantmentKeyOpt.isPresent()) {
                     var enchantmentKey = enchantmentKeyOpt.get();

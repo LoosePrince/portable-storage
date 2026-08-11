@@ -8,50 +8,21 @@ import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.mixin.accessor.AbstractContainerMenuAccessor;
 import com.portablestorage.storage.service.WarehouseService;
 import com.portablestorage.upgrade.UpgradeSlot;
+import com.portablestorage.util.FakePlayerUtils;
 import com.portablestorage.util.WarehouseConstants;
 import com.portablestorage.util.WarehouseUtils;
 
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.AnvilMenu;
-import net.minecraft.world.inventory.BeaconMenu;
-import net.minecraft.world.inventory.BlastFurnaceMenu;
-import net.minecraft.world.inventory.BrewingStandMenu;
-import net.minecraft.world.inventory.CartographyTableMenu;
-import net.minecraft.world.inventory.ChestMenu;
-import net.minecraft.world.inventory.CraftingContainer;
-import net.minecraft.world.inventory.CrafterMenu;
-import net.minecraft.world.inventory.DispenserMenu;
-import net.minecraft.world.inventory.EnchantmentMenu;
-import net.minecraft.world.inventory.FurnaceMenu;
-import net.minecraft.world.inventory.GrindstoneMenu;
-import net.minecraft.world.inventory.HopperMenu;
-import net.minecraft.world.inventory.InventoryMenu;
-import net.minecraft.world.inventory.LoomMenu;
-import net.minecraft.world.inventory.MerchantMenu;
-import net.minecraft.world.inventory.ResultSlot;
-import net.minecraft.world.inventory.ShulkerBoxMenu;
-import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.inventory.SmithingMenu;
-import net.minecraft.world.inventory.SmokerMenu;
-import net.minecraft.world.inventory.StonecutterMenu;
+import net.minecraft.world.inventory.*;
 import net.minecraft.world.item.ItemStack;
 
-/**
- * 仓库菜单处理器
- * 负责向容器菜单注入仓库槽位和升级槽位，处理快捷移动逻辑
- */
 public class WarehouseMenuHandler {
 
-    /**
-     * 向任意菜单注入仓库槽位和升级槽位
-     */
     public static void injectWarehouseSlots(AbstractContainerMenu menu, Player player) {
-        if (player == null)
+        if (player == null || FakePlayerUtils.isFakePlayer(player))
             return;
 
-        // 排除创造模式所有相关界面（包括 ItemPickerMenu）
         if (player.getAbilities().instabuild) {
             String menuName = menu.getClass().getName();
             if (menu instanceof InventoryMenu || menuName.contains("Creative") || menuName.contains("ItemPicker")) {
@@ -59,14 +30,14 @@ public class WarehouseMenuHandler {
             }
         }
 
-        // 仅在适配过的界面注入
         if (!isAdaptedMenu(menu)) {
             return;
         }
 
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+        if (warehouse == null)
+            return;
 
-        // 防止重复注入
         for (Slot slot : menu.slots) {
             if (slot.container instanceof PlayerWarehouse)
                 return;
@@ -77,24 +48,18 @@ public class WarehouseMenuHandler {
         int startX = -1000;
         int startY = -1000;
 
-        // 添加升级槽位
         for (int i = 0; i < WarehouseConstants.MAX_ROWS; i++) {
             accessor.invokeAddSlot(new UpgradeSlot(warehouse, i, startX, startY) {
                 @Override
                 public boolean isActive() {
-                    if (player.getAbilities().instabuild) {
-                        String menuName = menu.getClass().getName();
-                        if (menu instanceof InventoryMenu || menuName.contains("Creative")
-                                || menuName.contains("ItemPicker")) {
-                            return false;
-                        }
+                    if (player.getAbilities().instabuild || FakePlayerUtils.isFakePlayer(player)) {
+                        return false;
                     }
                     return super.isActive();
                 }
             });
         }
 
-        // 添加仓库槽位
         for (int row = 0; row < WarehouseConstants.MAX_ROWS; row++) {
             final int currentRow = row;
             for (int col = 0; col < WarehouseConstants.SLOTS_PER_ROW; col++) {
@@ -107,12 +72,8 @@ public class WarehouseMenuHandler {
 
                             @Override
                             public boolean isActive() {
-                                if (player.getAbilities().instabuild) {
-                                    String menuName = menu.getClass().getName();
-                                    if (menu instanceof InventoryMenu || menuName.contains("Creative")
-                                            || menuName.contains("ItemPicker")) {
-                                        return false;
-                                    }
+                                if (player.getAbilities().instabuild || FakePlayerUtils.isFakePlayer(player)) {
+                                    return false;
                                 }
                                 return !warehouse.isFolded() && warehouse.isEnabled()
                                         && currentRow < warehouse.getVisibleRows();
@@ -122,9 +83,6 @@ public class WarehouseMenuHandler {
         }
     }
 
-    /**
-     * 为 InventoryMenu 注入 3x3 合成槽位
-     */
     public static void injectCraftingSlots(AbstractContainerMenu menu, CraftingContainer craftSlots, Player owner) {
         if (!(menu instanceof InventoryMenu))
             return;
@@ -155,100 +113,22 @@ public class WarehouseMenuHandler {
         }
     }
 
-    public static boolean moveUpgradeToPlayerInventory(AbstractContainerMenu menu, Slot upgradeSlot) {
-        if (!(upgradeSlot instanceof UpgradeSlot) || !upgradeSlot.hasItem()) {
-            return false;
-        }
-
-        int[] inventoryRange = findPlayerInventoryRange(menu.slots);
-        if (inventoryRange == null) {
-            return false;
-        }
-
-        ItemStack stackInSlot = upgradeSlot.getItem();
-        AbstractContainerMenuAccessor accessor = (AbstractContainerMenuAccessor) menu;
-        if (!accessor.invokeMoveItemStackTo(stackInSlot, inventoryRange[0], inventoryRange[1], true)) {
-            return false;
-        }
-
-        upgradeSlot.set(stackInSlot);
-        upgradeSlot.setChanged();
-        return true;
-    }
-
-    public static boolean handleUpgradeSlotClick(AbstractContainerMenu menu, Slot upgradeSlot, int button) {
-        if (!(upgradeSlot instanceof UpgradeSlot) || (button != 0 && button != 1)) {
-            return false;
-        }
-
-        ItemStack cursorStack = menu.getCarried();
-        if (cursorStack.isEmpty()) {
-            menu.setCarried(upgradeSlot.remove(upgradeRemovalAmount(button, upgradeSlot.getMaxStackSize())));
-            return true;
-        }
-
-        if (!upgradeSlot.mayPlace(cursorStack)) {
-            return true;
-        }
-
-        ItemStack stackInSlot = upgradeSlot.getItem();
-        int maxPlace = upgradeSlot.getMaxStackSize();
-        if (stackInSlot.isEmpty()) {
-            int toPlace = Math.min(cursorStack.getCount(), maxPlace);
-            upgradeSlot.set(cursorStack.split(toPlace));
-        } else if (ItemStack.isSameItemSameComponents(stackInSlot, cursorStack)) {
-            int canAdd = Math.min(cursorStack.getCount(), maxPlace - stackInSlot.getCount());
-            if (canAdd > 0) {
-                stackInSlot.grow(canAdd);
-                cursorStack.shrink(canAdd);
-                upgradeSlot.setChanged();
-            }
-        } else if (cursorStack.getCount() == 1) {
-            ItemStack previous = stackInSlot.copy();
-            upgradeSlot.set(cursorStack.split(1));
-            menu.setCarried(previous);
-        }
-        return true;
-    }
-
-    static int upgradeRemovalAmount(int button, int maxStackSize) {
-        return button == 1 ? 1 : maxStackSize;
-    }
-
-    private static int[] findPlayerInventoryRange(List<Slot> slots) {
-        int start = -1;
-        int end = -1;
-        for (int i = 0; i < slots.size(); i++) {
-            Slot slot = slots.get(i);
-            if (slot.container instanceof Inventory && !(slot instanceof UpgradeSlot)) {
-                int containerSlot = slot.getContainerSlot();
-                if (containerSlot >= 0 && containerSlot < 36) {
-                    if (start == -1) {
-                        start = i;
-                    }
-                    end = i + 1;
-                }
-            }
-        }
-        return start == -1 ? null : new int[] { start, end };
-    }
-
     public static ItemStack handleQuickMove(AbstractContainerMenu menu, Player player, int index) {
-        // 1. 基础检查
+        if (player == null || FakePlayerUtils.isFakePlayer(player))
+            return null;
         if (!isAdaptedMenu(menu))
             return null;
         if (index < 0 || index >= menu.slots.size())
             return null;
 
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
-        if (!warehouse.isEnabled())
+        if (warehouse == null || !warehouse.isEnabled())
             return null;
 
         Slot slot = menu.slots.get(index);
         if (slot == null || !slot.hasItem())
             return null;
 
-        // 2. 识别槽位类型
         boolean isWarehouseSlot = slot.container instanceof PlayerWarehouse;
         boolean isUpgradeSlot = slot instanceof UpgradeSlot;
         boolean isPlayerInventory = slot.container instanceof Inventory;
@@ -256,17 +136,29 @@ public class WarehouseMenuHandler {
         ItemStack stackInSlot = slot.getItem();
         ItemStack originalStack = stackInSlot.copy();
 
-        int[] inventoryRange = findPlayerInventoryRange(menu.slots);
+        AbstractContainerMenuAccessor accessor = (AbstractContainerMenuAccessor) menu;
 
-        // 4. 分支处理
+        int invStart = -1;
+        int invEnd = -1;
+        List<Slot> slots = menu.slots;
+        for (int i = 0; i < slots.size(); i++) {
+            Slot s = slots.get(i);
+            if (s.container instanceof Inventory && !(s instanceof UpgradeSlot)) {
+                int containerSlot = s.getContainerSlot();
+                if (containerSlot >= 0 && containerSlot < 36) {
+                    if (invStart == -1)
+                        invStart = i;
+                    invEnd = i + 1;
+                }
+            }
+        }
 
-        // 分支 A: 仓库槽位（取出到背包）
         if (isWarehouseSlot) {
             if (!warehouse.isFolded() && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
                 int containerSlot = slot.getContainerSlot();
                 WarehouseService.commitIfWarehouseChanged(serverPlayer, (PlayerWarehouse) slot.container,
                         "menu_quick_move.from_warehouse", () -> {
-                            com.portablestorage.logic.WarehouseManager.tryTransferToInventory((PlayerWarehouse) slot.container,
+                            WarehouseManager.tryTransferToInventory((PlayerWarehouse) slot.container,
                                     containerSlot, player);
                             menu.broadcastChanges();
                             return null;
@@ -275,42 +167,36 @@ public class WarehouseMenuHandler {
             return ItemStack.EMPTY;
         }
 
-        // 分支 B: 升级槽位（取出到背包）
         if (isUpgradeSlot) {
-            return moveUpgradeToPlayerInventory(menu, slot) ? originalStack : ItemStack.EMPTY;
+            if (invStart == -1 || !accessor.invokeMoveItemStackTo(stackInSlot, invStart, invEnd, true)) {
+                return ItemStack.EMPTY;
+            }
+            slot.setChanged();
+            return originalStack;
         }
 
-        // 分支 C: 玩家背包槽位
         if (isPlayerInventory) {
             if (storeSlotIntoWarehouse(player, warehouse, slot, stackInSlot, originalStack,
                     "menu_quick_move.player_to_warehouse")) {
                 return originalStack;
             }
-            // 存入失败或未开启快速存取：不再拦截，从背包到容器的逻辑交给原版处理
-            // 这样我们只接管「从容器取出」路径，避免引入额外行为差异
             return null;
         }
 
-        // 分支 D: 普通容器槽位（如铁砧结果、熔炉、箱子等）
         if (!isSpecialSlot(slot, menu)) {
             if (storeSlotIntoWarehouse(player, warehouse, slot, stackInSlot, originalStack,
                     "menu_quick_move.container_to_warehouse")) {
                 return originalStack;
             }
 
-            // 快速存取关闭或存入失败：仅在玩家物品栏范围内移动，避免写入仓库槽位
-            if (inventoryRange != null) {
-                AbstractContainerMenuAccessor accessor = (AbstractContainerMenuAccessor) menu;
-                if (accessor.invokeMoveItemStackTo(stackInSlot, inventoryRange[0], inventoryRange[1], true)) {
-                    slot.setChanged();
-                    notifyCraftingChanged(menu);
-                    return originalStack;
-                }
+            if (invStart != -1 && accessor.invokeMoveItemStackTo(stackInSlot, invStart, invEnd, true)) {
+                slot.setChanged();
+                notifyCraftingChanged(menu);
+                return originalStack;
             }
             return ItemStack.EMPTY;
         }
 
-        // 特殊槽位：交给原版处理
         return null;
     }
 
@@ -339,20 +225,14 @@ public class WarehouseMenuHandler {
         });
     }
 
-    /**
-     * 识别具有特殊逻辑的槽位（如合成结果槽），这些槽位不应直接存入仓库
-     */
     private static boolean isSpecialSlot(Slot slot, AbstractContainerMenu menu) {
-        // 1. 基础类型检查
-        if (slot instanceof ResultSlot)
+        if (slot instanceof ResultSlot || slot.container instanceof CraftingContainer)
             return true;
 
-        // 2. 类名检查（涵盖 FurnaceResultSlot, CraftingResultSlot 等）
         String className = slot.getClass().getSimpleName();
-        if (className.contains("Result"))
+        if (className.contains("Result") || className.contains("Crafting"))
             return true;
 
-        // 3. 针对特定菜单的索引检查（针对没有继承 ResultSlot 的匿名内部类）
         int index = slot.getContainerSlot();
         if (menu instanceof AnvilMenu && index == 2)
             return true;
@@ -374,6 +254,9 @@ public class WarehouseMenuHandler {
 
     public static ItemStack handleCraftingQuickMove(AbstractContainerMenu menu, List<Slot> slots,
             CraftingContainer craftSlots, Player player, int index) {
+        if (player == null || FakePlayerUtils.isFakePlayer(player))
+            return null;
+
         Slot slot = slots.get(index);
         if (slot == null || !slot.hasItem())
             return null;
@@ -427,12 +310,7 @@ public class WarehouseMenuHandler {
         return null;
     }
 
-    /**
-     * 当通过自定义快捷移动逻辑改变了合成格或其相关槽位时，
-     * 主动触发一次合成结果刷新。
-     */
     private static void notifyCraftingChanged(AbstractContainerMenu menu) {
-        // 查找当前菜单中的任意 CraftingContainer，并调用 slotsChanged
         for (Slot s : menu.slots) {
             if (s.container instanceof CraftingContainer crafting) {
                 menu.slotsChanged(crafting);
@@ -441,9 +319,6 @@ public class WarehouseMenuHandler {
         }
     }
 
-    /**
-     * 判断槽位是否为仓库或升级相关槽位
-     */
     public static boolean isWarehouseRelatedSlot(Slot slot) {
         return slot.container instanceof PlayerWarehouse || slot instanceof UpgradeSlot;
     }
@@ -456,10 +331,6 @@ public class WarehouseMenuHandler {
                 && !name.contains("BoundBarrelScreenHandler");
     }
 
-    /**
-     * 检查菜单是否为已适配的界面
-     * 只有适配了背景渲染的界面才允许注入槽位
-     */
     public static boolean isAdaptedMenu(AbstractContainerMenu menu) {
         if (menu instanceof InventoryMenu)
             return true;

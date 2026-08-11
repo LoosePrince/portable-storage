@@ -2,6 +2,8 @@ package com.portablestorage.mixin;
 
 import com.portablestorage.handler.WarehouseInteractionHandler;
 import com.portablestorage.handler.WarehouseMenuHandler;
+import com.portablestorage.util.FakePlayerUtils;
+
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerInput;
@@ -15,6 +17,9 @@ public abstract class AbstractContainerMenuMixin {
 
     @Inject(method = "clicked", at = @At("HEAD"), cancellable = true)
     private void handleWarehouseClicks(int slotId, int button, ContainerInput clickType, Player player, CallbackInfo ci) {
+        if (FakePlayerUtils.isFakePlayer(player))
+            return;
+
         WarehouseMenuHandler.injectWarehouseSlots((AbstractContainerMenu) (Object) this, player);
 
         if (isQuickMove(clickType)) {

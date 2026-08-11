@@ -30,13 +30,17 @@ public final class ClientWarehouseState {
     }
 
     public static PlayerWarehouse current(Player player, UUID uuid) {
-        UUID ownerUuid = uuid != null ? uuid : player == null ? null : player.getUUID();
-        if (ownerUuid == null) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null) {
             return null;
         }
 
-        applyPendingIfReady(Minecraft.getInstance());
-        ensureWarehouse(ownerUuid);
+        // CRITICAL FIX: Only ever manage the local player's warehouse on the client.
+        // Ignore queries for non-local entities (like Fake Players).
+        UUID localUuid = client.player.getUUID();
+
+        applyPendingIfReady(client);
+        ensureWarehouse(localUuid);
         if (!snapshotApplied && pendingSnapshot == null && !requestInFlight) {
             requestSnapshot();
         }
@@ -44,12 +48,17 @@ public final class ClientWarehouseState {
     }
 
     public static void apply(WarehouseSnapshot snapshot) {
-        if (snapshot == null || snapshot.ownerUuid() == null) {
+        Minecraft client = Minecraft.getInstance();
+        if (snapshot == null || snapshot.ownerUuid() == null || client.player == null) {
+            return;
+        }
+        // ONLY accept snapshots matching the local human player
+        if (!snapshot.ownerUuid().equals(client.player.getUUID())) {
             return;
         }
         pendingSnapshot = new WarehouseSnapshot(snapshot.ownerUuid(), snapshot.warehouseData().copy());
         requestInFlight = false;
-        applyPendingIfReady(Minecraft.getInstance());
+        applyPendingIfReady(client);
     }
 
     public static void onPlayReady(Minecraft client) {

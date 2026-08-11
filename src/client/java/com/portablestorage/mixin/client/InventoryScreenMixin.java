@@ -7,7 +7,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.portablestorage.client.gui.WarehouseScreen;
 import com.portablestorage.config.ModConfig;
+import com.portablestorage.util.WarehouseUtils;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.inventory.AbstractRecipeBookScreen;
@@ -48,7 +50,6 @@ public abstract class InventoryScreenMixin extends AbstractRecipeBookScreen<Inve
             });
         }
 
-        // 重新应用偏移，因为 InventoryScreen.init() 会覆盖 leftPos
         WarehouseScreen screen = (WarehouseScreen) this;
         var warehouseWidget = screen.portablestorage$getWarehouseWidget();
         if (warehouseWidget != null) {
@@ -61,9 +62,13 @@ public abstract class InventoryScreenMixin extends AbstractRecipeBookScreen<Inve
             CallbackInfo ci) {
         WarehouseScreen screen = (WarehouseScreen) this;
         var warehouseWidget = screen.portablestorage$getWarehouseWidget();
-        if (warehouseWidget != null && warehouseWidget.shouldShow()) {
-            warehouseWidget.renderBackground(graphics, mouseX, mouseY);
+        if (warehouseWidget != null) {
+            if (WarehouseUtils.is3x3Enabled(Minecraft.getInstance().player)) {
+                warehouseWidget.renderCraftingBg(graphics);
+            }
+            if (warehouseWidget.shouldShow()) {
+                warehouseWidget.renderBackground(graphics, mouseX, mouseY);
+            }
         }
     }
-
 }
