@@ -20,10 +20,10 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.Slot;
 
 @Mixin(AbstractContainerScreen.class)
-public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMenu> implements WarehouseScreen {
+public abstract class AbstractContainerScreenMixin implements WarehouseScreen {
 
     @Unique
     private WarehouseWidget warehouseWidget;
@@ -35,16 +35,13 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
 
     @Inject(method = "init", at = @At("HEAD"))
     private void onInitHead(CallbackInfo ci) {
-        // 排除创造模式背包界面
         if ((Object) this instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen)
             return;
 
         AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
-        // 仅在适配过的界面注入
         if (!WarehouseMenuHandler.isAdaptedMenu(screen.getMenu()))
             return;
 
-        // 确保客户端菜单已有槽位后再执行 UI 逻辑
         WarehouseMenuHandler.injectWarehouseSlots(screen.getMenu(), Minecraft.getInstance().player);
 
         if (this.warehouseWidget == null) {
@@ -66,8 +63,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     }
 
     @Inject(method = "extractSlot", at = @At("HEAD"), cancellable = true)
-    private void onRenderSlot(GuiGraphicsExtractor graphics, net.minecraft.world.inventory.Slot slot, int x, int y,
-            CallbackInfo ci) {
+    private void onRenderSlot(GuiGraphicsExtractor graphics, Slot slot, int mouseX, int mouseY, CallbackInfo ci) {
         if (slot.container instanceof com.portablestorage.component.PlayerWarehouse
                 || slot instanceof com.portablestorage.upgrade.UpgradeSlot) {
             if (warehouseWidget == null || !warehouseWidget.shouldShow()) {
@@ -77,7 +73,7 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     }
 
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
-    private void onMouseClicked(MouseButtonEvent event, boolean consumed, CallbackInfoReturnable<Boolean> cir) {
+    private void onMouseClicked(MouseButtonEvent event, boolean doubleClick, CallbackInfoReturnable<Boolean> cir) {
         if (warehouseWidget != null && warehouseWidget.mouseClicked(event.x(), event.y(), event.button())) {
             cir.setReturnValue(true);
         }
@@ -91,20 +87,15 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     }
 
     @Inject(method = "mouseDragged", at = @At("HEAD"), cancellable = true)
-    private void onMouseDragged(MouseButtonEvent event, double dragX, double dragY,
-            CallbackInfoReturnable<Boolean> cir) {
+    private void onMouseDragged(MouseButtonEvent event, double dx, double dy, CallbackInfoReturnable<Boolean> cir) {
         if (warehouseWidget != null
-                && warehouseWidget.mouseDragged(event.x(), event.y(), event.button(), dragX, dragY)) {
+                && warehouseWidget.mouseDragged(event.x(), event.y(), event.button(), dx, dy)) {
             cir.setReturnValue(true);
         }
     }
 
     @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
     private void onKeyPressed(KeyEvent event, CallbackInfoReturnable<Boolean> cir) {
-        if (warehouseWidget != null && warehouseWidget.keyPressed(event.key(), event.scancode(), event.modifiers())) {
-            cir.setReturnValue(true);
-            return;
-        }
         if (QuickToolClientState.handleNumberKey(event.key())) {
             cir.setReturnValue(true);
             return;
@@ -114,35 +105,35 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
             cir.setReturnValue(true);
             return;
         }
+        if (warehouseWidget != null && warehouseWidget.keyPressed(event.key(), event.scancode(), event.modifiers())) {
+            cir.setReturnValue(true);
+        }
     }
 
     @Inject(method = "extractContents", at = @At("RETURN"))
-    private void onExtractContentsReturn(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick,
-            CallbackInfo ci) {
+    private void onExtractContentsReturn(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a, CallbackInfo ci) {
         if (warehouseWidget != null && warehouseWidget.shouldShow()) {
             warehouseWidget.renderItemOverlaysBeforeCarried(graphics);
         }
     }
 
     @Inject(method = "extractTooltip", at = @At("HEAD"), cancellable = true)
-    private void onRenderTooltip(GuiGraphicsExtractor graphics, int x, int y, CallbackInfo ci) {
+    private void onRenderTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY, CallbackInfo ci) {
         if (warehouseWidget != null) {
-            warehouseWidget.renderTooltipOverlays(graphics, x, y);
+            warehouseWidget.renderTooltipOverlays(graphics, mouseX, mouseY);
         }
 
         AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
         AbstractContainerScreenAccessor accessor = (AbstractContainerScreenAccessor) screen;
-        net.minecraft.world.inventory.Slot hoveredSlot = accessor.portablestorage$getHoveredSlot();
-        if (TooltipHandler.handleTooltip(screen, graphics, hoveredSlot, x, y,
+        Slot hoveredSlot = accessor.portablestorage$getHoveredSlot();
+        if (TooltipHandler.handleTooltip(screen, graphics, hoveredSlot, mouseX, mouseY,
                 stack -> net.minecraft.client.gui.screens.Screen.getTooltipFromItem(Minecraft.getInstance(), stack))) {
             ci.cancel();
         }
     }
 
     @Inject(method = "extractRenderState", at = @At("HEAD"))
-    private void onExtractRenderStateHead(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick,
-            CallbackInfo ci) {
-        // InventoryScreen needs to draw warehouse background after its own background pass.
+    private void onExtractRenderStateHead(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a, CallbackInfo ci) {
         if ((Object) this instanceof InventoryScreen) {
             return;
         }
@@ -152,9 +143,9 @@ public abstract class AbstractContainerScreenMixin<T extends AbstractContainerMe
     }
 
     @Inject(method = "extractRenderState", at = @At("RETURN"))
-    private void onRenderReturn(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+    private void onRenderReturn(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a, CallbackInfo ci) {
         if (warehouseWidget != null && warehouseWidget.shouldShow()) {
-            warehouseWidget.renderOverlays(graphics, mouseX, mouseY, partialTick);
+            warehouseWidget.renderOverlays(graphics, mouseX, mouseY, a);
         }
     }
 }

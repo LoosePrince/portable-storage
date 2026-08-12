@@ -18,8 +18,8 @@ import net.minecraft.world.inventory.*;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Warehouse Menu Handler
- * Injects warehouse and upgrade slots into container menus and handles quick-move logic dynamically.
+ * Warehouse Menu Handler.
+ * Injects warehouse slots and upgrade slots into container menus and handles quick-move logic dynamically.
  */
 public class WarehouseMenuHandler {
 
@@ -45,7 +45,7 @@ public class WarehouseMenuHandler {
         if (warehouse == null)
             return;
 
-        // Prevent double injection
+        // Prevent double injection.
         for (Slot slot : menu.slots) {
             if (slot.container instanceof PlayerWarehouse)
                 return;
@@ -56,7 +56,7 @@ public class WarehouseMenuHandler {
         int startX = -1000;
         int startY = -1000;
 
-        // Add upgrade slots
+        // Add upgrade slots.
         for (int i = 0; i < WarehouseConstants.MAX_ROWS; i++) {
             accessor.invokeAddSlot(new UpgradeSlot(warehouse, i, startX, startY) {
                 @Override
@@ -69,7 +69,7 @@ public class WarehouseMenuHandler {
             });
         }
 
-        // Add main warehouse slots
+        // Add main warehouse slots.
         for (int row = 0; row < WarehouseConstants.MAX_ROWS; row++) {
             final int currentRow = row;
             for (int col = 0; col < WarehouseConstants.SLOTS_PER_ROW; col++) {
@@ -221,7 +221,7 @@ public class WarehouseMenuHandler {
             return null;
 
         Slot slot = menu.slots.get(index);
-        if (slot == null || !slot.hasItem())
+        if (!slot.hasItem())
             return null;
 
         boolean isWarehouseSlot = slot.container instanceof PlayerWarehouse;
@@ -262,7 +262,12 @@ public class WarehouseMenuHandler {
             return null;
         }
 
-        // Branch D: Container slot -> Store into Warehouse or fallback to Inventory
+        // Pass-through for custom mod slots in InventoryMenu (e.g., Traveler's Backpack or Trinkets slots)
+        if (menu instanceof InventoryMenu) {
+            return null;
+        }
+
+        // Branch D: Standard Container slot -> Store into Warehouse or fallback to Player Inventory
         if (!isSpecialSlot(slot, menu)) {
             if (storeSlotIntoWarehouse(player, warehouse, slot, stackInSlot, originalStack,
                     "menu_quick_move.container_to_warehouse")) {
@@ -284,7 +289,7 @@ public class WarehouseMenuHandler {
     }
 
     private static boolean storeSlotIntoWarehouse(Player player, PlayerWarehouse warehouse, Slot slot,
-            ItemStack stackInSlot, ItemStack originalStack, String reason) {
+                                                  ItemStack stackInSlot, ItemStack originalStack, String reason) {
         if (!(player instanceof net.minecraft.server.level.ServerPlayer serverPlayer)
                 || !warehouse.isQuickInteraction()
                 || warehouse.isFolded()) {
@@ -295,14 +300,13 @@ public class WarehouseMenuHandler {
             ItemStack remaining = WarehouseManager.addFluid(warehouse, stackInSlot, player, reason);
             if (remaining.getCount() == originalStack.getCount()) {
                 WarehouseManager.addItem(warehouse, stackInSlot, player, reason + ".item");
-                remaining = stackInSlot;
             }
 
-            if (remaining.getCount() >= originalStack.getCount()) {
+            if (stackInSlot.getCount() >= originalStack.getCount()) {
                 return false;
             }
 
-            slot.set(remaining);
+            slot.set(stackInSlot);
             slot.setChanged();
             return true;
         });
@@ -317,31 +321,22 @@ public class WarehouseMenuHandler {
             return true;
 
         int index = slot.getContainerSlot();
-        if (menu instanceof AnvilMenu && index == 2)
-            return true;
-        if (menu instanceof SmithingMenu && index == 3)
-            return true;
-        if (menu instanceof LoomMenu && index == 3)
-            return true;
-        if (menu instanceof CartographyTableMenu && index == 2)
-            return true;
-        if (menu instanceof GrindstoneMenu && index == 2)
-            return true;
-        if (menu instanceof StonecutterMenu && index == 1)
-            return true;
-        if (menu instanceof MerchantMenu && index == 2)
-            return true;
-
-        return false;
+        return (menu instanceof AnvilMenu && index == 2)
+                || (menu instanceof SmithingMenu && index == 3)
+                || (menu instanceof LoomMenu && index == 3)
+                || (menu instanceof CartographyTableMenu && index == 2)
+                || (menu instanceof GrindstoneMenu && index == 2)
+                || (menu instanceof StonecutterMenu && index == 1)
+                || (menu instanceof MerchantMenu && index == 2);
     }
 
     public static ItemStack handleCraftingQuickMove(AbstractContainerMenu menu, List<Slot> slots,
-            CraftingContainer craftSlots, Player player, int index) {
+                                                    CraftingContainer craftSlots, Player player, int index) {
         if (player == null || FakePlayerUtils.isFakePlayer(player))
             return null;
 
         Slot slot = slots.get(index);
-        if (slot == null || !slot.hasItem())
+        if (!slot.hasItem())
             return null;
 
         if (WarehouseUtils.is3x3Enabled(player)) {
@@ -388,10 +383,6 @@ public class WarehouseMenuHandler {
                 break;
             }
         }
-    }
-
-    public static boolean isWarehouseRelatedSlot(Slot slot) {
-        return slot.container instanceof PlayerWarehouse || slot instanceof UpgradeSlot;
     }
 
     public static boolean isContainerMenu(AbstractContainerMenu menu) {

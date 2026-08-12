@@ -12,10 +12,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * Prevents IndexOutOfBoundsException or container size desyncs during client container synchronization.
- * Only injects warehouse slots into adapted menus, leaving custom modded menus (like Backpacks) completely untouched.
- */
 @Mixin(AbstractContainerMenu.class)
 public class ClientContainerSyncMixin {
 
@@ -27,11 +23,14 @@ public class ClientContainerSyncMixin {
         }
     }
 
-    @Inject(method = "setRemoteSlot", at = @At("HEAD"))
+    @Inject(method = "setRemoteSlot", at = @At("HEAD"), cancellable = true)
     private void beforeSetRemoteSlot(int slotIndex, ItemStack stack, CallbackInfo ci) {
         AbstractContainerMenu menu = (AbstractContainerMenu) (Object) this;
         if (WarehouseMenuHandler.isAdaptedMenu(menu) && slotIndex >= menu.slots.size()) {
             WarehouseMenuHandler.injectWarehouseSlots(menu, Minecraft.getInstance().player);
+        }
+        if (slotIndex < 0 || slotIndex >= menu.slots.size()) {
+            ci.cancel();
         }
     }
 }
