@@ -4,6 +4,7 @@
 build/
 out/
 classes/
+logs/
 
 # eclipse
 
@@ -44,4 +45,3 @@ replay_*.log
 # tmp
 *.tmp
 temp
-/logs

@@ -8,7 +8,6 @@ import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
 import com.portablestorage.config.YACLConfig;
 import com.portablestorage.logic.WarehouseManager;
-import com.portablestorage.mixin.accessor.AbstractContainerMenuAccessor;
 import com.portablestorage.mixin.client.AbstractContainerScreenAccessor;
 import com.portablestorage.mixin.client.ScreenAccessor;
 import com.portablestorage.network.C2SDoubleClickQuickStorePayload;
@@ -439,7 +438,6 @@ public class WarehouseWidget {
                     if (screen != null) screen.setFocused(this.searchBox);
                     return true;
                 }
-                // Left Click: Return false to let Vanilla Screen.mouseClicked handle focus & text cursor positioning
                 return false; 
             }
         }
@@ -535,15 +533,6 @@ public class WarehouseWidget {
                             return true;
                         }
                     } else {
-                        // For Quick Transfer, client predicts upgrade slot move. 
-                        if (isUpgradeSlot) {
-                            ItemStack stackInSlot = clickedSlot.getItem();
-                            if (!stackInSlot.isEmpty()) {
-                                if (((AbstractContainerMenuAccessor) screen.getMenu()).invokeMoveItemStackTo(stackInSlot, 9, 45, true)) {
-                                    clickedSlot.set(stackInSlot);
-                                }
-                            }
-                        }
                         ClientPlayNetworking.send(new QuickTransferPayload(clickedSlot.getContainerSlot(), isWarehouseSlot && !isUpgradeSlot, isUpgradeSlot));
                         lastClickTime = currentTime;
                         lastClickX = mouseX;
@@ -561,25 +550,8 @@ public class WarehouseWidget {
             if ((isWarehouseSlot || isUpgradeSlot) && (button == 0 || button == 1)) {
                 ItemStack cursorStack = screen.getMenu().getCarried();
                 if (isUpgradeSlot) {
-                    if (!cursorStack.isEmpty()) {
-                        if (clickedSlot.mayPlace(cursorStack)) {
-                            ItemStack stackInSlot = clickedSlot.getItem();
-                            int maxPlace = clickedSlot.getMaxStackSize();
-                            if (stackInSlot.isEmpty()) {
-                                int toPlace = Math.min(cursorStack.getCount(), maxPlace);
-                                clickedSlot.set(cursorStack.split(toPlace));
-                            } else if (ItemStack.isSameItemSameComponents(stackInSlot, cursorStack)) {
-                                int canAdd = Math.min(cursorStack.getCount(), maxPlace - stackInSlot.getCount());
-                                if (canAdd > 0) {
-                                    stackInSlot.grow(canAdd);
-                                    cursorStack.shrink(canAdd);
-                                }
-                            }
-                        }
-                    } else {
-                        ItemStack taken = clickedSlot.remove(clickedSlot.getMaxStackSize());
-                        screen.getMenu().setCarried(taken);
-                    }
+                    com.portablestorage.handler.WarehouseMenuHandler.handleUpgradeSlotClick(
+                            screen.getMenu(), clickedSlot, button);
                 } else {
                     if (!cursorStack.isEmpty()) {
                         ItemStack remaining = WarehouseManager.addFluid(warehouse, cursorStack, player, "warehouse_click.main_slot");
@@ -778,7 +750,6 @@ public class WarehouseWidget {
             }
             KeyEvent event = new KeyEvent(keyCode, scanCode, modifiers);
             this.searchBox.keyPressed(event);
-            
             return true; 
         }
 
@@ -807,7 +778,7 @@ public class WarehouseWidget {
         for (Slot slot : screen.getMenu().slots) {
             int slotX = screenAccessor.portablestorage$getLeftPos() + slot.x;
             int slotY = screenAccessor.portablestorage$getTopPos() + slot.y;
-            if (mouseX >= slotX && mouseX < slotX + 18 && mouseY >= slotY && mouseY < slotY + 18) {
+            if (mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY && mouseY < slotY + 16) {
                 return slot;
             }
         }

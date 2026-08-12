@@ -17,8 +17,15 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.*;
 import net.minecraft.world.item.ItemStack;
 
+/**
+ * Warehouse Menu Handler
+ * Injects warehouse and upgrade slots into container menus and handles quick-move logic dynamically.
+ */
 public class WarehouseMenuHandler {
 
+    /**
+     * Injects warehouse slots and upgrade slots into any adapted container menu.
+     */
     public static void injectWarehouseSlots(AbstractContainerMenu menu, Player player) {
         if (player == null || FakePlayerUtils.isFakePlayer(player))
             return;
@@ -38,6 +45,7 @@ public class WarehouseMenuHandler {
         if (warehouse == null)
             return;
 
+        // Prevent double injection
         for (Slot slot : menu.slots) {
             if (slot.container instanceof PlayerWarehouse)
                 return;
@@ -48,6 +56,7 @@ public class WarehouseMenuHandler {
         int startX = -1000;
         int startY = -1000;
 
+        // Add upgrade slots
         for (int i = 0; i < WarehouseConstants.MAX_ROWS; i++) {
             accessor.invokeAddSlot(new UpgradeSlot(warehouse, i, startX, startY) {
                 @Override
@@ -60,6 +69,7 @@ public class WarehouseMenuHandler {
             });
         }
 
+        // Add main warehouse slots
         for (int row = 0; row < WarehouseConstants.MAX_ROWS; row++) {
             final int currentRow = row;
             for (int col = 0; col < WarehouseConstants.SLOTS_PER_ROW; col++) {
@@ -83,6 +93,9 @@ public class WarehouseMenuHandler {
         }
     }
 
+    /**
+     * Injects extra 3x3 crafting slots into the InventoryMenu.
+     */
     public static void injectCraftingSlots(AbstractContainerMenu menu, CraftingContainer craftSlots, Player owner) {
         if (!(menu instanceof InventoryMenu))
             return;
@@ -113,6 +126,88 @@ public class WarehouseMenuHandler {
         }
     }
 
+    /**
+     * Dynamically locates the start and end index in menu.slots corresponding to the player's inventory.
+     * Fully compatible with Trinkets, Backpacks, and other slot-modifying mods.
+     */
+    public static int[] findPlayerInventoryRange(List<Slot> slots) {
+        int start = -1;
+        int end = -1;
+        for (int i = 0; i < slots.size(); i++) {
+            Slot slot = slots.get(i);
+            if (slot.container instanceof Inventory && !(slot instanceof UpgradeSlot)) {
+                int containerSlot = slot.getContainerSlot();
+                if (containerSlot >= 0 && containerSlot < 36) {
+                    if (start == -1) {
+                        start = i;
+                    }
+                    end = i + 1;
+                }
+            }
+        }
+        return start == -1 ? null : new int[] { start, end };
+    }
+
+    public static boolean moveUpgradeToPlayerInventory(AbstractContainerMenu menu, Slot upgradeSlot) {
+        if (!(upgradeSlot instanceof UpgradeSlot) || !upgradeSlot.hasItem()) {
+            return false;
+        }
+
+        int[] inventoryRange = findPlayerInventoryRange(menu.slots);
+        if (inventoryRange == null) {
+            return false;
+        }
+
+        ItemStack stackInSlot = upgradeSlot.getItem();
+        AbstractContainerMenuAccessor accessor = (AbstractContainerMenuAccessor) menu;
+        if (!accessor.invokeMoveItemStackTo(stackInSlot, inventoryRange[0], inventoryRange[1], true)) {
+            return false;
+        }
+
+        upgradeSlot.set(stackInSlot);
+        upgradeSlot.setChanged();
+        return true;
+    }
+
+    public static boolean handleUpgradeSlotClick(AbstractContainerMenu menu, Slot upgradeSlot, int button) {
+        if (!(upgradeSlot instanceof UpgradeSlot) || (button != 0 && button != 1)) {
+            return false;
+        }
+
+        ItemStack cursorStack = menu.getCarried();
+        if (cursorStack.isEmpty()) {
+            menu.setCarried(upgradeSlot.remove(upgradeRemovalAmount(button, upgradeSlot.getMaxStackSize())));
+            return true;
+        }
+
+        if (!upgradeSlot.mayPlace(cursorStack)) {
+            return true;
+        }
+
+        ItemStack stackInSlot = upgradeSlot.getItem();
+        int maxPlace = upgradeSlot.getMaxStackSize();
+        if (stackInSlot.isEmpty()) {
+            int toPlace = Math.min(cursorStack.getCount(), maxPlace);
+            upgradeSlot.set(cursorStack.split(toPlace));
+        } else if (ItemStack.isSameItemSameComponents(stackInSlot, cursorStack)) {
+            int canAdd = Math.min(cursorStack.getCount(), maxPlace - stackInSlot.getCount());
+            if (canAdd > 0) {
+                stackInSlot.grow(canAdd);
+                cursorStack.shrink(canAdd);
+                upgradeSlot.setChanged();
+            }
+        } else if (cursorStack.getCount() == 1) {
+            ItemStack previous = stackInSlot.copy();
+            upgradeSlot.set(cursorStack.split(1));
+            menu.setCarried(previous);
+        }
+        return true;
+    }
+
+    public static int upgradeRemovalAmount(int button, int maxStackSize) {
+        return button == 1 ? 1 : maxStackSize;
+    }
+
     public static ItemStack handleQuickMove(AbstractContainerMenu menu, Player player, int index) {
         if (player == null || FakePlayerUtils.isFakePlayer(player))
             return null;
@@ -136,23 +231,9 @@ public class WarehouseMenuHandler {
         ItemStack stackInSlot = slot.getItem();
         ItemStack originalStack = stackInSlot.copy();
 
-        AbstractContainerMenuAccessor accessor = (AbstractContainerMenuAccessor) menu;
+        int[] inventoryRange = findPlayerInventoryRange(menu.slots);
 
-        int invStart = -1;
-        int invEnd = -1;
-        List<Slot> slots = menu.slots;
-        for (int i = 0; i < slots.size(); i++) {
-            Slot s = slots.get(i);
-            if (s.container instanceof Inventory && !(s instanceof UpgradeSlot)) {
-                int containerSlot = s.getContainerSlot();
-                if (containerSlot >= 0 && containerSlot < 36) {
-                    if (invStart == -1)
-                        invStart = i;
-                    invEnd = i + 1;
-                }
-            }
-        }
-
+        // Branch A: Warehouse slot -> Move to Player Inventory
         if (isWarehouseSlot) {
             if (!warehouse.isFolded() && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
                 int containerSlot = slot.getContainerSlot();
@@ -167,14 +248,12 @@ public class WarehouseMenuHandler {
             return ItemStack.EMPTY;
         }
 
+        // Branch B: Upgrade slot -> Move to Player Inventory
         if (isUpgradeSlot) {
-            if (invStart == -1 || !accessor.invokeMoveItemStackTo(stackInSlot, invStart, invEnd, true)) {
-                return ItemStack.EMPTY;
-            }
-            slot.setChanged();
-            return originalStack;
+            return moveUpgradeToPlayerInventory(menu, slot) ? originalStack : ItemStack.EMPTY;
         }
 
+        // Branch C: Player Inventory slot -> Store into Warehouse
         if (isPlayerInventory) {
             if (storeSlotIntoWarehouse(player, warehouse, slot, stackInSlot, originalStack,
                     "menu_quick_move.player_to_warehouse")) {
@@ -183,16 +262,20 @@ public class WarehouseMenuHandler {
             return null;
         }
 
+        // Branch D: Container slot -> Store into Warehouse or fallback to Inventory
         if (!isSpecialSlot(slot, menu)) {
             if (storeSlotIntoWarehouse(player, warehouse, slot, stackInSlot, originalStack,
                     "menu_quick_move.container_to_warehouse")) {
                 return originalStack;
             }
 
-            if (invStart != -1 && accessor.invokeMoveItemStackTo(stackInSlot, invStart, invEnd, true)) {
-                slot.setChanged();
-                notifyCraftingChanged(menu);
-                return originalStack;
+            if (inventoryRange != null) {
+                AbstractContainerMenuAccessor accessor = (AbstractContainerMenuAccessor) menu;
+                if (accessor.invokeMoveItemStackTo(stackInSlot, inventoryRange[0], inventoryRange[1], true)) {
+                    slot.setChanged();
+                    notifyCraftingChanged(menu);
+                    return originalStack;
+                }
             }
             return ItemStack.EMPTY;
         }
@@ -266,39 +349,27 @@ public class WarehouseMenuHandler {
                 ItemStack stackInSlot = slot.getItem();
                 ItemStack resultStack = stackInSlot.copy();
 
-                int invStart = -1;
-                int invEnd = -1;
-                for (int i = 0; i < slots.size(); i++) {
-                    Slot s = slots.get(i);
-                    if (s.container instanceof Inventory && s.getContainerSlot() < 36) {
-                        if (invStart == -1)
-                            invStart = i;
-                        invEnd = i + 1;
-                    }
-                }
+                int[] invRange = findPlayerInventoryRange(slots);
+                if (invRange == null) return ItemStack.EMPTY;
 
                 AbstractContainerMenuAccessor accessor = (AbstractContainerMenuAccessor) menu;
                 if (slot instanceof ResultSlot) {
-                    if (invStart != -1) {
-                        while (slot.hasItem()) {
-                            ItemStack currentResult = slot.getItem();
-                            ItemStack resultCopy = currentResult.copy();
-                            currentResult.getItem().onCraftedBy(currentResult, player);
-                            if (!accessor.invokeMoveItemStackTo(currentResult, invStart, invEnd, true)) {
-                                break;
-                            }
-                            slot.onQuickCraft(currentResult, resultCopy);
-                            slot.onTake(player, currentResult);
-                            if (currentResult.getCount() == resultCopy.getCount()) {
-                                break;
-                            }
+                    while (slot.hasItem()) {
+                        ItemStack currentResult = slot.getItem();
+                        ItemStack resultCopy = currentResult.copy();
+                        currentResult.getItem().onCraftedBy(currentResult, player);
+                        if (!accessor.invokeMoveItemStackTo(currentResult, invRange[0], invRange[1], true)) {
+                            break;
+                        }
+                        slot.onQuickCraft(currentResult, resultCopy);
+                        slot.onTake(player, currentResult);
+                        if (currentResult.getCount() == resultCopy.getCount()) {
+                            break;
                         }
                     }
                 } else {
-                    if (invStart != -1) {
-                        if (!accessor.invokeMoveItemStackTo(stackInSlot, invStart, invEnd, false)) {
-                            return ItemStack.EMPTY;
-                        }
+                    if (!accessor.invokeMoveItemStackTo(stackInSlot, invRange[0], invRange[1], false)) {
+                        return ItemStack.EMPTY;
                     }
                     slot.onQuickCraft(stackInSlot, resultStack);
                     slot.setChanged();
