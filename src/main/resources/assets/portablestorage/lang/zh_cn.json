@@ -186,6 +186,7 @@
   "upgrade.portablestorage.bed.name": "床升级",
   "upgrade.portablestorage.bed.desc": "§7允许你随时随地进行睡眠（不记录重生点）。",
   "upgrade.portablestorage.bed.interaction_hint": "§8[右键] 放置临时床并睡觉",
+  "upgrade.portablestorage.bed.no_space": "没有足够的空间放置临时床！",
   "upgrade.portablestorage.experience.name": "附魔之瓶升级",
   "upgrade.portablestorage.experience.desc": "§7开启仓库的经验值存取功能。",
   "upgrade.portablestorage.experience.access_level": "§e存取步长: §f%s §e级",

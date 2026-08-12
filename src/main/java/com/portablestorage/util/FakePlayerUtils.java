@@ -15,18 +15,14 @@ public final class FakePlayerUtils {
             return false;
         }
 
-        // Direct real player classes in Minecraft
-        Class<?> clazz = player.getClass();
-        if (clazz == ServerPlayer.class || clazz.getSimpleName().equals("LocalPlayer") || clazz.getSimpleName().equals("RemotePlayer")) {
-            return false;
+        // On the server, real human players are always ServerPlayer.class directly.
+        // Fake players from mods (Create, ComputerCraft, etc.) are always subclasses
+        if (player instanceof ServerPlayer) {
+            return player.getClass() != ServerPlayer.class;
         }
 
-        // Check class name for known fake player implementations (e.g. Create Deployer, ComputerCraft, etc.)
-        String className = clazz.getName().toLowerCase();
-        if (className.contains("fakeplayer") || className.contains("fakeentity") || className.endsWith("fake")) {
-            return true;
-        }
-
-        return false;
+        // On the client, check class name as fallback
+        String className = player.getClass().getName().toLowerCase();
+        return className.contains("fakeplayer") || className.contains("fakeentity") || className.endsWith("fake");
     }
 }
