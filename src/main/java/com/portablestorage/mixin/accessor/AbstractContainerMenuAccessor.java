@@ -14,4 +14,3 @@ public interface AbstractContainerMenuAccessor {
     @Invoker("addSlot")
     Slot invokeAddSlot(Slot slot);
 }
-

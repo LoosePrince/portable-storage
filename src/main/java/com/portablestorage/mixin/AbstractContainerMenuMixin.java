@@ -1,5 +1,7 @@
 package com.portablestorage.mixin;
 
+import java.util.function.Supplier;
+
 import com.portablestorage.handler.WarehouseInteractionHandler;
 import com.portablestorage.handler.WarehouseMenuHandler;
 import com.portablestorage.util.FakePlayerUtils;
@@ -8,6 +10,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -36,17 +39,17 @@ public abstract class AbstractContainerMenuMixin {
     }
 
     /**
-     * Prevents Vanilla's broadcastChanges() from sending ClientboundContainerSetSlotPacket for UpgradeSlots or PlayerWarehouse slots.
-     * Since custom warehouse and upgrade syncing is handled via Portable Storage's own packets (S2CWarehouseSnapshotPayload),
-     * suppressing Vanilla's index-based slot packets prevents item bleed-through into crafting or Trinket slots when indices shift.
+     * Prevents Vanilla's synchronizeSlotToRemote() from sending ClientboundContainerSetSlotPacket or 
+     * incrementing stateId for UpgradeSlots or PlayerWarehouse slots.
+     * Custom warehouse/upgrade syncing is handled via Portable Storage's own packets (S2CWarehouseSnapshotPayload).
      */
-    @Inject(method = "broadcastChanges", at = @At("HEAD"))
-    private void suppressVanillaSlotPacketsForWarehouseSlots(CallbackInfo ci) {
+    @Inject(method = "synchronizeSlotToRemote", at = @At("HEAD"), cancellable = true)
+    private void onSynchronizeSlotToRemote(int slotIndex, ItemStack stack, Supplier<ItemStack> supplier, CallbackInfo ci) {
         AbstractContainerMenu menu = (AbstractContainerMenu) (Object) this;
-        for (int i = 0; i < menu.slots.size(); i++) {
-            Slot slot = menu.slots.get(i);
+        if (slotIndex >= 0 && slotIndex < menu.slots.size()) {
+            Slot slot = menu.slots.get(slotIndex);
             if (slot instanceof com.portablestorage.upgrade.UpgradeSlot || slot.container instanceof com.portablestorage.component.PlayerWarehouse) {
-                menu.setRemoteSlot(i, slot.getItem().copy());
+                ci.cancel();
             }
         }
     }

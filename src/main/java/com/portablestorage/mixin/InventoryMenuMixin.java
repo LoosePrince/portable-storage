@@ -17,7 +17,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(value = InventoryMenu.class, priority = 2000)
+/**
+ * Mixin set to priority 500 so Portable Storage slots are injected BEFORE
+ * Trinkets / Backpack mods (which use default priority 1000) on both client and server.
+ */
+@Mixin(value = InventoryMenu.class, priority = 500)
 public abstract class InventoryMenuMixin extends AbstractContainerMenu {
 
     @Shadow @Final private Player owner;

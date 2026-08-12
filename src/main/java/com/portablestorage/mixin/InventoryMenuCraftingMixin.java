@@ -28,7 +28,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(value = InventoryMenu.class, priority = 1000)
+@Mixin(value = InventoryMenu.class, priority = 500)
 public abstract class InventoryMenuCraftingMixin extends AbstractContainerMenu {
 
     @Shadow public abstract CraftingContainer getCraftSlots();
@@ -55,6 +55,10 @@ public abstract class InventoryMenuCraftingMixin extends AbstractContainerMenu {
 
     @Inject(method = "slotsChanged", at = @At("HEAD"), cancellable = true)
     private void onSlotsChanged(Container container, CallbackInfo ci) {
+        if (container != this.getCraftSlots()) {
+            return;
+        }
+
         Player owner = ((InventoryMenuAccessor) this).portablestorage$getOwner();
         if (owner != null && WarehouseUtils.is3x3Enabled(owner)) {
             if (!owner.level().isClientSide() && owner instanceof ServerPlayer serverPlayer) {
