@@ -12,6 +12,7 @@ import com.portablestorage.network.SyncConfigPayload;
 import com.portablestorage.screen.ModScreenHandlers;
 import com.portablestorage.upgrade.HopperUpgrade;
 import com.portablestorage.upgrade.TrashCanUpgrade;
+import com.portablestorage.util.CompatibilityDebug;
 import com.portablestorage.util.FakePlayerUtils;
 
 import net.fabricmc.api.ModInitializer;
@@ -72,6 +73,7 @@ public class PortableStorage implements ModInitializer {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             var player = handler.getPlayer();
             if (FakePlayerUtils.isFakePlayer(player)) {
+                CompatibilityDebug.log("lifecycle", () -> "skipped fake player join handling: " + player.getClass().getName());
                 return;
             }
 
@@ -135,6 +137,8 @@ public class PortableStorage implements ModInitializer {
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             for (net.minecraft.server.level.ServerPlayer player : server.getPlayerList().getPlayers()) {
                 if (FakePlayerUtils.isFakePlayer(player)) {
+                    CompatibilityDebug.logOnce("tick-skip:" + player.getClass().getName(), "lifecycle",
+                            () -> "skipping warehouse tick for fake player: " + player.getClass().getName());
                     continue;
                 }
                 var warehouse = com.portablestorage.storage.service.WarehouseService.get(player);
@@ -161,6 +165,7 @@ public class PortableStorage implements ModInitializer {
             var player = handler.getPlayer();
             if (player != null) {
                 if (FakePlayerUtils.isFakePlayer(player)) {
+                    CompatibilityDebug.log("lifecycle", () -> "skipped fake player disconnect handling: " + player.getClass().getName());
                     return;
                 }
                 var warehouse = com.portablestorage.storage.service.WarehouseService.get(player);

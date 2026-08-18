@@ -19,6 +19,8 @@ import com.portablestorage.network.C2SClickWarehouseSlotPayload;
 import com.portablestorage.network.OpenCraftingPayload;
 import com.portablestorage.network.QuickTransferPayload;
 import com.portablestorage.storage.sync.ClientWarehouseState;
+import com.portablestorage.util.CompatibilityDebug;
+import com.portablestorage.util.SearchInputPolicy;
 import com.portablestorage.util.StoragePosition;
 import com.portablestorage.util.WarehouseConstants;
 import com.portablestorage.util.WarehouseRenderer;
@@ -431,14 +433,16 @@ public class WarehouseWidget {
         }
 
         if (this.searchBox != null && this.searchBox.isVisible() && this.searchBox.active) {
-            if (this.searchBox.isMouseOver(mouseX, mouseY)) {
-                if (button == 1) { // Right Click: Clear & Focus
-                    clearSearch();
-                    this.searchBox.setFocused(true);
-                    if (screen != null) screen.setFocused(this.searchBox);
-                    return true;
-                }
-                return false; 
+            boolean mouseOverSearch = this.searchBox.isMouseOver(mouseX, mouseY);
+            if (SearchInputPolicy.shouldClearAndFocus(true, true, mouseOverSearch, button)) {
+                clearSearch();
+                this.searchBox.setFocused(true);
+                if (screen != null) screen.setFocused(this.searchBox);
+                CompatibilityDebug.log("search", () -> "right-click cleared and focused warehouse search box");
+                return true;
+            }
+            if (mouseOverSearch) {
+                return false;
             }
         }
 
@@ -742,15 +746,21 @@ public class WarehouseWidget {
     }
 
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (this.searchBox != null && this.searchBox.isVisible() && this.searchBox.isFocused()) {
-            if (keyCode == 256) { // ESC key (unfocus search box)
+        if (this.searchBox != null) {
+            SearchInputPolicy.KeyAction action = SearchInputPolicy.resolveKeyAction(
+                    this.searchBox.isVisible(), this.searchBox.active, this.searchBox.isFocused(), keyCode);
+            if (action == SearchInputPolicy.KeyAction.UNFOCUS) {
                 this.searchBox.setFocused(false);
                 if (screen != null) screen.setFocused(null);
+                CompatibilityDebug.log("search", () -> "escape unfocused warehouse search box");
                 return true;
             }
-            KeyEvent event = new KeyEvent(keyCode, scanCode, modifiers);
-            this.searchBox.keyPressed(event);
-            return true; 
+            if (action == SearchInputPolicy.KeyAction.FORWARD_AND_CONSUME) {
+                KeyEvent event = new KeyEvent(keyCode, scanCode, modifiers);
+                this.searchBox.keyPressed(event);
+                CompatibilityDebug.log("search", () -> "consumed key " + keyCode + " while warehouse search box was focused");
+                return true;
+            }
         }
 
         if (shouldShow() && !warehouse.isFolded()) {

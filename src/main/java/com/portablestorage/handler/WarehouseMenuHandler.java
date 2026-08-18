@@ -8,6 +8,7 @@ import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.mixin.accessor.AbstractContainerMenuAccessor;
 import com.portablestorage.storage.service.WarehouseService;
 import com.portablestorage.upgrade.UpgradeSlot;
+import com.portablestorage.util.CompatibilityDebug;
 import com.portablestorage.util.FakePlayerUtils;
 import com.portablestorage.util.WarehouseConstants;
 import com.portablestorage.util.WarehouseUtils;
@@ -44,6 +45,9 @@ public class WarehouseMenuHandler {
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         if (warehouse == null)
             return;
+
+        CompatibilityDebug.logOnce("warehouse-inject:" + menu.getClass().getName(), "menu",
+                () -> "injecting warehouse slots into " + menu.getClass().getName() + "; existingSlots=" + menu.slots.size());
 
         // Prevent double injection.
         for (Slot slot : menu.slots) {
@@ -110,6 +114,8 @@ public class WarehouseMenuHandler {
         };
 
         AbstractContainerMenuAccessor accessor = (AbstractContainerMenuAccessor) menu;
+        CompatibilityDebug.log("crafting", () -> "adding five 3x3 inventory crafting slots for "
+                + (owner == null ? "none" : owner.getClass().getName()));
         for (int i = 0; i < extraIndices.length; i++) {
             final int idx = extraIndices[i];
             accessor.invokeAddSlot(new Slot(craftSlots, idx, positions[i][0], positions[i][1]) {
@@ -145,7 +151,28 @@ public class WarehouseMenuHandler {
                 }
             }
         }
-        return start == -1 ? null : new int[] { start, end };
+        int[] range = start == -1 ? null : new int[] { start, end };
+        CompatibilityDebug.log("inventory-range", () -> {
+            if (range == null) {
+                return "no player inventory slots found; menuSlotCount=" + slots.size();
+            }
+            int expected = 0;
+            int gaps = 0;
+            for (int i = range[0]; i < range[1]; i++) {
+                Slot slot = slots.get(i);
+                boolean isPlayerSlot = slot.container instanceof Inventory
+                        && !(slot instanceof UpgradeSlot)
+                        && slot.getContainerSlot() >= 0 && slot.getContainerSlot() < 36;
+                if (!isPlayerSlot) {
+                    gaps++;
+                } else {
+                    expected++;
+                }
+            }
+            return "range=[" + range[0] + "," + range[1] + ") matched=" + expected + "/"
+                    + (range[1] - range[0]) + " interleavedNonPlayerSlots=" + gaps;
+        });
+        return range;
     }
 
     public static boolean moveUpgradeToPlayerInventory(AbstractContainerMenu menu, Slot upgradeSlot) {

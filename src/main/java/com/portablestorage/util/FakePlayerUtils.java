@@ -15,14 +15,23 @@ public final class FakePlayerUtils {
             return false;
         }
 
-        // On the server, real human players are always ServerPlayer.class directly.
-        // Fake players from mods (Create, ComputerCraft, etc.) are always subclasses
-        if (player instanceof ServerPlayer) {
-            return player.getClass() != ServerPlayer.class;
+        if (isSubclassOf(player.getClass(), ServerPlayer.class)) {
+            CompatibilityDebug.logOnce("fake-player:" + player.getClass().getName(), "fake-player",
+                    () -> "classified server player subclass as fake: " + player.getClass().getName());
+            return true;
         }
 
-        // On the client, check class name as fallback
         String className = player.getClass().getName().toLowerCase();
-        return className.contains("fakeplayer") || className.contains("fakeentity") || className.endsWith("fake");
+        boolean fakeByName = className.contains("fakeplayer") || className.contains("fakeentity")
+                || className.endsWith("fake");
+        if (fakeByName) {
+            CompatibilityDebug.logOnce("fake-player:" + player.getClass().getName(), "fake-player",
+                    () -> "classified client-side player by class name as fake: " + player.getClass().getName());
+        }
+        return fakeByName;
+    }
+
+    static boolean isSubclassOf(Class<?> candidate, Class<?> base) {
+        return candidate != null && base != null && base.isAssignableFrom(candidate) && candidate != base;
     }
 }

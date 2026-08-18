@@ -53,6 +53,14 @@ loom {
             property 'fabric.developer.name', 'DevPlayer'
             programArgs '--username', 'DevPlayer'
             programArgs '--uuid', '0a5e4ff0-6099-36b5-b64d-a84ffa9f1f72'
+            property 'portablestorage.pr9Debug', 'true'
+		}
+		server {
+			server()
+			setConfigName("Fabric Server")
+			ideConfigGenerated(true)
+			runDir("run")
+			property 'portablestorage.pr9Debug', 'true'
 		}
 	}
 

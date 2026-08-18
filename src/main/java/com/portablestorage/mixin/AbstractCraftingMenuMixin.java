@@ -1,5 +1,6 @@
 package com.portablestorage.mixin;
 
+import com.portablestorage.util.CompatibilityDebug;
 import com.portablestorage.util.FakePlayerUtils;
 import com.portablestorage.util.InventoryMenuHelper;
 
@@ -22,6 +23,9 @@ public abstract class AbstractCraftingMenuMixin {
     private TransientCraftingContainer expandCraftingContainerForInventory(AbstractContainerMenu menu, int width, int height) {
         if ((Object) this instanceof InventoryMenu) {
             Player owner = InventoryMenuHelper.CURRENT_INVENTORY_OWNER.get();
+            CompatibilityDebug.log("crafting", () -> "InventoryMenu crafting container redirect; capturedOwner="
+                    + (owner == null ? "none" : owner.getClass().getName()) + "; requested=" + width + "x" + height
+                    + "; redirected=3x3");
             if (owner != null && FakePlayerUtils.isFakePlayer(owner)) {
                 return new TransientCraftingContainer(menu, width, height);
             }

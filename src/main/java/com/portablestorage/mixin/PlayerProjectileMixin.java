@@ -11,6 +11,7 @@ import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.component.WarehouseEntry;
 import com.portablestorage.logic.WarehouseAmmoBridge;
+import com.portablestorage.util.CompatibilityDebug;
 import com.portablestorage.util.FakePlayerUtils;
 
 import net.minecraft.server.level.ServerLevel;
@@ -34,8 +35,10 @@ public abstract class PlayerProjectileMixin {
             return;
         if (player.getAbilities().instabuild)
             return;
-        if (FakePlayerUtils.isFakePlayer(player))
+        if (FakePlayerUtils.isFakePlayer(player)) {
+            CompatibilityDebug.log("fake-player", () -> "skipped warehouse projectile lookup for " + player.getClass().getName());
             return;
+        }
 
         if (weapon.getItem() instanceof BowItem || weapon.getItem() instanceof CrossbowItem) {
             PlayerWarehouse warehouse = ModComponents.getWarehouse(((ServerLevel) player.level()).getServer(),

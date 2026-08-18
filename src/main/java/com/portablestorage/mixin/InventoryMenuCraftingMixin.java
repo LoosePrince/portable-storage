@@ -4,6 +4,7 @@ import java.util.Optional;
 
 import com.portablestorage.handler.WarehouseMenuHandler;
 import com.portablestorage.mixin.accessor.InventoryMenuAccessor;
+import com.portablestorage.util.CompatibilityDebug;
 import com.portablestorage.util.FakePlayerUtils;
 import com.portablestorage.util.InventoryMenuHelper;
 import com.portablestorage.util.WarehouseUtils;
@@ -40,11 +41,15 @@ public abstract class InventoryMenuCraftingMixin extends AbstractContainerMenu {
     @Inject(method = "<init>", at = @At("HEAD"))
     private static void captureOwnerHead(Inventory inventory, boolean active, Player owner, CallbackInfo ci) {
         InventoryMenuHelper.CURRENT_INVENTORY_OWNER.set(owner);
+        CompatibilityDebug.log("crafting", () -> "captured InventoryMenu owner at constructor HEAD: "
+                + (owner == null ? "none" : owner.getClass().getName()));
     }
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void addExtraCraftingSlots(Inventory inventory, boolean active, Player owner, CallbackInfo ci) {
         try {
+            CompatibilityDebug.log("crafting", () -> "InventoryMenu constructor RETURN; fake="
+                    + FakePlayerUtils.isFakePlayer(owner));
             if (FakePlayerUtils.isFakePlayer(owner))
                 return;
             WarehouseMenuHandler.injectCraftingSlots(this, this.getCraftSlots(), owner);
@@ -60,7 +65,10 @@ public abstract class InventoryMenuCraftingMixin extends AbstractContainerMenu {
         }
 
         Player owner = ((InventoryMenuAccessor) this).portablestorage$getOwner();
-        if (owner != null && WarehouseUtils.is3x3Enabled(owner)) {
+        boolean enabled3x3 = owner != null && WarehouseUtils.is3x3Enabled(owner);
+        CompatibilityDebug.log("crafting", () -> "InventoryMenu slotsChanged; container=" + container.getClass().getName()
+                + "; size=" + this.getCraftSlots().getContainerSize() + "; threeByThree=" + enabled3x3);
+        if (enabled3x3) {
             if (!owner.level().isClientSide() && owner instanceof ServerPlayer serverPlayer) {
                 CraftingInput craftingInput = this.getCraftSlots().asCraftInput();
                 Optional<RecipeHolder<CraftingRecipe>> optional = serverPlayer.level().getServer().getRecipeManager()

@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.network.C2SRequestWarehouseSnapshotPayload;
+import com.portablestorage.util.CompatibilityDebug;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
@@ -54,8 +55,11 @@ public final class ClientWarehouseState {
         }
         // ONLY accept snapshots matching the local human player
         if (!snapshot.ownerUuid().equals(client.player.getUUID())) {
+            CompatibilityDebug.log("sync", () -> "rejected warehouse snapshot for non-local owner=" + snapshot.ownerUuid());
             return;
         }
+        CompatibilityDebug.log("sync", () -> "accepted warehouse snapshot owner=" + snapshot.ownerUuid()
+                + "; nbtKeys=" + snapshot.warehouseData().keySet());
         pendingSnapshot = new WarehouseSnapshot(snapshot.ownerUuid(), snapshot.warehouseData().copy());
         requestInFlight = false;
         applyPendingIfReady(client);
@@ -78,6 +82,7 @@ public final class ClientWarehouseState {
     public static void requestSnapshot() {
         if (!requestInFlight && ClientPlayNetworking.canSend(C2SRequestWarehouseSnapshotPayload.TYPE)) {
             requestInFlight = true;
+            CompatibilityDebug.log("sync", () -> "requesting local warehouse snapshot");
             ClientPlayNetworking.send(new C2SRequestWarehouseSnapshotPayload());
         }
     }
@@ -132,6 +137,7 @@ public final class ClientWarehouseState {
         ensureWarehouse(snapshot.ownerUuid());
         currentWarehouse.loadFromNbt(snapshot.warehouseData().copy(), client.level.registryAccess());
         currentOwnerUuid = snapshot.ownerUuid();
+        CompatibilityDebug.log("sync", () -> "applied warehouse snapshot owner=" + snapshot.ownerUuid());
         pendingSnapshot = null;
         snapshotApplied = true;
         requestInFlight = false;

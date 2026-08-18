@@ -4,6 +4,7 @@ import java.util.function.Supplier;
 
 import com.portablestorage.handler.WarehouseInteractionHandler;
 import com.portablestorage.handler.WarehouseMenuHandler;
+import com.portablestorage.util.CompatibilityDebug;
 import com.portablestorage.util.FakePlayerUtils;
 
 import net.minecraft.world.entity.player.Player;
@@ -49,6 +50,9 @@ public abstract class AbstractContainerMenuMixin {
         if (slotIndex >= 0 && slotIndex < menu.slots.size()) {
             Slot slot = menu.slots.get(slotIndex);
             if (slot instanceof com.portablestorage.upgrade.UpgradeSlot || slot.container instanceof com.portablestorage.component.PlayerWarehouse) {
+                CompatibilityDebug.logOnce("slot-sync-suppressed:" + menu.getClass().getName() + ":" + slot.getClass().getName(),
+                        "sync", () -> "suppressed vanilla slot sync; menu=" + menu.getClass().getName()
+                                + "; firstSlotIndex=" + slotIndex + "; slotType=" + slot.getClass().getName());
                 ci.cancel();
             }
         }
