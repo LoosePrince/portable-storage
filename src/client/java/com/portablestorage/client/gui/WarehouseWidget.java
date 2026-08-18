@@ -57,8 +57,8 @@ public class WarehouseWidget {
     private long lastClickTime = 0;
     private double lastClickX = -1;
     private double lastClickY = -1;
-    private static final long DOUBLE_CLICK_TIME_MS = 300;
-    private static final double DOUBLE_CLICK_DISTANCE = 5.0;
+    private static final long DOUBLE_CLICK_TIME_MS = 300; 
+    private static final double DOUBLE_CLICK_DISTANCE = 5.0; 
 
     private boolean lastWorkbenchStatus = false;
     private boolean lastEnabledStatus = false;
@@ -112,11 +112,21 @@ public class WarehouseWidget {
     }
 
     private void initCraftingPositions() {
+        boolean enabled3x3 = WarehouseUtils.is3x3Enabled(Minecraft.getInstance().player);
         int[] craftIndices = { 1, 2, 46, 3, 4, 47, 48, 49, 50 };
         for (int i = 0; i < craftIndices.length; i++) {
-            var slot = screen.getMenu().slots.get(craftIndices[i]);
-            ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setX(WarehouseConstants.CRAFT_3X3_X + (i % 3) * 18);
-            ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setY(WarehouseConstants.CRAFT_3X3_Y + (i / 3) * 18);
+            if (craftIndices[i] < screen.getMenu().slots.size()) {
+                var slot = screen.getMenu().slots.get(craftIndices[i]);
+                if (enabled3x3) {
+                    ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setX(WarehouseConstants.CRAFT_3X3_X + (i % 3) * 18);
+                    ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setY(WarehouseConstants.CRAFT_3X3_Y + (i / 3) * 18);
+                } else {
+                    if (i == 2 || i >= 5) {
+                        ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setX(-1000);
+                        ((com.portablestorage.mixin.accessor.SlotAccessor) slot).setY(-1000);
+                    }
+                }
+            }
         }
 
         var resultSlot = screen.getMenu().slots.get(0);
@@ -339,7 +349,7 @@ public class WarehouseWidget {
         }
     }
 
-    private void renderCraftingBg(GuiGraphicsExtractor graphics) {
+    public void renderCraftingBg(GuiGraphicsExtractor graphics) {
         AbstractContainerScreenAccessor screenAccessor = (AbstractContainerScreenAccessor) screen;
         int cx = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.CRAFT_3X3_X - 1;
         int cy = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.CRAFT_3X3_Y - 1;
@@ -414,13 +424,22 @@ public class WarehouseWidget {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!shouldShow()) return false;
 
+        // Left click clear cross icon logic
         if (!warehouse.isFolded() && button == 0 && isMouseOverSearchClear(mouseX, mouseY)) {
             clearSearch();
             return true;
         }
 
-        if (this.searchBox != null && this.searchBox.isVisible() && this.searchBox.active && this.searchBox.isMouseOver(mouseX, mouseY)) {
-            return false;
+        if (this.searchBox != null && this.searchBox.isVisible() && this.searchBox.active) {
+            if (this.searchBox.isMouseOver(mouseX, mouseY)) {
+                if (button == 1) { // Right Click: Clear & Focus
+                    clearSearch();
+                    this.searchBox.setFocused(true);
+                    if (screen != null) screen.setFocused(this.searchBox);
+                    return true;
+                }
+                return false; 
+            }
         }
 
         Minecraft minecraft = Minecraft.getInstance();
@@ -468,7 +487,7 @@ public class WarehouseWidget {
         if (clickedSlot != null) {
             boolean isWarehouseSlot = clickedSlot.container instanceof PlayerWarehouse;
             boolean isUpgradeSlot = clickedSlot instanceof com.portablestorage.upgrade.UpgradeSlot;
-
+            
             if (isWarehouseSlot && !isUpgradeSlot && button == 0) {
                 ItemStack stack = clickedSlot.getItem();
                 var customData = stack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
@@ -490,9 +509,9 @@ public class WarehouseWidget {
                     && warehouse.isQuickInteraction()
                     && !warehouse.isFolded()
                     && com.portablestorage.handler.WarehouseMenuHandler.isAdaptedMenu(screen.getMenu())) {
-
+                
                 boolean isPlayerInv = clickedSlot.container instanceof net.minecraft.world.entity.player.Inventory;
-
+                
                 if (isWarehouseSlot || isUpgradeSlot || isPlayerInv) {
                     long currentTime = System.currentTimeMillis();
                     boolean isDoubleClick = false;
@@ -514,10 +533,6 @@ public class WarehouseWidget {
                             return true;
                         }
                     } else {
-                        if (isUpgradeSlot) {
-                            com.portablestorage.handler.WarehouseMenuHandler.moveUpgradeToPlayerInventory(
-                                    screen.getMenu(), clickedSlot);
-                        }
                         ClientPlayNetworking.send(new QuickTransferPayload(clickedSlot.getContainerSlot(), isWarehouseSlot && !isUpgradeSlot, isUpgradeSlot));
                         lastClickTime = currentTime;
                         lastClickX = mouseX;
@@ -556,7 +571,7 @@ public class WarehouseWidget {
         FoldButtonLayout foldButton = getFoldButtonLayout(screenAccessor.portablestorage$getLeftPos(),
                 screenAccessor.portablestorage$getTopPos(), screenAccessor.portablestorage$getImageHeight());
         if (foldButton.contains(mouseX, mouseY)) {
-            if (button == 2) {
+            if (button == 2) { 
                 var loader = net.fabricmc.loader.api.FabricLoader.getInstance();
                 boolean hasYacl = loader.isModLoaded("yet_another_config_lib_v3");
                 if (hasYacl) {
@@ -569,7 +584,7 @@ public class WarehouseWidget {
                 }
                 return true;
             }
-            if (button == 0) {
+            if (button == 0) { 
                 boolean newFolded = !warehouse.isFolded();
                 warehouse.setFolded(newFolded);
                 WarehouseStateSync.sendSetting(WarehouseSetting.FOLD, newFolded ? 1 : 0);
@@ -615,7 +630,7 @@ public class WarehouseWidget {
                 int curY = horizontal ? by : by + i * iconSpacing;
 
                 if (mouseX >= curX && mouseX < curX + 18 && mouseY >= curY && mouseY < curY + 18) {
-                    WarehouseSetting setting = WarehouseSetting.values()[i + 1];
+                    WarehouseSetting setting = WarehouseSetting.values()[i + 1]; 
                     int newVal = WarehouseStateSync.nextSidebarSettingValue(warehouse, setting);
                     WarehouseStateSync.applySetting(warehouse, setting, newVal);
                     WarehouseStateSync.sendSetting(setting, newVal);
@@ -728,12 +743,14 @@ public class WarehouseWidget {
 
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (this.searchBox != null && this.searchBox.isVisible() && this.searchBox.isFocused()) {
-            if (keyCode == 256) {
+            if (keyCode == 256) { // ESC key (unfocus search box)
                 this.searchBox.setFocused(false);
+                if (screen != null) screen.setFocused(null);
                 return true;
             }
             KeyEvent event = new KeyEvent(keyCode, scanCode, modifiers);
-            return this.searchBox.keyPressed(event);
+            this.searchBox.keyPressed(event);
+            return true; 
         }
 
         if (shouldShow() && !warehouse.isFolded()) {
@@ -761,7 +778,7 @@ public class WarehouseWidget {
         for (Slot slot : screen.getMenu().slots) {
             int slotX = screenAccessor.portablestorage$getLeftPos() + slot.x;
             int slotY = screenAccessor.portablestorage$getTopPos() + slot.y;
-            if (mouseX >= slotX && mouseX < slotX + 18 && mouseY >= slotY && mouseY < slotY + 18) {
+            if (mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY && mouseY < slotY + 16) {
                 return slot;
             }
         }

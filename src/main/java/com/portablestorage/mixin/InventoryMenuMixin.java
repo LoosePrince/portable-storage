@@ -1,6 +1,8 @@
 package com.portablestorage.mixin;
 
 import com.portablestorage.handler.WarehouseMenuHandler;
+import com.portablestorage.util.FakePlayerUtils;
+
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -26,11 +28,15 @@ public abstract class InventoryMenuMixin extends AbstractContainerMenu {
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void addWarehouseSlots(Inventory inventory, boolean active, Player owner, CallbackInfo ci) {
+        if (FakePlayerUtils.isFakePlayer(owner))
+            return;
         WarehouseMenuHandler.injectWarehouseSlots(this, owner);
     }
 
     @Inject(method = "quickMoveStack", at = @At("HEAD"), cancellable = true)
     private void handleQuickMove(Player player, int index, CallbackInfoReturnable<ItemStack> cir) {
+        if (FakePlayerUtils.isFakePlayer(player))
+            return;
         ItemStack result = WarehouseMenuHandler.handleQuickMove(this, player, index);
         if (result != null) {
             cir.setReturnValue(result);

@@ -7,16 +7,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.portablestorage.handler.WarehouseMenuHandler;
 import com.portablestorage.upgrade.BedUpgrade;
+import com.portablestorage.util.FakePlayerUtils;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 
 @Mixin(ServerPlayer.class)
 public class ServerPlayerMixin {
-    @Inject(method = "initMenu", at = @At("HEAD"))
+    @Inject(method = "initMenu", at = @At("HEAD"), cancellable = true)
     private void onInitMenu(AbstractContainerMenu menu, CallbackInfo ci) {
         ServerPlayer player = (ServerPlayer) (Object) this;
-        // 排除创造模式背包菜单
+        if (FakePlayerUtils.isFakePlayer(player))
+            return;
         if (menu instanceof net.minecraft.world.inventory.InventoryMenu && player.getAbilities().instabuild)
             return;
 
@@ -25,13 +27,14 @@ public class ServerPlayerMixin {
 
     @Inject(method = "setRespawnPosition", at = @At("HEAD"), cancellable = true)
     private void onSetRespawnPosition(ServerPlayer.RespawnConfig config, boolean sendMessage, CallbackInfo ci) {
-        // 某些情况下（例如客户端异常发包）config 可能为 null，此时直接交给原版逻辑处理
         if (config == null) {
             return;
         }
 
         ServerPlayer player = (ServerPlayer) (Object) this;
-        // 设置重生点可能在 isSleeping() 变为 true 之前触发，故仅用“是否在临时床列表”判断
+        if (FakePlayerUtils.isFakePlayer(player))
+            return;
+
         if (!config.forced() && BedUpgrade.PLAYER_TEMP_BEDS.containsKey(player.getUUID())) {
             ci.cancel();
         }
@@ -40,6 +43,8 @@ public class ServerPlayerMixin {
     @Inject(method = "stopSleepInBed", at = @At("TAIL"))
     private void onWakeUp(boolean skipSleepTimer, boolean updateSleepingPlayers, CallbackInfo ci) {
         ServerPlayer player = (ServerPlayer) (Object) this;
+        if (FakePlayerUtils.isFakePlayer(player))
+            return;
         BedUpgrade.cleanupTempBed(player);
     }
 }

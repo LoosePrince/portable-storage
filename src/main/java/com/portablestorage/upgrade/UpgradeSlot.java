@@ -9,12 +9,12 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * 升级槽位
- * 用于在容器菜单中显示和管理仓库升级物品
+ * Upgrade Slot
+ * Used in container menus to display and manage warehouse upgrades.
  */
 public class UpgradeSlot extends Slot {
     private final PlayerWarehouse warehouse;
-    /** 在当前列中的视觉位置（0 到 MAX_ROWS-1） */
+    /** Visual position in the current column (0 to MAX_ROWS - 1) */
     private final int visualIndex;
 
     public UpgradeSlot(PlayerWarehouse warehouse, int visualIndex, int x, int y) {
@@ -24,18 +24,21 @@ public class UpgradeSlot extends Slot {
     }
 
     /**
-     * 获取视觉索引
-     * 
-     * @return 视觉索引
+     * Gets the visual index (row) of this upgrade slot.
      */
     public int getVisualIndex() {
         return visualIndex;
     }
 
     /**
-     * 获取当前槽位对应的升级类型
-     * 
-     * @return 升级类型，如果索引无效则返回 null
+     * Gets the warehouse instance owning this upgrade slot.
+     */
+    public PlayerWarehouse getWarehouse() {
+        return warehouse;
+    }
+
+    /**
+     * Gets the upgrade type corresponding to this visual slot and current scroll offset.
      */
     private UpgradeType getUpgradeType() {
         List<UpgradeType> all = UpgradeRegistry.getAllUpgrades();

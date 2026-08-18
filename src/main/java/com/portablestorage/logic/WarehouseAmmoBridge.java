@@ -1,4 +1,4 @@
-package com.portablestorage.mixin;
+package com.portablestorage.logic;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -7,20 +7,20 @@ import java.util.UUID;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
-final class WarehouseAmmoBridge {
+public final class WarehouseAmmoBridge {
     private static final Map<AmmoUseKey, ItemStack> PENDING = new HashMap<>();
 
     private WarehouseAmmoBridge() {
     }
 
-    static void remember(ServerPlayer player, ItemStack weapon, ItemStack ammo) {
+    public static void remember(ServerPlayer player, ItemStack weapon, ItemStack ammo) {
         if (player == null || weapon.isEmpty() || ammo.isEmpty()) {
             return;
         }
         PENDING.put(AmmoUseKey.of(player, weapon), ammo.copyWithCount(1));
     }
 
-    static ItemStack consume(ServerPlayer player, ItemStack weapon) {
+    public static ItemStack consume(ServerPlayer player, ItemStack weapon) {
         if (player == null || weapon.isEmpty()) {
             return ItemStack.EMPTY;
         }
@@ -28,7 +28,7 @@ final class WarehouseAmmoBridge {
         return ammo == null ? ItemStack.EMPTY : ammo;
     }
 
-    static void clear(ServerPlayer player, ItemStack weapon) {
+    public static void clear(ServerPlayer player, ItemStack weapon) {
         if (player == null || weapon.isEmpty()) {
             return;
         }

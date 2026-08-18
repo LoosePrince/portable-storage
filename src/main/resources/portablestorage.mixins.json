@@ -18,7 +18,8 @@
 		"CrossbowItemMixin",
 		"ItemEntityMixin",
 		"accessor.SlotAccessor",
-		"accessor.AbstractContainerMenuAccessor"
+		"accessor.AbstractContainerMenuAccessor",
+		"accessor.InventoryMenuAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

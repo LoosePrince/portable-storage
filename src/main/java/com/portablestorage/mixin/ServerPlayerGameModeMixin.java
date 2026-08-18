@@ -10,6 +10,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.upgrade.PistonUpgrade;
+import com.portablestorage.util.FakePlayerUtils;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -29,6 +30,9 @@ public class ServerPlayerGameModeMixin {
     private void onBlockLeftClick(BlockPos pos,
             net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action action, Direction direction, int i,
             int j, CallbackInfo ci) {
+        if (FakePlayerUtils.isFakePlayer(player)) {
+            return; // Don't allow FakePlayers to trigger piston rotation
+        }
         if (action == net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK) {
             if (player.getMainHandItem().is(Items.PISTON) || player.getMainHandItem().is(Items.STICKY_PISTON)) {
                 PlayerWarehouse warehouse = ModComponents.getWarehouse(((net.minecraft.server.level.ServerLevel) player.level()).getServer(),

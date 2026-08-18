@@ -186,6 +186,7 @@
   "upgrade.portablestorage.bed.name": "Bed Upgrade",
   "upgrade.portablestorage.bed.desc": "\u00A77Allows you to sleep anywhere (does not set respawn point).",
   "upgrade.portablestorage.bed.interaction_hint": "\u00A78[Right Click] Place Temp Bed & Sleep",
+  "upgrade.portablestorage.bed.no_space": "Not enough space to place a bed!",
   "upgrade.portablestorage.experience.name": "Experience Upgrade",
   "upgrade.portablestorage.experience.desc": "\u00A77Enables Experience Storage in the warehouse.",
   "upgrade.portablestorage.experience.access_level": "\u00A7eTransfer Step: \u00A7f%s \u00A7eLevels",

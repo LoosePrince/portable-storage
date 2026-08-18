@@ -10,6 +10,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.component.WarehouseEntry;
+import com.portablestorage.logic.WarehouseAmmoBridge;
+import com.portablestorage.util.FakePlayerUtils;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -31,6 +33,8 @@ public abstract class PlayerProjectileMixin {
         if (player.level().isClientSide())
             return;
         if (player.getAbilities().instabuild)
+            return;
+        if (FakePlayerUtils.isFakePlayer(player))
             return;
 
         if (weapon.getItem() instanceof BowItem || weapon.getItem() instanceof CrossbowItem) {
