@@ -27,7 +27,7 @@ public class WarehouseInteractionHandler {
         Slot slot = menu.slots.get(slotId);
         
         if (slot.container instanceof PlayerWarehouse || slot instanceof com.portablestorage.upgrade.UpgradeSlot) {
-            return true;
+            return slot.isActive();
         }
         
         return false;

@@ -22,7 +22,7 @@ public class ClientContainerSyncMixin {
         if (WarehouseMenuHandler.isAdaptedMenu(menu) && items.size() > menu.slots.size()) {
             CompatibilityDebug.log("sync", () -> "initializeContents arrived before warehouse slot injection; payloadSlots="
                     + items.size() + "; menuSlots=" + menu.slots.size() + "; menu=" + menu.getClass().getName());
-            WarehouseMenuHandler.injectWarehouseSlots(menu, Minecraft.getInstance().player);
+            WarehouseMenuHandler.injectWarehouseSlotsForSync(menu, Minecraft.getInstance().player);
         }
     }
 
@@ -32,7 +32,7 @@ public class ClientContainerSyncMixin {
         if (WarehouseMenuHandler.isAdaptedMenu(menu) && slotIndex >= menu.slots.size()) {
             CompatibilityDebug.log("sync", () -> "setRemoteSlot arrived before warehouse slot injection; slotIndex="
                     + slotIndex + "; menuSlots=" + menu.slots.size() + "; menu=" + menu.getClass().getName());
-            WarehouseMenuHandler.injectWarehouseSlots(menu, Minecraft.getInstance().player);
+            WarehouseMenuHandler.injectWarehouseSlotsForSync(menu, Minecraft.getInstance().player);
         }
         if (slotIndex < 0 || slotIndex >= menu.slots.size()) {
             ci.cancel();
