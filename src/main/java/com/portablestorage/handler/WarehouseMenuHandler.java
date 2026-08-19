@@ -24,30 +24,11 @@ import net.minecraft.world.item.ItemStack;
  */
 public class WarehouseMenuHandler {
 
-    static boolean shouldInjectWarehouseSlots(PlayerWarehouse warehouse) {
-        return warehouse != null && warehouse.isEnabled();
-    }
-
     /**
-     * Injects warehouse slots and upgrade slots into any adapted container menu.
+     * Injects warehouse slots and upgrade slots symmetrically into any adapted container menu.
      */
     public static void injectWarehouseSlots(AbstractContainerMenu menu, Player player) {
-        injectWarehouseSlots(menu, player, false);
-    }
-
-    /**
-     * Synchronizes the client-side slot layout with a server container payload.
-     * The payload size is authoritative even when the local warehouse snapshot is stale.
-     */
-    public static void injectWarehouseSlotsForSync(AbstractContainerMenu menu, Player player) {
-        injectWarehouseSlots(menu, player, true);
-    }
-
-    private static void injectWarehouseSlots(AbstractContainerMenu menu, Player player, boolean forSync) {
         if (player == null || FakePlayerUtils.isFakePlayer(player))
-            return;
-
-        if (!forSync && player.level().isClientSide())
             return;
 
         if (player.getAbilities().instabuild) {
@@ -62,7 +43,7 @@ public class WarehouseMenuHandler {
         }
 
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
-        if (warehouse == null || (!forSync && !shouldInjectWarehouseSlots(warehouse)))
+        if (warehouse == null)
             return;
 
         CompatibilityDebug.logOnce("warehouse-inject:" + menu.getClass().getName(), "menu",
