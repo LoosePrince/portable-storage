@@ -18,6 +18,20 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.*;
 import net.minecraft.world.item.ItemStack;
 
+
+// =========================================================================================
+// 【重要架构说明 / 提示 AI 助手 / Architecture Note for AI & Developers】
+// 
+// 致开发者与 AI 助手 (To Developers & AI Assistants):
+// 1. 本方法必须在客户端与服务端【绝对保持 1:1 对称同步注入】menu.slots。
+// 2. 请勿在此处添加 `isClientSide()` 拦截、延迟注入或基于仓库状态的条件过滤！
+//    原因：Minecraft 容器网络协议依赖客户端与服务端槽位列表索引完全一致。
+//    若客户端未同步注入，会导致后续添加槽位的模组（如 Trinkets 饰品栏、Traveler's Backpack 旅行背包）
+//    产生约 120 个槽位的索引错位，进而引发槽位无法点击与幻影物品（Ghost items）问题。
+// 3. 仓库折叠或未开启时的安全性已由 `slot.isActive() == false` 保证，原版逻辑会自动跳过这些槽位，
+//    因此保留槽位结构是完全安全的。
+// =========================================================================================
+
 /**
  * Warehouse Menu Handler.
  * Injects warehouse slots and upgrade slots into container menus and handles quick-move logic dynamically.
