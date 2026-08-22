@@ -66,12 +66,23 @@ public class StorageKeyItem extends Item {
         }
 
         // 恢复仓库
-        warehouse.setEnabled(true);
+        reactivateWarehouse(player, warehouse, "storage_key.use");
         stack.shrink(1);
 
         player.sendSystemMessage(
                 Component.translatable("message.portablestorage.reactivated").withStyle(ChatFormatting.GREEN), false);
         return InteractionResult.SUCCESS;
+    }
+
+    static void reactivateWarehouseState(PlayerWarehouse warehouse) {
+        warehouse.setEnabled(true);
+    }
+
+    private static void reactivateWarehouse(ServerPlayer player, PlayerWarehouse warehouse, String reason) {
+        // Death handling disables and folds the warehouse. Reactivation restores the enabled state,
+        // then commits and synchronizes the server-side change to the client.
+        reactivateWarehouseState(warehouse);
+        WarehouseService.commit(player, reason);
     }
 
     @Override
@@ -95,7 +106,7 @@ public class StorageKeyItem extends Item {
             PlayerWarehouse warehouse = WarehouseService.get(player);
             // 核心功能：仓库钥匙进入绑定者玩家背包时自动使用并消耗
             if (!warehouse.isEnabled()) {
-                warehouse.setEnabled(true);
+                reactivateWarehouse(player, warehouse, "storage_key.inventory_tick");
                 stack.shrink(1);
                 player.sendSystemMessage(
                         Component.translatable("message.portablestorage.reactivated").withStyle(ChatFormatting.GREEN),
