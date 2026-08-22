@@ -16,10 +16,6 @@ public class WarehouseInteractionHandler {
             return false;
         }
 
-        if (menu instanceof net.minecraft.world.inventory.InventoryMenu && player.getAbilities().instabuild) {
-            return false;
-        }
-
         if (slotId < 0 || slotId >= menu.slots.size()) {
             return false;
         }
@@ -27,7 +23,7 @@ public class WarehouseInteractionHandler {
         Slot slot = menu.slots.get(slotId);
         
         if (slot.container instanceof PlayerWarehouse || slot instanceof com.portablestorage.upgrade.UpgradeSlot) {
-            return slot.isActive();
+            return true;
         }
         
         return false;
