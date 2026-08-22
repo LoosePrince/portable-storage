@@ -45,13 +45,6 @@ public class WarehouseMenuHandler {
         if (player == null || FakePlayerUtils.isFakePlayer(player))
             return;
 
-        if (player.getAbilities().instabuild) {
-            String menuName = menu.getClass().getName();
-            if (menu instanceof InventoryMenu || menuName.contains("Creative") || menuName.contains("ItemPicker")) {
-                return;
-            }
-        }
-
         if (!isAdaptedMenu(menu)) {
             return;
         }

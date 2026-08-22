@@ -16,10 +16,6 @@ public class WarehouseInteractionHandler {
             return false;
         }
 
-        if (menu instanceof net.minecraft.world.inventory.InventoryMenu && player.getAbilities().instabuild) {
-            return false;
-        }
-
         if (slotId < 0 || slotId >= menu.slots.size()) {
             return false;
         }

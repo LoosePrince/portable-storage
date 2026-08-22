@@ -22,8 +22,6 @@ public class ServerPlayerMixin {
             CompatibilityDebug.log("fake-player", () -> "skipped initMenu for " + player.getClass().getName());
             return;
         }
-        if (menu instanceof net.minecraft.world.inventory.InventoryMenu && player.getAbilities().instabuild)
-            return;
 
         WarehouseMenuHandler.injectWarehouseSlots(menu, player);
     }
