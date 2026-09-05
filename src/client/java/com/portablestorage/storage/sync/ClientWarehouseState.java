@@ -2,9 +2,12 @@ package com.portablestorage.storage.sync;
 
 import java.util.UUID;
 
+import com.portablestorage.client.gui.WarehouseStateSync;
 import com.portablestorage.component.PlayerWarehouse;
+import com.portablestorage.config.ModConfig;
 import com.portablestorage.network.C2SRequestWarehouseSnapshotPayload;
 import com.portablestorage.util.CompatibilityDebug;
+import com.portablestorage.util.WarehouseSetting;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
@@ -18,6 +21,8 @@ public final class ClientWarehouseState {
     private static WarehouseSnapshot pendingSnapshot;
     private static boolean snapshotApplied;
     private static boolean requestInFlight;
+    /** 配置界面里修改过仓库偏好，等待本会话收到首个仓库快照后同步到仓库。 */
+    private static boolean warehousePreferencesSyncQueued;
 
     private ClientWarehouseState() {
     }
@@ -95,6 +100,35 @@ public final class ClientWarehouseState {
         requestInFlight = false;
     }
 
+    /**
+     * 配置界面（含主菜单 ModMenu 进入）修改仓库偏好后调用。
+     * 进入世界并成功应用首个仓库快照时，这些本地偏好会被同步到当前玩家的仓库。
+     */
+    public static void markWarehousePreferencesDirty() {
+        warehousePreferencesSyncQueued = true;
+    }
+
+    private static void syncStoredWarehousePreferences(PlayerWarehouse warehouse) {
+        if (warehouse == null) {
+            return;
+        }
+        // 把本地偏好（client.warehouse*）应用到客户端镜像并推送到服务端仓库。
+        WarehouseStateSync.applySetting(warehouse, WarehouseSetting.SORT_MODE, ModConfig.warehouseSortMode);
+        WarehouseStateSync.sendSetting(WarehouseSetting.SORT_MODE, ModConfig.warehouseSortMode);
+        int ascending = ModConfig.warehouseAscending ? 1 : 0;
+        WarehouseStateSync.applySetting(warehouse, WarehouseSetting.SORT_ORDER, ascending);
+        WarehouseStateSync.sendSetting(WarehouseSetting.SORT_ORDER, ascending);
+        int quick = ModConfig.warehouseQuickInteraction ? 1 : 0;
+        WarehouseStateSync.applySetting(warehouse, WarehouseSetting.QUICK_INTERACTION, quick);
+        WarehouseStateSync.sendSetting(WarehouseSetting.QUICK_INTERACTION, quick);
+        int smartCollapse = ModConfig.warehouseSmartCollapse ? 1 : 0;
+        WarehouseStateSync.applySetting(warehouse, WarehouseSetting.SMART_COLLAPSE, smartCollapse);
+        WarehouseStateSync.sendSetting(WarehouseSetting.SMART_COLLAPSE, smartCollapse);
+        int craftRefill = ModConfig.warehouseCraftRefill ? 1 : 0;
+        WarehouseStateSync.applySetting(warehouse, WarehouseSetting.CRAFT_REFILL, craftRefill);
+        WarehouseStateSync.sendSetting(WarehouseSetting.CRAFT_REFILL, craftRefill);
+    }
+
     private static void beginSession(Minecraft client) {
         UUID ownerUuid = client != null && client.player != null ? client.player.getUUID() : null;
         if (ownerUuid == null) {
@@ -141,6 +175,12 @@ public final class ClientWarehouseState {
         pendingSnapshot = null;
         snapshotApplied = true;
         requestInFlight = false;
+
+        // 会话首个快照落地后，把配置界面里保存的仓库偏好同步到仓库（一次性，随后清除标记）。
+        if (warehousePreferencesSyncQueued) {
+            warehousePreferencesSyncQueued = false;
+            syncStoredWarehousePreferences(currentWarehouse);
+        }
         return true;
     }
 }

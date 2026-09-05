@@ -14,6 +14,21 @@ autoFoldOnClose = false
 # 仓库显示位置 (TOP, BOTTOM, LEFT, RIGHT)
 storagePosition = "BOTTOM"
 
+# 仓库排序模式 (0: 数量, 1: 名称, 2: ID, 3: 更新时间)
+warehouseSortMode = 0
+
+# 仓库排序是否升序 (true: 升序, false: 降序)
+warehouseAscending = false
+
+# 仓库快速存取（shift+点击存入/取出）
+warehouseQuickInteraction = true
+
+# 仓库智能折叠
+warehouseSmartCollapse = false
+
+# 仓库合成补充
+warehouseCraftRefill = true
+
 [server]
 # 是否启用 3x3 背包合成功能
 enable3x3Crafting = true

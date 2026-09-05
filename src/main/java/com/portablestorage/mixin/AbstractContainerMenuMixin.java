@@ -29,12 +29,17 @@ public abstract class AbstractContainerMenuMixin {
 
         if (isQuickMove(clickType)) {
             if (WarehouseMenuHandler.handleQuickMove((AbstractContainerMenu) (Object) this, player, slotId) != null) {
+                // 本模组已经亲自移动了物品并取消了原版 clicked()。原版在 doClick() 结尾会
+                // broadcastChanges() 把槽位变化同步给客户端；取消后若不同步，玩家界面上被移动
+                // 的物品会“凭空消失”（实际已在背包/仓库里，但客户端仍显示旧内容）。这里补上同步。
+                ((AbstractContainerMenu) (Object) this).broadcastChanges();
                 ci.cancel();
                 return;
             }
         }
 
         if (WarehouseInteractionHandler.handleClicked((AbstractContainerMenu) (Object) this, slotId, button, clickType, player)) {
+            ((AbstractContainerMenu) (Object) this).broadcastChanges();
             ci.cancel();
         }
     }

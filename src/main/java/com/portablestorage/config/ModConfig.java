@@ -31,6 +31,18 @@ public class ModConfig {
     public static boolean autoFoldOnClose = false;
     /** 仓库显示位置 */
     public static StoragePosition storagePosition = StoragePosition.BOTTOM;
+
+    // ========== 客户端仓库偏好（默认值，进入世界后同步到玩家仓库） ==========
+    /** 仓库排序模式 (0: 数量, 1: 名称, 2: ID, 3: 更新时间) */
+    public static int warehouseSortMode = 0;
+    /** 仓库排序是否升序 */
+    public static boolean warehouseAscending = false;
+    /** 仓库快速存取 */
+    public static boolean warehouseQuickInteraction = true;
+    /** 仓库智能折叠 */
+    public static boolean warehouseSmartCollapse = false;
+    /** 仓库合成补充 */
+    public static boolean warehouseCraftRefill = true;
     
     // ========== 服务端配置 ==========
     /** 是否允许热重载配置 */
@@ -134,6 +146,11 @@ public class ModConfig {
         } catch (IllegalArgumentException e) {
             storagePosition = StoragePosition.BOTTOM;
         }
+        warehouseSortMode = ((Number) config.getOrElse("client.warehouseSortMode", 0)).intValue();
+        warehouseAscending = config.getOrElse("client.warehouseAscending", false);
+        warehouseQuickInteraction = config.getOrElse("client.warehouseQuickInteraction", true);
+        warehouseSmartCollapse = config.getOrElse("client.warehouseSmartCollapse", false);
+        warehouseCraftRefill = config.getOrElse("client.warehouseCraftRefill", true);
         allowHotReload = config.getOrElse("server.allowHotReload", false);
         enable3x3Crafting = config.getOrElse("server.enable3x3Crafting", true);
         dropStorageOnDeath = config.getOrElse("server.dropStorageOnDeath", true);
@@ -180,6 +197,11 @@ public class ModConfig {
         config.set("client.removeExperimentalWarning", removeExperimentalWarning);
         config.set("client.autoFoldOnClose", autoFoldOnClose);
         config.set("client.storagePosition", storagePosition.name());
+        config.set("client.warehouseSortMode", warehouseSortMode);
+        config.set("client.warehouseAscending", warehouseAscending);
+        config.set("client.warehouseQuickInteraction", warehouseQuickInteraction);
+        config.set("client.warehouseSmartCollapse", warehouseSmartCollapse);
+        config.set("client.warehouseCraftRefill", warehouseCraftRefill);
         config.set("server.allowHotReload", allowHotReload);
         config.set("server.enable3x3Crafting", enable3x3Crafting);
         config.set("server.dropStorageOnDeath", dropStorageOnDeath);

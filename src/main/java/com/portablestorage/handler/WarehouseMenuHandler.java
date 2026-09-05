@@ -62,6 +62,12 @@ public class WarehouseMenuHandler {
                 return;
         }
 
+        // 幻影槽位仅在仓库覆盖层于当前菜单中渲染时激活：否则 getItem() 返回空堆叠、mayPlace() 返回 false，
+        // 防止原版 moveItemStackTo（如 ChestMenu.quickMoveStack 以 slots.size() 为末界，会从尾部
+        // 开始遍历到幻影槽位）的“堆叠合并”分支把玩家物品静默并入不可见的仓库槽位，
+        // 造成物品从可见容器中凭空消失（实际上被写入了未渲染的仓库）。
+        boolean overlayVisible = isWarehouseOverlayVisible(menu, warehouse);
+
         AbstractContainerMenuAccessor accessor = (AbstractContainerMenuAccessor) menu;
 
         int startX = -1000;
@@ -71,11 +77,24 @@ public class WarehouseMenuHandler {
         for (int i = 0; i < WarehouseConstants.MAX_ROWS; i++) {
             accessor.invokeAddSlot(new UpgradeSlot(warehouse, i, startX, startY) {
                 @Override
+                public ItemStack getItem() {
+                    // 与主仓库槽位一致：未激活（仓库未启用/已折叠/超出可见行）时向原版返回空堆叠，
+                    // 防止 moveItemStackTo 的“堆叠合并”分支把物品并入升级槽位造成丢失。
+                    return isActive() ? super.getItem() : ItemStack.EMPTY;
+                }
+
+                @Override
+                public boolean mayPlace(ItemStack stack) {
+                    // 未激活的升级槽位不允许原版放入任何物品（丢弃/快速移动都不会吞物品）。
+                    return isActive() && super.mayPlace(stack);
+                }
+
+                @Override
                 public boolean isActive() {
                     if (player.getAbilities().instabuild || FakePlayerUtils.isFakePlayer(player)) {
                         return false;
                     }
-                    return super.isActive();
+                    return overlayVisible && super.isActive();
                 }
             });
         }
@@ -87,8 +106,20 @@ public class WarehouseMenuHandler {
                 accessor.invokeAddSlot(
                         new Slot(warehouse, col + row * WarehouseConstants.SLOTS_PER_ROW, startX, startY) {
                             @Override
+                            public ItemStack getItem() {
+                                // 该仓库槽位是仅为了保持客户端/服务端槽位索引一致而注入的“幻影”槽位。
+                                // 当仓库未启用或已折叠 (isActive() == false) 时向原版返回空堆叠，
+                                // 防止 moveItemStackTo 的“堆叠合并”分支把玩家物品并入这些槽位
+                                // （其数量不会写入仓库，会造成物品丢失）。
+                                return isActive() ? super.getItem() : ItemStack.EMPTY;
+                            }
+
+                            @Override
                             public boolean mayPlace(ItemStack stack) {
-                                return true;
+                                // 仓库物品只能通过本模组的自定义逻辑 (WarehouseManager / 自定义数据包)
+                                // 存取；PlayerWarehouse.setItem 是空实现。若允许原版把物品放入这些
+                                // 幻影槽位，shift+点击等快速移动会把物品吞掉（物品丢失）。
+                                return false;
                             }
 
                             @Override
@@ -96,7 +127,7 @@ public class WarehouseMenuHandler {
                                 if (player.getAbilities().instabuild || FakePlayerUtils.isFakePlayer(player)) {
                                     return false;
                                 }
-                                return !warehouse.isFolded() && warehouse.isEnabled()
+                                return overlayVisible && !warehouse.isFolded() && warehouse.isEnabled()
                                         && currentRow < warehouse.getVisibleRows();
                             }
                         });
@@ -253,6 +284,14 @@ public class WarehouseMenuHandler {
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
         if (warehouse == null || !warehouse.isEnabled())
             return null;
+
+        // 快速存取/仓库交互只应在“仓库界面可见”时生效，与服务端 canAccessWarehouseFromMenu 规则一致：
+        // - 玩家自己的背包界面 (InventoryMenu) 与模组专用界面（合成/工具/绑定木桶）里仓库覆盖层始终可见；
+        // - 普通容器界面（箱子、熔炉等）只有在安装了“工作台升级”（仓库覆盖层才会显示）时才允许通过
+        //   shift+点击存取仓库；否则完全按原版移动逻辑处理，避免没有仓库界面的情况下悄悄把物品存入仓库。
+        if (!isWarehouseOverlayVisible(menu, warehouse)) {
+            return null;
+        }
 
         Slot slot = menu.slots.get(index);
         if (!slot.hasItem())
@@ -425,6 +464,17 @@ public class WarehouseMenuHandler {
                 && !name.contains("CraftingWarehouseScreenHandler")
                 && !name.contains("ToolWarehouseScreenHandler")
                 && !name.contains("BoundBarrelScreenHandler");
+    }
+
+    /**
+     * 仓库覆盖层是否在当前菜单中渲染（与客户端 WarehouseWidget.shouldShow 规则一致）：
+     * - 背包 (InventoryMenu) 与模组专用界面（合成/工具/绑定木桶）始终可见；
+     * - 普通容器界面（箱子、熔炉等）只有安装了“工作台升级”才渲染仓库覆盖层。
+     * 快速存取与幻影槽位的激活都必须以此为前提，否则玩家会在看不到仓库的界面里
+     * 被原版 shift+点击把物品静默并入仓库（物品从可见容器中“消失”）。
+     */
+    public static boolean isWarehouseOverlayVisible(AbstractContainerMenu menu, PlayerWarehouse warehouse) {
+        return !isContainerMenu(menu) || warehouse.hasWorkbenchUpgrade();
     }
 
     public static boolean isAdaptedMenu(AbstractContainerMenu menu) {

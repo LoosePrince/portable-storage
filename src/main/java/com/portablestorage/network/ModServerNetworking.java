@@ -550,7 +550,16 @@ public class ModServerNetworking {
             ServerPlayer player = context.player();
             PlayerWarehouse warehouse = getWarehouse(player);
 
-            if (!warehouse.isEnabled() || !warehouse.isQuickInteraction() || warehouse.isFolded()) return;
+            // 与 handleQuickTransfer 等快速存取入口保持一致的校验：
+            // 1) 仓库必须在当前界面中渲染（背包/模组界面始终可见；普通容器界面需要工作台升级）；
+            // 2) 仓库处于激活状态 (isEnabled，含在 canAccessWarehouseFromMenu 内)；
+            // 3) 快速存取开关已开启；
+            // 4) 仓库处于展开状态（未折叠）。
+            if (!canAccessWarehouseFromMenu(player, warehouse)
+                    || !warehouse.isQuickInteraction()
+                    || warehouse.isFolded()) {
+                return;
+            }
 
             ItemStack cursorStack = player.containerMenu.getCarried();
             if (cursorStack.isEmpty()) return;
