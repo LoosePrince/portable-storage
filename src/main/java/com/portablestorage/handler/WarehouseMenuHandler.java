@@ -64,6 +64,13 @@ public class WarehouseMenuHandler {
         }
 
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
+        if (warehouse == null)
+            return;
+
+        // Keep phantom slots inert when the warehouse overlay is not rendered in a
+        // regular container. This prevents vanilla quick-move from merging items into
+        // an invisible warehouse slot.
+        boolean overlayVisible = isWarehouseOverlayVisible(menu, warehouse);
 
         // 防止重复注入
         for (Slot slot : menu.slots) {
@@ -80,6 +87,16 @@ public class WarehouseMenuHandler {
         for (int i = 0; i < WarehouseConstants.MAX_ROWS; i++) {
             accessor.invokeAddSlot(new UpgradeSlot(warehouse, i, startX, startY) {
                 @Override
+                public ItemStack getItem() {
+                    return isActive() ? super.getItem() : ItemStack.EMPTY;
+                }
+
+                @Override
+                public boolean mayPlace(ItemStack stack) {
+                    return isActive() && super.mayPlace(stack);
+                }
+
+                @Override
                 public boolean isActive() {
                     if (player.getAbilities().instabuild) {
                         String menuName = menu.getClass().getName();
@@ -88,7 +105,7 @@ public class WarehouseMenuHandler {
                             return false;
                         }
                     }
-                    return super.isActive();
+                    return overlayVisible && super.isActive();
                 }
             });
         }
@@ -100,8 +117,13 @@ public class WarehouseMenuHandler {
                 accessor.invokeAddSlot(
                         new Slot(warehouse, col + row * WarehouseConstants.SLOTS_PER_ROW, startX, startY) {
                             @Override
+                            public ItemStack getItem() {
+                                return isActive() ? super.getItem() : ItemStack.EMPTY;
+                            }
+
+                            @Override
                             public boolean mayPlace(ItemStack stack) {
-                                return true;
+                                return false;
                             }
 
                             @Override
@@ -113,7 +135,7 @@ public class WarehouseMenuHandler {
                                         return false;
                                     }
                                 }
-                                return !warehouse.isFolded() && warehouse.isEnabled()
+                                return overlayVisible && !warehouse.isFolded() && warehouse.isEnabled()
                                         && currentRow < warehouse.getVisibleRows();
                             }
                         });
@@ -162,7 +184,9 @@ public class WarehouseMenuHandler {
             return null;
 
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
-        if (!warehouse.isEnabled())
+        if (warehouse == null || !warehouse.isEnabled())
+            return null;
+        if (!isWarehouseOverlayVisible(menu, warehouse))
             return null;
 
         Slot slot = menu.slots.get(index);
@@ -386,6 +410,13 @@ public class WarehouseMenuHandler {
                 && !name.contains("CraftingWarehouseScreenHandler")
                 && !name.contains("ToolWarehouseScreenHandler")
                 && !name.contains("BoundBarrelScreenHandler");
+    }
+
+    /**
+     * Whether the warehouse overlay is rendered for the current menu.
+     */
+    public static boolean isWarehouseOverlayVisible(AbstractContainerMenu menu, PlayerWarehouse warehouse) {
+        return !isContainerMenu(menu) || warehouse.hasWorkbenchUpgrade();
     }
 
     /**

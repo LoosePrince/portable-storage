@@ -16,6 +16,8 @@ import com.portablestorage.screen.ModScreenHandlers;
 import com.portablestorage.upgrade.WorkbenchUpgrade;
 import com.portablestorage.util.WarehouseSetting;
 
+import java.util.UUID;
+
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
@@ -33,6 +35,8 @@ public class PortableStorageClient implements ClientModInitializer {
     public static KeyMapping quickToolKey;
     private static PlayerWarehouse pendingAutoFoldWarehouse;
     private static int pendingAutoFoldTicks;
+    private static UUID preferencesSyncedFor;
+    private static int preferenceSyncDelay;
 
     @Override
     public void onInitializeClient() {
@@ -76,6 +80,7 @@ public class PortableStorageClient implements ClientModInitializer {
                     tryToggleWarehouseFold(client);
                 }
             }
+            syncWarehousePreferences(client);
             QuickToolClientState.tick(client);
             flushPendingAutoFold(client);
             if (client.screen instanceof WarehouseScreen s) {
@@ -90,6 +95,43 @@ public class PortableStorageClient implements ClientModInitializer {
         // 注册复制体渲染器
         EntityRenderers.register(com.portablestorage.entity.ModEntities.RIFT_AVATAR,
                 com.portablestorage.client.renderer.RiftAvatarRenderer::new);
+    }
+
+    private static void syncWarehousePreferences(Minecraft client) {
+        if (client == null || client.player == null) {
+            preferencesSyncedFor = null;
+            preferenceSyncDelay = 0;
+            return;
+        }
+
+        UUID playerId = client.player.getUUID();
+        if (playerId.equals(preferencesSyncedFor)) {
+            return;
+        }
+        if (preferenceSyncDelay == 0) {
+            preferenceSyncDelay = 20;
+            return;
+        }
+        if (--preferenceSyncDelay > 0) {
+            return;
+        }
+
+        PlayerWarehouse warehouse = ModComponents.get(client.player).getWarehouse(playerId);
+        applyAndSendPreference(warehouse, WarehouseSetting.SORT_MODE, ModConfig.warehouseSortMode);
+        applyAndSendPreference(warehouse, WarehouseSetting.SORT_ORDER, ModConfig.warehouseAscending ? 1 : 0);
+        applyAndSendPreference(warehouse, WarehouseSetting.QUICK_INTERACTION,
+                ModConfig.warehouseQuickInteraction ? 1 : 0);
+        applyAndSendPreference(warehouse, WarehouseSetting.SMART_COLLAPSE,
+                ModConfig.warehouseSmartCollapse ? 1 : 0);
+        applyAndSendPreference(warehouse, WarehouseSetting.CRAFT_REFILL, ModConfig.warehouseCraftRefill ? 1 : 0);
+        preferencesSyncedFor = playerId;
+    }
+
+    private static void applyAndSendPreference(PlayerWarehouse warehouse, WarehouseSetting setting, int value) {
+        WarehouseStateSync.applySetting(warehouse, setting, value);
+        if (ClientPlayNetworking.canSend(com.portablestorage.network.C2SUpdateWarehouseStatePayload.TYPE)) {
+            WarehouseStateSync.sendSetting(setting, value);
+        }
     }
 
     public static boolean matchesToggleWarehouseFoldKey(KeyEvent event) {

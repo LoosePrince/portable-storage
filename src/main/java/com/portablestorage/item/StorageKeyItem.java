@@ -66,12 +66,21 @@ public class StorageKeyItem extends Item {
         }
 
         // 恢复仓库
-        warehouse.setEnabled(true);
+        reactivateWarehouse(player, warehouse);
         stack.shrink(1);
 
         player.sendSystemMessage(
                 Component.translatable("message.portablestorage.reactivated").withStyle(ChatFormatting.GREEN), false);
         return InteractionResult.SUCCESS;
+    }
+
+    private static void reactivateWarehouse(ServerPlayer player, PlayerWarehouse warehouse) {
+        warehouse.setEnabled(true);
+        // CCA marks the component dirty above; broadcast the state immediately so the
+        // client restores the warehouse overlay without waiting for another menu tick.
+        if (player.containerMenu != null) {
+            player.containerMenu.broadcastChanges();
+        }
     }
 
     @Override
@@ -95,7 +104,7 @@ public class StorageKeyItem extends Item {
             PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
             // 核心功能：仓库钥匙进入绑定者玩家背包时自动使用并消耗
             if (!warehouse.isEnabled()) {
-                warehouse.setEnabled(true);
+                reactivateWarehouse(player, warehouse);
                 stack.shrink(1);
                 player.sendSystemMessage(
                         Component.translatable("message.portablestorage.reactivated").withStyle(ChatFormatting.GREEN),
