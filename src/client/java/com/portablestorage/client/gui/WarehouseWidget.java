@@ -79,12 +79,18 @@ public class WarehouseWidget {
             return false;
         }
 
-        // 容器界面需要工作台升级才能显示
-        if (isContainerInterface() && warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
+        if (!warehouse.isEnabled())
             return false;
-        }
 
-        return warehouse.isEnabled();
+        if (!isContainerInterface())
+            return true;
+
+        boolean hasWorkbenchUpgrade = !warehouse
+                .getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty();
+        boolean hasWarehouseSlots = screen.getMenu().slots.stream()
+                .anyMatch(slot -> slot.container instanceof PlayerWarehouse);
+        // 折叠状态只需要恢复按钮；展开状态使用服务端已注入的槽位作为有效依据。
+        return hasWorkbenchUpgrade || hasWarehouseSlots || warehouse.isFolded();
     }
 
     public void refreshPosition() {

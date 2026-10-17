@@ -3,6 +3,7 @@ package com.portablestorage.network;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
+import com.portablestorage.handler.WarehouseMenuHandler;
 import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.screen.CraftingWarehouseScreenHandler;
 import com.portablestorage.util.WarehouseSetting;
@@ -76,11 +77,19 @@ public class ModServerNetworking {
 
     public static void handleQuickTransfer(net.minecraft.server.MinecraftServer server, net.minecraft.server.level.ServerPlayer player, QuickTransferPayload payload, net.fabricmc.fabric.api.networking.v1.PacketSender sender) {
         server.execute(() -> {
-            
+            PlayerWarehouse activeWarehouse = getWarehouse(player);
+            if (!activeWarehouse.isEnabled() || !activeWarehouse.isQuickInteraction() || activeWarehouse.isFolded()
+                    || !WarehouseMenuHandler.isWarehouseOverlayVisible(player.containerMenu, activeWarehouse)) {
+                return;
+            }
+
             int slotId = payload.slotId();
             if (slotId < 0 || slotId >= player.containerMenu.slots.size()) return;
             
             Slot slot = player.containerMenu.slots.get(slotId);
+            if (!slot.isActive()) {
+                return;
+            }
             if (slot.container instanceof PlayerWarehouse warehouse) {
                 // 提前验证：仓库必须启用且快速交互开启
                 if (!warehouse.isEnabled() || !warehouse.isQuickInteraction() || warehouse.isFolded()) {
@@ -309,8 +318,9 @@ public class ModServerNetworking {
         server.execute(() -> {
             PlayerWarehouse warehouse = getWarehouse(player);
             
-            // 验证：仓库必须启用、快速交互开启且未折叠
-            if (!warehouse.isEnabled() || !warehouse.isQuickInteraction() || warehouse.isFolded()) {
+            // 验证：仓库必须启用、快速交互开启、未折叠且当前覆盖层可见
+            if (!warehouse.isEnabled() || !warehouse.isQuickInteraction() || warehouse.isFolded()
+                    || !WarehouseMenuHandler.isWarehouseOverlayVisible(player.containerMenu, warehouse)) {
                 return;
             }
 

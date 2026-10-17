@@ -24,6 +24,13 @@ public class WarehouseMenuHandler {
      * 向任意菜单注入仓库槽位和升级槽位
      */
     public static void injectWarehouseSlots(AbstractContainerMenu menu, Player player) {
+        injectWarehouseSlots(menu, player, false);
+    }
+
+    /**
+     * 在客户端收到服务端扩展菜单内容时，允许根据服务端槽位数量补齐本地菜单。
+     */
+    public static void injectWarehouseSlots(AbstractContainerMenu menu, Player player, boolean forceClientSync) {
         if (player == null)
             return;
 
@@ -42,7 +49,8 @@ public class WarehouseMenuHandler {
 
         // 容器界面需要工作台升级才能注入
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
-        if (isContainerMenu(menu) && warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
+        if (isContainerMenu(menu) && warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()
+                && !(forceClientSync && player.level().isClientSide)) {
             return;
         }
 
@@ -60,6 +68,16 @@ public class WarehouseMenuHandler {
         // 添加升级槽位
         for (int i = 0; i < WarehouseConstants.MAX_ROWS; i++) {
             accessor.invokeAddSlot(new UpgradeSlot(warehouse, player, i, startX, startY) {
+                @Override
+                public ItemStack getItem() {
+                    return isActive() ? super.getItem() : ItemStack.EMPTY;
+                }
+
+                @Override
+                public boolean mayPlace(ItemStack stack) {
+                    return isActive() && super.mayPlace(stack);
+                }
+
                 @Override
                 public boolean isActive() {
                     if (player.getAbilities().instabuild) {
@@ -86,8 +104,13 @@ public class WarehouseMenuHandler {
                 accessor.invokeAddSlot(
                         new Slot(warehouse, col + row * WarehouseConstants.SLOTS_PER_ROW, startX, startY) {
                             @Override
+                            public ItemStack getItem() {
+                                return isActive() ? super.getItem() : ItemStack.EMPTY;
+                            }
+
+                            @Override
                             public boolean mayPlace(ItemStack stack) {
-                                return true;
+                                return isActive() && super.mayPlace(stack);
                             }
 
                             @Override
@@ -153,7 +176,9 @@ public class WarehouseMenuHandler {
             return null;
 
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
-        if (!warehouse.isEnabled())
+        if (warehouse == null || !warehouse.isEnabled())
+            return null;
+        if (!isWarehouseOverlayVisible(menu, warehouse))
             return null;
 
         Slot slot = menu.slots.get(index);
@@ -324,6 +349,11 @@ public class WarehouseMenuHandler {
             }
         }
         return null;
+    }
+
+    public static boolean isWarehouseOverlayVisible(AbstractContainerMenu menu, PlayerWarehouse warehouse) {
+        return !isContainerMenu(menu)
+                || !warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty();
     }
 
     public static boolean isContainerMenu(AbstractContainerMenu menu) {

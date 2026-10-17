@@ -48,11 +48,18 @@ public class StorageKeyItem extends Item {
         }
 
         // 恢复仓库
-        warehouse.setEnabled(true);
+        reactivateWarehouse(player, warehouse);
         stack.shrink(1);
 
         player.displayClientMessage(Component.translatable("message.portablestorage.reactivated").withStyle(ChatFormatting.GREEN), false);
         return InteractionResultHolder.success(user.getItemInHand(hand));
+    }
+
+    private static void reactivateWarehouse(ServerPlayer player, PlayerWarehouse warehouse) {
+        warehouse.setEnabled(true);
+        if (player.containerMenu != null) {
+            player.containerMenu.broadcastChanges();
+        }
     }
 
     @Override
@@ -68,7 +75,7 @@ public class StorageKeyItem extends Item {
             PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
             // 核心功能：仓库钥匙进入绑定者玩家背包时自动使用并消耗
             if (!warehouse.isEnabled()) {
-                warehouse.setEnabled(true);
+                reactivateWarehouse(player, warehouse);
                 stack.shrink(1);
                 player.displayClientMessage(Component.translatable("message.portablestorage.reactivated").withStyle(ChatFormatting.GREEN), false);
             } else {

@@ -19,10 +19,13 @@ public class ServerPlayerMixin {
     @Inject(method = "initMenu", at = @At("HEAD"))
     private void onInitMenu(AbstractContainerMenu menu, CallbackInfo ci) {
         ServerPlayer player = (ServerPlayer) (Object) this;
-        // 排除创造模式背包菜单
-        if (menu instanceof net.minecraft.world.inventory.InventoryMenu && player.getAbilities().instabuild) return;
-        
-        WarehouseMenuHandler.injectWarehouseSlots(menu, player);
+        // 排除创造模式背包菜单的槽位注入
+        if (!(menu instanceof net.minecraft.world.inventory.InventoryMenu && player.getAbilities().instabuild)) {
+            WarehouseMenuHandler.injectWarehouseSlots(menu, player);
+        }
+
+        // 打开菜单时主动刷新客户端仓库状态，避免容器界面使用过期的客户端快照。
+        ModComponents.get(player).syncForPlayer(player.getUUID());
     }
 
     @Inject(method = "setRespawnPosition", at = @At("HEAD"), cancellable = true)
