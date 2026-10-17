@@ -140,6 +140,7 @@ jobs:
           # 通用配置
           loaders: fabric
           environment: 'client | server'
+          curseforge-environment: 'client | server'
           game-versions: ${{ needs.build.outputs.minecraft_version }}
           java: 25
           dependencies: |
