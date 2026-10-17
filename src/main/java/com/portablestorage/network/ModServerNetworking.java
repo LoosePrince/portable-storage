@@ -3,6 +3,7 @@ package com.portablestorage.network;
 import com.portablestorage.component.ModComponents;
 import com.portablestorage.component.PlayerWarehouse;
 import com.portablestorage.config.ModConfig;
+import com.portablestorage.handler.WarehouseMenuHandler;
 import com.portablestorage.logic.WarehouseManager;
 import com.portablestorage.screen.CraftingWarehouseScreenHandler;
 import com.portablestorage.util.WarehouseSetting;
@@ -37,26 +38,90 @@ public class ModServerNetworking {
         context.server().execute(() -> {
             ServerPlayer player = context.player();
             PlayerWarehouse warehouse = getWarehouse(player);
-
-            payload.scrollDelta().ifPresent(delta -> warehouse.setScrollOffset(warehouse.getScrollOffset() - delta));
-            payload.searchText().ifPresent(warehouse::setSearchText);
-            payload.rowsDelta().ifPresent(delta -> warehouse.setVisibleRows(warehouse.getVisibleRows() + delta));
-            payload.upgradeScrollDelta().ifPresent(delta -> warehouse.setUpgradeScrollOffset(warehouse.getUpgradeScrollOffset() - delta));
-            
             if (payload.settingId().isPresent() && payload.settingValue().isPresent()) {
-                int value = payload.settingValue().get();
-                WarehouseSetting setting = WarehouseSetting.values()[payload.settingId().get()];
-                switch (setting) {
-                    case FOLD -> warehouse.setFolded(value == 1);
-                    case SORT_MODE -> warehouse.setSortMode(value);
-                    case SORT_ORDER -> warehouse.setAscending(value == 1);
-                    case QUICK_INTERACTION -> warehouse.setQuickInteraction(value == 1);
-                    case SMART_COLLAPSE -> warehouse.setSmartCollapse(value == 1);
-                    case CRAFT_REFILL -> warehouse.setCraftRefill(value == 1);
+                int settingId = payload.settingId().get();
+                if (settingId < 0 || settingId >= WarehouseSetting.values().length) {
+                    return;
                 }
             }
 
-            syncChanges(player);
+            boolean changed = false;
+
+            if (payload.scrollDelta().isPresent()) {
+                int before = warehouse.getScrollOffset();
+                warehouse.setScrollOffset(before - payload.scrollDelta().get());
+                changed |= warehouse.getScrollOffset() != before;
+            }
+            if (payload.searchText().isPresent()) {
+                String searchText = payload.searchText().get().toLowerCase();
+                if (!warehouse.getSearchText().equals(searchText)) {
+                    warehouse.setSearchText(searchText);
+                    changed = true;
+                }
+            }
+            if (payload.rowsDelta().isPresent()) {
+                int before = warehouse.getVisibleRows();
+                warehouse.setVisibleRows(before + payload.rowsDelta().get());
+                changed |= warehouse.getVisibleRows() != before;
+            }
+            if (payload.upgradeScrollDelta().isPresent()) {
+                int before = warehouse.getUpgradeScrollOffset();
+                warehouse.setUpgradeScrollOffset(before - payload.upgradeScrollDelta().get());
+                changed |= warehouse.getUpgradeScrollOffset() != before;
+            }
+
+            if (payload.settingId().isPresent() && payload.settingValue().isPresent()) {
+                int value = payload.settingValue().get();
+                int settingId = payload.settingId().get();
+                WarehouseSetting setting = WarehouseSetting.values()[settingId];
+                switch (setting) {
+                    case FOLD -> {
+                        boolean folded = value == 1;
+                        if (warehouse.isFolded() != folded) {
+                            warehouse.setFolded(folded);
+                            changed = true;
+                        }
+                    }
+                    case SORT_MODE -> {
+                        if (warehouse.getSortMode() != value) {
+                            warehouse.setSortMode(value);
+                            changed = true;
+                        }
+                    }
+                    case SORT_ORDER -> {
+                        boolean ascending = value == 1;
+                        if (warehouse.isAscending() != ascending) {
+                            warehouse.setAscending(ascending);
+                            changed = true;
+                        }
+                    }
+                    case QUICK_INTERACTION -> {
+                        boolean quickInteraction = value == 1;
+                        if (warehouse.isQuickInteraction() != quickInteraction) {
+                            warehouse.setQuickInteraction(quickInteraction);
+                            changed = true;
+                        }
+                    }
+                    case SMART_COLLAPSE -> {
+                        boolean smartCollapse = value == 1;
+                        if (warehouse.isSmartCollapse() != smartCollapse) {
+                            warehouse.setSmartCollapse(smartCollapse);
+                            changed = true;
+                        }
+                    }
+                    case CRAFT_REFILL -> {
+                        boolean craftRefill = value == 1;
+                        if (warehouse.isCraftRefill() != craftRefill) {
+                            warehouse.setCraftRefill(craftRefill);
+                            changed = true;
+                        }
+                    }
+                }
+            }
+
+            if (changed) {
+                syncChanges(player);
+            }
         });
     }
 
@@ -81,11 +146,19 @@ public class ModServerNetworking {
     public static void handleQuickTransfer(QuickTransferPayload payload, ServerPlayNetworking.Context context) {
         context.server().execute(() -> {
             ServerPlayer player = context.player();
-            
+            PlayerWarehouse activeWarehouse = getWarehouse(player);
+            if (!activeWarehouse.isEnabled() || !activeWarehouse.isQuickInteraction() || activeWarehouse.isFolded()
+                    || !WarehouseMenuHandler.isWarehouseOverlayVisible(player.containerMenu, activeWarehouse)) {
+                return;
+            }
+
             int slotId = payload.slotId();
             if (slotId < 0 || slotId >= player.containerMenu.slots.size()) return;
             
             Slot slot = player.containerMenu.slots.get(slotId);
+            if (!slot.isActive()) {
+                return;
+            }
             if (slot.container instanceof PlayerWarehouse warehouse) {
                 // 提前验证：仓库必须启用且快速交互开启
                 if (!warehouse.isEnabled() || !warehouse.isQuickInteraction() || warehouse.isFolded()) {
@@ -319,8 +392,9 @@ public class ModServerNetworking {
             ServerPlayer player = context.player();
             PlayerWarehouse warehouse = getWarehouse(player);
             
-            // 验证：仓库必须启用、快速交互开启且未折叠
-            if (!warehouse.isEnabled() || !warehouse.isQuickInteraction() || warehouse.isFolded()) {
+            // 验证：仓库必须启用、快速交互开启、未折叠且当前覆盖层可见
+            if (!warehouse.isEnabled() || !warehouse.isQuickInteraction() || warehouse.isFolded()
+                    || !WarehouseMenuHandler.isWarehouseOverlayVisible(player.containerMenu, warehouse)) {
                 return;
             }
 

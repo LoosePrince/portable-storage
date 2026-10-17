@@ -74,12 +74,16 @@ public class WarehouseWidget {
             return false;
         }
 
-        // 容器界面需要工作台升级才能显示
-        if (isContainerInterface() && warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty()) {
+        if (!warehouse.isEnabled())
             return false;
-        }
 
-        return warehouse.isEnabled();
+        if (!isContainerInterface())
+            return true;
+
+        boolean hasWorkbenchUpgrade = !warehouse
+                .getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty();
+        // 折叠状态只需要恢复按钮；展开状态仍要求工作台升级才能显示仓库覆盖层。
+        return hasWorkbenchUpgrade || warehouse.isFolded();
     }
 
     public void refreshPosition() {
@@ -267,32 +271,11 @@ public class WarehouseWidget {
         WarehouseRenderer.renderBackground(graphics, x, y, mouseX, mouseY, warehouse,
                 ((ScreenAccessor) screen).portablestorage$getFont());
 
-        // 计算折叠按钮位置
-        int foldX, foldY;
-        boolean indentSidebar = false;
-        if (screen instanceof com.portablestorage.screen.CraftingWarehouseScreen) {
-            foldX = leftPos + 84;
-            foldY = topPos + 53;
-        } else if (isContainerInterface()) {
-            if (warehouse.isFolded()) {
-                foldX = leftPos + 172; // 背包图片右边缘附近
-                foldY = topPos + imageHeight - 24; // 快捷栏高度
-            } else {
-                foldX = x + WarehouseConstants.getSidebarXOffset();
-                foldY = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight,
-                        warehouse.isFolded());
-                indentSidebar = true;
-            }
-        } else if (screen instanceof com.portablestorage.screen.BoundBarrelScreen) {
-            foldX = leftPos + 151;
-            foldY = topPos + 32;
-        } else {
-            foldX = leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
-            foldY = topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
-        }
-        WarehouseRenderer.renderSidebarButtons(graphics, foldX, foldY, x + WarehouseConstants.getSidebarXOffset(),
+        FoldButtonLayout foldButton = getFoldButtonLayout(leftPos, topPos, imageHeight);
+        WarehouseRenderer.renderSidebarButtons(graphics, foldButton.x(), foldButton.y(),
+                x + WarehouseConstants.getSidebarXOffset(),
                 y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight, warehouse.isFolded()),
-                mouseX, mouseY, warehouse, indentSidebar);
+                mouseX, mouseY, warehouse, foldButton.indentSidebar());
     }
 
     private boolean isContainerInterface() {
@@ -396,36 +379,46 @@ public class WarehouseWidget {
         int imageHeight = screenAccessor.portablestorage$getImageHeight();
         var font = ((ScreenAccessor) screen).portablestorage$getFont();
 
-        int foldX, foldY;
-        boolean indentSidebar = false;
         int x = leftPos + WarehouseConstants.getWarehouseXOffset();
         int y = topPos + WarehouseConstants.getWarehouseYOffset(warehouse.getVisibleRows(), imageHeight,
                 warehouse.isFolded());
-        if (screen instanceof com.portablestorage.screen.CraftingWarehouseScreen) {
-            foldX = leftPos + 84;
-            foldY = topPos + 53;
-        } else if (isContainerInterface()) {
-            if (warehouse.isFolded()) {
-                foldX = leftPos + 172;
-                foldY = topPos + imageHeight - 24;
-            } else {
-                foldX = x + WarehouseConstants.getSidebarXOffset();
-                foldY = y + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(), imageHeight,
-                        warehouse.isFolded());
-                indentSidebar = true;
-            }
-        } else if (screen instanceof com.portablestorage.screen.BoundBarrelScreen) {
-            foldX = leftPos + 151;
-            foldY = topPos + 32;
-        } else {
-            foldX = leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
-            foldY = topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
-        }
+        FoldButtonLayout foldButton = getFoldButtonLayout(leftPos, topPos, imageHeight);
 
         WarehouseRenderer.renderPinnedOverlays(graphics, leftPos, topPos, warehouse, imageHeight);
         WarehouseRenderer.renderAllTooltips(graphics, font, leftPos, topPos, mouseX, mouseY, warehouse, imageHeight,
-                foldX, foldY, indentSidebar);
+                foldButton.x(), foldButton.y(), foldButton.indentSidebar());
         WarehouseRenderer.renderQuantityTexts(graphics, font, leftPos, topPos, warehouse, imageHeight);
+    }
+
+    private FoldButtonLayout getFoldButtonLayout(int leftPos, int topPos, int imageHeight) {
+        if (screen instanceof com.portablestorage.screen.CraftingWarehouseScreen) {
+            return new FoldButtonLayout(leftPos + 84, topPos + 53, false);
+        }
+        if (isContainerInterface()) {
+            if (warehouse.isFolded()) {
+                return new FoldButtonLayout(leftPos + 172, topPos + imageHeight - 24, false);
+            }
+            int warehouseX = leftPos + WarehouseConstants.getWarehouseXOffset();
+            int warehouseY = topPos + WarehouseConstants.getWarehouseYOffset(
+                    warehouse.getVisibleRows(), imageHeight, false);
+            return new FoldButtonLayout(
+                    warehouseX + WarehouseConstants.getSidebarXOffset(),
+                    warehouseY + WarehouseConstants.getSidebarYOffset(
+                            warehouse.getVisibleRows(), imageHeight, false),
+                    true);
+        }
+        if (screen instanceof com.portablestorage.screen.BoundBarrelScreen) {
+            return new FoldButtonLayout(leftPos + 151, topPos + 32, false);
+        }
+        return new FoldButtonLayout(leftPos + WarehouseConstants.FOLD_BUTTON_X_OFFSET,
+                topPos + WarehouseConstants.FOLD_BUTTON_Y_OFFSET, false);
+    }
+
+    private record FoldButtonLayout(int x, int y, boolean indentSidebar) {
+        private boolean contains(double mouseX, double mouseY) {
+            return mouseX >= x && mouseX < x + WarehouseConstants.SIDEBAR_BUTTON_SIZE
+                    && mouseY >= y && mouseY < y + WarehouseConstants.SIDEBAR_BUTTON_SIZE;
+        }
     }
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
@@ -528,31 +521,11 @@ public class WarehouseWidget {
         }
 
         // 折叠按钮
-        int foldButtonX, foldButtonY;
-        if (screen instanceof com.portablestorage.screen.CraftingWarehouseScreen) {
-            foldButtonX = screenAccessor.portablestorage$getLeftPos() + 84;
-            foldButtonY = screenAccessor.portablestorage$getTopPos() + 53;
-        } else if (isContainerInterface()) {
-            if (warehouse.isFolded()) {
-                foldButtonX = screenAccessor.portablestorage$getLeftPos() + 172;
-                foldButtonY = screenAccessor.portablestorage$getTopPos()
-                        + screenAccessor.portablestorage$getImageHeight() - 24;
-            } else {
-                int whX = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.getWarehouseXOffset();
-                int whY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.getWarehouseYOffset(
-                        warehouse.getVisibleRows(), screenAccessor.portablestorage$getImageHeight());
-                foldButtonX = whX + WarehouseConstants.getSidebarXOffset();
-                foldButtonY = whY + WarehouseConstants.getSidebarYOffset(warehouse.getVisibleRows(),
-                        screenAccessor.portablestorage$getImageHeight());
-            }
-        } else if (screen instanceof com.portablestorage.screen.BoundBarrelScreen) {
-            foldButtonX = screenAccessor.portablestorage$getLeftPos() + 151;
-            foldButtonY = screenAccessor.portablestorage$getTopPos() + 32;
-        } else {
-            foldButtonX = screenAccessor.portablestorage$getLeftPos() + WarehouseConstants.FOLD_BUTTON_X_OFFSET;
-            foldButtonY = screenAccessor.portablestorage$getTopPos() + WarehouseConstants.FOLD_BUTTON_Y_OFFSET;
-        }
-        if (mouseX >= foldButtonX && mouseX < foldButtonX + 18 && mouseY >= foldButtonY && mouseY < foldButtonY + 18) {
+        FoldButtonLayout foldButton = getFoldButtonLayout(
+                screenAccessor.portablestorage$getLeftPos(),
+                screenAccessor.portablestorage$getTopPos(),
+                screenAccessor.portablestorage$getImageHeight());
+        if (foldButton.contains(mouseX, mouseY)) {
             if (button == 2) { // 中键：打开设置
                 minecraft.setScreen(YACLConfig.create(screen));
                 return true;
