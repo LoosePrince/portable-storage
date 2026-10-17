@@ -10,6 +10,7 @@
 		"CraftingWarehouseScreenMixin",
 		"AbstractContainerScreenMixin",
 		"ContainerScreensMixin",
+		"ClientContainerSyncMixin",
 		"MouseMixin",
 		"AbstractContainerScreenAccessor",
 		"ScreenAccessor"
