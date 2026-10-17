@@ -83,6 +83,16 @@ public class WarehouseMenuHandler {
         for (int i = 0; i < WarehouseConstants.MAX_ROWS; i++) {
             accessor.invokeAddSlot(new UpgradeSlot(warehouse, i, startX, startY) {
                 @Override
+                public ItemStack getItem() {
+                    return isActive() ? super.getItem() : ItemStack.EMPTY;
+                }
+
+                @Override
+                public boolean mayPlace(ItemStack stack) {
+                    return isActive() && super.mayPlace(stack);
+                }
+
+                @Override
                 public boolean isActive() {
                     if (player.getAbilities().instabuild) {
                         String menuName = menu.getClass().getName();
@@ -108,8 +118,13 @@ public class WarehouseMenuHandler {
                 accessor.invokeAddSlot(
                         new Slot(warehouse, col + row * WarehouseConstants.SLOTS_PER_ROW, startX, startY) {
                             @Override
+                            public ItemStack getItem() {
+                                return isActive() ? super.getItem() : ItemStack.EMPTY;
+                            }
+
+                            @Override
                             public boolean mayPlace(ItemStack stack) {
-                                return true;
+                                return isActive() && super.mayPlace(stack);
                             }
 
                             @Override
@@ -175,7 +190,9 @@ public class WarehouseMenuHandler {
             return null;
 
         PlayerWarehouse warehouse = ModComponents.get(player).getWarehouse(player.getUUID());
-        if (!warehouse.isEnabled())
+        if (warehouse == null || !warehouse.isEnabled())
+            return null;
+        if (!isWarehouseOverlayVisible(menu, warehouse))
             return null;
 
         Slot slot = menu.slots.get(index);
@@ -399,6 +416,10 @@ public class WarehouseMenuHandler {
      */
     public static boolean isWarehouseRelatedSlot(Slot slot) {
         return slot.container instanceof PlayerWarehouse || slot instanceof UpgradeSlot;
+    }
+
+    public static boolean isWarehouseOverlayVisible(AbstractContainerMenu menu, PlayerWarehouse warehouse) {
+        return !isContainerMenu(menu) || !warehouse.getUpgrade(com.portablestorage.upgrade.WorkbenchUpgrade.ID).isEmpty();
     }
 
     public static boolean isContainerMenu(AbstractContainerMenu menu) {

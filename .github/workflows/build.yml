@@ -123,7 +123,7 @@ jobs:
           path: build/libs/
       
       - name: publish to platforms
-        uses: Kira-NT/mc-publish@v3.3.0
+        uses: Kira-NT/mc-publish@v3.3.1
         with:
           # 文件路径
           files: build/libs/portablestorage-${{ needs.build.outputs.new_version }}.jar
@@ -136,6 +136,8 @@ jobs:
           
           # 通用配置
           loaders: fabric
+          environment: 'client | server'
+          curseforge-environment: 'client | server'
           game-versions: ${{ needs.build.outputs.minecraft_version }}
           java: 21
           dependencies: |

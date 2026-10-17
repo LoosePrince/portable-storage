@@ -34,7 +34,38 @@ public class YACLConfig {
                                 .getWarehouse(Minecraft.getInstance().player.getUUID());
         }
 
+        private static int getWarehouseSetting(WarehouseSetting setting) {
+                PlayerWarehouse warehouse = getWarehouse();
+                if (warehouse != null) {
+                        return switch (setting) {
+                                case SORT_MODE -> warehouse.getSortMode();
+                                case SORT_ORDER -> warehouse.isAscending() ? 1 : 0;
+                                case QUICK_INTERACTION -> warehouse.isQuickInteraction() ? 1 : 0;
+                                case SMART_COLLAPSE -> warehouse.isSmartCollapse() ? 1 : 0;
+                                case CRAFT_REFILL -> warehouse.isCraftRefill() ? 1 : 0;
+                                case FOLD -> warehouse.isFolded() ? 1 : 0;
+                        };
+                }
+                return switch (setting) {
+                        case SORT_MODE -> ModConfig.warehouseSortMode;
+                        case SORT_ORDER -> ModConfig.warehouseAscending ? 1 : 0;
+                        case QUICK_INTERACTION -> ModConfig.warehouseQuickInteraction ? 1 : 0;
+                        case SMART_COLLAPSE -> ModConfig.warehouseSmartCollapse ? 1 : 0;
+                        case CRAFT_REFILL -> ModConfig.warehouseCraftRefill ? 1 : 0;
+                        case FOLD -> 1;
+                };
+        }
+
         private static void updateSetting(WarehouseSetting setting, int value) {
+                switch (setting) {
+                        case SORT_MODE -> ModConfig.warehouseSortMode = value;
+                        case SORT_ORDER -> ModConfig.warehouseAscending = value == 1;
+                        case QUICK_INTERACTION -> ModConfig.warehouseQuickInteraction = value == 1;
+                        case SMART_COLLAPSE -> ModConfig.warehouseSmartCollapse = value == 1;
+                        case CRAFT_REFILL -> ModConfig.warehouseCraftRefill = value == 1;
+                        case FOLD -> { }
+                }
+                ModConfig.save();
                 PlayerWarehouse warehouse = getWarehouse();
                 if (warehouse != null) {
                         switch (setting) {
@@ -250,9 +281,7 @@ public class YACLConfig {
                                                                                                                 .translatable("gui.portablestorage.settings.sort_mode.desc")))
                                                                                 .binding(
                                                                                                 0,
-                                                                                                () -> getWarehouse() != null
-                                                                                                                ? getWarehouse().getSortMode()
-                                                                                                                : 0,
+                                                                                                () -> getWarehouseSetting(WarehouseSetting.SORT_MODE),
                                                                                                 val -> updateSetting(
                                                                                                                 WarehouseSetting.SORT_MODE,
                                                                                                                 val))
@@ -273,9 +302,7 @@ public class YACLConfig {
                                                                                                                 .translatable("gui.portablestorage.settings.sort_order.desc")))
                                                                                 .binding(
                                                                                                 true,
-                                                                                                () -> getWarehouse() != null
-                                                                                                                ? getWarehouse().isAscending()
-                                                                                                                : true,
+                                                                                                () -> getWarehouseSetting(WarehouseSetting.SORT_ORDER) == 1,
                                                                                                 val -> updateSetting(
                                                                                                                 WarehouseSetting.SORT_ORDER,
                                                                                                                 val ? 1
@@ -297,9 +324,7 @@ public class YACLConfig {
                                                                                                                 .translatable("gui.portablestorage.settings.quick_interaction.desc")))
                                                                                 .binding(
                                                                                                 true,
-                                                                                                () -> getWarehouse() != null
-                                                                                                                ? getWarehouse().isQuickInteraction()
-                                                                                                                : true,
+                                                                                                () -> getWarehouseSetting(WarehouseSetting.QUICK_INTERACTION) == 1,
                                                                                                 val -> updateSetting(
                                                                                                                 WarehouseSetting.QUICK_INTERACTION,
                                                                                                                 val ? 1
@@ -314,9 +339,7 @@ public class YACLConfig {
                                                                                                                 .translatable("gui.portablestorage.settings.smart_collapse.desc")))
                                                                                 .binding(
                                                                                                 false,
-                                                                                                () -> getWarehouse() != null
-                                                                                                                ? getWarehouse().isSmartCollapse()
-                                                                                                                : false,
+                                                                                                () -> getWarehouseSetting(WarehouseSetting.SMART_COLLAPSE) == 1,
                                                                                                 val -> updateSetting(
                                                                                                                 WarehouseSetting.SMART_COLLAPSE,
                                                                                                                 val ? 1
@@ -331,9 +354,7 @@ public class YACLConfig {
                                                                                                                 .translatable("gui.portablestorage.settings.craft_refill.desc")))
                                                                                 .binding(
                                                                                                 true,
-                                                                                                () -> getWarehouse() != null
-                                                                                                                ? getWarehouse().isCraftRefill()
-                                                                                                                : true,
+                                                                                                () -> getWarehouseSetting(WarehouseSetting.CRAFT_REFILL) == 1,
                                                                                                 val -> updateSetting(
                                                                                                                 WarehouseSetting.CRAFT_REFILL,
                                                                                                                 val ? 1
