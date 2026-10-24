@@ -21,7 +21,6 @@ public class RiftAvatarEntity extends LivingEntity {
 
     public RiftAvatarEntity(EntityType<? extends LivingEntity> type, Level level) {
         super(type, level);
-        this.setInvulnerable(false);
         this.setSilent(true);
         this.setNoGravity(true);
         this.setCustomNameVisible(true);

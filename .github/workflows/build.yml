@@ -5,7 +5,7 @@ name: build
 on:
   push:
     branches:
-      - 26.2
+      - 26.3
     paths-ignore:
       - '**/*.md'
       - '.github/workflows/**'

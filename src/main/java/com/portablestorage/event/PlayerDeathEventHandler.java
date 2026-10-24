@@ -92,7 +92,7 @@ public class PlayerDeathEventHandler {
         tag.putString("portablestorage_owner_uuid", player.getUUID().toString());
         entityStack.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, CustomData.of(tag));
         itemEntity.setDeltaMovement(0, 0.2, 0);
-        itemEntity.setInvulnerable(true);
+        itemEntity.setPermanentlyInvulnerable(true);
         itemEntity.setPickUpDelay(40);
         dropLevel.addFreshEntity(itemEntity);
     }

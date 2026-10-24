@@ -13,7 +13,9 @@
     },
     "has_the_recipe": {
       "conditions": {
-        "recipe": "portablestorage:unbind_barrel"
+        "recipes": [
+          "portablestorage:unbind_barrel"
+        ]
       },
       "trigger": "minecraft:recipe_unlocked"
     }

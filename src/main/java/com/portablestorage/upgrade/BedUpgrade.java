@@ -19,6 +19,7 @@ import net.minecraft.tags.ItemTags;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.AbstractBedBlock;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BedPart;
@@ -90,7 +91,9 @@ public class BedUpgrade extends UpgradeType {
             serverPlayer.level().setBlock(footPos, footState, 3);
 
             // 尝试睡觉
-            serverPlayer.startSleepInBed(headPos).ifLeft(problem -> {
+            AbstractBedBlock bed = (AbstractBedBlock) headState.getBlock();
+            serverPlayer.startSleepInBed(bed, headState, bed.getBedRule(serverPlayer.level(), headPos), headPos)
+                    .ifLeft(problem -> {
                 if (problem != null) {
                     // 1.21.11 中 BedSleepingProblem 是 record，直接提供 message()
                     serverPlayer.sendSystemMessage(problem.message(), true);

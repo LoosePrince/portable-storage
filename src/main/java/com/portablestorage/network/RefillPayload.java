@@ -11,10 +11,18 @@ public record RefillPayload(java.util.List<Integer> slotIds, ItemStack targetSta
 
     public static final StreamCodec<RegistryFriendlyByteBuf, RefillPayload> CODEC = StreamCodec.of(
         (buf, payload) -> {
-            buf.writeCollection(payload.slotIds, (b, id) -> b.writeInt(id));
+            buf.writeVarInt(payload.slotIds.size());
+            payload.slotIds.forEach(buf::writeInt);
             ItemStack.STREAM_CODEC.encode(buf, payload.targetStack);
         },
-        buf -> new RefillPayload(buf.readCollection(java.util.ArrayList::new, b -> b.readInt()), ItemStack.STREAM_CODEC.decode(buf))
+        buf -> {
+            int size = buf.readVarInt();
+            java.util.List<Integer> slotIds = new java.util.ArrayList<>(size);
+            for (int i = 0; i < size; i++) {
+                slotIds.add(buf.readInt());
+            }
+            return new RefillPayload(slotIds, ItemStack.STREAM_CODEC.decode(buf));
+        }
     );
 
     @Override

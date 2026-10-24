@@ -365,8 +365,8 @@ public class WarehouseWidget {
 
     public void updateFrozenMode() {
         if (!shouldShow()) return;
-        boolean isPressed = InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), InputConstants.KEY_LCONTROL)
-                || InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), InputConstants.KEY_RCONTROL);
+        boolean isPressed = InputConstants.isKeyDown(InputConstants.KEY_LCONTROL)
+                || InputConstants.isKeyDown(InputConstants.KEY_RCONTROL);
         if (isPressed != warehouse.isFrozen()) {
             warehouse.setFrozen(isPressed);
             ClientPlayNetworking.send(new C2SUpdateFrozenStatePayload(isPressed));
@@ -509,7 +509,7 @@ public class WarehouseWidget {
                 }
             }
 
-            if (InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), InputConstants.KEY_LSHIFT)
+            if (InputConstants.isKeyDown(InputConstants.KEY_LSHIFT)
                     && warehouse.isQuickInteraction()
                     && !warehouse.isFolded()
                     && com.portablestorage.handler.WarehouseMenuHandler.isAdaptedMenu(screen.getMenu())) {
@@ -773,8 +773,7 @@ public class WarehouseWidget {
                     if (WarehouseManager.isVirtualFluid(stack.getItem())) {
                         return true;
                     }
-                    boolean dropFullStack = InputConstants.isKeyDown(Minecraft.getInstance().getWindow(),
-                            InputConstants.KEY_LCONTROL);
+                    boolean dropFullStack = InputConstants.isKeyDown(InputConstants.KEY_LCONTROL);
                     ClientPlayNetworking.send(new C2SDropWarehouseItemPayload(hSlot.getContainerSlot(), dropFullStack));
                     return true;
                 }

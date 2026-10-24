@@ -12,10 +12,18 @@ public record C2SUpdateFoodFiltersPayload(List<String> filters, boolean blacklis
 
     public static final StreamCodec<FriendlyByteBuf, C2SUpdateFoodFiltersPayload> CODEC = StreamCodec.of(
         (buf, payload) -> {
-            buf.writeCollection(payload.filters, FriendlyByteBuf::writeUtf);
+            buf.writeVarInt(payload.filters.size());
+            payload.filters.forEach(buf::writeUtf);
             buf.writeBoolean(payload.blacklist);
         },
-        buf -> new C2SUpdateFoodFiltersPayload(buf.readList(FriendlyByteBuf::readUtf), buf.readBoolean())
+        buf -> {
+            int size = buf.readVarInt();
+            List<String> filters = new java.util.ArrayList<>(size);
+            for (int i = 0; i < size; i++) {
+                filters.add(buf.readUtf());
+            }
+            return new C2SUpdateFoodFiltersPayload(filters, buf.readBoolean());
+        }
     );
 
     @Override

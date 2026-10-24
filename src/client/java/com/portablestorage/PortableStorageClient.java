@@ -51,17 +51,17 @@ public class PortableStorageClient implements ClientModInitializer {
 
         openCraftingKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.portablestorage.open_crafting",
-                InputConstants.Type.KEYSYM,
+                InputConstants.Type.KEYBOARD,
                 InputConstants.UNKNOWN.getValue(),
                 keyCategory));
         toggleWarehouseFoldKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.portablestorage.toggle_warehouse_fold",
-                InputConstants.Type.KEYSYM,
+                InputConstants.Type.KEYBOARD,
                 InputConstants.UNKNOWN.getValue(),
                 keyCategory));
         quickToolKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.portablestorage.quick_tool",
-                InputConstants.Type.KEYSYM,
+                InputConstants.Type.KEYBOARD,
                 InputConstants.UNKNOWN.getValue(),
                 keyCategory));
 

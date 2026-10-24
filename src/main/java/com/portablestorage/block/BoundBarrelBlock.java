@@ -2,7 +2,6 @@ package com.portablestorage.block;
 
 import org.jetbrains.annotations.Nullable;
 
-import com.mojang.serialization.MapCodec;
 import com.portablestorage.block.entity.BoundBarrelBlockEntity;
 
 import net.minecraft.core.BlockPos;
@@ -25,18 +24,12 @@ import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.phys.BlockHitResult;
 
 public class BoundBarrelBlock extends BaseEntityBlock {
-    public static final MapCodec<BoundBarrelBlock> CODEC = simpleCodec(BoundBarrelBlock::new);
     public static final Property<Direction> FACING = BlockStateProperties.FACING;
     public static final Property<Boolean> OPEN = BlockStateProperties.OPEN;
 
     public BoundBarrelBlock(Properties properties) {
         super(properties);
         this.registerDefaultState(this.stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(OPEN, false));
-    }
-
-    @Override
-    protected MapCodec<? extends BaseEntityBlock> codec() {
-        return CODEC;
     }
 
     @Override

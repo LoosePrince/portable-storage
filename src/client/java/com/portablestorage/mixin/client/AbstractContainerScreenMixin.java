@@ -74,14 +74,14 @@ public abstract class AbstractContainerScreenMixin implements WarehouseScreen {
 
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
     private void onMouseClicked(MouseButtonEvent event, boolean doubleClick, CallbackInfoReturnable<Boolean> cir) {
-        if (warehouseWidget != null && warehouseWidget.mouseClicked(event.x(), event.y(), event.button())) {
+        if (warehouseWidget != null && warehouseWidget.mouseClicked(event.x(), event.y(), containerButton(event.button()))) {
             cir.setReturnValue(true);
         }
     }
 
     @Inject(method = "mouseReleased", at = @At("HEAD"), cancellable = true)
     private void onMouseReleased(MouseButtonEvent event, CallbackInfoReturnable<Boolean> cir) {
-        if (warehouseWidget != null && warehouseWidget.mouseReleased(event.x(), event.y(), event.button())) {
+        if (warehouseWidget != null && warehouseWidget.mouseReleased(event.x(), event.y(), containerButton(event.button()))) {
             cir.setReturnValue(true);
         }
     }
@@ -89,9 +89,18 @@ public abstract class AbstractContainerScreenMixin implements WarehouseScreen {
     @Inject(method = "mouseDragged", at = @At("HEAD"), cancellable = true)
     private void onMouseDragged(MouseButtonEvent event, double dx, double dy, CallbackInfoReturnable<Boolean> cir) {
         if (warehouseWidget != null
-                && warehouseWidget.mouseDragged(event.x(), event.y(), event.button(), dx, dy)) {
+                && warehouseWidget.mouseDragged(event.x(), event.y(), containerButton(event.button()), dx, dy)) {
             cir.setReturnValue(true);
         }
+    }
+
+    /** Converts GLFW mouse buttons to AbstractContainerScreen's 0/1/2 convention. */
+    private static int containerButton(int button) {
+        return switch (button) {
+            case 1 -> 0;
+            case 3 -> 1;
+            default -> button;
+        };
     }
 
     @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
@@ -105,7 +114,7 @@ public abstract class AbstractContainerScreenMixin implements WarehouseScreen {
             cir.setReturnValue(true);
             return;
         }
-        if (warehouseWidget != null && warehouseWidget.keyPressed(event.key(), event.scancode(), event.modifiers())) {
+        if (warehouseWidget != null && warehouseWidget.keyPressed(event.key(), event.keycode(), event.modifiers())) {
             cir.setReturnValue(true);
         }
     }

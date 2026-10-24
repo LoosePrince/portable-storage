@@ -110,7 +110,7 @@ public class WarehouseManager {
                     // 仓库放不下的空桶作为兜底返还玩家，避免物品丢失
                     if (!emptyBuckets.isEmpty()) {
                         if (!player.getInventory().add(emptyBuckets)) {
-                            player.drop(emptyBuckets, false);
+                            player.drop(emptyBuckets, false, net.minecraft.util.Prediction.PREDICTED);
                         }
                     }
 
@@ -131,7 +131,7 @@ public class WarehouseManager {
                 addItem(warehouse, emptyBuckets, player, source + ".empty_bucket");
                 // 仓库放不下的空桶作为兜底返还玩家，避免物品丢失
                 if (!emptyBuckets.isEmpty() && !player.getInventory().add(emptyBuckets))
-                    player.drop(emptyBuckets, false);
+                    player.drop(emptyBuckets, false, net.minecraft.util.Prediction.PREDICTED);
                 return stack;
             }
         }
@@ -255,7 +255,7 @@ public class WarehouseManager {
                         slot.set(ItemStack.EMPTY);
 
                     if (!player.getInventory().add(fluidBucket)) {
-                        player.drop(fluidBucket, false);
+                        player.drop(fluidBucket, false, net.minecraft.util.Prediction.PREDICTED);
                     }
                     player.containerMenu.broadcastChanges();
                 }
@@ -520,7 +520,7 @@ public class WarehouseManager {
 
                             ItemStack expBottles = new ItemStack(Items.EXPERIENCE_BOTTLE, toFill);
                             if (!player.getInventory().add(expBottles)) {
-                                player.drop(expBottles, false);
+                                player.drop(expBottles, false, net.minecraft.util.Prediction.PREDICTED);
                             }
 
                             long usedXp = (long) toFill * 11;

@@ -182,8 +182,13 @@ public class ToolWarehouseScreenHandler extends AbstractContainerMenu {
         }
 
         @Override
+        public int getMaxStackSize() {
+            return 1;
+        }
+
+        @Override
         public boolean mayPlace(ItemStack stack) {
-            if (stack.isEmpty() || stack.getCount() != 1 || !isToolWarehouseItem(stack)) {
+            if (stack.isEmpty() || !isToolWarehouseItem(stack)) {
                 return false;
             }
             if (!WarehouseManager.canStoreItem(warehouse, stack, player, "tool_warehouse.slot")) {

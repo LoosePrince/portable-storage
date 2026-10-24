@@ -505,7 +505,7 @@ public class PortableStorageCommand {
                             "command_drop_task", () -> WarehouseManager.removeItem(warehouse, dropSlotIndex, dropAmount, true));
                     if (!dropped.isEmpty()) {
                         // 丢出物品
-                        player.drop(dropped, true);
+                        player.drop(dropped, true, net.minecraft.util.Prediction.PREDICTED);
                     }
                 }
 

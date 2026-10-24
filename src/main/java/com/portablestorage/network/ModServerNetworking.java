@@ -135,7 +135,7 @@ public class ModServerNetworking {
                 ItemStack bottles = new ItemStack(Items.EXPERIENCE_BOTTLE, toConvert);
                 cursorStack.shrink(toConvert);
                 if (!player.getInventory().add(bottles)) {
-                    player.drop(bottles, false);
+                    player.drop(bottles, false, net.minecraft.util.Prediction.PREDICTED);
                 }
             }
 
@@ -209,7 +209,7 @@ public class ModServerNetworking {
                 ItemStack dropped = WarehouseService.commitIfWarehouseChanged(player, warehouse,
                         "drop_warehouse_item", () -> WarehouseManager.removeItem(warehouse, containerSlot, toTake, true));
                 if (!dropped.isEmpty()) {
-                    player.drop(dropped, true);
+                    player.drop(dropped, true, net.minecraft.util.Prediction.PREDICTED);
                 }
             }
         });
